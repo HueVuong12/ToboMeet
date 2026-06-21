@@ -20,13 +20,7 @@ export default function CTASection() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
           {/* Dot grid overlay */}
-          <div
-            className="absolute inset-0 opacity-5 pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-              backgroundSize: '32px 32px',
-            }}
-          />
+          <div className="absolute inset-0 opacity-5 pointer-events-none bg-dot-grid" />
 
           <div className="relative z-10">
             {/* Headline */}

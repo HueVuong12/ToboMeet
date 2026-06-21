@@ -10,8 +10,6 @@ import {
 import { useTranslations } from 'next-intl';
 import { MOCK_PARTICIPANTS } from '@/lib/constants';
 
-
-
 // ─── HeroSection Component ─────────────────────────────────────────────────────
 export default function HeroSection() {
   const t = useTranslations('hero');
@@ -92,8 +90,6 @@ export default function HeroSection() {
             </p>
           </div>
         </div>
-
-
 
       </div>
     </section>

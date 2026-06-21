@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Menu, X, Globe, ChevronDown, Video } from 'lucide-react';
+import { Menu, X, ChevronDown, Video } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter, usePathname } from '@/i18n/navigation';
 import { NAV_LINKS } from '@/lib/constants';

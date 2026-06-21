@@ -1,5 +1,5 @@
-import { Video, GraduationCap, ShieldCheck, Globe2, Lock, Zap, LucideIcon } from 'lucide-react';
-import { useTranslations, useLocale } from 'next-intl';
+import { Video, GraduationCap, ShieldCheck, Globe2, Zap, LucideIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { FEATURES_CONFIG } from '@/lib/constants';
 import MeetingMockup from './MeetingMockup';
 
@@ -7,9 +7,7 @@ const ICON_MAP: Record<string, LucideIcon> = { Video, GraduationCap, ShieldCheck
 
 export default function FeaturesSection() {
   const t = useTranslations('features');
-  const locale = useLocale();
   const items = t.raw('items') as Array<{ title: string; description: string }>;
-  const isEn = locale === 'en';
 
   return (
     <section id="features" className="relative py-16 md:py-20 bg-white border-t border-slate-200/60">
@@ -18,7 +16,7 @@ export default function FeaturesSection() {
         {/* ── Section Header ── */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
           <div className="max-w-2xl flex-1">
-            <h2 className={isEn ? "text-[clamp(30px,4.2vw,44px)] font-bold text-navy tracking-tighter leading-[1.1]" : "text-[clamp(36px,5vw,52px)] font-bold text-navy tracking-tighter leading-[1.1]"}>
+            <h2 className="text-[clamp(28px,4vw,46px)] font-bold text-navy tracking-tighter leading-[1.1]">
               {t('section_title')}{' '}
               <span className="text-gradient-brand">{t('section_title_gradient')}</span>
             </h2>

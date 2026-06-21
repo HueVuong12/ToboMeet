@@ -168,6 +168,7 @@
     "toggle_yearly": "Yearly",
     "save_badge": "Save 20%",
     "per_month": "/mo",
+    "save_amount": "Save ${amount}/year",
     "free_label": "Free",
     "popular_badge": "Most Popular",
     "contact_text": "Contact us",

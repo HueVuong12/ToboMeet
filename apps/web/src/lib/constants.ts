@@ -71,19 +71,12 @@ export const PRICING_CONFIG = [
     isFree: false,
     featureCount: 8,
   },
-  {
-    tier: 'enterprise',
-    highlighted: false,
-    monthlyPrice: null,
-    yearlyPrice: null,
-    isFree: false,
-    featureCount: 8,
-  },
 ] as const;
 
 // ─── Footer Links ─────────────────────────────────────────────────────────────
+// TODO: Replace '#' with real routes when pages are built
 export const FOOTER_LINKS = {
   product: ['#features', '#pricing', '#security', '#integrations'],
-  company: ['/about', '/blog', '/careers', '/contact'],
-  legal: ['/terms', '/privacy', '/cookies'],
+  company: ['#', '#', '#', '#'],   // /about /blog /careers /contact (coming soon)
+  legal: ['#', '#', '#'],          // /terms /privacy /cookies (coming soon)
 } as const;

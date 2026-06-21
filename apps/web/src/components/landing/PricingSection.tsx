@@ -1,11 +1,11 @@
 // ─── PricingSection ───────────────────────────────────────────────────────────
-// 3 pricing tiers (Free / Pro / Enterprise) with monthly/yearly toggle.
+// 2 pricing tiers (Free / Pro) with monthly/yearly toggle.
 // Client component: toggle requires useState.
 
 'use client';
 
 import { useState } from 'react';
-import { Check, Zap, Building2, Sparkles } from 'lucide-react';
+import { Check, Zap, Sparkles, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { PRICING_CONFIG } from '@/lib/constants';
 
@@ -19,10 +19,9 @@ export default function PricingSection() {
     features: string[];
   }>;
 
-  const tierIcons: Record<string, { icon: any; color: string }> = {
+  const tierIcons: Record<string, { icon: LucideIcon; color: string }> = {
     free: { icon: Zap, color: 'text-amber-500' },
-    pro: { icon: Sparkles, color: 'text-violet-400' },
-    enterprise: { icon: Building2, color: 'text-blue-600' }
+    pro:  { icon: Sparkles, color: 'text-violet-400' },
   };
 
   return (
@@ -68,11 +67,10 @@ export default function PricingSection() {
 
         {/* ── Pricing Cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start max-w-4xl mx-auto">
-          {PRICING_CONFIG.filter(c => c.tier !== 'enterprise').map((config: typeof PRICING_CONFIG[number]) => {
-            const originalIndex = PRICING_CONFIG.findIndex(c => c.tier === config.tier);
-            const tier = tiers[originalIndex];
+          {PRICING_CONFIG.map((config) => {
+            const tier = tiers[PRICING_CONFIG.indexOf(config)];
             if (!tier) return null;
-            const { icon: TierIcon, color: iconColor } = tierIcons[config.tier] || { icon: Zap, color: 'text-amber-500' };
+            const { icon: TierIcon, color: iconColor } = tierIcons[config.tier] ?? { icon: Zap, color: 'text-amber-500' };
             const price = isYearly ? config.yearlyPrice : config.monthlyPrice;
 
             return (
@@ -114,7 +112,7 @@ export default function PricingSection() {
                     <div className={`text-[40px] font-bold tracking-tighter ${config.highlighted ? 'text-white' : 'text-navy'}`}>
                       {t('free_label')}
                     </div>
-                  ) : config.monthlyPrice !== null ? (
+                  ) : (
                     <div className="flex items-end gap-1">
                       <span className={`text-[40px] font-bold tracking-tighter leading-none ${config.highlighted ? 'text-white' : 'text-navy'}`}>
                         ${price}
@@ -123,21 +121,17 @@ export default function PricingSection() {
                         {t('per_month')}
                       </span>
                     </div>
-                  ) : (
-                    <div className={`text-[28px] font-bold tracking-tight ${config.highlighted ? 'text-white' : 'text-navy'}`}>
-                      {t('contact_text')}
-                    </div>
                   )}
-                  {isYearly && config.monthlyPrice !== null && !config.isFree && (
+                  {isYearly && config.monthlyPrice !== null && config.yearlyPrice !== null && !config.isFree && (
                     <p className={`text-[12px] mt-1 ${config.highlighted ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                      Tiết kiệm ${((config.monthlyPrice - config.yearlyPrice!) * 12).toFixed(2)}/năm
+                      {t('save_amount', { amount: ((config.monthlyPrice - config.yearlyPrice) * 12).toFixed(2) })}
                     </p>
                   )}
                 </div>
 
                 {/* CTA */}
                 <a
-                  href={config.tier === 'enterprise' ? '/contact' : '/register'}
+                  href="/register"
                   className={`flex items-center justify-center gap-2 w-full h-12 rounded-full text-[15px] font-semibold mb-8 transition-all duration-200
                     ${config.highlighted
                       ? 'bg-brand-500 text-white hover:bg-brand-400 shadow-lg shadow-brand-500/30'

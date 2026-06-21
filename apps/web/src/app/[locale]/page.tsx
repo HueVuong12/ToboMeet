@@ -1,7 +1,7 @@
-// ─── Landing Page ─────────────────────────────────────────────────────────────
-// Trang chủ Tobo — Premium landing page với 10 sections đầy đủ.
-// Sections theo thứ tự: Hero → Stats → Features → HowItWorks → Testimonials
-//                      → CrossPlatform → Pricing → CTA → Footer
+// ─── Landing Page ─────────────────────────────────────────────────────────────────────
+// Trang chủ Tobo — Landing page với 9 sections.
+// Sections: Hero → Features → HowItWorks → Testimonials
+//          → CrossPlatform → Pricing → CTA → Footer
 
 import Header               from '@/components/landing/Header';
 import HeroSection          from '@/components/landing/HeroSection';
