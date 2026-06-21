@@ -1,28 +1,37 @@
 // ─── HowItWorksSection ────────────────────────────────────────────────────────
 // 3-step visual guide showing how easy it is to start meeting with Tobo.
 
-import { PlusCircle, Share2, Zap, LucideIcon } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { HOW_IT_WORKS_CONFIG } from '@/lib/constants';
+import { PlusCircle, Share2, Zap, LucideIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { HOW_IT_WORKS_CONFIG } from "@/lib/constants";
+import Link from "next/link";
 
 const ICON_MAP: Record<string, LucideIcon> = { PlusCircle, Share2, Zap };
 
 export default function HowItWorksSection() {
-  const t = useTranslations('how_it_works');
-  const steps = t.raw('steps') as Array<{ step: string; title: string; description: string }>;
+  const t = useTranslations("how_it_works");
+  const steps = t.raw("steps") as Array<{
+    step: string;
+    title: string;
+    description: string;
+  }>;
 
   return (
-    <section id="solutions" className="py-16 md:py-20 bg-slate-50 border-t border-slate-200/60">
+    <section
+      id="solutions"
+      className="py-16 md:py-20 bg-slate-50 border-t border-slate-200/60"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-
         {/* ── Section Header ── */}
         <div className="text-center mb-20 max-w-4xl mx-auto">
           <h2 className="text-[clamp(36px,5vw,52px)] font-bold text-navy tracking-tighter leading-[1.1]">
-            {t('section_title')}{' '}
-            <span className="text-gradient-brand">{t('section_title_accent')}</span>
+            {t("section_title")}{" "}
+            <span className="text-gradient-brand">
+              {t("section_title_accent")}
+            </span>
           </h2>
           <p className="mt-5 text-[17px] text-slate-500 leading-relaxed">
-            {t('section_desc')}
+            {t("section_desc")}
           </p>
         </div>
 
@@ -43,11 +52,20 @@ export default function HowItWorksSection() {
                   className="flex flex-col items-center text-center group"
                 >
                   {/* Icon circle */}
-                  <div className={`relative w-[100px] h-[100px] rounded-full ${config.bgLight} ${config.ring} ring-1 flex items-center justify-center mb-7 group-hover:scale-105 transition-transform duration-300 shadow-sm`}>
-
+                  <div
+                    className={`relative w-[100px] h-[100px] rounded-full ${config.bgLight} ${config.ring} ring-1 flex items-center justify-center mb-7 group-hover:scale-105 transition-transform duration-300 shadow-sm`}
+                  >
                     {/* Icon with gradient */}
-                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-lg`}>
-                      {Icon && <Icon size={24} className="text-white" strokeWidth={2} />}
+                    <div
+                      className={`w-12 h-12 rounded-full bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-lg`}
+                    >
+                      {Icon && (
+                        <Icon
+                          size={24}
+                          className="text-white"
+                          strokeWidth={2}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -73,12 +91,14 @@ export default function HowItWorksSection() {
 
         {/* ── Bottom CTA ── */}
         <div className="mt-16 text-center">
-          <a href="/meeting/new" className="btn-enterprise h-12 px-8 text-[15px] inline-flex">
+          <Link
+            href="/meeting/new"
+            className="btn-enterprise h-12 px-8 text-[15px] inline-flex"
+          >
             <Zap size={18} />
-            {t('cta_btn')}
-          </a>
+            {t("cta_btn")}
+          </Link>
         </div>
-
       </div>
     </section>
   );
