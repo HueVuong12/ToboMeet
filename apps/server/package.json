@@ -10,11 +10,17 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.0",
-    "@nestjs/platform-express": "^11.0.0"
+    "@nestjs/mongoose": "^11.0.4",
+    "@nestjs/platform-express": "^11.0.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "mongoose": "^9.7.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.1.27",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }
