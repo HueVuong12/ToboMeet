@@ -12,7 +12,10 @@ export class User {
   email: string;
 
   @Prop()
-  fullName: string;
+  displayName: string;
+
+  @Prop()
+  avatarUrl: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

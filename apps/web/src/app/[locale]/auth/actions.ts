@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
 import { Provider } from "@supabase/supabase-js";
+import { getLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 export type FormState = {
@@ -39,7 +40,10 @@ export async function login(prevState: FormState, formData: FormData) {
 
     return { error: errorMessage, message: null };
   }
-  return redirect("/vi");
+
+  const locale = await getLocale();
+
+  return redirect(`/${locale}/home`);
 }
 
 export async function signup(prevState: FormState, formData: FormData) {
@@ -73,11 +77,12 @@ export async function loginWithOAuth(
 ) {
   const supabase = await createClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const locale = await getLocale();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${siteUrl}/auth/callback?next=/vi`,
+      redirectTo: `${siteUrl}/auth/callback?next=/${locale}/home`,
     },
   });
 
@@ -96,4 +101,13 @@ export async function loginWithOAuth(
   }
 
   return { error: "Lỗi không xác định.", message: null };
+}
+
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+
+  const locale = await getLocale();
+
+  return redirect(`/${locale}/login`);
 }

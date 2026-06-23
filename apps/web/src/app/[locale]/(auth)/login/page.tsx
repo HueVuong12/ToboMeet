@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { login, loginWithOAuth, type FormState } from "../../auth/actions";
+import { Video } from "lucide-react";
 
 const initialState: FormState = { error: null, message: null };
 
@@ -29,27 +30,31 @@ export default function LoginPage() {
     <div className="p-8 sm:p-10 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-gray-100">
       {/* Logo hiển thị riêng cho màn hình Mobile */}
       <div className="flex justify-center mb-8 lg:hidden">
-        <div className="flex items-center gap-2">
-          <div className="bg-[#0052FF] text-white p-2 rounded-xl">
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 group flex-shrink-0"
+        >
+          <div className="relative flex h-9 w-9 items-center justify-center">
+            {/* Nền gradient chéo */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
+            {/* Nền đổ bóng mờ ảo */}
+            <div className="absolute inset-0 bg-brand-500 blur opacity-40 rounded-xl group-hover:opacity-60 transition-opacity duration-300"></div>
+            {/* Icon */}
+            <div className="relative z-10 text-white">
+              <Video
+                size={18}
+                strokeWidth={2.5}
+                className="group-hover:scale-110 transition-transform duration-300"
               />
-            </svg>
+            </div>
           </div>
-          <span className="text-2xl font-bold text-[#0F172A] tracking-tight">
-            ToboMeet
+          <span className="text-[22px] font-black tracking-tighter text-navy">
+            Tobo
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-indigo-500">
+              Meet
+            </span>
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="text-center mb-8">

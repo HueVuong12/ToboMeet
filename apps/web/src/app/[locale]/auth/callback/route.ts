@@ -9,6 +9,9 @@ export async function GET(request: Request) {
   // Nếu có tham số 'next' trên URL (ví dụ: muốn chuyển về /vi sau khi login), nếu không thì mặc định về /vi
   const next = searchParams.get("next") ?? "/";
 
+  const localeMatch = next.match(/^\/(vi|en)/);
+  const locale = localeMatch ? localeMatch[1] : "vi";
+
   // Nếu Facebook/Google có trả về mã 'code'
   if (code) {
     const supabase = await createClient();
@@ -16,7 +19,6 @@ export async function GET(request: Request) {
     // Đổi mã code lấy Session.
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    // Nếu đổi code thành công và không có lỗi, chuyển hướng người dùng vào trang trong
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
@@ -25,5 +27,8 @@ export async function GET(request: Request) {
   const errorMessage = encodeURIComponent(
     "Xác thực thất bại, vui lòng thử lại.",
   );
-  return NextResponse.redirect(`${origin}/vi/login?error=${errorMessage}`);
+
+  return NextResponse.redirect(
+    `${origin}/${locale}/login?error=${errorMessage}`,
+  );
 }
