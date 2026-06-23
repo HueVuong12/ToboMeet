@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { FormState, signup } from "../../auth/actions";
@@ -8,6 +9,33 @@ const initialState: FormState = { error: null, message: null };
 
 export default function SignupPage() {
   const [state, action, isPending] = useActionState(signup, initialState);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    setLocalError(null);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const password = formData.get("password") as string | null;
+    const confirm = formData.get("confirmPassword") as string | null;
+
+    if (password == null || confirm == null) {
+      setLocalError("Vui lòng nhập mật khẩu và xác nhận mật khẩu.");
+      e.preventDefault();
+      return;
+    }
+
+    if (password.length < 6) {
+      setLocalError("Mật khẩu phải có tối thiểu 6 ký tự.");
+      e.preventDefault();
+      return;
+    }
+
+    if (password !== confirm) {
+      setLocalError("Mật khẩu và xác nhận mật khẩu không khớp.");
+      e.preventDefault();
+      return;
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#FAFAFA] px-4 font-sans">
@@ -49,10 +77,17 @@ export default function SignupPage() {
           </p>
         </div>
 
-        {/* Khung báo lỗi */}
+        {/* Khung báo lỗi server-side */}
         {state.error && (
           <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
             {state.error}
+          </div>
+        )}
+
+        {/* Khung báo lỗi client-side */}
+        {localError && (
+          <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
+            {localError}
           </div>
         )}
 
@@ -76,7 +111,11 @@ export default function SignupPage() {
           </div>
         )}
 
-        <form action={action} className="flex flex-col gap-5">
+        <form
+          action={action}
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-5"
+        >
           <div>
             <label className="block mb-1.5 text-sm font-semibold text-gray-700">
               Email công việc
@@ -101,6 +140,20 @@ export default function SignupPage() {
               minLength={6}
               className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
               placeholder="Tối thiểu 6 ký tự"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-1.5 text-sm font-semibold text-gray-700">
+              Nhập lại mật khẩu
+            </label>
+            <input
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={6}
+              className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
+              placeholder="Nhập lại mật khẩu"
             />
           </div>
 

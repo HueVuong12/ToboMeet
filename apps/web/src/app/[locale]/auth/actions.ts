@@ -1,5 +1,6 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
+import { Provider } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
 export type FormState = {
@@ -63,4 +64,36 @@ export async function signup(prevState: FormState, formData: FormData) {
     error: null,
     message: "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận.",
   };
+}
+
+export async function loginWithOAuth(
+  provider: Provider,
+  prevState: FormState, // Yêu cầu bắt buộc khi dùng với useActionState
+  formData: FormData,
+) {
+  const supabase = await createClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${siteUrl}/auth/callback?next=/vi`,
+    },
+  });
+
+  if (error) {
+    console.error(`Lỗi đăng nhập ${provider}:`, error);
+    // Trả về object lỗi trực tiếp thay vì redirect
+    return {
+      error: `Không thể kết nối tới ${provider}. Vui lòng thử lại sau.`,
+      message: null,
+    };
+  }
+
+  if (data.url) {
+    // Nếu thành công, BẮT BUỘC phải redirect sang trang của FB/Google
+    return redirect(data.url);
+  }
+
+  return { error: "Lỗi không xác định.", message: null };
 }
