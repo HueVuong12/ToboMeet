@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { FormState, signup } from "../../auth/actions";
-import { Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const initialState: FormState = { error: null, message: null };
@@ -42,31 +41,7 @@ export default function SignupPage() {
 
   return (
     <div className="p-8 sm:p-10 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-gray-100">
-      {/* Logo */}
-      <div className="flex justify-center mb-4">
-        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="relative flex h-9 w-9 items-center justify-center">
-            {/* Nền gradient chéo */}
-            <div className="absolute inset-0 bg-linear-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
-            {/* Nền đổ bóng mờ ảo */}
-            <div className="absolute inset-0 bg-brand-500 blur opacity-40 rounded-xl group-hover:opacity-60 transition-opacity duration-300"></div>
-            {/* Icon */}
-            <div className="relative z-10 text-white">
-              <Video
-                size={18}
-                strokeWidth={2.5}
-                className="group-hover:scale-110 transition-transform duration-300"
-              />
-            </div>
-          </div>
-          <span className="text-[22px] font-black tracking-tighter text-navy">
-            Tobo
-            <span className="text-transparent bg-clip-text bg-linear-to-r from-brand-600 to-indigo-500">
-              Meet
-            </span>
-          </span>
-        </Link>
-      </div>
+
 
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-[#0F172A] mb-2">

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createClient } from "@supabase/supabase-js";
+import type { Request } from "express";
 
 @Injectable()
 export class SupabaseGuard implements CanActivate {
@@ -38,7 +39,7 @@ export class SupabaseGuard implements CanActivate {
     return true;
   }
 
-  private extractTokenFromHeader(request: any): string | undefined {
+  private extractTokenFromHeader(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(" ") ?? [];
     return type === "Bearer" ? token : undefined;
   }

@@ -9,7 +9,7 @@ const NESTJS_BASE_URL =
 // headers và body, rồi trả về response cho client.
 async function handleProxy(
   request: NextRequest,
-  { params }: { params: { path: string[] } },
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
   const supabase = await createClient();
   const {
