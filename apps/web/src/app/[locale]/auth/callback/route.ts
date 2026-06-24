@@ -24,11 +24,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const errorMessage = encodeURIComponent(
-    "Xác thực thất bại, vui lòng thử lại.",
-  );
-
   return NextResponse.redirect(
-    `${origin}/${locale}/login?error=${errorMessage}`,
+    `${origin}/${locale}/login?error=error.auth.oauth_failed`,
   );
 }

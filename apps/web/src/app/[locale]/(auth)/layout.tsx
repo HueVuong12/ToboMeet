@@ -2,12 +2,16 @@
 import React from "react";
 import Link from "next/link";
 import { Video } from "lucide-react"; // Nhớ import icon từ lucide-react nhé
+import { useTranslations } from "next-intl";
+import LanguageSwitcher from "@/components/commons/LanguageSwitcher";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations();
+
   return (
     <div className="flex min-h-screen w-full bg-white font-sans">
       {/* CỘT BÊN TRÁI: BANNER XANH */}
@@ -21,7 +25,7 @@ export default function AuthLayout({
           {/* --- KHU VỰC LOGO ĐÃ ĐƯỢC CHỈNH LẠI MÀU SẮC --- */}
           <Link
             href="/"
-            className="mb-12 flex items-center gap-2.5 group flex-shrink-0 w-fit"
+            className="mb-12 flex items-center gap-2.5 group shrink-0 w-fit"
           >
             <div className="relative flex h-10 w-10 items-center justify-center">
               {/* Nền hộp lệch: Đổi thành màu trắng để nổi bật trên nền xanh */}
@@ -41,7 +45,7 @@ export default function AuthLayout({
             {/* Chữ Logo: Tobo màu trắng, Meet màu Gradient Cyan sáng */}
             <span className="text-[28px] font-black tracking-tighter text-white">
               Tobo
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-white">
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-[#00D4FF] to-white">
                 Meet
               </span>
             </span>
@@ -49,14 +53,15 @@ export default function AuthLayout({
           {/* --- KẾT THÚC KHU VỰC LOGO --- */}
 
           <h1 className="mb-6 text-4xl font-extrabold leading-tight xl:text-5xl">
-            Kết nối không giới hạn.
+            {t("auth_layout.connect_without_limits")}
             <br />
-            <span className="text-white/70">Hợp tác thông minh hơn.</span>
+            <span className="text-white/70">
+              {t("auth_layout.smart_collaboration")}
+            </span>
           </h1>
 
           <p className="mb-10 text-lg text-white/80 leading-relaxed">
-            Nền tảng video call tối ưu cho đội nhóm và doanh nghiệp. Mang lại
-            trải nghiệm mượt mà, bảo mật và hoàn toàn chủ động.
+            {t("auth_layout.platform_description")}
           </p>
 
           {/* Khung Testimonial hoặc thông số */}
@@ -68,8 +73,7 @@ export default function AuthLayout({
                 <div className="h-10 w-10 rounded-full border-2 border-[#0052FF] bg-amber-400"></div>
               </div>
               <p className="text-sm font-medium text-white/90">
-                Hơn <span className="font-bold text-white">50.000+</span> đội
-                nhóm tin dùng
+                {t("auth_layout.joined_by")}{" "}
               </p>
             </div>
           </div>
@@ -77,7 +81,12 @@ export default function AuthLayout({
       </div>
 
       {/* CỘT BÊN PHẢI: FORM ĐĂNG NHẬP / ĐĂNG KÝ */}
-      <div className="flex w-full flex-col items-center justify-center bg-[#FAFAFA] px-4 py-12 sm:px-6 lg:w-[45%] xl:w-[40%] border-l border-gray-100">
+      <div className="relative flex w-full flex-col items-center justify-center bg-[#FAFAFA] px-4 py-12 sm:px-6 lg:w-[45%] xl:w-[40%] border-l border-gray-100">
+        {/* Nút chuyển ngôn ngữ đặt ở góc trên cùng bên phải */}
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-8 z-50">
+          <LanguageSwitcher />
+        </div>
+
         <div className="w-full max-w-110">{children}</div>
       </div>
     </div>

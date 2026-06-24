@@ -4,10 +4,13 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { login, loginWithOAuth, type FormState } from "../../auth/actions";
 import { Video } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const initialState: FormState = { error: null, message: null };
 
 export default function LoginPage() {
+  const t = useTranslations();
+  const pathError = new URLSearchParams(window.location.search).get("error");
   const [loginState, loginAction, isLoginPending] = useActionState(
     login,
     initialState,
@@ -23,20 +26,18 @@ export default function LoginPage() {
     initialState,
   );
 
-  const error = loginState.error || googleState.error || fbState.error;
+  const error =
+    loginState.error || googleState.error || fbState.error || pathError;
   const isPending = isLoginPending || isGooglePending || isFbPending;
 
   return (
     <div className="p-8 sm:p-10 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-gray-100">
       {/* Logo hiển thị riêng cho màn hình Mobile */}
-      <div className="flex justify-center mb-8 lg:hidden">
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 group flex-shrink-0"
-        >
+      <div className="flex justify-center mb-6 lg:hidden">
+        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
           <div className="relative flex h-9 w-9 items-center justify-center">
             {/* Nền gradient chéo */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
+            <div className="absolute inset-0 bg-linear-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
             {/* Nền đổ bóng mờ ảo */}
             <div className="absolute inset-0 bg-brand-500 blur opacity-40 rounded-xl group-hover:opacity-60 transition-opacity duration-300"></div>
             {/* Icon */}
@@ -50,25 +51,25 @@ export default function LoginPage() {
           </div>
           <span className="text-[22px] font-black tracking-tighter text-navy">
             Tobo
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-indigo-500">
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-brand-600 to-indigo-500">
               Meet
             </span>
           </span>
         </Link>
       </div>
 
-      <div className="text-center mb-8">
+      <div className="text-center mb-4">
         <h1 className="text-2xl font-bold text-[#0F172A] mb-2">
-          Chào mừng trở lại
+          {t("login.welcome_back")}
         </h1>
         <p className="text-gray-500 text-sm">
-          Đăng nhập để kết nối với đội nhóm của bạn
+          {t("login.sign_in_to_continue")}
         </p>
       </div>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
-          {error}
+          {t(error)}
         </div>
       )}
 
@@ -98,7 +99,9 @@ export default function LoginPage() {
                 fill="#EA4335"
               />
             </svg>
-            {isGooglePending ? "Đang kết nối..." : "Tiếp tục với Google"}
+            {isGooglePending
+              ? t("login.signing_in")
+              : t("login.continue_with_google")}
           </button>
         </form>
 
@@ -115,7 +118,9 @@ export default function LoginPage() {
             >
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
             </svg>
-            {isFbPending ? "Đang kết nối..." : "Tiếp tục với Facebook"}
+            {isFbPending
+              ? t("login.signing_in")
+              : t("login.continue_with_facebook")}
           </button>
         </form>
       </div>
@@ -123,7 +128,7 @@ export default function LoginPage() {
       <div className="flex items-center gap-3 mb-6">
         <div className="h-px flex-1 bg-gray-200"></div>
         <span className="text-sm font-medium text-gray-400 uppercase">
-          Hoặc
+          {t("login.or_text")}
         </span>
         <div className="h-px flex-1 bg-gray-200"></div>
       </div>
@@ -145,13 +150,13 @@ export default function LoginPage() {
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="block text-sm font-semibold text-gray-700">
-              Mật khẩu
+              {t("login.password")}
             </label>
             <Link
               href="/forgot-password"
               className="text-sm font-medium text-[#0052FF] hover:underline"
             >
-              Quên mật khẩu?
+              {t("login.forgot_password")}
             </Link>
           </div>
           <input
@@ -171,15 +176,15 @@ export default function LoginPage() {
           {isLoginPending ? (
             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
           ) : (
-            "Đăng nhập"
+            t("login.sign_in")
           )}
         </button>
       </form>
 
       <p className="text-center mt-8 text-sm text-gray-500 font-medium">
-        Chưa có tài khoản?{" "}
-        <Link href="/vi/signup" className="text-[#0052FF] hover:underline">
-          Đăng ký miễn phí
+        {t("login.dont_have_account")}{" "}
+        <Link href="/signup" className="text-[#0052FF] hover:underline">
+          {t("login.sign_up")}
         </Link>
       </p>
     </div>

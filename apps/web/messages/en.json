@@ -133,29 +133,17 @@
       {
         "name": "Web Browser",
         "description": "No installation needed — just open and start meeting",
-        "badges": [
-          "Chrome",
-          "Safari",
-          "Firefox",
-          "Edge"
-        ]
+        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
       },
       {
         "name": "Desktop App",
         "description": "Native app with high performance and deep system integration",
-        "badges": [
-          "Windows",
-          "macOS",
-          "Linux"
-        ]
+        "badges": ["Windows", "macOS", "Linux"]
       },
       {
         "name": "Mobile",
         "description": "Meet anytime, anywhere — optimized for small screens",
-        "badges": [
-          "iOS",
-          "Android"
-        ]
+        "badges": ["iOS", "Android"]
       }
     ]
   },
@@ -242,5 +230,51 @@
     "github_repo": "Project Source Code on GitHub",
     "status": "System Operational",
     "made_with": "Graduation Thesis Project"
+  },
+  "login": {
+    "welcome_back": "Welcome back",
+    "sign_in_to_continue": "Sign in to connect with your team",
+    "sign_in": "Sign In",
+    "signing_in": "Signing in...",
+    "continue_with_google": "Continue with Google",
+    "continue_with_facebook": "Continue with Facebook",
+    "dont_have_account": "Don't have an account?",
+    "sign_up": "Sign Up",
+    "or_text": "or",
+    "forgot_password": "Forgot password?",
+    "password": "Password"
+  },
+  "signup": {
+    "sign_up": "Sign Up for an Account",
+    "create_account_to_continue": "Create an account to connect without limits",
+    "work_email": "Work Email",
+    "password": "Password",
+    "password_placeholder": "At least 6 characters",
+    "confirm_password": "Confirm Password",
+    "confirm_password_placeholder": "Re-enter your password",
+    "already_have_account": "Already have an account?",
+    "signup_success": "Sign-up successful! Please check your email to confirm your account."
+  },
+  "auth_layout": {
+    "connect_without_limits": "Connect without limits.",
+    "smart_collaboration": "Meet smarter.",
+    "platform_description": "A video call platform optimized for teams and enterprises. Delivering smooth, secure, and fully controlled experiences.",
+    "joined_by": "Trusted by over 50,000+ teams"
+  },
+  "error": {
+    "auth": {
+      "invalid_credentials": "Invalid login credentials. Please check your email and password.",
+      "user_not_found": "User not found. Please check your email or sign up for a new account.",
+      "network_error": "Network error. Please check your internet connection and try again.",
+      "unknown_error": "An unknown error occurred. Please try again later.",
+      "email_not_confirmed": "Your account has not been confirmed. Please check your email for the confirmation link.",
+      "too_many_requests": "You have attempted to log in too many times. Please wait a moment and try again.",
+      "signup_failed": "An error occurred during sign-up. Please try again.",
+      "login_failed": "An error occurred during login. Please try again.",
+      "oauth_failed": "Unable to connect to the provider. Please try again later.",
+      "missing_fields": "Please enter both password and confirm password.",
+      "password_too_short": "Password must be at least 6 characters long.",
+      "password_mismatch": "Password and confirm password do not match."
+    }
   }
 }

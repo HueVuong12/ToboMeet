@@ -22,20 +22,18 @@ export async function login(prevState: FormState, formData: FormData) {
   if (error) {
     console.error("Chi tiết lỗi Supabase:", error.message);
 
-    let errorMessage = "Đã có lỗi xảy ra trong quá trình đăng nhập.";
+    let errorMessage = "error.auth.login_failed";
 
     // Bóc tách từng trường hợp lỗi thường gặp của Supabase
     if (error.message.includes("Invalid login credentials")) {
-      errorMessage = "Email hoặc mật khẩu không chính xác.";
+      errorMessage = "error.auth.invalid_credentials";
     } else if (error.message.includes("Email not confirmed")) {
-      errorMessage =
-        "Tài khoản chưa được xác thực. Vui lòng kiểm tra email của bạn để xác nhận.";
+      errorMessage = "error.auth.email_not_confirmed";
     } else if (
       error.message.includes("Too many requests") ||
       error.status === 429
     ) {
-      errorMessage =
-        "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi một lát rồi thử lại.";
+      errorMessage = "error.auth.too_many_requests";
     }
 
     return { error: errorMessage, message: null };
@@ -59,14 +57,14 @@ export async function signup(prevState: FormState, formData: FormData) {
   if (error) {
     console.error("Chi tiết lỗi Supabase:", error.message);
     return {
-      error: "Đã có lỗi xảy ra khi đăng ký, vui lòng thử lại.",
+      error: "error.auth.signup_failed",
       message: null,
     };
   }
 
   return {
     error: null,
-    message: "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận.",
+    message: "signup.signup_success",
   };
 }
 
@@ -90,7 +88,7 @@ export async function loginWithOAuth(
     console.error(`Lỗi đăng nhập ${provider}:`, error);
     // Trả về object lỗi trực tiếp thay vì redirect
     return {
-      error: `Không thể kết nối tới ${provider}. Vui lòng thử lại sau.`,
+      error: `error.auth.oauth_failed`,
       message: null,
     };
   }
@@ -100,7 +98,7 @@ export async function loginWithOAuth(
     return redirect(data.url);
   }
 
-  return { error: "Lỗi không xác định.", message: null };
+  return { error: "error.auth.unknown_error", message: null };
 }
 
 export async function logout() {

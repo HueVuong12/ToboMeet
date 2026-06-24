@@ -133,29 +133,17 @@
       {
         "name": "Trình duyệt Web",
         "description": "Không cần cài đặt, mở trình duyệt là họp ngay",
-        "badges": [
-          "Chrome",
-          "Safari",
-          "Firefox",
-          "Edge"
-        ]
+        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
       },
       {
         "name": "Desktop App",
         "description": "Ứng dụng native hiệu năng cao, tích hợp hệ thống",
-        "badges": [
-          "Windows",
-          "macOS",
-          "Linux"
-        ]
+        "badges": ["Windows", "macOS", "Linux"]
       },
       {
         "name": "Di động",
         "description": "Họp mọi lúc mọi nơi, tối ưu cho màn hình nhỏ",
-        "badges": [
-          "iOS",
-          "Android"
-        ]
+        "badges": ["iOS", "Android"]
       }
     ]
   },
@@ -228,5 +216,50 @@
     "github_repo": "Mã nguồn dự án trên GitHub",
     "status": "Hệ thống đang hoạt động",
     "made_with": "Khóa luận Tốt nghiệp"
+  },
+  "login": {
+    "welcome_back": "Chào mừng trở lại",
+    "sign_in_to_continue": "Đăng nhập để kết nối với đội nhóm của bạn",
+    "sign_in": "Đăng nhập",
+    "signing_in": "Đang đăng nhập...",
+    "continue_with_google": "Tiếp tục với Google",
+    "continue_with_facebook": "Tiếp tục với Facebook",
+    "dont_have_account": "Chưa có tài khoản?",
+    "sign_up": "Đăng ký",
+    "or_text": "hoặc",
+    "work_email": "Email công việc",
+    "password": "Mật khẩu",
+    "forgot_password": "Quên mật khẩu?"
+  },
+  "signup": {
+    "sign_up": "Đăng ký tài khoản",
+    "create_account_to_continue": "Tạo tài khoản để tiếp tục",
+    "work_email": "Email công việc",
+    "password": "Mật khẩu",
+    "password_placeholder": "Tối thiểu 6 ký tự",
+    "confirm_password": "Nhập lại mật khẩu",
+    "confirm_password_placeholder": "Nhập lại mật khẩu",
+    "already_have_account": "Đã có tài khoản?",
+    "signup_success": "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận."
+  },
+  "auth_layout": {
+    "connect_without_limits": "Kết nối không giới hạn.",
+    "smart_collaboration": "Hợp tác thông minh hơn.",
+    "platform_description": "Nền tảng video call tối ưu cho đội nhóm và doanh nghiệp. Mang lại trải nghiệm mượt mà, bảo mật và hoàn toàn chủ động.",
+    "joined_by": "Hơn 50.000+ đội nhóm tin dùng"
+  },
+  "error": {
+    "auth": {
+      "invalid_credentials": "Thông tin đăng nhập không hợp lệ. Vui lòng kiểm tra lại email và mật khẩu.",
+      "network_error": "Lỗi mạng. Vui lòng kiểm tra kết nối internet của bạn.",
+      "unknown_error": "Đã có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.",
+      "email_not_confirmed": "Tài khoản chưa được xác thực. Vui lòng kiểm tra email của bạn để xác nhận.",
+      "too_many_requests": "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi một lát rồi thử lại.",
+      "signup_failed": "Đã có lỗi xảy ra khi đăng ký, vui lòng thử lại.",
+      "oauth_failed": "Không thể kết nối tới nhà cung cấp OAuth. Vui lòng thử lại sau.",
+      "missing_fields": "Vui lòng nhập mật khẩu và xác nhận mật khẩu.",
+      "password_too_short": "Mật khẩu phải có tối thiểu 6 ký tự.",
+      "password_mismatch": "Mật khẩu và xác nhận mật khẩu không khớp."
+    }
   }
 }

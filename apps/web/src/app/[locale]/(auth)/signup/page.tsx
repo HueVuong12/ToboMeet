@@ -5,10 +5,12 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { FormState, signup } from "../../auth/actions";
 import { Video } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const initialState: FormState = { error: null, message: null };
 
 export default function SignupPage() {
+  const t = useTranslations();
   const [state, action, isPending] = useActionState(signup, initialState);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -20,19 +22,19 @@ export default function SignupPage() {
     const confirm = formData.get("confirmPassword") as string | null;
 
     if (password == null || confirm == null) {
-      setLocalError("Vui lòng nhập mật khẩu và xác nhận mật khẩu.");
+      setLocalError("error.auth.missing_fields");
       e.preventDefault();
       return;
     }
 
     if (password.length < 6) {
-      setLocalError("Mật khẩu phải có tối thiểu 6 ký tự.");
+      setLocalError("error.auth.password_too_short");
       e.preventDefault();
       return;
     }
 
     if (password !== confirm) {
-      setLocalError("Mật khẩu và xác nhận mật khẩu không khớp.");
+      setLocalError("error.auth.password_mismatch");
       e.preventDefault();
       return;
     }
@@ -41,14 +43,11 @@ export default function SignupPage() {
   return (
     <div className="p-8 sm:p-10 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-gray-100">
       {/* Logo */}
-      <div className="flex justify-center mb-8">
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 group flex-shrink-0"
-        >
+      <div className="flex justify-center mb-4">
+        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
           <div className="relative flex h-9 w-9 items-center justify-center">
             {/* Nền gradient chéo */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
+            <div className="absolute inset-0 bg-linear-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
             {/* Nền đổ bóng mờ ảo */}
             <div className="absolute inset-0 bg-brand-500 blur opacity-40 rounded-xl group-hover:opacity-60 transition-opacity duration-300"></div>
             {/* Icon */}
@@ -62,7 +61,7 @@ export default function SignupPage() {
           </div>
           <span className="text-[22px] font-black tracking-tighter text-navy">
             Tobo
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-indigo-500">
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-brand-600 to-indigo-500">
               Meet
             </span>
           </span>
@@ -71,24 +70,24 @@ export default function SignupPage() {
 
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-[#0F172A] mb-2">
-          Tạo tài khoản mới
+          {t("signup.sign_up")}
         </h1>
         <p className="text-gray-500 text-sm">
-          Kết nối không giới hạn, họp thông minh hơn
+          {t("signup.create_account_to_continue")}
         </p>
       </div>
 
       {/* Khung báo lỗi server-side */}
       {state.error && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
-          {state.error}
+          {t(state.error)}
         </div>
       )}
 
       {/* Khung báo lỗi client-side */}
       {localError && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
-          {localError}
+          {t(localError)}
         </div>
       )}
 
@@ -108,7 +107,7 @@ export default function SignupPage() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <span>{state.message}</span>
+          <span>{t(state.message)}</span>
         </div>
       )}
 
@@ -119,7 +118,7 @@ export default function SignupPage() {
       >
         <div>
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
-            Email công việc
+            {t("signup.work_email")}
           </label>
           <input
             name="email"
@@ -132,7 +131,7 @@ export default function SignupPage() {
 
         <div>
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
-            Mật khẩu
+            {t("signup.password")}
           </label>
           <input
             name="password"
@@ -140,13 +139,13 @@ export default function SignupPage() {
             required
             minLength={6}
             className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
-            placeholder="Tối thiểu 6 ký tự"
+            placeholder={t("signup.password_placeholder")}
           />
         </div>
 
         <div>
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
-            Nhập lại mật khẩu
+            {t("signup.confirm_password")}
           </label>
           <input
             name="confirmPassword"
@@ -154,7 +153,7 @@ export default function SignupPage() {
             required
             minLength={6}
             className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
-            placeholder="Nhập lại mật khẩu"
+            placeholder={t("signup.confirm_password_placeholder")}
           />
         </div>
 
@@ -166,15 +165,15 @@ export default function SignupPage() {
           {isPending ? (
             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
           ) : (
-            "Đăng ký tài khoản"
+            t("login.sign_up")
           )}
         </button>
       </form>
 
       <p className="text-center mt-8 text-sm text-gray-500 font-medium">
-        Đã có tài khoản?{" "}
-        <Link href="/vi/login" className="text-[#0052FF] hover:underline">
-          Đăng nhập ngay
+        {t("signup.already_have_account")}{" "}
+        <Link href="/login" className="text-[#0052FF] hover:underline">
+          {t("login.sign_in")}
         </Link>
       </p>
     </div>
