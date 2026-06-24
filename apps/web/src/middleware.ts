@@ -5,6 +5,8 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
+const AUTH_PATHS = ["/login", "/signup", "/forgot-password"];
+
 export async function middleware(request: NextRequest) {
   const response = intlMiddleware(request);
 
@@ -34,10 +36,13 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const pathWithoutLocale = pathname.replace(/^\/(vi|en)/, "") || "/";
-  const isAuthPage =
-    pathWithoutLocale === "/login" || pathWithoutLocale === "/signup";
+  const isAuthPage = AUTH_PATHS.includes(pathWithoutLocale);
   const isHomePage = pathWithoutLocale === "/";
-  const currentLocale = pathname.startsWith("/en") ? "en" : "vi";
+
+  const localeMatch = pathname.match(/^\/(vi|en)/);
+  const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
+  const currentLocale = localeMatch ? localeMatch[1] : cookieLocale || "vi";
+
   const isCallbackPage = pathWithoutLocale.startsWith("/auth/callback");
   const isPublicPage = isAuthPage || isHomePage || isCallbackPage;
 
