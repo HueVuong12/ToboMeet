@@ -31,12 +31,41 @@ export interface Participant {
 }
 
 // ─── API Response ─────────────────────────────────────────────────────────────
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  error?: string;
+export interface ApiResponse<T> {
+  code: number;
+  message: string;
+  result: T;
 }
+
+export interface ErrorDetail {
+  code: number;
+  message: string;
+  statusCode: number; // Dùng để NestJS biết nên trả về 400, 404 hay 500
+}
+
+export const ErrorCode: Record<string, ErrorDetail> = {
+  USER_NOT_FOUND: {
+    code: 4041,
+    message: "Người dùng không tồn tại",
+    statusCode: 404,
+  },
+  USER_EXISTED: {
+    code: 4001,
+    message: "Email này đã được sử dụng",
+    statusCode: 400,
+  },
+  UNAUTHORIZED: {
+    code: 4011,
+    message: "Vui lòng đăng nhập để tiếp tục",
+    statusCode: 401,
+  },
+  ROOM_FULL: {
+    code: 4002,
+    message: "Phòng họp đã đạt số lượng tối đa",
+    statusCode: 400,
+  },
+  // Thêm các lỗi khác của hệ thống vào đây...
+};
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 export interface NavLink {

@@ -5,11 +5,9 @@ import { UsersModule } from "./users/users.module";
 
 @Module({
   imports: [
-    // Load file .env biến nó thành global để dùng ở mọi nơi
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    // Kết nối Mongoose sử dụng ConfigService
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

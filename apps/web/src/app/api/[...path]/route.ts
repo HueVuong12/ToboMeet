@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const NESTJS_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  process.env.NESTJS_BASE_URL || "http://localhost:3001/api";
 
+// handleProxy — proxy các yêu cầu HTTP từ Next.js sang backend NestJS
+// Mục đích: chuyển tiếp (forward) mọi request tới một URL backend (NESTJS_BASE_URL) giữ nguyên method,
+// headers và body, rồi trả về response cho client.
 async function handleProxy(
   request: NextRequest,
   { params }: { params: { path: string[] } },
@@ -13,21 +16,20 @@ async function handleProxy(
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Ví dụ: Client gọi /api/users/me -> NestJS nhận /users/me
-  const path = params.path.join("/");
+  const resolvedParams = await params;
+  const path = resolvedParams.path.join("/");
   const targetUrl = `${NESTJS_BASE_URL}/${path}${request.nextUrl.search}`;
 
   const headers = new Headers(request.headers);
-  headers.delete("host"); // Bắt buộc xóa host cũ để tránh lỗi cấu hình máy chủ
+  headers.delete("host");
 
-  // Rút Token từ Cookie và chuyển thành Bearer Header gửi cho NestJS
   if (session?.access_token) {
     headers.set("Authorization", `Bearer ${session.access_token}`);
   }
 
   let body = undefined;
   if (request.method !== "GET" && request.method !== "HEAD") {
-    body = await request.text(); // Lấy raw text để chuyển tiếp an toàn nhất
+    body = await request.text();
   }
 
   try {

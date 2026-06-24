@@ -2,7 +2,7 @@
   "name": "@tobomeet/server",
   "version": "0.0.1",
   "private": true,
-  "description": "Z-Meet NestJS Backend — Shared API for all platforms",
+  "description": "ToboMeet NestJS Backend — Shared API for all platforms",
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
@@ -15,7 +15,8 @@
     "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.0.0",
     "@supabase/supabase-js": "^2.108.2",
-    "mongoose": "^9.7.1"
+    "mongoose": "^9.7.1",
+    "@tobomeet/shared": "*"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",

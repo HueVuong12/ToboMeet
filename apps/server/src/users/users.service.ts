@@ -7,20 +7,31 @@ import { Model } from "mongoose";
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async findOrCreate(supabaseUser: any): Promise<User> {
-    const { id: supabaseId, email, user_metadata } = supabaseUser;
+  async getOrCreateUser(tokenPayload: any): Promise<User> {
+    const userId = tokenPayload.id || tokenPayload.sub;
+    const email = tokenPayload.email;
+    const metadata = tokenPayload.user_metadata || {};
 
-    // Kiểm tra user đã tồn tại chưa
-    let user = await this.userModel.findOne({ supabaseId }).exec();
+    let user = await this.userModel.findOne({ supabaseId: userId });
 
-    // Nếu chưa, tạo mới
     if (!user) {
-      user = new this.userModel({
-        supabaseId,
-        email,
-        fullName: user_metadata?.full_name || user_metadata?.name || "",
+      user = await this.userModel.create({
+        supabaseId: userId,
+        email: email,
+        displayName: metadata.full_name,
+        avatarUrl: metadata.avatar_url,
       });
+      console.log(`Đã tạo mới user: ${email}`);
+    }
+    // Cập nhật lại tên/avatar nếu họ đổi từ Google/Facebook
+    else if (
+      user.displayName !== metadata.full_name ||
+      user.avatarUrl !== metadata.avatar_url
+    ) {
+      user.displayName = metadata.full_name || user.displayName;
+      user.avatarUrl = metadata.avatar_url || user.avatarUrl;
       await user.save();
+      console.log(`Đã cập nhật user: ${email}`);
     }
 
     return user;
