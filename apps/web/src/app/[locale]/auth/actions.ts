@@ -49,6 +49,26 @@ export async function signup(prevState: FormState, formData: FormData) {
   const password = formData.get("password") as string;
   const supabase = await createClient();
 
+  const { data: isEmailTaken, error: rpcError } = await supabase.rpc(
+    "check_email_exists",
+    { lookup_email: email },
+  );
+
+  if (rpcError) {
+    console.error("Lỗi khi check email:", rpcError);
+    return {
+      error: "error.auth.signup_failed",
+      message: null,
+    };
+  }
+
+  if (isEmailTaken) {
+    return {
+      error: "error.auth.user_existed",
+      message: null,
+    };
+  }
+
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -58,9 +78,7 @@ export async function signup(prevState: FormState, formData: FormData) {
     let errorMessage = "error.auth.signup_failed";
     console.error("Lỗi khi đăng kí:", error.message);
 
-    if (error.message.includes("User already registered")) {
-      errorMessage = "error.auth.user_existed";
-    } else if (
+    if (
       error.message.includes(
         "Password should contain at least one character of each",
       )
