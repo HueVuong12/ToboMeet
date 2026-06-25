@@ -3,15 +3,43 @@
 import { useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
-import { FormState, signup } from "../../auth/actions";
+import { FormState, loginWithOAuth, signup } from "../../auth/actions";
 import { useTranslations } from "next-intl";
+import { validatePasswordPolicy } from "@tobomeet/shared/utils";
 
 const initialState: FormState = { error: null, message: null };
 
 export default function SignupPage() {
   const t = useTranslations();
+  const tPolicy = useTranslations("forgot_password");
+
   const [state, action, isPending] = useActionState(signup, initialState);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const {
+    hasMinLength,
+    hasLetter,
+    hasUpper,
+    hasLower,
+    hasNumber,
+    noConsecutive,
+    isValid: passwordValid,
+  } = validatePasswordPolicy(password);
+
+  const [googleState, googleAction, isGooglePending] = useActionState(
+    loginWithOAuth.bind(null, "google"),
+    initialState,
+  );
+
+  const [fbState, fbAction, isFbPending] = useActionState(
+    loginWithOAuth.bind(null, "facebook"),
+    initialState,
+  );
+
+  const error = googleState.error || fbState.error || localError;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     setLocalError(null);
@@ -41,8 +69,6 @@ export default function SignupPage() {
 
   return (
     <div className="p-8 sm:p-10 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-gray-100">
-
-
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-[#0F172A] mb-2">
           {t("signup.sign_up")}
@@ -60,9 +86,9 @@ export default function SignupPage() {
       )}
 
       {/* Khung báo lỗi client-side */}
-      {localError && (
+      {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
-          {t(localError)}
+          {t(error)}
         </div>
       )}
 
@@ -111,11 +137,61 @@ export default function SignupPage() {
           <input
             name="password"
             type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
             className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
             placeholder={t("signup.password_placeholder")}
           />
+        </div>
+
+        {/* ── GIAO DIỆN DANH SÁCH ĐIỀU KIỆN MẬT KHẨU ── */}
+        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <p className="text-[13px] font-bold text-gray-800 mb-2">
+            {tPolicy("reset_policy_title")}
+          </p>
+          <ul className="space-y-1.5 mb-3">
+            {[
+              {
+                id: 1,
+                text: tPolicy("reset_policy_length"),
+                valid: hasMinLength,
+              },
+              { id: 2, text: tPolicy("reset_policy_letter"), valid: hasLetter },
+              { id: 3, text: tPolicy("reset_policy_upper"), valid: hasUpper },
+              { id: 4, text: tPolicy("reset_policy_lower"), valid: hasLower },
+              { id: 5, text: tPolicy("reset_policy_number"), valid: hasNumber },
+            ].map((req) => (
+              <li key={req.id} className="flex items-center gap-2 text-[13px]">
+                <div
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${req.valid ? "bg-[#0052FF]" : "bg-gray-300"}`}
+                />
+                <span
+                  className={
+                    req.valid ? "text-gray-800 font-medium" : "text-gray-500"
+                  }
+                >
+                  {req.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex items-start gap-2 text-[13px]">
+            <div
+              className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${noConsecutive ? "bg-[#0052FF]" : "bg-gray-300"}`}
+            />
+            <span
+              className={
+                noConsecutive
+                  ? "text-gray-800 font-medium"
+                  : "text-gray-500 leading-relaxed"
+              }
+            >
+              {tPolicy("reset_policy_no_consecutive_desc")}
+            </span>
+          </div>
         </div>
 
         <div>
@@ -125,6 +201,8 @@ export default function SignupPage() {
           <input
             name="confirmPassword"
             type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             required
             minLength={6}
             className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
@@ -145,12 +223,71 @@ export default function SignupPage() {
         </button>
       </form>
 
-      <p className="text-center mt-8 text-sm text-gray-500 font-medium">
+      <p className="text-center mt-8 mb-8 text-sm text-gray-500 font-medium">
         {t("signup.already_have_account")}{" "}
         <Link href="/login" className="text-[#0052FF] hover:underline">
           {t("login.sign_in")}
         </Link>
       </p>
+
+      <div className="flex items-center gap-3 mb-6">
+        <div className="h-px flex-1 bg-gray-200"></div>
+        <span className="text-sm font-medium text-gray-400 uppercase">
+          {t("login.or_text")}
+        </span>
+        <div className="h-px flex-1 bg-gray-200"></div>
+      </div>
+
+      <div className="flex flex-col gap-3 mb-2">
+        <form action={googleAction}>
+          <button
+            disabled={isPending}
+            type="submit"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 rounded-full font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4"
+              />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+              />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
+            </svg>
+            {isGooglePending
+              ? t("login.signing_in")
+              : t("login.continue_with_google")}
+          </button>
+        </form>
+
+        <form action={fbAction}>
+          <button
+            disabled={isPending}
+            type="submit"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 rounded-full font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg
+              className="w-5 h-5 text-[#1877F2]"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+            {isFbPending
+              ? t("login.signing_in")
+              : t("login.continue_with_facebook")}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -55,9 +55,21 @@ export async function signup(prevState: FormState, formData: FormData) {
   });
 
   if (error) {
-    console.error("Chi tiết lỗi Supabase:", error.message);
+    let errorMessage = "error.auth.signup_failed";
+    console.error("Lỗi khi đăng kí:", error.message);
+
+    if (error.message.includes("User already registered")) {
+      errorMessage = "error.auth.user_existed";
+    } else if (
+      error.message.includes(
+        "Password should contain at least one character of each",
+      )
+    ) {
+      errorMessage = "error.auth.password_invalid";
+    }
+
     return {
-      error: "error.auth.signup_failed",
+      error: errorMessage,
       message: null,
     };
   }

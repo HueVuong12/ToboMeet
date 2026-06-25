@@ -20,6 +20,7 @@ import {
   verifyPasswordResetOtp,
 } from "@/app/[locale]/auth/actions";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { validatePasswordPolicy } from "@tobomeet/shared/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FormStep = "email" | "otp" | "reset" | "success";
@@ -73,22 +74,15 @@ export default function ForgotPasswordForm() {
     setTimeout(() => setShaking(false), 600);
   };
 
-  // Password Policy Check
-  const hasMinLength = newPassword.length >= 8;
-  const hasLetter = /[a-zA-Z]/.test(newPassword);
-  const hasUpper = /[A-Z]/.test(newPassword);
-  const hasLower = /[a-z]/.test(newPassword);
-  const hasNumber = /[0-9]/.test(newPassword);
-  // Basic check for 4 consecutive same chars
-  const noConsecutive = !/(.)\1{3}/.test(newPassword) && newPassword.length > 0;
-
-  const passwordValid =
-    hasMinLength &&
-    hasLetter &&
-    hasUpper &&
-    hasLower &&
-    hasNumber &&
-    noConsecutive;
+  const {
+    hasMinLength,
+    hasLetter,
+    hasUpper,
+    hasLower,
+    hasNumber,
+    noConsecutive,
+    isValid: passwordValid,
+  } = validatePasswordPolicy(newPassword);
 
   // ── Submit Handlers ──
   const handleEmailSubmit = async (e: React.FormEvent) => {
