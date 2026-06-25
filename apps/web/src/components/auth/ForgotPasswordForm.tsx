@@ -19,6 +19,7 @@ import {
   updatePassword,
   verifyPasswordResetOtp,
 } from "@/app/[locale]/auth/actions";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FormStep = "email" | "otp" | "reset" | "success";
@@ -27,9 +28,11 @@ type FormStep = "email" | "otp" | "reset" | "success";
 export default function ForgotPasswordForm() {
   const t = useTranslations("forgot_password");
   const t1 = useTranslations("password_reset");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Flow State
-  const [step, setStep] = useState<FormStep>("email");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [shaking, setShaking] = useState(false);
@@ -48,6 +51,11 @@ export default function ForgotPasswordForm() {
   // Refs
   const emailInputRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const currentStep = searchParams.get("step") as FormStep;
+  const [step, setStep] = useState<FormStep>(
+    currentStep === "reset" ? "reset" : "email",
+  );
 
   // ── Countdown timer ──
   useEffect(() => {
@@ -158,6 +166,7 @@ export default function ForgotPasswordForm() {
 
     if (res.success) {
       setStep("reset");
+      router.replace(`${pathname}?step=reset`);
     } else {
       setErrorMsg(t1(res.error || "otp_invalid_or_expired"));
       triggerShake();
@@ -187,6 +196,7 @@ export default function ForgotPasswordForm() {
 
     if (res.success) {
       setStep("success");
+      router.replace(pathname);
     } else {
       setErrorMsg(t1(res.error || "password_update_failed"));
       triggerShake();

@@ -38,6 +38,7 @@ export async function middleware(request: NextRequest) {
   const pathWithoutLocale = pathname.replace(/^\/(vi|en)/, "") || "/";
   const isAuthPage = AUTH_PATHS.includes(pathWithoutLocale);
   const isHomePage = pathWithoutLocale === "/";
+  const isResetting = request.nextUrl.searchParams.get("step") === "reset"; // Đang ở bước reset password
 
   const localeMatch = pathname.match(/^\/(vi|en)/);
   const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
@@ -47,7 +48,7 @@ export async function middleware(request: NextRequest) {
   const isPublicPage = isAuthPage || isHomePage || isCallbackPage;
 
   // Nếu người dùng đã có token (user tồn tại) và đang vào các trang cấm
-  if (user && (isAuthPage || isHomePage)) {
+  if (user && (isAuthPage || isHomePage) && !isResetting) {
     return NextResponse.redirect(
       new URL(`/${currentLocale}/home`, request.url),
     );
