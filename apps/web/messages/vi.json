@@ -264,7 +264,7 @@
     "security_note": "Kết nối được bảo vệ bằng mã hóa SSL 256-bit",
     "back_to_login": "Quay lại trang đăng nhập",
     "otp_title": "Nhập mã bảo mật",
-    "otp_subtitle": "Chúng tôi vừa gửi mã gồm 6 chữ số đến {email}. Vui lòng nhập mã để tiếp tục.",
+    "otp_subtitle": "Chúng tôi vừa gửi mã gồm 8 chữ số đến {email}. Vui lòng nhập mã để tiếp tục.",
     "error_invalid_otp": "Mã xác minh không chính xác hoặc đã hết hạn.",
     "otp_submit_btn": "Xác nhận mã",
     "otp_help_link": "Tôi không truy cập được email này",
@@ -281,6 +281,13 @@
     "reset_policy_no_consecutive_title": "Quy tắc an toàn:",
     "reset_policy_no_consecutive_desc": "Không sử dụng 4 ký tự giống nhau liên tiếp (ví dụ: aaaa, 1111).",
     "reset_submit_btn": "Cập nhật mật khẩu"
+  },
+  "password_reset": {
+    "otp_sent": "Đã gửi mã xác minh về email.",
+    "otp_send_failed": "Không thể gửi mã xác minh. Vui lòng thử lại.",
+    "otp_invalid_or_expired": "Mã xác minh không chính xác hoặc đã hết hạn.",
+    "password_update_failed": "Đã xảy ra lỗi khi lưu mật khẩu mới.",
+    "new_password_must_be_different": "Mật khẩu mới phải khác mật khẩu cũ"
   },
   "error": {
     "auth": {
