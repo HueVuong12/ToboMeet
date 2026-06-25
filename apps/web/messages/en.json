@@ -277,7 +277,7 @@
     "security_note": "Connection secured with 256-bit SSL encryption",
     "back_to_login": "Back to login",
     "otp_title": "Enter Security Code",
-    "otp_subtitle": "We just sent a 6-digit code to {email}. Please enter the code to continue.",
+    "otp_subtitle": "We just sent a 8-digit code to {email}. Please enter the code to continue.",
     "error_invalid_otp": "Invalid or expired verification code.",
     "otp_submit_btn": "Verify Code",
     "otp_help_link": "I can't access this email",
@@ -294,6 +294,13 @@
     "reset_policy_no_consecutive_title": "Safety Rule:",
     "reset_policy_no_consecutive_desc": "Do not use 4 identical characters in a row (e.g., aaaa, 1111).",
     "reset_submit_btn": "Update Password"
+  },
+  "password_reset": {
+    "otp_sent": "OTP sent to your email.",
+    "otp_send_failed": "Unable to send verification code. Please try again.",
+    "otp_invalid_or_expired": "Verification code is invalid or has expired.",
+    "password_update_failed": "An error occurred while saving the new password.",
+    "new_password_must_be_different": "New password should be different from the old password"
   },
   "error": {
     "auth": {
