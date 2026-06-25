@@ -1,0 +1,16 @@
+{
+  "name": "desktop",
+  "version": "0.1.0",
+  "description": "ToboMeet Desktop App - Electron wrapper for Next.js",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1"
+  }
+}
