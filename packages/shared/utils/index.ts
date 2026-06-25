@@ -4,7 +4,7 @@
  * Gộp Tailwind class names (tương tự clsx/cn)
  */
 export function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
+  return classes.filter(Boolean).join(" ");
 }
 
 /**
@@ -12,7 +12,10 @@ export function cn(...classes: (string | undefined | null | false)[]): string {
  */
 export function generateRoomCode(): string {
   const segment = (len: number) =>
-    Math.random().toString(36).substring(2, 2 + len).toLowerCase();
+    Math.random()
+      .toString(36)
+      .substring(2, 2 + len)
+      .toLowerCase();
   return `${segment(3)}-${segment(4)}-${segment(3)}`;
 }
 
@@ -27,8 +30,10 @@ export function validateRoomCode(code: string): boolean {
  * Format thời gian cuộc họp (giây → mm:ss)
  */
 export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 }
 
@@ -37,9 +42,50 @@ export function formatDuration(seconds: number): string {
  */
 export function getInitials(name: string): string {
   return name
-    .split(' ')
+    .split(" ")
     .map((n) => n[0])
-    .join('')
+    .join("")
     .toUpperCase()
     .slice(0, 2);
 }
+
+export interface PasswordValidationResult {
+  hasMinLength: boolean;
+  hasLetter: boolean;
+  hasUpper: boolean;
+  hasLower: boolean;
+  hasNumber: boolean;
+  noConsecutive: boolean;
+  isValid: boolean;
+}
+
+export const validatePasswordPolicy = (
+  password: string,
+): PasswordValidationResult => {
+  const pwd = password || "";
+
+  const hasMinLength = pwd.length >= 8;
+  const hasLetter = /[a-zA-Z]/.test(pwd);
+  const hasUpper = /[A-Z]/.test(pwd);
+  const hasLower = /[a-z]/.test(pwd);
+  const hasNumber = /[0-9]/.test(pwd);
+  const noConsecutive = !/(.)\1{3}/.test(pwd) && pwd.length > 0;
+
+  const isValid =
+    hasMinLength &&
+    hasLetter &&
+    hasUpper &&
+    hasLower &&
+    hasNumber &&
+    noConsecutive;
+
+  return {
+    hasMinLength,
+    hasLetter,
+    hasUpper,
+    hasLower,
+    hasNumber,
+    noConsecutive,
+    isValid,
+  };
+};

@@ -304,6 +304,7 @@
   },
   "error": {
     "auth": {
+      "user_existed": "User existed. Please choose another email to register. ",
       "invalid_credentials": "Invalid login credentials. Please check your email and password.",
       "user_not_found": "User not found. Please check your email or sign up for a new account.",
       "network_error": "Network error. Please check your internet connection and try again.",
@@ -315,7 +316,8 @@
       "oauth_failed": "Unable to connect to the provider. Please try again later.",
       "missing_fields": "Please enter both password and confirm password.",
       "password_too_short": "Password must be at least 6 characters long.",
-      "password_mismatch": "Password and confirm password do not match."
+      "password_mismatch": "Password and confirm password do not match.",
+      "password_invalid": "Password invalid. "
     }
   }
 }
