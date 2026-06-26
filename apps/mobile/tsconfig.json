@@ -4,7 +4,10 @@
     "strict": true,
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "jsxImportSource": "nativewind"
+    "jsxImportSource": "nativewind",
+    "paths": {
+      "@tobomeet/shared/*": ["../../packages/shared/*"]
+    }
   },
   "include": [
     "**/*.ts",
