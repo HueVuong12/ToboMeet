@@ -15,11 +15,15 @@ import { supabaseAuth } from "../../../lib/supabase";
 import { validatePasswordPolicy } from "@tobomeet/shared/utils";
 import { Language, translations } from "../../../lib/locales";
 import { renderConstraintRow } from "../forgot-password";
+import * as WebBrowser from "expo-web-browser";
+import { useOAuth } from "../../../hooks/useOAuth";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignupScreen() {
   const router = useRouter();
 
-  const [lang, setLang] = useState<Language>("vi");
+  const [lang] = useState<Language>("vi");
   const t = translations[lang];
 
   const [email, setEmail] = useState("");
@@ -31,13 +35,14 @@ export default function SignupScreen() {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isFbLoading, setIsFbLoading] = useState(false);
+  const { handleOAuthLogin, isGoogleLoading, isFbLoading, oauthError } =
+    useOAuth();
 
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // ── SỬ DỤNG HÀM VALIDATE CHUNG TỪ GÓI SHARED ──
+  const displayError = errorMsg || oauthError;
+
   const {
     hasMinLength,
     hasLetter,
@@ -76,7 +81,7 @@ export default function SignupScreen() {
         setSuccessMsg("Vui lòng kiểm tra hộp thư email để xác nhận tài khoản.");
       } else {
         // Đăng ký xong có session luôn (nếu tắt xác nhận email)
-        router.replace("/(tabs)/home");
+        router.replace("/home");
       }
     } catch (error: unknown) {
       setErrorMsg(
@@ -84,23 +89,6 @@ export default function SignupScreen() {
       );
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleOAuthLogin = async (provider: "google" | "facebook") => {
-    if (provider === "google") setIsGoogleLoading(true);
-    else setIsFbLoading(true);
-
-    setErrorMsg("");
-    try {
-      await supabaseAuth.signInWithOAuth(provider);
-    } catch (error: unknown) {
-      setErrorMsg(
-        error instanceof Error ? error.message : t.errorSendOtpFailed,
-      );
-    } finally {
-      if (provider === "google") setIsGoogleLoading(false);
-      else setIsFbLoading(false);
     }
   };
 
@@ -120,6 +108,27 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 w-full max-w-md mx-auto">
+          <View className="items-center mb-6 flex-row justify-center">
+            {/* Biểu tượng Camera trắng trong khung xanh bo góc tròn tuyệt đẹp có độ nghiêng nghệ thuật và đổ bóng phát sáng */}
+            <View
+              className="w-12 h-12 bg-[#0052FF] rounded-2xl items-center justify-center mr-4"
+              style={{
+                transform: [{ rotate: "3deg" }],
+                shadowColor: "#0052FF",
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 10,
+                elevation: 8,
+              }}
+            >
+              <Ionicons name="videocam" size={26} color="white" />
+            </View>
+            {/* Chữ thương hiệu ToboMeet */}
+            <Text className="text-3xl font-extrabold text-slate-800 tracking-tight">
+              Tobo<Text className="text-[#0052FF]">Meet</Text>
+            </Text>
+          </View>
+
           <View className="text-center mb-6 items-center">
             <Text className="text-2xl font-bold text-slate-900 mb-2">
               Đăng ký tài khoản
@@ -130,11 +139,11 @@ export default function SignupScreen() {
           </View>
 
           {/* Lỗi */}
-          {errorMsg ? (
+          {displayError ? (
             <View className="mb-5 p-3.5 bg-red-50 rounded-2xl border border-red-100 flex-row items-center">
               <Ionicons name="alert-circle" size={18} color="#EF4444" />
               <Text className="text-red-500 text-xs font-medium ml-2 flex-1">
-                {errorMsg}
+                {displayError}
               </Text>
             </View>
           ) : null}

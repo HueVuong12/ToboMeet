@@ -166,24 +166,6 @@ export default function ForgotPasswordScreen() {
     setErrorMsg("");
   };
 
-  // Render từng dòng kiểm tra điều kiện mật khẩu
-  // const renderConstraintRow = (label: string, isValid: boolean) => {
-  //   return (
-  //     <View className="flex-row items-center space-x-2 mb-1.5">
-  //       <Ionicons
-  //         name={isValid ? "checkmark-circle" : "ellipse-outline"}
-  //         size={16}
-  //         color={isValid ? "#0052FF" : "#94A3B8"}
-  //       />
-  //       <Text
-  //         className={`text-xs ml-1.5 ${isValid ? "text-brand-500 font-semibold" : "text-slate-400"}`}
-  //       >
-  //         {label}
-  //       </Text>
-  //     </View>
-  //   );
-  // };
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -307,7 +289,7 @@ export default function ForgotPasswordScreen() {
                 <TouchableOpacity
                   onPress={handleEmailSubmit}
                   disabled={isLoading || !email}
-                  className={`w-full rounded-xl py-4 items-center justify-center mt-6 shadow-md ${
+                  className={`w-full mt-4 py-4 rounded-full flex-row justify-center items-center gap-2 shadow-sm ${
                     isLoading || !email ? "opacity-70" : "active:opacity-90"
                   }`}
                   style={{ backgroundColor: "#0052FF" }} // Nút màu xanh thương hiệu
@@ -382,7 +364,7 @@ export default function ForgotPasswordScreen() {
                 <TouchableOpacity
                   onPress={handleOtpSubmit}
                   disabled={isLoading || otp.join("").length < 6}
-                  className={`w-full rounded-xl py-4 items-center justify-center mt-4 shadow-md ${
+                  className={`w-full mt-4 py-4 rounded-full flex-row justify-center items-center gap-2 shadow-sm ${
                     isLoading || otp.join("").length < 6 ? "opacity-70" : ""
                   }`}
                   style={{ backgroundColor: "#0052FF" }} // Nút màu xanh thương hiệu
@@ -529,7 +511,7 @@ export default function ForgotPasswordScreen() {
                 {/* KHU VỰC RÀNG BUỘC MẬT KHẨU (VALIDATOR) */}
                 <View className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mt-4">
                   <Text className="text-slate-800 font-bold text-sm mb-3">
-                    {t.reqTitle} 111
+                    {t.reqTitle}
                   </Text>
                   {renderConstraintRow(t.reqMinLength, hasMinLength)}
                   {renderConstraintRow(t.reqLetters, hasLetter)}
@@ -540,7 +522,7 @@ export default function ForgotPasswordScreen() {
                   <Text className="text-slate-800 font-bold text-sm mb-2">
                     {t.ruleTitle}
                   </Text>
-                  {renderConstraintRow(t.ruleConsecutive, noConsecutive)}{" "}
+                  {renderConstraintRow(t.ruleConsecutive, noConsecutive)}
                 </View>
 
                 <TouchableOpacity
@@ -550,7 +532,7 @@ export default function ForgotPasswordScreen() {
                     !isPasswordValid ||
                     newPassword !== confirmPassword
                   }
-                  className={`w-full rounded-xl py-4 items-center justify-center mt-6 shadow-md ${
+                  className={`w-full mt-4 py-4 rounded-full flex-row justify-center items-center gap-2 shadow-sm ${
                     isLoading ||
                     !isPasswordValid ||
                     newPassword !== confirmPassword

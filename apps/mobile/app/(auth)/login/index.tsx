@@ -11,17 +11,17 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase, supabaseAuth } from "../../../lib/supabase";
+import { supabaseAuth } from "../../../lib/supabase";
 import { translations, Language } from "../../../lib/locales";
 import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
+import { useOAuth } from "../../../hooks/useOAuth";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
 
-  const [lang, setLang] = useState<Language>("vi");
+  const [lang] = useState<Language>("vi");
   const t = translations[lang];
 
   // State quản lý form
@@ -30,9 +30,12 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isFbLoading, setIsFbLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const { handleOAuthLogin, isGoogleLoading, isFbLoading, oauthError } =
+    useOAuth();
+
+  const displayError = errorMsg || oauthError;
 
   // Trạng thái focus để đổi màu viền Input
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
@@ -47,58 +50,12 @@ export default function LoginScreen() {
     setErrorMsg("");
     try {
       await supabaseAuth.signInWithPassword(email, password);
-      // Đăng nhập thành công, Supabase tự lưu session, chuyển hướng về Home
-      router.replace("/(tabs)/home");
     } catch (error: unknown) {
       setErrorMsg(
         error instanceof Error ? error.message : t.errorSendOtpFailed,
       );
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleOAuthLogin = async (provider: "google" | "facebook") => {
-    if (provider === "google") setIsGoogleLoading(true);
-    else setIsFbLoading(true);
-
-    setErrorMsg("");
-
-    try {
-      // 1. Tạo URL quay về app (Phải khớp với Redirect URL trong Supabase)
-      // Ví dụ: tobomeet://auth/callback
-      const redirectUrl = Linking.createURL("tobomeet://auth/callback");
-
-      // 2. Lấy URL đăng nhập từ Supabase
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: provider,
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true, // Thêm dòng này để kiểm soát việc mở browser
-        },
-      });
-
-      if (error) throw error;
-
-      // 3. Mở trình duyệt an toàn (Expo WebBrowser)
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectUrl, // Đường dẫn sẽ được kiểm tra để đóng trình duyệt khi khớp
-      );
-
-      // 4. Xử lý kết quả
-      if (result.type === "success") {
-        // Lưu ý: Không cần router.replace ở đây nếu bạn đã có file callback.tsx
-        // SDK Supabase sẽ tự động cập nhật session khi quay về.
-        // Chỉ cần router.replace nếu bạn muốn chủ động điều hướng sau khi check xong.
-      } else {
-        throw new Error("Đăng nhập bị hủy hoặc thất bại");
-      }
-    } catch (error: any) {
-      setErrorMsg(error.message || "Lỗi đăng nhập");
-    } finally {
-      if (provider === "google") setIsGoogleLoading(false);
-      else setIsFbLoading(false);
     }
   };
 
@@ -117,11 +74,23 @@ export default function LoginScreen() {
       >
         <View className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 w-full max-w-md mx-auto">
           {/* LOGO TOBOMEET */}
-          <View className="flex-row justify-center items-center mb-8">
-            <View className="w-10 h-10 bg-brand-500 rounded-xl items-center justify-center mr-3 shadow-sm bg-[#0052FF]">
-              <Ionicons name="videocam" size={22} color="white" />
+          <View className="items-center mb-6 flex-row justify-center">
+            {/* Biểu tượng Camera trắng trong khung xanh bo góc tròn tuyệt đẹp có độ nghiêng nghệ thuật và đổ bóng phát sáng */}
+            <View
+              className="w-12 h-12 bg-[#0052FF] rounded-2xl items-center justify-center mr-4"
+              style={{
+                transform: [{ rotate: "3deg" }],
+                shadowColor: "#0052FF",
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 10,
+                elevation: 8,
+              }}
+            >
+              <Ionicons name="videocam" size={26} color="white" />
             </View>
-            <Text className="text-3xl font-black text-slate-800 tracking-tight">
+            {/* Chữ thương hiệu ToboMeet */}
+            <Text className="text-3xl font-extrabold text-slate-800 tracking-tight">
               Tobo<Text className="text-[#0052FF]">Meet</Text>
             </Text>
           </View>
@@ -137,11 +106,11 @@ export default function LoginScreen() {
           </View>
 
           {/* HIỂN THỊ LỖI */}
-          {errorMsg ? (
+          {displayError ? (
             <View className="mb-6 p-3.5 bg-red-50 rounded-2xl border border-red-100 flex-row items-center">
               <Ionicons name="alert-circle" size={18} color="#EF4444" />
               <Text className="text-red-500 text-xs font-medium ml-2 flex-1">
-                {errorMsg}
+                {displayError}
               </Text>
             </View>
           ) : null}
