@@ -1,0 +1,309 @@
+{
+  "header": {
+    "features": "Tính năng",
+    "solutions": "Giải pháp",
+    "platform": "Nền tảng",
+    "pricing": "Bảng giá",
+    "login": "Đăng nhập",
+    "register": "Đăng ký miễn phí",
+    "lang_vi": "Tiếng Việt",
+    "lang_en": "English"
+  },
+  "hero": {
+    "badge": "✨ Nền tảng họp trực tuyến thế hệ mới",
+    "title_line1": "Kết nối không",
+    "title_line1_accent": "giới hạn",
+    "title_line2": "Họp thông minh hơn.",
+    "description": "Giải pháp video call chất lượng cao, độ trễ thấp — dành cho doanh nghiệp, trường học và mọi đội nhóm. Kết nối mượt mà, bảo mật tuyệt đối.",
+    "create_meeting": "Tạo cuộc họp mới",
+    "join_placeholder": "Nhập mã phòng...",
+    "join_button": "Tham gia",
+    "mockup_title": "Q4 Team Kickoff 2025",
+    "mockup_live": "LIVE",
+    "mockup_leave": "Rời phòng",
+    "social_proof_number": "50.000+",
+    "social_proof": "đội nhóm tin tưởng mỗi ngày",
+    "security_badge": "E2E Encrypted",
+    "participants_badge": "người tham gia"
+  },
+  "stats": {
+    "users_value": "50K+",
+    "users_label": "Người dùng hoạt động",
+    "meetings_value": "1M+",
+    "meetings_label": "Cuộc họp mỗi ngày",
+    "countries_value": "150+",
+    "countries_label": "Quốc gia kết nối",
+    "uptime_value": "99.99%",
+    "uptime_label": "Uptime SLA đảm bảo"
+  },
+  "features": {
+    "section_badge": "⚡ Tính năng nổi bật",
+    "section_title": "Mọi thứ bạn cần để",
+    "section_title_gradient": "kết nối",
+    "section_desc": "Mọi công cụ bạn cần để kết nối, học tập và làm việc hiệu quả hơn — trong một nền tảng duy nhất.",
+    "uptime_label": "Global Uptime SLA",
+    "security_title": "Bảo mật doanh nghiệp",
+    "security_desc": "Mã hóa E2E cấp ngân hàng",
+    "items": [
+      {
+        "title": "Gọi Video HD độ trễ thấp",
+        "description": "Chất lượng hình ảnh lên đến 4K, độ trễ dưới 100ms. Trải nghiệm cuộc họp như gặp mặt trực tiếp dù cách xa ngàn dặm."
+      },
+      {
+        "title": "Quản lý lớp học trực quan",
+        "description": "Bảng trắng tương tác, chia nhóm thảo luận, điểm danh tự động. Giáo viên dễ dàng kiểm soát lớp học từ xa."
+      },
+      {
+        "title": "Bảo mật dữ liệu tuyệt đối",
+        "description": "Mã hoá đầu cuối E2E, tuân thủ GDPR. Mọi cuộc họp đều được bảo vệ bằng công nghệ mã hoá cấp doanh nghiệp."
+      }
+    ]
+  },
+  "how_it_works": {
+    "section_badge": "🚀 Đơn giản & Nhanh chóng",
+    "section_title": "Bắt đầu họp trong",
+    "section_title_accent": "30 giây",
+    "section_desc": "Không cần cài đặt phức tạp. Tạo phòng họp và kết nối với đội nhóm ngay lập tức.",
+    "cta_btn": "Thử ngay — Miễn phí",
+    "steps": [
+      {
+        "step": "01",
+        "title": "Tạo phòng họp",
+        "description": "Nhấn một nút để tạo phòng họp mới. Nhận ngay link và mã phòng để chia sẻ với mọi người."
+      },
+      {
+        "step": "02",
+        "title": "Mời thành viên",
+        "description": "Chia sẻ link hoặc mã phòng với đồng nghiệp. Họ tham gia chỉ với một click, không cần cài đặt."
+      },
+      {
+        "step": "03",
+        "title": "Kết nối ngay",
+        "description": "Họp trực tiếp với video HD, âm thanh rõ ràng và đầy đủ công cụ cộng tác nhóm."
+      }
+    ]
+  },
+  "testimonials": {
+    "section_badge": "💬 Đánh giá từ người dùng",
+    "section_title": "Được tin dùng bởi",
+    "section_title_accent": "hàng nghìn đội nhóm",
+    "items": [
+      {
+        "name": "Nguyễn Văn Minh",
+        "role": "CTO, TechVN Solutions",
+        "content": "Tobo đã thay đổi hoàn toàn cách đội ngũ của chúng tôi làm việc từ xa. Chất lượng video tuyệt vời và không bao giờ bị ngắt kết nối."
+      },
+      {
+        "name": "Trần Thị Hoa",
+        "role": "Giáo viên, Trường THPT Lê Hồng Phong",
+        "content": "Tính năng quản lý lớp học của Tobo giúp tôi dễ dàng điểm danh và theo dõi học sinh hơn bao giờ hết. Thực sự rất ấn tượng!"
+      },
+      {
+        "name": "Lê Quang Huy",
+        "role": "Product Manager, Vingroup",
+        "content": "Giao diện đẹp, dễ dùng và cực kỳ ổn định. Đây là giải pháp tốt nhất tôi từng dùng cho cuộc họp trực tuyến."
+      },
+      {
+        "name": "Phạm Thu Hằng",
+        "role": "HR Director, FPT Software",
+        "content": "Từ khi dùng Tobo, năng suất làm việc của team tăng rõ rệt. Tính năng chia nhóm thảo luận Breakout Room cực kỳ hữu ích."
+      },
+      {
+        "name": "David Nguyen",
+        "role": "Engineering Lead, Axon Enterprise",
+        "content": "We switched from Teams to Tobo and never looked back. The latency is incredibly low even for our global distributed team."
+      },
+      {
+        "name": "Sarah Kim",
+        "role": "Head of Education, EdTech Korea",
+        "content": "Tobo's classroom management features are unmatched. Our student engagement increased by 40% after switching."
+      }
+    ]
+  },
+  "platforms": {
+    "section_badge": "🌐 Đa nền tảng",
+    "section_title": "Trải nghiệm đồng bộ trên mọi thiết bị",
+    "section_desc": "Hệ thống hỗ trợ hoàn hảo trên mọi nền tảng. Dù bạn đang ở văn phòng hay đang di chuyển, kết nối luôn được giữ vững.",
+    "one_account": "Một tài khoản duy nhất",
+    "one_account_desc": "đăng nhập và đồng bộ liền mạch trên mọi thiết bị, mọi lúc mọi nơi.",
+    "tab_web": "Trình duyệt Web",
+    "tab_desktop": "Desktop App",
+    "tab_mobile": "Di động",
+    "items": [
+      {
+        "name": "Trình duyệt Web",
+        "description": "Không cần cài đặt, mở trình duyệt là họp ngay",
+        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
+      },
+      {
+        "name": "Desktop App",
+        "description": "Ứng dụng native hiệu năng cao, tích hợp hệ thống",
+        "badges": ["Windows", "macOS", "Linux"]
+      },
+      {
+        "name": "Di động",
+        "description": "Họp mọi lúc mọi nơi, tối ưu cho màn hình nhỏ",
+        "badges": ["iOS", "Android"]
+      }
+    ]
+  },
+  "pricing": {
+    "section_badge": "💰 Bảng giá",
+    "section_title": "Gói phù hợp",
+    "section_title_accent": "với mọi nhu cầu",
+    "section_desc": "Bắt đầu miễn phí, nâng cấp bất cứ lúc nào. Không cam kết dài hạn.",
+    "toggle_monthly": "Hàng tháng",
+    "toggle_yearly": "Hàng năm",
+    "save_badge": "Tiết kiệm 20%",
+    "per_month": "/tháng",
+    "save_amount": "Tiết kiệm ${amount}/năm",
+    "free_label": "Miễn phí",
+    "popular_badge": "Phổ biến nhất",
+    "contact_text": "Liên hệ",
+    "footer_note": "Tất cả các gói đều bao gồm SSL, E2E encryption và hỗ trợ kỹ thuật cơ bản.",
+    "tiers": [
+      {
+        "name": "Free",
+        "description": "Dành cho cá nhân và nhóm nhỏ khởi đầu",
+        "cta": "Bắt đầu miễn phí",
+        "features": [
+          "Tối đa 100 người tham gia",
+          "Cuộc họp tối đa 60 phút",
+          "Chat trong cuộc họp",
+          "Chia sẻ màn hình cơ bản",
+          "Phụ đề trực tiếp"
+        ]
+      },
+      {
+        "name": "Pro",
+        "description": "Dành cho đội nhóm chuyên nghiệp cần mạnh hơn",
+        "cta": "Dùng thử 14 ngày",
+        "features": [
+          "Không giới hạn người tham gia",
+          "Cuộc họp không giới hạn thời gian",
+          "Ghi âm & lưu trữ cuộc họp",
+          "Phòng chờ và quản lý quyền truy cập",
+          "Bảng trắng cộng tác (Whiteboard)",
+          "Phụ đề thời gian thực",
+          "Dịch thời gian thực",
+          "Tóm tắt cuộc họp",
+          "Tạo biên bản và Action Items tự động",
+          "Khảo sát và Hỏi đáp"
+        ]
+      }
+    ]
+  },
+  "cta": {
+    "badge": "🎉 Miễn phí · Không cần thẻ tín dụng",
+    "title": "Sẵn sàng kết nối",
+    "title_accent": "không giới hạn?",
+    "description": "Hơn 50.000 đội nhóm đã tin dùng Tobo để kết nối và cộng tác mỗi ngày. Hãy bắt đầu ngay hôm nay.",
+    "email_placeholder": "Nhập email của bạn...",
+    "cta_button": "Bắt đầu miễn phí",
+    "or_text": "hoặc",
+    "create_meeting": "Tạo cuộc họp ngay →",
+    "no_credit_card": "✓ Không cần thẻ tín dụng  ✓ Miễn phí 14 ngày  ✓ Hủy bất cứ lúc nào"
+  },
+  "footer": {
+    "thesis_title": "Khóa luận tốt nghiệp: Nền tảng họp trực tuyến thời gian thực hỗ trợ cộng tác nhóm",
+    "university": "Đại học Công nghiệp Thành phố Hồ Chí Minh",
+    "faculty": "Khoa Công nghệ Thông tin",
+    "advisor_label": "Giảng viên hướng dẫn:",
+    "advisor_name": "TS. Nguyễn Thị Hạnh",
+    "student_label": "Sinh viên thực hiện:",
+    "student_name": "Vương Ngọc Huệ\nTrần Phúc Hưng",
+    "year": "Thành phố Hồ Chí Minh, Năm 2026",
+    "github_repo": "Mã nguồn dự án trên GitHub",
+    "status": "Hệ thống đang hoạt động",
+    "made_with": "Khóa luận Tốt nghiệp"
+  },
+  "login": {
+    "welcome_back": "Chào mừng trở lại",
+    "sign_in_to_continue": "Đăng nhập để kết nối với đội nhóm của bạn",
+    "sign_in": "Đăng nhập",
+    "signing_in": "Đang đăng nhập...",
+    "continue_with_google": "Tiếp tục với Google",
+    "continue_with_facebook": "Tiếp tục với Facebook",
+    "dont_have_account": "Chưa có tài khoản?",
+    "sign_up": "Đăng ký",
+    "or_text": "hoặc",
+    "work_email": "Email công việc",
+    "password": "Mật khẩu",
+    "forgot_password": "Quên mật khẩu?"
+  },
+  "signup": {
+    "sign_up": "Đăng ký tài khoản",
+    "create_account_to_continue": "Tạo tài khoản để tiếp tục",
+    "work_email": "Email công việc",
+    "password": "Mật khẩu",
+    "password_placeholder": "Tối thiểu 6 ký tự",
+    "confirm_password": "Nhập lại mật khẩu",
+    "confirm_password_placeholder": "Nhập lại mật khẩu",
+    "already_have_account": "Đã có tài khoản?",
+    "signup_success": "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận."
+  },
+  "auth_layout": {
+    "connect_without_limits": "Kết nối không giới hạn.",
+    "smart_collaboration": "Hợp tác thông minh hơn.",
+    "platform_description": "Nền tảng video call tối ưu cho đội nhóm và doanh nghiệp. Mang lại trải nghiệm mượt mà, bảo mật và hoàn toàn chủ động.",
+    "joined_by": "Hơn 50.000+ đội nhóm tin dùng"
+  },
+  "forgot_password": {
+    "branding_tagline": "Khôi phục",
+    "branding_tagline_accent": "quyền truy cập",
+    "branding_desc": "Lấy lại mật khẩu an toàn và nhanh chóng. Kết nối trở lại với đội nhóm của bạn chỉ trong vài bước đơn giản.",
+    "badge_e2e": "Mã hóa E2E",
+    "badge_secure": "Bảo mật tuyệt đối",
+    "badge_users": "50K+ người dùng",
+    "title": "Quên mật khẩu?",
+    "subtitle": "Đừng lo lắng! Hãy nhập email của bạn và chúng tôi sẽ gửi mã khôi phục ngay lập tức.",
+    "email_label": "Email tài khoản",
+    "email_placeholder": "Ví dụ: hello@tobomeet.com",
+    "error_invalid_email": "Vui lòng nhập một địa chỉ email hợp lệ.",
+    "submit_btn": "Gửi mã khôi phục",
+    "security_note": "Kết nối được bảo vệ bằng mã hóa SSL 256-bit",
+    "back_to_login": "Quay lại trang đăng nhập",
+    "otp_title": "Nhập mã bảo mật",
+    "otp_subtitle": "Chúng tôi vừa gửi mã gồm 8 chữ số đến {email}. Vui lòng nhập mã để tiếp tục.",
+    "error_invalid_otp": "Mã xác minh không chính xác hoặc đã hết hạn.",
+    "otp_submit_btn": "Xác nhận mã",
+    "otp_help_link": "Tôi không truy cập được email này",
+    "reset_title": "Tạo mật khẩu mới",
+    "reset_subtitle": "Vui lòng đặt mật khẩu mới mạnh và an toàn cho tài khoản .",
+    "reset_new_pwd": "Mật khẩu mới",
+    "reset_confirm_pwd": "Xác nhận mật khẩu mới",
+    "reset_policy_title": "Yêu cầu mật khẩu:",
+    "reset_policy_length": "Ít nhất 8 ký tự",
+    "reset_policy_letter": "Có chứa chữ cái (a-z, A-Z)",
+    "reset_policy_upper": "Có chứa chữ in hoa (A-Z)",
+    "reset_policy_lower": "Có chứa chữ in thường (a-z)",
+    "reset_policy_number": "Có chứa chữ số (0-9)",
+    "reset_policy_no_consecutive_title": "Quy tắc an toàn:",
+    "reset_policy_no_consecutive_desc": "Không sử dụng 4 ký tự giống nhau liên tiếp (ví dụ: aaaa, 1111).",
+    "reset_submit_btn": "Cập nhật mật khẩu"
+  },
+  "password_reset": {
+    "opt_success": "",
+    "otp_sent": "Đã gửi mã xác minh về email.",
+    "otp_send_failed": "Không thể gửi mã xác minh. Vui lòng thử lại.",
+    "otp_invalid_or_expired": "Mã xác minh không chính xác hoặc đã hết hạn.",
+    "password_update_failed": "Đã xảy ra lỗi khi lưu mật khẩu mới.",
+    "new_password_must_be_different": "Mật khẩu mới phải khác mật khẩu cũ"
+  },
+  "error": {
+    "auth": {
+      "user_existed": "Email này đã có tài khoản đăng kí. ",
+      "invalid_credentials": "Thông tin đăng nhập không hợp lệ. Vui lòng kiểm tra lại email và mật khẩu.",
+      "network_error": "Lỗi mạng. Vui lòng kiểm tra kết nối internet của bạn.",
+      "unknown_error": "Đã có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.",
+      "email_not_confirmed": "Tài khoản chưa được xác thực. Vui lòng kiểm tra email của bạn để xác nhận.",
+      "too_many_requests": "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi một lát rồi thử lại.",
+      "signup_failed": "Đã có lỗi xảy ra khi đăng ký, vui lòng thử lại.",
+      "oauth_failed": "Không thể kết nối tới nhà cung cấp OAuth. Vui lòng thử lại sau.",
+      "missing_fields": "Vui lòng nhập mật khẩu và xác nhận mật khẩu.",
+      "password_too_short": "Mật khẩu phải có tối thiểu 6 ký tự.",
+      "password_mismatch": "Mật khẩu và xác nhận mật khẩu không khớp.",
+      "password_invalid": "Mật khẩu không hợp lệ. "
+    }
+  }
+}

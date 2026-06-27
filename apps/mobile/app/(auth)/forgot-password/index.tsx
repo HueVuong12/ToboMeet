@@ -11,9 +11,9 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { translations, Language } from "../../../lib/locales";
 import { supabaseAuth } from "../../../lib/supabase";
 import { validatePasswordPolicy } from "@tobomeet/shared/utils";
+import { useTranslation } from "react-i18next";
 
 type FormStep = "email" | "otp" | "reset" | "success";
 
@@ -38,9 +38,7 @@ export const renderConstraintRow = (label: string, isValid: boolean) => {
 export default function ForgotPasswordScreen() {
   const router = useRouter();
 
-  // Đa ngôn ngữ
-  const [lang, setLang] = useState<Language>("vi");
-  const t = translations[lang];
+  const { t } = useTranslation();
 
   const [step, setStep] = useState<FormStep>("email");
   const [isLoading, setIsLoading] = useState(false);
@@ -68,34 +66,34 @@ export default function ForgotPasswordScreen() {
     isValid: isPasswordValid,
   } = validatePasswordPolicy(newPassword);
 
-  const getPasswordErrorMessage = () => {
-    if (!newPassword || isPasswordValid) return "";
+  // const getPasswordErrorMessage = () => {
+  //   if (!newPassword || isPasswordValid) return "";
 
-    const errors: string[] = [];
-    const isVi = lang === "vi";
+  //   const errors: string[] = [];
+  //   const isVi = lang === "vi";
 
-    if (!hasMinLength)
-      errors.push(isVi ? "tối thiểu 8 ký tự" : "at least 8 characters");
-    if (!hasLetter) errors.push(isVi ? "chứa chữ cái" : "contain letters");
-    else {
-      if (!hasUpper) errors.push(isVi ? "1 chữ in hoa" : "1 uppercase letter");
-      if (!hasLower)
-        errors.push(isVi ? "1 chữ in thường" : "1 lowercase letter");
-    }
-    if (!hasNumber) errors.push(isVi ? "1 chữ số" : "1 number");
-    if (!noConsecutive)
-      errors.push(
-        isVi
-          ? "không lặp 4 ký tự liên tiếp"
-          : "no 4 identical consecutive chars",
-      );
+  //   if (!hasMinLength)
+  //     errors.push(isVi ? "tối thiểu 8 ký tự" : "at least 8 characters");
+  //   if (!hasLetter) errors.push(isVi ? "chứa chữ cái" : "contain letters");
+  //   else {
+  //     if (!hasUpper) errors.push(isVi ? "1 chữ in hoa" : "1 uppercase letter");
+  //     if (!hasLower)
+  //       errors.push(isVi ? "1 chữ in thường" : "1 lowercase letter");
+  //   }
+  //   if (!hasNumber) errors.push(isVi ? "1 chữ số" : "1 number");
+  //   if (!noConsecutive)
+  //     errors.push(
+  //       isVi
+  //         ? "không lặp 4 ký tự liên tiếp"
+  //         : "no 4 identical consecutive chars",
+  //     );
 
-    return (
-      (isVi ? "Mật khẩu phải: " : "Password must: ") + errors.join(", ") + "."
-    );
-  };
+  //   return (
+  //     (isVi ? "Mật khẩu phải: " : "Password must: ") + errors.join(", ") + "."
+  //   );
+  // };
 
-  const passwordError = getPasswordErrorMessage();
+  const passwordError = "";
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -105,7 +103,7 @@ export default function ForgotPasswordScreen() {
 
   const handleEmailSubmit = async () => {
     if (!email) {
-      setErrorMsg(t.errorEmailRequired);
+      setErrorMsg(t("forgot_password.error_invalid_email"));
       return;
     }
     setIsLoading(true);
@@ -116,7 +114,9 @@ export default function ForgotPasswordScreen() {
       setCountdown(300);
     } catch (error: unknown) {
       setErrorMsg(
-        error instanceof Error ? error.message : t.errorSendOtpFailed,
+        error instanceof Error
+          ? error.message
+          : t("password_reset.otp_send_failed"),
       );
     } finally {
       setIsLoading(false);
@@ -126,7 +126,7 @@ export default function ForgotPasswordScreen() {
   const handleOtpSubmit = async () => {
     const code = otp.join("");
     if (code.length < 6) {
-      setErrorMsg(t.errorOtpLength);
+      setErrorMsg(t("forgot_password.error_invalid_otp"));
       return;
     }
     setIsLoading(true);
@@ -136,7 +136,11 @@ export default function ForgotPasswordScreen() {
       await supabaseAuth.verifyPasswordResetOtp(email, code);
       setStep("reset");
     } catch (error: unknown) {
-      setErrorMsg(error instanceof Error ? error.message : t.errorVerifyFailed);
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : t("forgot_password.error_invalid_otp"),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +148,7 @@ export default function ForgotPasswordScreen() {
 
   const handleResetSubmit = async () => {
     if (newPassword !== confirmPassword) {
-      setErrorMsg(t.errorPasswordMismatch);
+      setErrorMsg(t("password_reset.password_update_failed"));
       return;
     }
     if (!isPasswordValid) return;
@@ -155,15 +159,14 @@ export default function ForgotPasswordScreen() {
       await supabaseAuth.updatePassword(newPassword);
       setStep("success");
     } catch (error: unknown) {
-      setErrorMsg(error instanceof Error ? error.message : t.errorResetFailed);
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : t("password_reset.password_update_failed"),
+      );
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const toggleLanguage = () => {
-    setLang(lang === "vi" ? "en" : "vi");
-    setErrorMsg("");
   };
 
   return (
@@ -171,27 +174,6 @@ export default function ForgotPasswordScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-slate-100" // Nền màu trắng xám chuẩn
     >
-      {/* Nút dịch thuật ngôn ngữ ở góc trên cùng bên phải ngoài card */}
-      <View
-        className="absolute z-50"
-        style={{
-          top: Platform.OS === "ios" ? 50 : 20,
-          right: 20,
-        }}
-      >
-        <TouchableOpacity
-          onPress={toggleLanguage}
-          className="bg-white border border-slate-200 rounded-full px-3 py-1.5 flex-row items-center shadow-md"
-        >
-          <View className="mr-1">
-            <Ionicons name="globe-outline" size={14} color="#64748B" />
-          </View>
-          <Text className="text-slate-600 font-bold text-xs ml-1">
-            {lang === "vi" ? "VI 🇻🇳" : "EN 🇬🇧"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -232,17 +214,17 @@ export default function ForgotPasswordScreen() {
             <View>
               <View className="mb-6 items-center">
                 <Text className="text-2xl font-bold text-slate-800 mb-2 uppercase tracking-wide">
-                  {t.forgotPassword}
+                  {t("forgot_password.title")}
                 </Text>
                 <Text className="text-slate-500 text-sm leading-5 text-center px-2">
-                  {t.forgotPasswordDesc}
+                  {t("forgot_password.subtitle")}
                 </Text>
               </View>
 
               <View className="space-y-4">
                 <View>
                   <Text className="text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                    {t.email}
+                    {t("forgot_password.email_label")}
                   </Text>
                   <View
                     className="w-full border rounded-xl px-4 py-3 flex-row items-center shadow-sm"
@@ -262,7 +244,7 @@ export default function ForgotPasswordScreen() {
                     </View>
                     <TextInput
                       className="flex-1 text-base text-slate-800 ml-2"
-                      placeholder={t.emailPlaceholder}
+                      placeholder={t("forgot_password.email_placeholder")}
                       placeholderTextColor="#94A3B8"
                       value={email}
                       onChangeText={setEmail}
@@ -298,7 +280,7 @@ export default function ForgotPasswordScreen() {
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text className="text-white font-bold text-base">
-                      {t.sendOtp}
+                      {t("forgot_password.submit_btn")}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -308,7 +290,7 @@ export default function ForgotPasswordScreen() {
                   className="mt-5 items-center"
                 >
                   <Text className="text-slate-500 font-bold text-sm">
-                    {t.backToLogin}
+                    {t("forgot_password.back_to_login")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -320,10 +302,10 @@ export default function ForgotPasswordScreen() {
             <View>
               <View className="mb-6 items-center">
                 <Text className="text-2xl font-bold text-slate-800 mb-2 uppercase tracking-wide">
-                  {t.enterOtp}
+                  {t("forgot_password.otp_title")}
                 </Text>
                 <Text className="text-slate-500 text-sm leading-5 text-center px-2">
-                  {t.enterOtpDesc}{" "}
+                  {t("forgot_password.otp_subtitle")}{" "}
                   <Text className="font-bold text-slate-700">{email}</Text>
                 </Text>
               </View>
@@ -373,7 +355,7 @@ export default function ForgotPasswordScreen() {
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text className="text-white font-bold text-base">
-                      {t.verify}
+                      {t("forgot_password.otp_submit_btn")}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -386,10 +368,10 @@ export default function ForgotPasswordScreen() {
             <View>
               <View className="mb-6 items-center">
                 <Text className="text-2xl font-bold text-slate-800 mb-2 uppercase tracking-wide">
-                  {t.createNewPassword}
+                  {t("forgot_password.reset_title")}
                 </Text>
                 <Text className="text-slate-500 text-sm leading-5 text-center">
-                  {t.createNewPasswordDesc}
+                  {t("forgot_password.reset_subtitle")}
                 </Text>
               </View>
 
@@ -397,7 +379,7 @@ export default function ForgotPasswordScreen() {
                 {/* Mật khẩu mới */}
                 <View>
                   <Text className="text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                    {t.newPassword}
+                    {t("forgot_password.reset_new_pwd")}
                   </Text>
                   <View
                     className="w-full border rounded-xl px-4 py-3 flex-row items-center pr-12 shadow-sm"
@@ -417,7 +399,7 @@ export default function ForgotPasswordScreen() {
                     </View>
                     <TextInput
                       className="flex-1 text-base text-slate-800 ml-2"
-                      placeholder={t.newPasswordPlaceholder}
+                      placeholder={t("forgot_password.reset_new_pwd")}
                       placeholderTextColor="#94A3B8"
                       secureTextEntry={!showPassword}
                       value={newPassword}
@@ -441,7 +423,7 @@ export default function ForgotPasswordScreen() {
                 {/* Xác nhận mật khẩu mới */}
                 <View className="mt-3">
                   <Text className="text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                    {t.confirmPassword}
+                    {t("forgot_password.reset_confirm_pwd")}
                   </Text>
                   <View
                     className="w-full border rounded-xl px-4 py-3 flex-row items-center pr-12 shadow-sm"
@@ -465,7 +447,7 @@ export default function ForgotPasswordScreen() {
                     </View>
                     <TextInput
                       className="flex-1 text-base text-slate-800 ml-2"
-                      placeholder={t.confirmPasswordPlaceholder}
+                      placeholder={t("forgot_password.reset_confirm_pwd")}
                       placeholderTextColor="#94A3B8"
                       secureTextEntry={!showConfirm}
                       value={confirmPassword}
@@ -511,18 +493,36 @@ export default function ForgotPasswordScreen() {
                 {/* KHU VỰC RÀNG BUỘC MẬT KHẨU (VALIDATOR) */}
                 <View className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mt-4">
                   <Text className="text-slate-800 font-bold text-sm mb-3">
-                    {t.reqTitle}
+                    {t("forgot_password.reset_policy_title")}
                   </Text>
-                  {renderConstraintRow(t.reqMinLength, hasMinLength)}
-                  {renderConstraintRow(t.reqLetters, hasLetter)}
-                  {renderConstraintRow(t.reqUppercase, hasUpper)}
-                  {renderConstraintRow(t.reqLowercase, hasLower)}
-                  {renderConstraintRow(t.reqNumbers, hasNumber)}
+                  {renderConstraintRow(
+                    t("forgot_password.reset_policy_length"),
+                    hasMinLength,
+                  )}
+                  {renderConstraintRow(
+                    t("forgot_password.reset_policy_letter"),
+                    hasLetter,
+                  )}
+                  {renderConstraintRow(
+                    t("forgot_password.reset_policy_upper"),
+                    hasUpper,
+                  )}
+                  {renderConstraintRow(
+                    t("forgot_password.reset_policy_lower"),
+                    hasLower,
+                  )}
+                  {renderConstraintRow(
+                    t("forgot_password.reset_policy_number"),
+                    hasNumber,
+                  )}
                   <View className="h-px bg-slate-200 my-3" />
                   <Text className="text-slate-800 font-bold text-sm mb-2">
-                    {t.ruleTitle}
+                    {t("forgot_password.reset_policy_no_consecutive_title")}
                   </Text>
-                  {renderConstraintRow(t.ruleConsecutive, noConsecutive)}
+                  {renderConstraintRow(
+                    t("forgot_password.reset_policy_no_consecutive_desc"),
+                    noConsecutive,
+                  )}
                 </View>
 
                 <TouchableOpacity
@@ -545,7 +545,7 @@ export default function ForgotPasswordScreen() {
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text className="text-white font-bold text-base">
-                      {t.updatePassword}
+                      {t("forgot_password.reset_submit_btn")}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -560,10 +560,10 @@ export default function ForgotPasswordScreen() {
                 <Ionicons name="checkmark-circle" size={48} color="#10B981" />
               </View>
               <Text className="text-2xl font-bold text-slate-900 mb-3 text-center">
-                {t.success}
+                {t("password_reset.opt_success")}
               </Text>
               <Text className="text-slate-500 text-sm text-center mb-8 leading-6">
-                {t.successDesc}
+                {t("password_reset.otp_sent")}
               </Text>
               <TouchableOpacity
                 onPress={() => router.replace("/(auth)/login")}
@@ -571,7 +571,7 @@ export default function ForgotPasswordScreen() {
                 style={{ backgroundColor: "#0052FF" }} // Nút màu xanh thương hiệu
               >
                 <Text className="text-white font-bold text-base">
-                  {t.backToLogin}
+                  {t("forgot_password.back_to_login")}
                 </Text>
               </TouchableOpacity>
             </View>

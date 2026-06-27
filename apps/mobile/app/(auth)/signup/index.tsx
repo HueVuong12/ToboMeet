@@ -13,18 +13,17 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabaseAuth } from "../../../lib/supabase";
 import { validatePasswordPolicy } from "@tobomeet/shared/utils";
-import { Language, translations } from "../../../lib/locales";
 import { renderConstraintRow } from "../forgot-password";
 import * as WebBrowser from "expo-web-browser";
 import { useOAuth } from "../../../hooks/useOAuth";
+import { useTranslation } from "react-i18next";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function SignupScreen() {
   const router = useRouter();
 
-  const [lang] = useState<Language>("vi");
-  const t = translations[lang];
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,9 +83,7 @@ export default function SignupScreen() {
         router.replace("/home");
       }
     } catch (error: unknown) {
-      setErrorMsg(
-        error instanceof Error ? error.message : t.errorSendOtpFailed,
-      );
+      setErrorMsg(error instanceof Error ? error.message : t(""));
     } finally {
       setIsLoading(false);
     }
@@ -131,10 +128,10 @@ export default function SignupScreen() {
 
           <View className="text-center mb-6 items-center">
             <Text className="text-2xl font-bold text-slate-900 mb-2">
-              Đăng ký tài khoản
+              {t("signup.sign_up")}
             </Text>
             <Text className="text-slate-500 text-sm">
-              Tạo tài khoản để tiếp tục
+              {t("signup.create_account_to_continue")}
             </Text>
           </View>
 
@@ -162,7 +159,7 @@ export default function SignupScreen() {
             {/* Input Email */}
             <View>
               <Text className="block mb-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Email công việc
+                {t("signup.work_email")}
               </Text>
               <TextInput
                 value={email}
@@ -184,7 +181,7 @@ export default function SignupScreen() {
             {/* Input Mật khẩu */}
             <View>
               <Text className="block mb-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Mật khẩu
+                {t("signup.password")}
               </Text>
               <View
                 className={`w-full border rounded-2xl px-4 py-3.5 flex-row items-center bg-slate-50 ${
@@ -219,24 +216,42 @@ export default function SignupScreen() {
             {/* BẢNG ĐIỀU KIỆN MẬT KHẨU */}
             <View className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mt-4">
               <Text className="text-slate-800 font-bold text-sm mb-3">
-                {t.reqTitle}
+                {t("forgot_password.reset_policy_title")}
               </Text>
-              {renderConstraintRow(t.reqMinLength, hasMinLength)}
-              {renderConstraintRow(t.reqLetters, hasLetter)}
-              {renderConstraintRow(t.reqUppercase, hasUpper)}
-              {renderConstraintRow(t.reqLowercase, hasLower)}
-              {renderConstraintRow(t.reqNumbers, hasNumber)}
+              {renderConstraintRow(
+                t("forgot_password.reset_policy_length"),
+                hasMinLength,
+              )}
+              {renderConstraintRow(
+                t("forgot_password.reset_policy_letter"),
+                hasLetter,
+              )}
+              {renderConstraintRow(
+                t("forgot_password.reset_policy_upper"),
+                hasUpper,
+              )}
+              {renderConstraintRow(
+                t("forgot_password.reset_policy_lower"),
+                hasLower,
+              )}
+              {renderConstraintRow(
+                t("forgot_password.reset_policy_number"),
+                hasNumber,
+              )}
               <View className="h-px bg-slate-200 my-3" />
               <Text className="text-slate-800 font-bold text-sm mb-2">
-                {t.ruleTitle}
+                {t("forgot_password.reset_policy_no_consecutive_title")}
               </Text>
-              {renderConstraintRow(t.ruleConsecutive, noConsecutive)}
+              {renderConstraintRow(
+                t("forgot_password.reset_policy_no_consecutive_desc"),
+                noConsecutive,
+              )}
             </View>
 
             {/* Input Xác nhận mật khẩu */}
             <View>
               <Text className="block mb-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Xác nhận mật khẩu
+                {t("signup.confirm_password_placeholder")}
               </Text>
               <View
                 className={`w-full border rounded-2xl px-4 py-3.5 flex-row items-center bg-slate-50 ${
@@ -282,7 +297,7 @@ export default function SignupScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text className="text-white font-bold text-[15px]">
-                  Đăng ký
+                  {t("login.sign_up")}
                 </Text>
               )}
             </TouchableOpacity>
@@ -290,11 +305,11 @@ export default function SignupScreen() {
 
           <View className="flex-row justify-center mt-8 mb-6">
             <Text className="text-sm text-slate-500 font-medium">
-              Bạn đã có tài khoản?{" "}
+              {t("signup.already_have_account")}{" "}
             </Text>
             <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
               <Text className="text-sm text-[#0052FF] font-bold">
-                Đăng nhập
+                {t("login.sign_in")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -302,7 +317,7 @@ export default function SignupScreen() {
           <View className="flex-row items-center gap-3 mb-6">
             <View className="h-px flex-1 bg-slate-200" />
             <Text className="text-xs font-semibold text-slate-400 uppercase">
-              HOẶC
+              {t("login.or_text")}
             </Text>
             <View className="h-px flex-1 bg-slate-200" />
           </View>
@@ -319,7 +334,7 @@ export default function SignupScreen() {
                 <Ionicons name="logo-google" size={20} color="#DB4437" />
               )}
               <Text className="font-medium text-slate-700">
-                Tiếp tục với Google
+                {t("login.continue_with_google")}
               </Text>
             </TouchableOpacity>
 
@@ -334,7 +349,7 @@ export default function SignupScreen() {
                 <Ionicons name="logo-facebook" size={20} color="#1877F2" />
               )}
               <Text className="font-medium text-slate-700">
-                Tiếp tục với Facebook
+                {t("login.continue_with_facebook")}
               </Text>
             </TouchableOpacity>
           </View>

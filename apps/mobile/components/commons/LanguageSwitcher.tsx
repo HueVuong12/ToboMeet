@@ -1,12 +1,14 @@
-import React, { useState } from "react";
+import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
-import { Language } from "../../lib/locales";
+import { useTranslation } from "react-i18next";
 
 export default function LanguageSwitcher() {
-  const [lang, setLang] = useState<Language>("vi");
+  const { i18n } = useTranslation();
+
   const toggleLanguage = () => {
-    setLang(lang === "vi" ? "en" : "vi");
+    const nextLang = i18n.language === "vi" ? "en" : "vi";
+    i18n.changeLanguage(nextLang);
   };
 
   return (
@@ -25,7 +27,7 @@ export default function LanguageSwitcher() {
           <Ionicons name="globe-outline" size={14} color="#64748B" />
         </View>
         <Text className="text-slate-600 font-bold text-xs ml-1">
-          {lang === "vi" ? "VI 🇻🇳" : "EN 🇬🇧"}
+          {i18n.language === "vi" ? "VI 🇻🇳" : "EN 🇬🇧"}
         </Text>
       </TouchableOpacity>
     </View>

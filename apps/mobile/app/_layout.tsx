@@ -1,4 +1,5 @@
 import "../global.css";
+import '../lib/i18n';
 import React, { useEffect, useState } from "react";
 import {
   Slot,
@@ -8,6 +9,8 @@ import {
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { supabase } from "../lib/supabase";
+import { View } from "react-native";
+import LanguageSwitcher from "../components/commons/LanguageSwitcher";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -55,5 +58,10 @@ export default function RootLayout() {
     }, 100);
   }, [session, isAuthReady, segments, navigationState?.key]);
 
-  return <Slot />;
+  return (
+    <View style={{ flex: 1 }}>
+      <LanguageSwitcher />
+      <Slot />
+    </View>
+  );
 }

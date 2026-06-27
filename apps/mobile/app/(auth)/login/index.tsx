@@ -12,17 +12,16 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabaseAuth } from "../../../lib/supabase";
-import { translations, Language } from "../../../lib/locales";
 import * as WebBrowser from "expo-web-browser";
 import { useOAuth } from "../../../hooks/useOAuth";
+import { useTranslation } from "react-i18next";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
 
-  const [lang] = useState<Language>("vi");
-  const t = translations[lang];
+  const { t } = useTranslation();
 
   // State quản lý form
   const [email, setEmail] = useState("");
@@ -51,9 +50,7 @@ export default function LoginScreen() {
     try {
       await supabaseAuth.signInWithPassword(email, password);
     } catch (error: unknown) {
-      setErrorMsg(
-        error instanceof Error ? error.message : t.errorSendOtpFailed,
-      );
+      setErrorMsg(error instanceof Error ? error.message : t(""));
     } finally {
       setIsLoading(false);
     }
@@ -98,10 +95,10 @@ export default function LoginScreen() {
           {/* TIÊU ĐỀ */}
           <View className="text-center mb-6 items-center">
             <Text className="text-2xl font-bold text-slate-900 mb-2">
-              Chào mừng trở lại
+              {t("login.welcome_back")}
             </Text>
             <Text className="text-slate-500 text-sm">
-              Đăng nhập để tiếp tục
+              {t("login.sign_in_to_continue")}
             </Text>
           </View>
 
@@ -128,7 +125,7 @@ export default function LoginScreen() {
                 <Ionicons name="logo-google" size={20} color="#DB4437" />
               )}
               <Text className="font-medium text-slate-700">
-                Tiếp tục với Google
+                {t("login.continue_with_google")}
               </Text>
             </TouchableOpacity>
 
@@ -143,7 +140,7 @@ export default function LoginScreen() {
                 <Ionicons name="logo-facebook" size={20} color="#1877F2" />
               )}
               <Text className="font-medium text-slate-700">
-                Tiếp tục với Facebook
+                {t("login.continue_with_facebook")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -152,7 +149,7 @@ export default function LoginScreen() {
           <View className="flex-row items-center gap-3 mb-6">
             <View className="h-px flex-1 bg-slate-200" />
             <Text className="text-xs font-semibold text-slate-400 uppercase">
-              HOẶC
+              {t("login.or_text")}
             </Text>
             <View className="h-px flex-1 bg-slate-200" />
           </View>
@@ -162,7 +159,7 @@ export default function LoginScreen() {
             {/* Input Email */}
             <View>
               <Text className="block mb-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Email
+                {t("login.work_email")}
               </Text>
               <TextInput
                 value={email}
@@ -185,13 +182,13 @@ export default function LoginScreen() {
             <View>
               <View className="flex-row justify-between items-center mb-1.5">
                 <Text className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Mật khẩu
+                  {t("login.password")}
                 </Text>
                 <TouchableOpacity
                   onPress={() => router.push("/(auth)/forgot-password")}
                 >
                   <Text className="text-xs font-medium text-[#0052FF]">
-                    Quên mật khẩu?
+                    {t("login.forgot_password")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -240,7 +237,7 @@ export default function LoginScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text className="text-white font-bold text-[15px]">
-                  Đăng nhập
+                  {t("login.sign_in")}
                 </Text>
               )}
             </TouchableOpacity>
@@ -249,11 +246,11 @@ export default function LoginScreen() {
           {/* Đăng ký */}
           <View className="flex-row justify-center mt-8">
             <Text className="text-sm text-slate-500 font-medium">
-              Bạn chưa có tài khoản?{" "}
+              {t("login.dont_have_account")}{" "}
             </Text>
             <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
               <Text className="text-sm text-[#0052FF] font-bold">
-                Đăng ký ngay
+                {t("login.sign_up")}
               </Text>
             </TouchableOpacity>
           </View>
