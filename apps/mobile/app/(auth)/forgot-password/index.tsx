@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -55,6 +55,7 @@ export default function ForgotPasswordScreen() {
   // Trạng thái focus của các input để làm hiệu ứng viền màu xanh
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
+  const otpRefs = useRef<(TextInput | null)[]>([]);
   // Ràng buộc mật khẩu (real-time)
   const {
     hasMinLength,
@@ -120,6 +121,30 @@ export default function ForgotPasswordScreen() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOtpChange = (text: string, index: number) => {
+    const newOtp = [...otp];
+
+    // Nếu nhập số
+    if (text.length === 1) {
+      newOtp[index] = text;
+      setOtp(newOtp);
+      // Tự động nhảy ô tiếp theo
+      if (index < 5) otpRefs.current[index + 1]?.focus();
+    }
+    // Nếu xóa (xảy ra trong onKeyPress)
+    else if (text.length === 0) {
+      newOtp[index] = "";
+      setOtp(newOtp);
+    }
+  };
+
+  const handleKeyPress = (e: any, index: number) => {
+    // Nếu nhấn Backspace và ô hiện tại đang trống, nhảy về ô trước
+    if (e.nativeEvent.key === "Backspace" && otp[index] === "" && index > 0) {
+      otpRefs.current[index - 1]?.focus();
     }
   };
 
@@ -226,34 +251,21 @@ export default function ForgotPasswordScreen() {
                   <Text className="text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
                     {t("forgot_password.email_label")}
                   </Text>
-                  <View
-                    className="w-full border rounded-xl px-4 py-3 flex-row items-center shadow-sm"
-                    style={{
-                      borderColor:
-                        focusedInput === "email"
-                          ? "#0052FF"
-                          : errorMsg
-                            ? "#EF4444"
-                            : "#E2E8F0",
-                      backgroundColor:
-                        focusedInput === "email" ? "#FFFFFF" : "#F8FAFC",
-                    }}
-                  >
-                    <View className="mr-2">
-                      <Ionicons name="mail-outline" size={20} color="#64748B" />
-                    </View>
-                    <TextInput
-                      className="flex-1 text-base text-slate-800 ml-2"
-                      placeholder={t("forgot_password.email_placeholder")}
-                      placeholderTextColor="#94A3B8"
-                      value={email}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      onFocus={() => setFocusedInput("email")}
-                      onBlur={() => setFocusedInput(null)}
-                    />
-                  </View>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="nhap@email.com"
+                    placeholderTextColor="#94A3B8"
+                    onFocus={() => setFocusedInput("email")}
+                    onBlur={() => setFocusedInput(null)}
+                    className={`w-full px-4 py-3.5 bg-slate-50 border rounded-2xl text-slate-900 ${
+                      focusedInput === "email"
+                        ? "border-[#0052FF] bg-white"
+                        : "border-slate-200"
+                    }`}
+                  />
                   {errorMsg ? (
                     <View className="flex-row items-center mt-2">
                       <Ionicons
@@ -315,17 +327,24 @@ export default function ForgotPasswordScreen() {
                   {otp.map((digit, index) => (
                     <TextInput
                       key={index}
-                      className={`w-11 h-14 bg-slate-50 border rounded-xl text-center text-xl font-bold text-slate-800 ${
-                        errorMsg ? "border-red-500" : "border-slate-200"
+                      // Gán ref để điều khiển focus
+                      ref={(ref: TextInput | null) => {
+                        otpRefs.current[index] = ref;
+                      }}
+                      className={`w-12 h-14 bg-slate-50 border rounded-2xl text-center text-2xl font-bold text-slate-800 ${
+                        errorMsg
+                          ? "border-red-500"
+                          : focusedInput === `otp${index}`
+                            ? "border-[#0052FF]"
+                            : "border-slate-200"
                       }`}
                       maxLength={1}
                       keyboardType="number-pad"
                       value={digit}
-                      onChangeText={(text) => {
-                        const newOtp = [...otp];
-                        newOtp[index] = text;
-                        setOtp(newOtp);
-                      }}
+                      onChangeText={(text) => handleOtpChange(text, index)}
+                      onKeyPress={(e) => handleKeyPress(e, index)}
+                      onFocus={() => setFocusedInput(`otp${index}`)}
+                      onBlur={() => setFocusedInput(null)}
                     />
                   ))}
                 </View>
@@ -379,7 +398,7 @@ export default function ForgotPasswordScreen() {
                 {/* Mật khẩu mới */}
                 <View>
                   <Text className="text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                    {t("forgot_password.reset_new_pwd")}
+                    {t("password_reset.new_password")}
                   </Text>
                   <View
                     className="w-full border rounded-xl px-4 py-3 flex-row items-center pr-12 shadow-sm"
@@ -399,7 +418,7 @@ export default function ForgotPasswordScreen() {
                     </View>
                     <TextInput
                       className="flex-1 text-base text-slate-800 ml-2"
-                      placeholder={t("forgot_password.reset_new_pwd")}
+                      placeholder={t("password_reset.new_password_placeholder")}
                       placeholderTextColor="#94A3B8"
                       secureTextEntry={!showPassword}
                       value={newPassword}
@@ -423,7 +442,7 @@ export default function ForgotPasswordScreen() {
                 {/* Xác nhận mật khẩu mới */}
                 <View className="mt-3">
                   <Text className="text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                    {t("forgot_password.reset_confirm_pwd")}
+                    {t("password_reset.confirm_password")}
                   </Text>
                   <View
                     className="w-full border rounded-xl px-4 py-3 flex-row items-center pr-12 shadow-sm"
@@ -447,7 +466,9 @@ export default function ForgotPasswordScreen() {
                     </View>
                     <TextInput
                       className="flex-1 text-base text-slate-800 ml-2"
-                      placeholder={t("forgot_password.reset_confirm_pwd")}
+                      placeholder={t(
+                        "password_reset.confirm_password_placeholder",
+                      )}
                       placeholderTextColor="#94A3B8"
                       secureTextEntry={!showConfirm}
                       value={confirmPassword}
@@ -560,10 +581,10 @@ export default function ForgotPasswordScreen() {
                 <Ionicons name="checkmark-circle" size={48} color="#10B981" />
               </View>
               <Text className="text-2xl font-bold text-slate-900 mb-3 text-center">
-                {t("password_reset.opt_success")}
+                {t("password_reset.password_success")}
               </Text>
-              <Text className="text-slate-500 text-sm text-center mb-8 leading-6">
-                {t("password_reset.otp_sent")}
+              <Text className="text-slate-500 text-sm text-center mb-6 leading-6">
+                {t("password_reset.password_update_success")}
               </Text>
               <TouchableOpacity
                 onPress={() => router.replace("/(auth)/login")}

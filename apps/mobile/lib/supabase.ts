@@ -91,5 +91,7 @@ export const supabaseAuth = {
   async updatePassword(password: string) {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw new Error(error.message);
+
+    await supabase.auth.signOut();
   },
 };

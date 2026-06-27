@@ -1,236 +1,4 @@
 {
-  "header": {
-    "features": "Features",
-    "solutions": "Solutions",
-    "platform": "Platform",
-    "pricing": "Pricing",
-    "login": "Sign In",
-    "register": "Get Started Free",
-    "lang_vi": "Tiếng Việt",
-    "lang_en": "English"
-  },
-  "hero": {
-    "badge": "Next-generation online meeting platform",
-    "title_line1": "Connect without",
-    "title_line1_accent": "limits",
-    "title_line2": "Meet smarter.",
-    "description": "High-quality, low-latency video calling — built for enterprises, schools, and every team. Seamless connection, absolute security.",
-    "create_meeting": "New Meeting",
-    "join_placeholder": "Enter room code...",
-    "join_button": "Join",
-    "mockup_title": "Q4 Team Kickoff 2025",
-    "mockup_live": "LIVE",
-    "mockup_leave": "Leave",
-    "social_proof_number": "50,000+",
-    "social_proof": "teams trust us every day",
-    "security_badge": "E2E Encrypted",
-    "participants_badge": "participants"
-  },
-  "stats": {
-    "users_value": "50K+",
-    "users_label": "Active Users",
-    "meetings_value": "1M+",
-    "meetings_label": "Meetings per Day",
-    "countries_value": "150+",
-    "countries_label": "Countries Connected",
-    "uptime_value": "99.99%",
-    "uptime_label": "Uptime SLA Guaranteed"
-  },
-  "features": {
-    "section_badge": " Key Features",
-    "section_title": "Everything you need to",
-    "section_title_gradient": "connect",
-    "section_desc": "Every tool you need to connect, learn, and work more effectively — all in one platform.",
-    "uptime_label": "Global Uptime SLA",
-    "security_title": "Enterprise Security",
-    "security_desc": "Bank-grade E2E encryption",
-    "items": [
-      {
-        "title": "HD Video, Ultra-Low Latency",
-        "description": "Up to 4K video quality, under 100ms latency. Meetings that feel like being in the same room, no matter the distance."
-      },
-      {
-        "title": "Smart Classroom Management",
-        "description": "Interactive whiteboard, breakout rooms, auto attendance. Teachers can easily manage remote classes with full control."
-      },
-      {
-        "title": "Enterprise-Grade Security",
-        "description": "End-to-end E2E encryption, GDPR compliant. Every meeting protected with bank-grade security technology."
-      }
-    ]
-  },
-  "how_it_works": {
-    "section_badge": "Simple & Fast",
-    "section_title": "Start meeting in",
-    "section_title_accent": "30 seconds",
-    "section_desc": "No complex setup required. Create a meeting room and connect with your team instantly.",
-    "cta_btn": "Try Now — Free",
-    "steps": [
-      {
-        "step": "01",
-        "title": "Create a Room",
-        "description": "Click one button to create a new meeting room. Get a link and room code to share with everyone instantly."
-      },
-      {
-        "step": "02",
-        "title": "Invite Members",
-        "description": "Share the link or room code with colleagues. They join with just one click — no installation needed."
-      },
-      {
-        "step": "03",
-        "title": "Connect Instantly",
-        "description": "Meet in real-time with HD video, crystal-clear audio, and a full suite of team collaboration tools."
-      }
-    ]
-  },
-  "testimonials": {
-    "section_badge": " What Users Say",
-    "section_title": "Trusted by",
-    "section_title_accent": "thousands of teams",
-    "items": [
-      {
-        "name": "Nguyen Van Minh",
-        "role": "CTO, TechVN Solutions",
-        "content": "Tobo has completely changed how our remote team works. The video quality is outstanding and we've never experienced a dropped connection."
-      },
-      {
-        "name": "Tran Thi Hoa",
-        "role": "Teacher, Le Hong Phong High School",
-        "content": "Tobo's classroom management features help me easily take attendance and monitor students better than ever. Truly impressive!"
-      },
-      {
-        "name": "Le Quang Huy",
-        "role": "Product Manager, Vingroup",
-        "content": "Beautiful interface, easy to use, and extremely stable. This is the best online meeting solution I've ever used."
-      },
-      {
-        "name": "Pham Thu Hang",
-        "role": "HR Director, FPT Software",
-        "content": "Since using Tobo, our team's productivity has noticeably increased. The Breakout Room feature is incredibly useful for workshops."
-      },
-      {
-        "name": "David Nguyen",
-        "role": "Engineering Lead, Axon Enterprise",
-        "content": "We switched from Teams to Tobo and never looked back. The latency is incredibly low even for our global distributed team."
-      },
-      {
-        "name": "Sarah Kim",
-        "role": "Head of Education, EdTech Korea",
-        "content": "Tobo's classroom management features are unmatched. Our student engagement increased by 40% after switching platforms."
-      }
-    ]
-  },
-  "platforms": {
-    "section_badge": " Cross-Platform",
-    "section_title": "Seamless Experience Across All Devices",
-    "section_desc": "Full support across every platform. Whether you're at the office or on the go, your connection stays strong.",
-    "one_account": "One account",
-    "one_account_desc": "sign in and sync seamlessly across all your devices, anytime anywhere.",
-    "tab_web": "Web Browser",
-    "tab_desktop": "Desktop App",
-    "tab_mobile": "Mobile",
-    "items": [
-      {
-        "name": "Web Browser",
-        "description": "No installation needed — just open and start meeting",
-        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
-      },
-      {
-        "name": "Desktop App",
-        "description": "Native app with high performance and deep system integration",
-        "badges": ["Windows", "macOS", "Linux"]
-      },
-      {
-        "name": "Mobile",
-        "description": "Meet anytime, anywhere — optimized for small screens",
-        "badges": ["iOS", "Android"]
-      }
-    ]
-  },
-  "pricing": {
-    "section_badge": "💰 Pricing",
-    "section_title": "Plans for",
-    "section_title_accent": "every need",
-    "section_desc": "Start for free, upgrade anytime. No long-term commitment required.",
-    "toggle_monthly": "Monthly",
-    "toggle_yearly": "Yearly",
-    "save_badge": "Save 20%",
-    "per_month": "/mo",
-    "save_amount": "Save ${amount}/year",
-    "free_label": "Free",
-    "popular_badge": "Most Popular",
-    "contact_text": "Contact us",
-    "footer_note": "All plans include SSL, E2E encryption, and basic technical support.",
-    "tiers": [
-      {
-        "name": "Free",
-        "description": "Perfect for individuals and small teams getting started",
-        "cta": "Get Started Free",
-        "features": [
-          "Up to 100 Participants",
-          "Meetings up to 60 Minutes",
-          "In-Meeting Chat",
-          "Live Captions"
-        ]
-      },
-      {
-        "name": "Pro",
-        "description": "For professional teams that need more power",
-        "cta": "Start 14-day Trial",
-        "features": [
-          "Unlimited Participants",
-          "Unlimited Meeting Duration",
-          "Meeting Recording & Storage",
-          "Waiting Room & Access Control",
-          "Collaborative Whiteboard",
-          "Real-Time Captions",
-          "Real-Time Translation",
-          "Meeting Summary",
-          "Automated Meeting Minutes & Action Items",
-          "Polls & Q&A"
-        ]
-      },
-      {
-        "name": "Enterprise",
-        "description": "For large organizations and enterprise deployments",
-        "cta": "Contact Sales",
-        "features": [
-          "Everything in Pro",
-          "SSO & Active Directory integration",
-          "SOC2, GDPR, HIPAA compliance",
-          "Centralized admin panel",
-          "99.99% uptime SLA guarantee",
-          "On-premise or private cloud deployment",
-          "Full API & Webhook integration",
-          "Dedicated Customer Success Manager"
-        ]
-      }
-    ]
-  },
-  "cta": {
-    "badge": "🎉 Free · No credit card required",
-    "title": "Ready to connect",
-    "title_accent": "without limits?",
-    "description": "Over 50,000 teams trust Tobo to connect and collaborate every day. Start your journey today.",
-    "email_placeholder": "Enter your email...",
-    "cta_button": "Get Started Free",
-    "or_text": "or",
-    "create_meeting": "Create a meeting now →",
-    "no_credit_card": "✓ No credit card  ✓ 14-day free trial  ✓ Cancel anytime"
-  },
-  "footer": {
-    "thesis_title": "Graduation Thesis: Real-Time Online Meeting and Team Collaboration Platform",
-    "university": "Industrial University of Ho Chi Minh City",
-    "faculty": "Faculty of Information Technology",
-    "advisor_label": "Advisor:",
-    "advisor_name": "PhD. Nguyen Thi Hanh",
-    "student_label": "Student:",
-    "student_name": "Vuong Ngoc Hue\nTran Phuc Hung",
-    "year": "Ho Chi Minh City, 2026",
-    "github_repo": "Project Source Code on GitHub",
-    "status": "System Operational",
-    "made_with": "Graduation Thesis Project"
-  },
   "login": {
     "welcome_back": "Welcome back",
     "sign_in_to_continue": "Sign in to connect with your team",
@@ -278,12 +46,12 @@
     "security_note": "Connection secured with 256-bit SSL encryption",
     "back_to_login": "Back to login",
     "otp_title": "Enter Security Code",
-    "otp_subtitle": "We just sent a 8-digit code to {email}. Please enter the code to continue.",
+    "otp_subtitle": "A 6-digit verification code has been sent to ",
     "error_invalid_otp": "Invalid or expired verification code.",
     "otp_submit_btn": "Verify Code",
     "otp_help_link": "I can't access this email",
     "reset_title": "Create New Password",
-    "reset_subtitle": "Please set a new strong and secure password for {email}.",
+    "reset_subtitle": "Please set a strong and secure new password.",
     "reset_new_pwd": "New Password",
     "reset_confirm_pwd": "Confirm New Password",
     "reset_policy_title": "Password Requirements:",
@@ -297,10 +65,16 @@
     "reset_submit_btn": "Update Password"
   },
   "password_reset": {
+    "new_password": "New password",
+    "new_password_placeholder": "Enter new password",
+    "confirm_password": "Confirm New Password",
+    "confirm_password_placeholder": "Re-enter new password",
     "otp_sent": "OTP sent to your email.",
     "otp_send_failed": "Unable to send verification code. Please try again.",
     "otp_invalid_or_expired": "Verification code is invalid or has expired.",
     "password_update_failed": "An error occurred while saving the new password.",
+    "password_success": "Success!",
+    "password_update_success": "Your password has been updated successfully. Please log in again.",
     "new_password_must_be_different": "New password should be different from the old password"
   },
   "error": {
