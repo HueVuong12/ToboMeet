@@ -1,8 +1,9 @@
+import { UserResponse } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getMe: builder.query({
+    getMe: builder.query<UserResponse, void>({
       query: () => ({
         url: "/users/me",
         method: "GET",

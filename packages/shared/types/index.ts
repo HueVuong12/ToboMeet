@@ -1,12 +1,14 @@
 // Shared TypeScript interfaces — dùng chung cho Web, Mobile, Desktop, Server
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
-export interface User {
-  id: string;
-  name: string;
+export interface UserResponse {
+  _id: string;
   email: string;
+  supabaseId: string;
+  displayName?: string;
   avatarUrl?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Meeting ──────────────────────────────────────────────────────────────────
