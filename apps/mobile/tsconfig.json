@@ -7,7 +7,8 @@
     "jsxImportSource": "nativewind",
     "paths": {
       "@tobomeet/shared/*": ["../../packages/shared/*"]
-    }
+    },
+    "types": ["node"]
   },
   "include": [
     "**/*.ts",

@@ -7,7 +7,7 @@ import { Model } from "mongoose";
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async getOrCreateUser(tokenPayload: any): Promise<User> {
+  async getOrCreateUser(tokenPayload): Promise<User> {
     const userId = tokenPayload.id || tokenPayload.sub;
     const email = tokenPayload.email;
     const metadata = tokenPayload.user_metadata || {};

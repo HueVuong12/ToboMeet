@@ -1,5 +1,5 @@
 import "../global.css";
-import '../lib/i18n';
+import "../lib/i18n";
 import React, { useEffect, useState } from "react";
 import {
   Slot,
@@ -11,6 +11,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { supabase } from "../lib/supabase";
 import { View } from "react-native";
 import LanguageSwitcher from "../components/commons/LanguageSwitcher";
+import StoreProvider from "../lib/redux/StoreProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -60,7 +61,9 @@ export default function RootLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <LanguageSwitcher />
+      <StoreProvider>
+        <LanguageSwitcher />
+      </StoreProvider>
       <Slot />
     </View>
   );
