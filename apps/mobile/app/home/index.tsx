@@ -9,16 +9,22 @@ import {
 import { useRouter } from "expo-router";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { useGetMeQuery } from "../../lib/redux/features/users/usersApi";
 
 export default function HomeScreen() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data, error } = useGetMeQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
 
   // Lấy thông tin user ngay khi màn hình vừa bật lên
   useEffect(() => {
+    console.log("đã nhận:", data);
+    console.log("error:", error);
     fetchSession();
-  }, []);
+  }, [data]);
 
   const fetchSession = async () => {
     try {
