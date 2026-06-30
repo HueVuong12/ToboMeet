@@ -89,3 +89,23 @@ export interface Platform {
   badges: string[];
   description: string;
 }
+
+// ─── Room ────────────────────────────────────────────────────────────────────
+export interface Channel {
+  _id?: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface Room {
+  _id: string;
+  name: string;
+  type: "meeting" | "classroom";
+  code: string;
+  ownerId: string;
+  members: string[];
+  channels: Channel[];
+  createdAt: string;
+  updatedAt: string;
+}
+

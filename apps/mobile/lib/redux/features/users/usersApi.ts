@@ -10,8 +10,26 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       providesTags: ["User"],
     }),
+    getSessions: builder.query<any[], void>({
+      query: () => ({
+        url: "/users/me/sessions",
+        method: "GET",
+      }),
+      providesTags: ["UserSessions"],
+    }),
+    revokeSession: builder.mutation<void, string>({
+      query: (sessionId) => ({
+        url: `/users/me/sessions/${sessionId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["UserSessions"],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetMeQuery } = usersApi;
+export const {
+  useGetMeQuery,
+  useGetSessionsQuery,
+  useRevokeSessionMutation,
+} = usersApi;

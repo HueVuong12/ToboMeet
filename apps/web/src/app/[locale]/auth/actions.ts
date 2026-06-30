@@ -41,7 +41,7 @@ export async function login(prevState: FormState, formData: FormData) {
 
   const locale = await getLocale();
 
-  return redirect(`/${locale}/home`);
+  return redirect(`/${locale}/dashboard`);
 }
 
 export async function signup(prevState: FormState, formData: FormData) {
@@ -110,7 +110,7 @@ export async function loginWithOAuth(
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${siteUrl}/auth/callback?next=/${locale}/home`,
+      redirectTo: `${siteUrl}/auth/callback?next=/${locale}/dashboard`,
     },
   });
 

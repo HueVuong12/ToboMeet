@@ -14,6 +14,7 @@ import LanguageSwitcher from "../commons/LanguageSwitcher";
 // ─── Header Component ─────────────────────────────────────────────────────────
 export default function Header({ variant = "default" }: { variant?: "default" | "auth" }) {
   const t = useTranslations();
+  const locale = useLocale();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -80,7 +81,7 @@ export default function Header({ variant = "default" }: { variant?: "default" | 
           <div className="hidden md:flex items-center gap-2">
             <LanguageSwitcher />
             <Link
-              href="/login"
+              href={`/api/auth/logout?locale=${locale}`}
               className="px-4 py-2 text-[14px] font-semibold text-slate-600 hover:text-navy transition-colors"
             >
               {t("header.login")}
@@ -125,7 +126,7 @@ export default function Header({ variant = "default" }: { variant?: "default" | 
           <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <Link
-                href="/login"
+                href={`/api/auth/logout?locale=${locale}`}
                 className="text-[14px] font-semibold text-slate-600"
               >
                 {t("header.login")}

@@ -39,20 +39,40 @@ async function handleProxy(
       body,
     });
 
+    const contentType = response.headers.get("Content-Type") || "application/json";
     const data = await response.text();
+
+    // Nếu backend trả về HTML (lỗi 502/504/...) nhưng client expect JSON,
+    // trả về lỗi JSON rõ ràng thay vì để client parse thất bại
+    const isJsonContentType = contentType.includes("application/json");
+    const looksLikeHtml = data.trimStart().startsWith("<");
+
+    if (!isJsonContentType || looksLikeHtml) {
+      return NextResponse.json(
+        {
+          code: response.status,
+          message: `Backend trả về phản hồi không hợp lệ (status ${response.status})`,
+          result: null,
+        },
+        { status: response.status >= 200 && response.status < 600 ? response.status : 502 },
+      );
+    }
 
     return new NextResponse(data, {
       status: response.status,
       headers: {
-        "Content-Type":
-          response.headers.get("Content-Type") || "application/json",
+        "Content-Type": contentType,
       },
     });
   } catch (error) {
     console.error("Lỗi Proxy:", error);
     return NextResponse.json(
-      { message: "Lỗi kết nối tới Backend" },
-      { status: 500 },
+      {
+        code: 503,
+        message: "Không thể kết nối tới Backend",
+        result: null,
+      },
+      { status: 503 },
     );
   }
 }

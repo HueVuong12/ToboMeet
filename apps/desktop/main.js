@@ -14,7 +14,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      // partition: "persist:tobomeet" // Giữ lại cache/cookie giữa các lần mở
+      partition: "persist:tobomeet" // Giữ lại cache/cookie giữa các lần mở
     }
   });
 

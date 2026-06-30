@@ -41,7 +41,7 @@ export default function ForgotPasswordForm() {
 
   // Form Fields
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState<string[]>(Array(8).fill(""));
+  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -113,13 +113,13 @@ export default function ForgotPasswordForm() {
   const handleOtpChange = (index: number, value: string) => {
     const val = value.replace(/[^0-9]/g, "");
     if (val.length > 1) {
-      const pasted = val.slice(0, 8).split(""); // Sửa thành 8
+      const pasted = val.slice(0, 6).split(""); // Sửa thành 8
       const newOtp = [...otp];
       pasted.forEach((char, i) => {
-        if (index + i < 8) newOtp[index + i] = char; // Sửa thành 8
+        if (index + i < 6) newOtp[index + i] = char; // Sửa thành 8
       });
       setOtp(newOtp);
-      const focusIndex = Math.min(index + pasted.length, 7); // Sửa thành 7
+      const focusIndex = Math.min(index + pasted.length, 5);
       otpRefs.current[focusIndex]?.focus();
       return;
     }
@@ -128,8 +128,7 @@ export default function ForgotPasswordForm() {
     newOtp[index] = val;
     setOtp(newOtp);
 
-    if (val && index < 7) {
-      // Sửa thành 7
+    if (val && index < 5) {
       otpRefs.current[index + 1]?.focus();
     }
   };
@@ -147,7 +146,7 @@ export default function ForgotPasswordForm() {
     e.preventDefault();
     setErrorMsg("");
     const code = otp.join("");
-    if (code.length < 8) {
+    if (code.length < 6) {
       setErrorMsg(t("error_invalid_otp") || "Mã xác minh không chính xác.");
       triggerShake();
       return;

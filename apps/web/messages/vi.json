@@ -304,5 +304,66 @@
       "password_mismatch": "Mật khẩu và xác nhận mật khẩu không khớp.",
       "password_invalid": "Mật khẩu không hợp lệ. "
     }
+  },
+  "dashboard": {
+    "title": "Nhóm của bạn",
+    "join_or_create": "Tham gia hoặc tạo nhóm",
+    "join_team": "Tham gia nhóm",
+    "create_team": "Tạo nhóm",
+    "room_code_placeholder": "Nhập mã phòng",
+    "join": "Tham gia",
+    "meeting": "Phòng họp",
+    "classroom": "Phòng học",
+    "room_name_placeholder": "Tên phòng",
+    "create_room": "Tạo phòng",
+    "empty_title": "Chưa có nhóm nào",
+    "empty_description": "Hãy tạo hoặc tham gia một nhóm để bắt đầu",
+    "select_room_type": "Chọn loại nhóm",
+    "step_back": "Quay lại",
+    "search_placeholder": "Tìm kiếm phòng họp hoặc lớp học...",
+    "no_results_title": "Không tìm thấy phòng phù hợp",
+    "no_results_desc": "Vui lòng thử lại với từ khóa hoặc mã phòng khác.",
+    "settings": "Cài đặt",
+    "logout": "Đăng xuất",
+    "loading_rooms": "Đang tải danh sách phòng...",
+    "cancel": "Hủy",
+    "room_not_found_code": "Không tìm thấy phòng với mã này",
+    "create_room_failed": "Không thể tạo phòng. Vui lòng thử lại."
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "cancel": "Hủy bỏ",
+    "tabs": {
+      "language": "Ngôn ngữ",
+      "devices": "Quản lý thiết bị"
+    },
+    "language": {
+      "header": "Ngôn ngữ hiển thị",
+      "desc": "Thay đổi ngôn ngữ hiển thị trên toàn bộ giao diện của bạn. Thay đổi sẽ có hiệu lực ngay lập tức.",
+      "vietnamese": "Tiếng Việt",
+      "english": "English (US)"
+    },
+    "devices": {
+      "header": "Quản lý thiết bị",
+      "desc": "Danh sách các thiết bị hiện đang đăng nhập vào tài khoản của bạn. Bạn có thể đăng xuất từ xa khỏi các thiết bị lạ.",
+      "loading": "Đang tải danh sách thiết bị...",
+      "empty": "Không tìm thấy thiết bị nào",
+      "current_device": "Thiết bị này",
+      "active": "Đang hoạt động",
+      "logged_in_at": "Đăng nhập: ",
+      "confirm_logout": "Bạn có chắc chắn muốn đăng xuất tài khoản khỏi thiết bị này?",
+      "logout_failed": "Không thể đăng xuất thiết bị. Vui lòng thử lại."
+    }
+  },
+  "room": {
+    "general": "General",
+    "channels": "Kênh",
+    "back_to_dashboard": "Quay lại Dashboard",
+    "create_channel": "Tạo kênh",
+    "channel_name": "Tên kênh",
+    "channel_name_placeholder": "kênh-mới",
+    "cancel": "Hủy bỏ",
+    "room_not_found": "Không tìm thấy phòng",
+    "select_channel_to_start": "Chọn một kênh để bắt đầu trò chuyện"
   }
 }

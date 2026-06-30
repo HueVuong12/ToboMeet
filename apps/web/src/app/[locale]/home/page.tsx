@@ -9,9 +9,10 @@ export default async function HomePage() {
 
   // Lấy thông tin user dựa vào httpOnly cookie được đính kèm tự động
   const {
-    data: { user },
+    data: { session },
     error,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getSession();
+  const user = session?.user;
 
   // Đề phòng trường hợp lọt qua middleware, chặn lại một lần nữa
   if (error || !user) {

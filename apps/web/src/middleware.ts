@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
   // Nếu người dùng đã có token (user tồn tại) và đang vào các trang cấm
   if (user && (isAuthPage || isHomePage) && !isResetting) {
     return NextResponse.redirect(
-      new URL(`/${currentLocale}/home`, request.url),
+      new URL(`/${currentLocale}/dashboard`, request.url),
     );
   }
 

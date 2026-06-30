@@ -319,5 +319,66 @@
       "password_mismatch": "Password and confirm password do not match.",
       "password_invalid": "Password invalid. "
     }
+  },
+  "dashboard": {
+    "title": "Your Teams",
+    "join_or_create": "Join or Create Team",
+    "join_team": "Join a Team",
+    "create_team": "Create a Team",
+    "room_code_placeholder": "Enter team code",
+    "join": "Join",
+    "meeting": "Meeting",
+    "classroom": "Classroom",
+    "room_name_placeholder": "Team name",
+    "create_room": "Create Team",
+    "empty_title": "No teams yet",
+    "empty_description": "Create or join a team to get started",
+    "select_room_type": "Select team type",
+    "step_back": "Back",
+    "search_placeholder": "Search for meeting rooms or classrooms...",
+    "no_results_title": "No matching rooms found",
+    "no_results_desc": "Please try again with a different keyword or room code.",
+    "settings": "Settings",
+    "logout": "Log Out",
+    "loading_rooms": "Loading room list...",
+    "cancel": "Cancel",
+    "room_not_found_code": "No room found with this code",
+    "create_room_failed": "Unable to create room. Please try again."
+  },
+  "settings": {
+    "title": "Settings",
+    "cancel": "Cancel",
+    "tabs": {
+      "language": "Language",
+      "devices": "Devices"
+    },
+    "language": {
+      "header": "Display Language",
+      "desc": "Change the display language across the interface. Changes will take effect immediately.",
+      "vietnamese": "Tiếng Việt",
+      "english": "English (US)"
+    },
+    "devices": {
+      "header": "Device Management",
+      "desc": "List of devices currently logged into your account. You can remotely log out of unrecognized devices.",
+      "loading": "Loading device list...",
+      "empty": "No active devices found",
+      "current_device": "This device",
+      "active": "Active now",
+      "logged_in_at": "Logged in: ",
+      "confirm_logout": "Are you sure you want to log out of this device?",
+      "logout_failed": "Unable to log out of the device. Please try again."
+    }
+  },
+  "room": {
+    "general": "General",
+    "channels": "Channels",
+    "back_to_dashboard": "Back to Dashboard",
+    "create_channel": "Create Channel",
+    "channel_name": "Channel Name",
+    "channel_name_placeholder": "new-channel",
+    "cancel": "Cancel",
+    "room_not_found": "Room not found",
+    "select_channel_to_start": "Select a channel to start chatting"
   }
 }
