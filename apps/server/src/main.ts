@@ -7,9 +7,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix("api");
+  // Trong môi trường dev: cho phép mọi origin (bao gồm thiết bị mobile trên LAN)
+  // Trong môi trường prod: chỉ cho phép các domain cụ thể trong CLIENT_URL (phân cách bằng dấu phẩy)
+  const isDev = process.env.NODE_ENV !== "production";
+  const allowedOrigins = process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(",").map((o) => o.trim())
+    : ["http://localhost:3000"];
+
   app.enableCors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000", // Trỏ về domain của Next.js
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    origin: isDev ? true : allowedOrigins,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type,Authorization",
     credentials: true,
   });
   app.useGlobalInterceptors(new TransformInterceptor());

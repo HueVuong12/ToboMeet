@@ -4,14 +4,10 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { createClient } from "@supabase/supabase-js";
 import type { Request } from "express";
 
 @Injectable()
 export class SupabaseGuard implements CanActivate {
-  constructor(private configService: ConfigService) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
@@ -20,27 +16,46 @@ export class SupabaseGuard implements CanActivate {
       throw new UnauthorizedException("Không tìm thấy Access Token");
     }
 
-    const supabaseUrl = this.configService.get<string>("SUPABASE_URL");
-    const supabaseKey = this.configService.get<string>("SUPABASE_ANON_KEY");
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Decode JWT payload locally (không cần network call)
+    const payload = this.decodeJwtPayload(token);
 
-    // Xác thực token với Supabase
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      throw new UnauthorizedException("Token không hợp lệ hoặc đã hết hạn");
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException("Token không hợp lệ");
     }
 
-    // Gắn thông tin user từ Supabase vào request để Controller sử dụng
-    request.user = user;
+    // Kiểm tra thời hạn token
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      throw new UnauthorizedException("Token đã hết hạn");
+    }
+
+    // Gắn thông tin user vào request để Controller sử dụng
+    request.user = {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      user_metadata: payload.user_metadata || {},
+    };
+
     return true;
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(" ") ?? [];
     return type === "Bearer" ? token : undefined;
+  }
+
+  private decodeJwtPayload(token: string): Record<string, any> | null {
+    try {
+      // JWT có dạng: header.payload.signature
+      const parts = token.split(".");
+      if (parts.length !== 3) return null;
+
+      // Decode phần payload (phần thứ 2) từ Base64URL
+      const base64Payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = Buffer.from(base64Payload, "base64").toString("utf8");
+      return JSON.parse(jsonPayload);
+    } catch {
+      return null;
+    }
   }
 }

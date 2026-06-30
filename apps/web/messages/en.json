@@ -343,7 +343,15 @@
     "loading_rooms": "Loading room list...",
     "cancel": "Cancel",
     "room_not_found_code": "No room found with this code",
-    "create_room_failed": "Unable to create room. Please try again."
+    "create_room_failed": "Unable to create room. Please try again.",
+    "copy_code": "Copy",
+    "copied": "Copied!",
+    "close": "Close",
+    "go_to_room": "Go to Room",
+    "room_created_title": "Room Created!",
+    "room_created_desc": "Share this code so others can join your room",
+    "room_code_label": "Room Code",
+    "room_code_share_hint": "Others can join using this code from the dashboard"
   },
   "settings": {
     "title": "Settings",

@@ -11,13 +11,17 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
+  CheckCircle2,
+  Copy,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 
 interface CreateRoomDialogProps {
   onClose: () => void;
 }
 
-type Step = "select-type" | "enter-name";
+type Step = "select-type" | "enter-name" | "success";
 
 export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
   const t = useTranslations("dashboard");
@@ -30,6 +34,11 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
   const [roomName, setRoomName] = useState("");
   const [createRoom, { isLoading }] = useCreateRoomMutation();
   const [error, setError] = useState<string | null>(null);
+
+  // Lưu kết quả sau khi tạo phòng thành công
+  const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
+  const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const handleSelectType = (type: "meeting" | "classroom") => {
     setSelectedType(type);
@@ -52,7 +61,11 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
         name: roomName.trim(),
         type: selectedType,
       }).unwrap();
-      router.push(`room/${room._id}`);
+
+      // Lưu thông tin phòng vừa tạo, chuyển sang bước hiển thị mã
+      setCreatedRoomId(room._id);
+      setCreatedRoomCode(room.code);
+      setStep("success");
     } catch (err: any) {
       setError(err?.message || t("create_room_failed"));
     }
@@ -64,12 +77,26 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
     }
   };
 
+  const handleCopyCode = () => {
+    if (!createdRoomCode) return;
+    navigator.clipboard.writeText(createdRoomCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
+
+  const handleGoToRoom = () => {
+    if (createdRoomId) {
+      router.push(`room/${createdRoomId}`);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
+        onClick={step === "success" ? undefined : onClose}
       />
 
       {/* Dialog */}
@@ -88,15 +115,19 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
             <h2 className="text-lg font-bold text-slate-900">
               {step === "select-type"
                 ? t("select_room_type")
-                : t("create_team")}
+                : step === "enter-name"
+                ? t("create_team")
+                : t("room_created_title")}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4 text-slate-500" />
-          </button>
+          {step !== "success" && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4 text-slate-500" />
+            </button>
+          )}
         </div>
 
         {/* Body */}
@@ -182,9 +213,59 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
               )}
             </div>
           )}
+
+          {/* Step 3: Success — Hiển thị mã phòng */}
+          {step === "success" && createdRoomCode && (
+            <div className="flex flex-col items-center text-center py-2">
+              {/* Success Icon */}
+              <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+              </div>
+
+              <p className="text-slate-500 text-sm mb-6">
+                {t("room_created_desc")}
+              </p>
+
+              {/* Mã phòng */}
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3">
+                <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-2">
+                  {t("room_code_label")}
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-2xl font-bold text-slate-800 tracking-[0.25em]">
+                    {createdRoomCode}
+                  </span>
+                  <button
+                    onClick={handleCopyCode}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      codeCopied
+                        ? "bg-emerald-500 text-white"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {codeCopied ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        {t("copied")}
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        {t("copy_code")}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400">
+                {t("room_code_share_hint")}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Footer — only show in step 2 */}
+        {/* Footer */}
         {step === "enter-name" && (
           <div className="flex justify-end gap-3 px-6 pb-6">
             <button
@@ -202,6 +283,26 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               {t("create_room")}
+            </button>
+          </div>
+        )}
+
+        {step === "success" && (
+          <div className="flex justify-end gap-3 px-6 pb-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              {t("close")}
+            </button>
+            <button
+              id="go-to-room-btn"
+              onClick={handleGoToRoom}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 text-white text-sm font-semibold
+                         hover:bg-brand-600 transition-all"
+            >
+              {t("go_to_room")}
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}

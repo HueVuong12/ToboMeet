@@ -2,8 +2,11 @@ import { ApiResponse } from "@tobomeet/shared/types";
 import axios, { AxiosError } from "axios";
 import { supabase } from "./supabase";
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.x:3001/api";
+console.log("[axios] API baseURL:", API_BASE_URL);
+
 export const axiosInstance = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.x:3001/api",
+  baseURL: API_BASE_URL,
   timeout: 10000,
 });
 

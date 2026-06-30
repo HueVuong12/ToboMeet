@@ -328,7 +328,15 @@
     "loading_rooms": "Đang tải danh sách phòng...",
     "cancel": "Hủy",
     "room_not_found_code": "Không tìm thấy phòng với mã này",
-    "create_room_failed": "Không thể tạo phòng. Vui lòng thử lại."
+    "create_room_failed": "Không thể tạo phòng. Vui lòng thử lại.",
+    "copy_code": "Sao chép",
+    "copied": "Đã sao chép!",
+    "close": "Đóng",
+    "go_to_room": "Vào phòng",
+    "room_created_title": "Tạo phòng thành công!",
+    "room_created_desc": "Chia sẻ mã này để mọi người tham gia phòng của bạn",
+    "room_code_label": "Mã phòng",
+    "room_code_share_hint": "Người khác có thể tham gia bằng mã này từ trang chủ"
   },
   "settings": {
     "title": "Cài đặt",

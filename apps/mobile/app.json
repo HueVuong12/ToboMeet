@@ -2,7 +2,6 @@
   "expo": {
     "name": "tobomeet",
     "scheme": "tobomeet",
-    "web": { "bundler": "metro" },
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",

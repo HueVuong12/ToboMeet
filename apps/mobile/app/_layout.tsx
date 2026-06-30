@@ -59,10 +59,12 @@ export default function RootLayout() {
     }, 100);
   }, [session, isAuthReady, segments, navigationState?.key]);
 
+  const showGlobalLanguageSwitcher = segments[0] === "(auth)";
+
   return (
     <View style={{ flex: 1 }}>
       <StoreProvider>
-        <LanguageSwitcher />
+        {showGlobalLanguageSwitcher && <LanguageSwitcher />}
         <Slot />
       </StoreProvider>
     </View>

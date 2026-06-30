@@ -16,6 +16,8 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -25,6 +27,7 @@ interface SidebarProps {
 
 export default function Sidebar({ room, userId }: SidebarProps) {
   const t = useTranslations("room");
+  const tDashboard = useTranslations("dashboard");
   const router = useRouter();
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [activeChannel, setActiveChannel] = useState<string>(
@@ -34,6 +37,7 @@ export default function Sidebar({ room, userId }: SidebarProps) {
   const [newChannelName, setNewChannelName] = useState("");
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const isMeeting = room.type === "meeting";
   const isOwner = room.ownerId === userId;
@@ -58,6 +62,13 @@ export default function Sidebar({ room, userId }: SidebarProps) {
     if (e.key === "Enter" && !isLoading) {
       handleCreateChannel();
     }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(room.code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   return (
@@ -149,6 +160,39 @@ export default function Sidebar({ room, userId }: SidebarProps) {
             })}
           </div>
         )}
+      </div>
+
+      {/* Room Code Section ở đáy Sidebar */}
+      <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-col gap-2">
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+          {tDashboard("room_code_label")}
+        </span>
+        <div className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 shadow-sm">
+          <span className="font-mono text-sm font-bold text-slate-700 tracking-wider">
+            <span className="text-slate-300 mr-0.5">#</span>
+            {room.code}
+          </span>
+          <button
+            onClick={handleCopyCode}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+              copied
+                ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+            }`}
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>{tDashboard("copied")}</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>{tDashboard("copy_code")}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
 

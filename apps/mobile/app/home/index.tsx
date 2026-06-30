@@ -31,6 +31,7 @@ export default function HomeScreen() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [activeBottomTab, setActiveBottomTab] = useState<"groups" | "settings">("groups");
 
   const { data: profile } = useGetMeQuery(undefined, {
     refetchOnMountOrArgChange: true,
@@ -106,109 +107,151 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Header Actions */}
-        <TouchableOpacity
-          onPress={() => setShowSettingsModal(true)}
-          className="w-10 h-10 rounded-xl bg-slate-100 justify-center items-center"
-        >
-          <Feather name="settings" size={18} color="#64748B" />
-        </TouchableOpacity>
+        {/* Settings button removed from header as it is now in bottom navigation */}
+        <View className="w-10 h-10" />
       </View>
 
-      {/* Search and Action Row */}
-      <View className="p-6 gap-4">
-        {/* Search Input */}
-        <View className="relative flex-row items-center bg-white border border-slate-100 rounded-2xl px-4 py-3">
-          <Feather name="search" size={18} color="#94A3B8" style={{ marginRight: 10 }} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t("dashboard.search_placeholder")}
-            className="flex-1 text-sm text-slate-800"
-          />
-          {searchQuery !== "" && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Feather name="x" size={16} color="#94A3B8" />
+      {/* Main Content Area */}
+      <View className="flex-1">
+        {/* Search and Action Row */}
+        <View className="p-6 gap-4">
+          {/* Search Input */}
+          <View className="relative flex-row items-center bg-white border border-slate-100 rounded-2xl px-4 py-3">
+            <Feather name="search" size={18} color="#94A3B8" style={{ marginRight: 10 }} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t("dashboard.search_placeholder")}
+              className="flex-1 text-sm text-slate-800"
+            />
+            {searchQuery !== "" && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Feather name="x" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Join or Create buttons */}
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              onPress={() => setShowJoinModal(true)}
+              className="flex-1 bg-blue-50 border border-blue-100 py-4 rounded-2xl flex-row justify-center items-center gap-2 active:bg-blue-100"
+            >
+              <Feather name="user-plus" size={16} color="#0052FF" />
+              <Text className="text-[#0052FF] font-bold text-xs">
+                {t("dashboard.join_team")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowCreateModal(true)}
+              className="flex-1 bg-[#0052FF] py-4 rounded-2xl flex-row justify-center items-center gap-2 active:opacity-90"
+            >
+              <Feather name="plus" size={16} color="#ffffff" />
+              <Text className="text-white font-bold text-xs">
+                {t("dashboard.create_team")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Rooms List */}
+        <FlatList
+          data={filteredRooms}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+          ListEmptyComponent={
+            searchQuery !== "" ? (
+              <View className="items-center justify-center py-20 gap-4">
+                <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center">
+                  <Feather name="search" size={24} color="#94A3B8" />
+                </View>
+                <View className="items-center">
+                  <Text className="text-sm font-bold text-slate-800">{t("dashboard.no_results_title")}</Text>
+                  <Text className="text-xs text-slate-400 mt-1">{t("dashboard.no_results_desc")}</Text>
+                </View>
+              </View>
+            ) : (
+              <View className="items-center justify-center py-20 gap-4">
+                <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center">
+                  <Feather name="folder" size={24} color="#94A3B8" />
+                </View>
+                <View className="items-center">
+                  <Text className="text-sm font-bold text-slate-800">{t("dashboard.empty_title")}</Text>
+                  <Text className="text-xs text-slate-400 mt-1">{t("dashboard.empty_description")}</Text>
+                </View>
+              </View>
+            )
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => router.push(`/room/${item._id}`)}
+              className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm mb-4 flex-row justify-between items-center"
+            >
+              <View className="flex-row items-center gap-4 flex-1">
+                <View className="w-12 h-12 rounded-2xl bg-blue-50 justify-center items-center">
+                  <Feather
+                    name={item.type === "classroom" ? "book-open" : "video"}
+                    size={20}
+                    color={item.type === "classroom" ? "#4F46E5" : "#0052FF"}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-bold text-slate-800 text-sm truncate">{item.name}</Text>
+                  <Text className="text-[11px] text-slate-400 mt-1 uppercase font-semibold">
+                    Code: {item.code}
+                  </Text>
+                </View>
+              </View>
+              <Feather name="chevron-right" size={16} color="#CBD5E1" />
             </TouchableOpacity>
           )}
-        </View>
-
-        {/* Join or Create buttons */}
-        <View className="flex-row gap-3">
-          <TouchableOpacity
-            onPress={() => setShowJoinModal(true)}
-            className="flex-1 bg-blue-50 border border-blue-100 py-4 rounded-2xl flex-row justify-center items-center gap-2 active:bg-blue-100"
-          >
-            <Feather name="user-plus" size={16} color="#0052FF" />
-            <Text className="text-[#0052FF] font-bold text-xs">
-              {t("dashboard.join_team")}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setShowCreateModal(true)}
-            className="flex-1 bg-[#0052FF] py-4 rounded-2xl flex-row justify-center items-center gap-2 active:opacity-90"
-          >
-            <Feather name="plus" size={16} color="#ffffff" />
-            <Text className="text-white font-bold text-xs">
-              {t("dashboard.create_team")}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        />
       </View>
 
-      {/* Rooms List */}
-      <FlatList
-        data={filteredRooms}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
-        ListEmptyComponent={
-          searchQuery !== "" ? (
-            <View className="items-center justify-center py-20 gap-4">
-              <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center">
-                <Feather name="search" size={24} color="#94A3B8" />
-              </View>
-              <View className="items-center">
-                <Text className="text-sm font-bold text-slate-800">{t("dashboard.no_results_title")}</Text>
-                <Text className="text-xs text-slate-400 mt-1">{t("dashboard.no_results_desc")}</Text>
-              </View>
-            </View>
-          ) : (
-            <View className="items-center justify-center py-20 gap-4">
-              <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center">
-                <Feather name="folder" size={24} color="#94A3B8" />
-              </View>
-              <View className="items-center">
-                <Text className="text-sm font-bold text-slate-800">{t("dashboard.empty_title")}</Text>
-                <Text className="text-xs text-slate-400 mt-1">{t("dashboard.empty_description")}</Text>
-              </View>
-            </View>
-          )
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => router.push(`/room/${item._id}`)}
-            className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm mb-4 flex-row justify-between items-center"
+      {/* Bottom Navigation Bar */}
+      <View className="flex-row bg-white border-t border-slate-100 py-2.5 px-12 justify-between items-center shadow-lg">
+        {/* Tab Nhóm - Video Icon as requested */}
+        <TouchableOpacity
+          onPress={() => setActiveBottomTab("groups")}
+          className="items-center justify-center flex-1 py-1"
+        >
+          <Feather
+            name="video"
+            size={22}
+            color={activeBottomTab === "groups" ? "#0052FF" : "#94A3B8"}
+          />
+          <Text
+            className={`text-[10px] font-bold mt-1.5 ${
+              activeBottomTab === "groups" ? "text-[#0052FF]" : "text-slate-400"
+            }`}
           >
-            <View className="flex-row items-center gap-4 flex-1">
-              <View className="w-12 h-12 rounded-2xl bg-blue-50 justify-center items-center">
-                <Feather
-                  name={item.type === "classroom" ? "book-open" : "video"}
-                  size={20}
-                  color={item.type === "classroom" ? "#4F46E5" : "#0052FF"}
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="font-bold text-slate-800 text-sm truncate">{item.name}</Text>
-                <Text className="text-[11px] text-slate-400 mt-1 uppercase font-semibold">
-                  Code: {item.code}
-                </Text>
-              </View>
-            </View>
-            <Feather name="chevron-right" size={16} color="#CBD5E1" />
-          </TouchableOpacity>
-        )}
-      />
+            Nhóm
+          </Text>
+        </TouchableOpacity>
+
+        {/* Tab Cài đặt - Gear Icon */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveBottomTab("settings");
+            setShowSettingsModal(true);
+          }}
+          className="items-center justify-center flex-1 py-1"
+        >
+          <Feather
+            name="settings"
+            size={22}
+            color={activeBottomTab === "settings" ? "#0052FF" : "#94A3B8"}
+          />
+          <Text
+            className={`text-[10px] font-bold mt-1.5 ${
+              activeBottomTab === "settings" ? "text-[#0052FF]" : "text-slate-400"
+            }`}
+          >
+            Cài đặt
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Modals */}
       <JoinRoomModal
@@ -231,7 +274,10 @@ export default function HomeScreen() {
 
       <SettingsModal
         visible={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
+        onClose={() => {
+          setShowSettingsModal(false);
+          setActiveBottomTab("groups"); // Reset back to groups tab when closed
+        }}
         onLogout={handleLogout}
       />
     </View>
