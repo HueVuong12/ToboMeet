@@ -117,3 +117,10 @@ export interface RoomMemberResponse {
   avatarUrl?: string;
   email?: string;
 }
+
+export interface MeetingJoinResponse {
+  token: string;
+  meetingCode: string;
+  status: string;
+  isHost: boolean;
+}

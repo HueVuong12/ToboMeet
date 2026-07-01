@@ -4,9 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 const NESTJS_BASE_URL =
   process.env.NESTJS_BASE_URL || "http://localhost:3001/api";
 
-// handleProxy — proxy các yêu cầu HTTP từ Next.js sang backend NestJS
-// Mục đích: chuyển tiếp (forward) mọi request tới một URL backend (NESTJS_BASE_URL) giữ nguyên method,
-// headers và body, rồi trả về response cho client.
 async function handleProxy(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -27,7 +24,8 @@ async function handleProxy(
     headers.set("Authorization", `Bearer ${session.access_token}`);
   }
 
-  let body = undefined;
+  let body: string | undefined;
+
   if (request.method !== "GET" && request.method !== "HEAD") {
     body = await request.text();
   }
@@ -39,14 +37,31 @@ async function handleProxy(
       body,
     });
 
-    const contentType = response.headers.get("Content-Type") || "application/json";
+    // ===== Các status không có body =====
+    if (
+      response.status === 204 ||
+      response.status === 205 ||
+      response.status === 304
+    ) {
+      return new NextResponse(null, {
+        status: response.status,
+      });
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
     const data = await response.text();
 
-    // Nếu backend trả về HTML (lỗi 502/504/...) nhưng client expect JSON,
-    // trả về lỗi JSON rõ ràng thay vì để client parse thất bại
+    // Không có body thì trả luôn
+    if (!data) {
+      return new NextResponse(null, {
+        status: response.status,
+      });
+    }
+
     const isJsonContentType = contentType.includes("application/json");
     const looksLikeHtml = data.trimStart().startsWith("<");
 
+    // Backend trả HTML hoặc response không phải JSON
     if (!isJsonContentType || looksLikeHtml) {
       return NextResponse.json(
         {
@@ -54,10 +69,16 @@ async function handleProxy(
           message: `Backend trả về phản hồi không hợp lệ (status ${response.status})`,
           result: null,
         },
-        { status: response.status >= 200 && response.status < 600 ? response.status : 502 },
+        {
+          status:
+            response.status >= 200 && response.status < 600
+              ? response.status
+              : 502,
+        },
       );
     }
 
+    // Trả nguyên JSON từ backend
     return new NextResponse(data, {
       status: response.status,
       headers: {
@@ -66,13 +87,16 @@ async function handleProxy(
     });
   } catch (error) {
     console.error("Lỗi Proxy:", error);
+
     return NextResponse.json(
       {
         code: 503,
         message: "Không thể kết nối tới Backend",
         result: null,
       },
-      { status: 503 },
+      {
+        status: 503,
+      },
     );
   }
 }

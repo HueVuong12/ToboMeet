@@ -1,4 +1,8 @@
-import { RoomResponse, RoomMemberResponse } from "@tobomeet/shared/types";
+import {
+  RoomResponse,
+  RoomMemberResponse,
+  MeetingJoinResponse,
+} from "@tobomeet/shared/types";
 import { baseApi } from "./baseApi";
 
 export const roomsApi = baseApi.injectEndpoints({
@@ -48,6 +52,17 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: "Room", id }],
     }),
 
+    joinMeeting: builder.mutation<
+      MeetingJoinResponse,
+      { roomId: string; channelId: string; displayName?: string }
+    >({
+      query: ({ roomId, channelId, displayName }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
+        method: "POST",
+        data: { displayName: displayName || undefined }, // Nếu rỗng thì gửi undefined để BE tự lấy tên gốc
+      }),
+    }),
+
     addChannel: builder.mutation<
       RoomResponse,
       { roomId: string; name: string }
@@ -72,4 +87,5 @@ export const {
   useGetRoomByIdQuery,
   useAddChannelMutation,
   useGetRoomMembersQuery,
+  useJoinMeetingMutation,
 } = roomsApi;

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
+  useJoinMeetingMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
 import {
@@ -17,8 +18,15 @@ import {
   Smile,
   Crown,
   MoreVertical,
+  Video,
+  ChevronDown,
+  Calendar,
+  Mic,
+  VideoOff,
+  MicOff,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { createPortal } from "react-dom";
 
 interface RoomContentProps {
   roomId: string;
@@ -43,6 +51,55 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true); // Mở mặc định trên Desktop như Teams
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
+  const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinMeetingApi] = useJoinMeetingMutation();
+
+  // [MỚI] State cho Preview Modal
+  const [previewDisplayName, setPreviewDisplayName] = useState("");
+  const [isPreviewCamOn, setIsPreviewCamOn] = useState(true);
+  const [isPreviewMicOn, setIsPreviewMicOn] = useState(false);
+
+  // Ref để gắn luồng video vào thẻ <video>
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // [MỚI] Effect xử lý bật/tắt thiết bị cho Preview
+  useEffect(() => {
+    let currentStream: MediaStream | null = null;
+
+    const startMedia = async () => {
+      if (!showPreviewModal) return;
+      try {
+        // Xin quyền truy cập thiết bị
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: isPreviewCamOn,
+          audio: isPreviewMicOn,
+        });
+
+        // Gắn luồng (stream) vào thẻ video
+        if (videoRef.current) {
+          videoRef.current.srcObject = currentStream;
+        }
+      } catch (err) {
+        console.error("Không thể truy cập thiết bị:", err);
+      }
+    };
+
+    if (showPreviewModal && (isPreviewCamOn || isPreviewMicOn)) {
+      startMedia();
+    } else if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    // Cleanup: Tắt camera/mic khi đóng modal hoặc component unmount
+    return () => {
+      if (currentStream) {
+        currentStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [showPreviewModal, isPreviewCamOn, isPreviewMicOn]);
 
   if (roomLoading) {
     return (
@@ -59,6 +116,30 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       </div>
     );
   }
+
+  const handleJoinMeeting = async () => {
+    const currentChannel = room?.channels.find((c) => c.name === activeChannel);
+    if (!currentChannel?._id) return;
+
+    try {
+      setIsJoining(true);
+      // [Cập nhật] Gửi thêm displayName qua BE
+      const response = await joinMeetingApi({
+        roomId,
+        channelId: currentChannel._id,
+        displayName: previewDisplayName || undefined,
+      }).unwrap();
+
+      setShowPreviewModal(false);
+      const meetingUrl = `/meeting?token=${response.token}&roomId=${roomId}&channelName=${activeChannel}`;
+      window.open(meetingUrl, "_blank");
+    } catch (error) {
+      console.error("Lỗi khi join meeting:", error);
+      alert("Không thể tham gia cuộc họp lúc này.");
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   return (
     <div className="h-screen w-full flex bg-white font-sans overflow-hidden text-slate-900">
@@ -110,15 +191,50 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             {/* Tabs (Giả lập giao diện) */}
             <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
               <button className="px-3 py-4 border-b-2 border-brand-500 text-brand-600">
-                Posts
+                Bài viết
               </button>
               <button className="px-3 py-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700">
-                Files
+                Lịch sử cuộc họp
               </button>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Nút Cuộc họp */}
+            <div className="relative">
+              <button
+                onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium transition-colors"
+              >
+                <Video size={16} />
+                <span>Cuộc họp</span>
+                <ChevronDown size={14} />
+              </button>
+
+              {isMeetingMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsMeetingMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-12 z-50 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1">
+                    <button
+                      onClick={() => {
+                        setIsMeetingMenuOpen(false);
+                        setShowPreviewModal(true);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <Video size={16} /> Bắt đầu họp ngay
+                    </button>
+                    <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Calendar size={16} /> Lên lịch cuộc họp
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
               className={`p-2 rounded-md transition-colors flex items-center gap-2 text-sm font-medium ${
@@ -186,6 +302,105 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           onClick={() => setIsRightSidebarOpen(false)}
         />
       )}
+
+      {showPreviewModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-slate-800">
+                  Chuẩn bị tham gia
+                </h2>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Khu vực Video Preview */}
+              <div className="aspect-video bg-slate-900 rounded-xl mb-4 flex items-center justify-center overflow-hidden relative border border-slate-200">
+                {isPreviewCamOn ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted // Luôn muted để không bị vọng âm thanh của chính mình
+                    className="w-full h-full object-cover transform -scale-x-100" // scale-x-100 để lật gương (mirror) camera
+                  />
+                ) : (
+                  <div className="text-slate-500 flex flex-col items-center">
+                    <VideoOff size={32} className="mb-2 opacity-50" />
+                    <span>Camera đang tắt</span>
+                  </div>
+                )}
+
+                {/* Chỉ báo trạng thái Mic trên khung video */}
+                {!isPreviewMicOn && (
+                  <div className="absolute top-3 right-3 bg-red-500 text-white p-1.5 rounded-md shadow-sm">
+                    <MicOff size={14} />
+                  </div>
+                )}
+              </div>
+
+              {/* Control Test Cam/Mic */}
+              <div className="flex gap-4 justify-center mb-6">
+                <button
+                  onClick={() => setIsPreviewMicOn(!isPreviewMicOn)}
+                  className={`p-3.5 rounded-full transition-colors ${
+                    isPreviewMicOn
+                      ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      : "bg-red-100 hover:bg-red-200 text-red-600"
+                  }`}
+                >
+                  {isPreviewMicOn ? <Mic size={20} /> : <MicOff size={20} />}
+                </button>
+                <button
+                  onClick={() => setIsPreviewCamOn(!isPreviewCamOn)}
+                  className={`p-3.5 rounded-full transition-colors ${
+                    isPreviewCamOn
+                      ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      : "bg-slate-800 hover:bg-slate-700 text-white"
+                  }`}
+                >
+                  {isPreviewCamOn ? (
+                    <Video size={20} />
+                  ) : (
+                    <VideoOff size={20} />
+                  )}
+                </button>
+              </div>
+
+              {/* [MỚI] Ô nhập tên hiển thị */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Tên hiển thị trong cuộc họp
+                </label>
+                <input
+                  type="text"
+                  value={previewDisplayName}
+                  onChange={(e) => setPreviewDisplayName(e.target.value)}
+                  placeholder="Nhập tên của bạn (tùy chọn)"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                />
+              </div>
+
+              <button
+                onClick={handleJoinMeeting}
+                disabled={isJoining}
+                className="w-full bg-brand-600 text-white py-3 rounded-xl font-semibold hover:bg-brand-700 disabled:opacity-50 transition-colors flex justify-center items-center gap-2"
+              >
+                {isJoining ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  "Tham gia ngay"
+                )}
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       <aside
         className={`
