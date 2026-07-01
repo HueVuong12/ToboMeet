@@ -1,19 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
+import { Channel, ChannelSchema } from "./channel.schema";
+import { RoomMember, RoomMemberSchema } from "./room-member.schema";
 
-// ─── Channel (embedded sub-document) ─────────────────────────────────────────
-@Schema({ _id: true, timestamps: false })
-export class Channel {
-  @Prop({ required: true })
-  name: string;
-
-  @Prop({ default: () => new Date() })
-  createdAt: Date;
-}
-
-export const ChannelSchema = SchemaFactory.createForClass(Channel);
-
-// ─── Room ────────────────────────────────────────────────────────────────────
 export type RoomDocument = Room & Document;
 
 @Schema({ timestamps: true })
@@ -30,8 +19,8 @@ export class Room {
   @Prop({ required: true })
   ownerId: string;
 
-  @Prop({ type: [String], default: [] })
-  members: string[];
+  @Prop({ type: [RoomMemberSchema], default: [] })
+  members: RoomMember[];
 
   @Prop({ type: [ChannelSchema], default: [] })
   channels: Channel[];

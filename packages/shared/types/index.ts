@@ -97,15 +97,23 @@ export interface Channel {
   createdAt: string;
 }
 
-export interface Room {
+export interface RoomResponse {
   _id: string;
   name: string;
   type: "meeting" | "classroom";
   code: string;
   ownerId: string;
-  members: string[];
+  members?: RoomMemberResponse[];
   channels: Channel[];
   createdAt: string;
   updatedAt: string;
 }
 
+export interface RoomMemberResponse {
+  userId: string;
+  role: "owner" | "member";
+  joinedAt: string;
+  displayName?: string;
+  avatarUrl?: string;
+  email?: string;
+}

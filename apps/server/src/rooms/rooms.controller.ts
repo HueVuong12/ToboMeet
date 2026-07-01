@@ -7,12 +7,17 @@ import {
   Req,
   UseGuards,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
+  Delete,
 } from "@nestjs/common";
 import { RoomsService } from "./rooms.service";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { JoinRoomDto } from "./dto/join-room.dto";
 import { CreateChannelDto } from "./dto/create-channel.dto";
-import { SupabaseGuard } from "../auth/supabase.guard";
+import { SupabaseGuard } from "../core/guards/supabase.guard";
+import { RoomRoleGuard } from "../core/guards/room-role.guard";
+import { Roles } from "../core/decorators/roles.decorator";
 
 @Controller("rooms")
 @UseGuards(SupabaseGuard)
@@ -48,26 +53,50 @@ export class RoomsController {
   }
 
   /**
+   * GET /api/rooms/:id/members — Lấy toàn bộ danh sách thành viên trong phòng
+   */
+  @Get(":id/members")
+  async getRoomMembers(@Param("id") roomId: string) {
+    return this.roomsService.getRoomMembers(roomId);
+  }
+
+  /**
+   * DELETE /api/rooms/:id/members/:userId — Xóa thành viên khỏi phòng (chỉ chủ phòng)
+   */
+  @Delete(":id/members/:userId")
+  @Roles("owner")
+  @UseGuards(SupabaseGuard, RoomRoleGuard) // Chạy Guard check quyền trước
+  async removeMember(
+    @Param("id") roomId: string,
+    @Param("userId") targetUserId: string,
+  ) {
+    return this.roomsService.removeMember(roomId, targetUserId);
+  }
+
+  /**
    * POST /api/rooms/join — Tham gia phòng bằng mã code
    */
   @Post("join")
+  @HttpCode(HttpStatus.NO_CONTENT)
   async joinRoom(@Body() dto: JoinRoomDto, @Req() req: any) {
     if (!dto.code) {
       throw new BadRequestException("Mã phòng là bắt buộc");
     }
 
     const userId = req.user.id;
-    return this.roomsService.joinRoom(userId, dto.code);
+    await this.roomsService.joinRoom(userId, dto.code);
   }
 
   /**
    * POST /api/rooms/:id/channels — Thêm kênh mới (chỉ chủ phòng)
    */
   @Post(":id/channels")
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, RoomRoleGuard) // Chạy Guard check quyền trước
   async addChannel(
     @Param("id") roomId: string,
     @Body() dto: CreateChannelDto,
-    @Req() req: any
+    @Req() req: any,
   ) {
     if (!dto.name || !dto.name.trim()) {
       throw new BadRequestException("Tên kênh không được để trống");

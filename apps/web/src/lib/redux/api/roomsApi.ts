@@ -1,9 +1,9 @@
-import { Room } from "@tobomeet/shared/types";
+import { RoomResponse, RoomMemberResponse } from "@tobomeet/shared/types";
 import { baseApi } from "./baseApi";
 
 export const roomsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getMyRooms: builder.query<Room[], void>({
+    getMyRooms: builder.query<RoomResponse[], void>({
       query: () => ({
         url: "/rooms/my",
         method: "GET",
@@ -11,8 +11,16 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: ["Room"],
     }),
 
+    getRoomMembers: builder.query<RoomMemberResponse[], string>({
+      query: (roomId) => ({
+        url: `/rooms/${roomId}/members`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, roomId) => [{ type: "Room", id: roomId }],
+    }),
+
     createRoom: builder.mutation<
-      Room,
+      RoomResponse,
       { name: string; type: "meeting" | "classroom" }
     >({
       query: (body) => ({
@@ -23,7 +31,7 @@ export const roomsApi = baseApi.injectEndpoints({
       invalidatesTags: ["Room"],
     }),
 
-    joinRoom: builder.mutation<Room, { code: string }>({
+    joinRoom: builder.mutation<RoomResponse, { code: string }>({
       query: (body) => ({
         url: "/rooms/join",
         method: "POST",
@@ -32,7 +40,7 @@ export const roomsApi = baseApi.injectEndpoints({
       invalidatesTags: ["Room"],
     }),
 
-    getRoomById: builder.query<Room, string>({
+    getRoomById: builder.query<RoomResponse, string>({
       query: (id) => ({
         url: `/rooms/${id}`,
         method: "GET",
@@ -40,13 +48,18 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: "Room", id }],
     }),
 
-    addChannel: builder.mutation<Room, { roomId: string; name: string }>({
+    addChannel: builder.mutation<
+      RoomResponse,
+      { roomId: string; name: string }
+    >({
       query: ({ roomId, name }) => ({
         url: `/rooms/${roomId}/channels`,
         method: "POST",
         data: { name },
       }),
-      invalidatesTags: (_result, _error, { roomId }) => [{ type: "Room", id: roomId }],
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+      ],
     }),
   }),
   overrideExisting: false,
@@ -58,4 +71,5 @@ export const {
   useJoinRoomMutation,
   useGetRoomByIdQuery,
   useAddChannelMutation,
+  useGetRoomMembersQuery,
 } = roomsApi;

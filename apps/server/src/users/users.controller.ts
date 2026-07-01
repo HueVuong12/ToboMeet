@@ -1,6 +1,13 @@
-import { Controller, Get, Request, UseGuards, Delete, Param } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Request,
+  UseGuards,
+  Delete,
+  Param,
+} from "@nestjs/common";
 import { UsersService } from "./users.service";
-import { SupabaseGuard } from "../auth/supabase.guard";
+import { SupabaseGuard } from "../core/guards/supabase.guard";
 
 @Controller("users")
 export class UsersController {
