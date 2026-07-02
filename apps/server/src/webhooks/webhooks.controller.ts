@@ -29,16 +29,9 @@ export class WebhooksController {
     }
 
     if (event.event === "participant_left") {
-      // Kiểm tra xem số lượng người trong phòng có bằng 0
-      if (event.room && event.room.numParticipants === 0) {
-        const meetingCode = event.room.name;
+      const meetingCode = event.room.name;
 
-        // Cập nhật trạng thái "ended" trong DB ngay tức thì (UI của bạn sẽ ăn theo)
-        await this.meetingsService.endMeetingByCode(meetingCode);
-
-        // Lập tức gọi API ép LiveKit giải tán phòng, hủy luôn cái Timeout chờ đợi của nó
-        await this.meetingsService.forceDeleteLiveKitRoom(meetingCode);
-      }
+      await this.meetingsService.checkAndCloseEmptyRoom(meetingCode);
     }
 
     return { received: true };

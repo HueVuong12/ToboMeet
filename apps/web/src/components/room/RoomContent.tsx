@@ -48,25 +48,24 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     useGetRoomMembersQuery(roomId);
   const members = membersResponse || [];
 
-  // [MỚI] 1. Tìm thông tin chi tiết của kênh đang được active
-  const currentChannel = room?.channels.find(
-    (c: any) => c.name === activeChannel,
-  );
-
-  // [MỚI] 2. Gọi API lấy trạng thái cuộc họp.
-  // - skip: Bỏ qua không gọi nếu chưa tìm thấy channelId
-  // - pollingInterval: Tự động hỏi lại server mỗi 5 giây (Real-time giả lập)
-  const { data: activeMeeting } = useGetActiveMeetingQuery(
-    { roomId, channelId: currentChannel?._id || "" },
-    { skip: !currentChannel?._id, pollingInterval: 5000 },
-  );
-
   // Trạng thái Layout & Dữ liệu
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // Tìm thông tin chi tiết của kênh đang được active
+  const currentChannel = room?.channels.find(
+    (c: any) => c.name === activeChannel,
+  );
+
+  // - skip: Bỏ qua không gọi nếu chưa tìm thấy channelId
+  // - pollingInterval: Tự động hỏi lại server mỗi 5 giây (Real-time giả lập)
+  const { data: activeMeeting } = useGetActiveMeetingQuery(
+    { roomId, channelId: currentChannel?._id || "" },
+    { skip: !currentChannel?._id, pollingInterval: 5000 },
+  );
 
   const [isJoining, setIsJoining] = useState(false);
   const [joinMeetingApi] = useJoinMeetingMutation();

@@ -178,6 +178,38 @@ export class MeetingsService {
   }
 
   /**
+   * Kiểm tra thực tế số người trong phòng, nếu bằng 0 thì ép xóa
+   */
+  async checkAndCloseEmptyRoom(meetingCode: string) {
+    if (!this.livekitRoomService) return;
+
+    try {
+      // Gọi API trực tiếp lên LiveKit Server để lấy danh sách người dùng hiện tại
+      const participants =
+        await this.livekitRoomService.listParticipants(meetingCode);
+
+      if (participants.length === 0) {
+        console.log(
+          `[Xác nhận] Phòng ${meetingCode} thực sự trống. Đóng ngay lập tức!`,
+        );
+
+        // 1. Cập nhật Database
+        await this.endMeetingByCode(meetingCode);
+
+        // 2. Ép giải tán phòng
+        await this.forceDeleteLiveKitRoom(meetingCode);
+      } else {
+        console.log(
+          `Phòng ${meetingCode} vẫn còn ${participants.length} người. Tiếp tục duy trì.`,
+        );
+      }
+    } catch (error) {
+      // Bỏ qua lỗi nếu phòng đã không còn tồn tại trên LiveKit
+      console.log(`Phòng ${meetingCode} có thể đã được dọn dẹp.`);
+    }
+  }
+
+  /**
    * Kết thúc cuộc họp — Chuyển trạng thái sang 'ended' để giải phóng kênh
    */
   async endMeeting(roomId: string, channelId: string) {

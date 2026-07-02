@@ -48,7 +48,7 @@ export class MeetingsController {
    * Lấy trạng thái cuộc họp đang diễn ra trong kênh
    */
   @Get("active")
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  @UseGuards(SupabaseGuard)
   async getActiveMeeting(
     @Param("id") roomId: string,
     @Param("channelId") channelId: string,
