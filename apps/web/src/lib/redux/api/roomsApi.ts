@@ -63,6 +63,16 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    removeParticipant: builder.mutation<
+      void,
+      { roomId: string; channelId: string; code: string; identity: string }
+    >({
+      query: ({ roomId, channelId, code, identity }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}`,
+        method: "DELETE",
+      }),
+    }),
+
     addChannel: builder.mutation<
       RoomResponse,
       { roomId: string; name: string }
@@ -88,4 +98,5 @@ export const {
   useAddChannelMutation,
   useGetRoomMembersQuery,
   useJoinMeetingMutation,
+  useRemoveParticipantMutation,
 } = roomsApi;

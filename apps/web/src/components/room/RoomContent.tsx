@@ -131,7 +131,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       }).unwrap();
 
       setShowPreviewModal(false);
-      const meetingUrl = `/meeting?token=${encodeURIComponent(response.token)}&roomId=${encodeURIComponent(roomId)}&channelName=${encodeURIComponent(activeChannel)}&cam=${isPreviewCamOn}&mic=${isPreviewMicOn}`;
+      const meetingUrl = `/meeting?token=${encodeURIComponent(response.token)}&roomId=${roomId}&channelId=${currentChannel._id}&channelName=${encodeURIComponent(activeChannel)}&meetingCode=${response.meetingCode}&cam=${isPreviewCamOn}&mic=${isPreviewMicOn}`;
       window.open(meetingUrl, "_blank");
     } catch (error) {
       console.error("Lỗi khi join meeting:", error);

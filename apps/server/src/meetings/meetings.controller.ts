@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   Body,
+  Delete,
 } from "@nestjs/common";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -21,7 +22,7 @@ export class MeetingsController {
 
   /**
    * POST /api/rooms/:id/channels/:channelId/meetings/join
-   * Luồng: Mọi thành viên hợp lệ trong phòng đều có quyền gọi để Lấy Token (Join/Create)
+   * Mọi thành viên hợp lệ trong phòng đều có quyền gọi để Lấy Token (Join/Create)
    */
   @Post("join")
   @Roles("owner", "admin", "member")
@@ -38,6 +39,24 @@ export class MeetingsController {
       channelId,
       userId,
       body.displayName,
+    );
+  }
+
+  /**
+   * DELETE /api/rooms/:id/channels/:channelId/meetings/:code/participants/:identity
+   * Chỉ Chủ phòng hoặc Admin mới được phép đuổi người dùng ra khỏi cuộc họp
+   */
+  @Delete(":code/participants/:identity")
+  @Roles("owner", "admin")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async removeParticipant(
+    @Param("code") meetingCode: string,
+    @Param("identity") participantIdentity: string,
+  ) {
+    await this.meetingsService.removeParticipant(
+      meetingCode,
+      participantIdentity,
     );
   }
 

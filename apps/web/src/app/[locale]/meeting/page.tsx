@@ -26,14 +26,24 @@ import {
   Maximize2,
   Crown,
   Shield,
+  MoreVertical,
+  Edit2,
+  UserMinus,
+  Loader2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import "@livekit/components-styles";
+import { useRemoveParticipantMutation } from "@/lib/redux/api/roomsApi";
 
 export default function CustomMeetingPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const channelName = searchParams.get("channelName");
+
+  // Lấy các ID cần thiết để gọi API
+  const roomId = searchParams.get("roomId");
+  const channelId = searchParams.get("channelId");
+  const meetingCode = searchParams.get("meetingCode");
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"chat" | "people">("chat");
@@ -59,54 +69,72 @@ export default function CustomMeetingPage() {
       token={token}
       serverUrl={LIVEKIT_URL}
       connect={true}
+      onDisconnected={() => {
+        window.close();
+      }}
     >
-      <div className="flex flex-col h-dvh w-screen bg-[#1f1f1f] text-white overflow-hidden font-sans fixed inset-0">
-        <header className="h-14 shrink-0 px-4 flex items-center justify-between bg-[#1f1f1f] border-b border-slate-800 z-10">
+      {/* Thay bg-#1f1f1f thành bg-slate-900 */}
+      <div className="flex flex-col h-dvh w-screen bg-slate-900 text-slate-100 overflow-hidden font-sans fixed inset-0">
+        <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-slate-900/50 backdrop-blur-md border-b border-slate-800 z-10">
           <div className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-            <span className="text-sm font-semibold">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+            <span className="text-sm font-semibold tracking-wide">
               {channelName || "Phòng họp"}
             </span>
           </div>
         </header>
 
-        <main className="flex-1 flex overflow-hidden relative min-h-0 w-full">
-          <div className="flex-1 p-2 md:p-3 flex flex-col h-full w-full">
-            {/* THAY ĐỔI TẠI ĐÂY: Truyền sidebar status để grid co giãn */}
-            <div className="flex-1 bg-black rounded-xl border border-slate-800 shadow-2xl relative overflow-hidden">
+        <main className="flex-1 flex overflow-hidden relative min-h-0 w-full p-2 md:p-3 gap-3">
+          {/* LƯỚI VIDEO: Nền đen sâu, bo góc cực lớn (3xl) */}
+          <div className="flex-1 flex flex-col h-full min-w-0">
+            <div className="flex-1 bg-slate-950 rounded-3xl border border-slate-800/60 shadow-2xl relative overflow-hidden">
               <CustomVideoGrid />
             </div>
           </div>
 
-          {/* Khung Sidebar (Chat / Người tham gia) */}
+          {/* SIDEBAR: Nền kính (glassmorphism), bo góc mềm */}
           {isSidebarOpen && (
-            <aside className="w-full sm:w-80 shrink-0 flex flex-col bg-[#252525] border-l border-slate-800 z-20 absolute sm:relative right-0 h-full">
-              <div className="h-14 px-4 flex items-center justify-between border-b border-slate-800 shrink-0">
-                <h2 className="font-semibold text-sm">
-                  {sidebarTab === "chat" ? "Trò chuyện" : "Người tham gia"}
+            <aside
+              className="
+                z-20 flex flex-col shrink-0 
+                bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl
+                
+                /* [CẬP NHẬT] CSS cho Mobile: Nổi bồng bềnh, cách đều các cạnh 8px (inset-2) */
+                absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)]
+                
+                /* [CẬP NHẬT] CSS cho Desktop: Hủy absolute, trở lại bố cục Flexbox bình thường */
+                sm:relative sm:inset-auto sm:w-80 sm:h-full
+              "
+            >
+              <div className="h-14 px-5 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+                <h2 className="font-semibold text-sm text-slate-200 tracking-wide">
+                  {sidebarTab === "chat" ? "Trò chuyện" : "Thành viên"}
                 </h2>
                 <button
                   onClick={() => setIsSidebarOpen(false)}
-                  className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 transition-colors"
+                  className="p-1.5 rounded-xl hover:bg-slate-700/50 text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   <X size={18} />
                 </button>
               </div>
-              {/* THAY ĐỔI Ở ĐÂY: Hiển thị ParticipantList nếu tab là 'people' */}
               <div className="flex-1 overflow-y-auto p-4">
                 {sidebarTab === "chat" ? (
                   <div className="h-full flex items-center justify-center text-slate-500 text-sm">
                     Chưa có tin nhắn nào.
                   </div>
                 ) : (
-                  <ParticipantList />
+                  <ParticipantList
+                    roomId={roomId}
+                    channelId={channelId}
+                    meetingCode={meetingCode}
+                  />
                 )}
               </div>
             </aside>
           )}
         </main>
 
-        {/* 3. TOOLBAR DƯỚI ĐÁY (Cố định, không bị đẩy lên) */}
+        {/* TOOLBAR: Nổi bật với viền mờ */}
         <div className="shrink-0 w-full z-30">
           <CustomToolbar
             onToggleSidebar={(tab) => {
@@ -234,92 +262,216 @@ function CustomVideoGrid() {
 /**
  * COMPONENT: Danh sách người tham gia
  */
-function ParticipantList() {
-  // Lấy danh sách toàn bộ người đang trong phòng
+function ParticipantList({
+  roomId,
+  channelId,
+  meetingCode,
+}: {
+  roomId: string | null;
+  channelId: string | null;
+  meetingCode: string | null;
+}) {
   const participants = useParticipants();
+  const { localParticipant } = useLocalParticipant();
+
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
+  const [removeParticipant] = useRemoveParticipantMutation();
+
+  // State lưu danh sách những người đã bị kick thành công để giấu đi ngay lập tức
+  const [kickedUsers, setKickedUsers] = useState<string[]>([]);
+
+  let localRole = "member";
+  try {
+    if (localParticipant.metadata) {
+      localRole = JSON.parse(localParticipant.metadata).role || "member";
+    }
+  } catch (error) {}
+  const isLocalAdmin = localRole === "owner" || localRole === "admin";
+
+  const handleRemove = async (identity: string) => {
+    const participant = participants.find((p) => p.identity === identity);
+    if (!participant) return;
+
+    if (
+      !confirm(`Bạn có chắc chắn muốn đuổi ${participant.name} khỏi cuộc họp?`)
+    )
+      return;
+
+    setOpenMenuId(null);
+    setKickingUserId(identity);
+
+    try {
+      if (!roomId || !channelId || !meetingCode) {
+        alert("Thiếu thông tin cần thiết để thực hiện thao tác!");
+        return;
+      }
+
+      await removeParticipant({
+        roomId: roomId,
+        channelId: channelId,
+        code: meetingCode,
+        identity: identity,
+      }).unwrap();
+
+      setKickedUsers((prev) => [...prev, identity]);
+    } catch (error) {
+      console.error(error);
+      alert("Không thể thực hiện thao tác đuổi khỏi phòng!");
+    } finally {
+      setKickingUserId(null);
+    }
+  };
+
+  // Lọc bỏ những người đã bị kick trước khi render
+  const displayParticipants = participants.filter(
+    (p) => !kickedUsers.includes(p.identity),
+  );
 
   return (
-    <div className="flex flex-col gap-1 w-full h-full">
-      {participants.map((p) => {
-        // Giải mã metadata để lấy Avatar URL và Role
-        let avatarUrl = "";
-        let role = "member";
-        try {
-          if (p.metadata) {
-            const meta = JSON.parse(p.metadata);
-            avatarUrl = meta.avatarUrl;
-            role = meta.role || "member";
-          }
-        } catch (error) {
-          console.error("Lỗi parse metadata", error);
-        }
+    <div className="flex flex-col h-full">
+      {/* Hiển thị tổng số người */}
+      <div className="flex items-center justify-between mb-4 px-1">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          Đang tham gia
+        </span>
+        <span className="text-xs font-bold bg-slate-800 text-slate-300 px-2 py-1 rounded-full">
+          {displayParticipants.length} người
+        </span>
+      </div>
 
-        return (
-          <div
-            key={p.identity}
-            className="flex items-center gap-3 p-2.5 hover:bg-slate-800 rounded-lg transition-colors group"
-          >
-            {/* 1. Hiển thị Avatar */}
-            <div className="relative shrink-0">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={p.name}
-                  className="w-9 h-9 rounded-full object-cover border border-slate-700"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-brand-600/20 text-brand-400 flex items-center justify-center font-bold text-sm uppercase border border-brand-600/30">
-                  {p.name?.charAt(0) || "?"}
-                </div>
-              )}
-              {/* Chấm xanh online */}
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-[#252525] rounded-full"></div>
-            </div>
+      <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar pb-32">
+        {displayParticipants.map((p) => {
+          let avatarUrl = "";
+          let role = "member";
+          try {
+            if (p.metadata) {
+              const meta = JSON.parse(p.metadata);
+              avatarUrl = meta.avatarUrl;
+              role = meta.role || "member";
+            }
+          } catch (error) {}
 
-            <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-              {/* 2. Hiển thị Tên */}
-              <span className="text-sm font-medium text-slate-200 truncate">
-                {p.name}{" "}
-                {p.isLocal && (
-                  <span className="text-slate-500 font-normal ml-1">(Bạn)</span>
+          const isMe = p.identity === localParticipant.identity;
+
+          return (
+            <div
+              key={p.identity}
+              className="flex items-center gap-3 p-2.5 hover:bg-slate-700/30 rounded-xl transition-all group"
+            >
+              {/* Avatar */}
+              <div className="relative shrink-0">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={p.name}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-slate-700/50"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm uppercase border border-brand-500/30">
+                    {p.name?.charAt(0) || "?"}
+                  </div>
                 )}
-              </span>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full"></div>
+              </div>
 
-              {/* Badge hiển thị chức danh */}
-              {role !== "member" && (
-                <div className="flex items-center">
-                  {role === "owner" ? (
-                    <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded w-max">
-                      <Crown size={10} /> Chủ phòng
+              {/* Thông tin */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                <span className="text-sm font-medium text-slate-200 truncate">
+                  {p.name}
+                  {isMe && (
+                    <span className="text-slate-500 font-normal ml-1.5">
+                      (Bạn)
                     </span>
-                  ) : role === "admin" ? (
-                    <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded w-max">
-                      <Shield size={10} /> Quản trị viên
-                    </span>
-                  ) : null}
-                </div>
-              )}
-            </div>
+                  )}
+                </span>
 
-            {/* 3. Hiển thị trạng thái Mic */}
-            <div className="shrink-0 text-slate-400">
-              {p.isMicrophoneEnabled ? (
-                <div className="p-1.5 bg-slate-700/50 rounded-md">
-                  <Mic size={14} className="text-green-400" />
+                {role !== "member" && (
+                  <div className="flex items-center mt-0.5">
+                    {role === "owner" ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                        <Crown size={12} /> Chủ phòng
+                      </span>
+                    ) : role === "admin" ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                        <Shield size={12} /> Quản trị viên
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+
+              {/* Cụm Action (Mic + Menu) */}
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Trạng thái Mic */}
+                <div className="text-slate-400 mr-1">
+                  {p.isMicrophoneEnabled ? (
+                    <div className="p-1.5 bg-slate-800/50 rounded-lg">
+                      <Mic size={14} className="text-emerald-400" />
+                    </div>
+                  ) : (
+                    <div className="p-1.5 bg-red-500/10 rounded-lg">
+                      <MicOff size={14} className="text-red-400" />
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="p-1.5 bg-red-500/10 rounded-md">
-                  <MicOff size={14} className="text-red-400" />
+
+                {/* 3 Chấm Menu hoặc Spinner */}
+                <div className="relative">
+                  {/* Kiểm tra nếu người này đang bị kick thì hiện vòng xoay, ngược lại hiện 3 chấm */}
+                  {kickingUserId === p.identity ? (
+                    <div className="p-1.5 text-red-400 flex items-center justify-center">
+                      <Loader2 size={16} className="animate-spin" />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setOpenMenuId(
+                          openMenuId === p.identity ? null : p.identity,
+                        )
+                      }
+                      className="p-1.5 hover:bg-slate-600 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                  )}
+
+                  {/* Dropdown Menu */}
+                  {openMenuId === p.identity && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setOpenMenuId(null)}
+                      ></div>
+                      <div className="absolute right-4 top-6 z-50 w-44 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+                        <button className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors">
+                          <Edit2 size={15} /> Đổi tên
+                        </button>
+
+                        {/* CHỈ HIỆN KICK NẾU MÌNH LÀ ADMIN VÀ NGƯỜI BỊ KICK KHÔNG PHẢI LÀ MÌNH */}
+                        {isLocalAdmin && !isMe && (
+                          <>
+                            <div className="h-px bg-slate-700 my-1"></div>
+                            <button
+                              onClick={() => handleRemove(p.identity)}
+                              className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/15 hover:text-red-300 flex items-center gap-2.5 transition-colors"
+                            >
+                              <UserMinus size={15} /> Đuổi khỏi phòng
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
-
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
  */
@@ -356,13 +508,12 @@ function CustomToolbar({
   const leaveMeeting = () => window.close();
 
   return (
-    <footer className="h-auto min-h-20 sm:h-20 shrink-0 flex flex-wrap items-center justify-center sm:justify-between px-4 sm:px-6 bg-[#1f1f1f] border-t border-slate-800 z-30 gap-4 py-2 sm:py-0">
+    <footer className="h-auto min-h-20 sm:h-20 shrink-0 flex flex-wrap items-center justify-center sm:justify-between px-4 sm:px-6 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800/60 z-30 gap-4 py-2 sm:py-0">
       <div className="hidden sm:flex items-center w-50">
         <span className="text-slate-400 text-sm font-medium">
           Đã mã hóa đầu cuối
         </span>
       </div>
-
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={toggleCam}
@@ -420,7 +571,6 @@ function CustomToolbar({
           <span className="hidden sm:inline">Rời đi</span>
         </button>
       </div>
-
       <div className="flex items-center gap-1 sm:gap-2 w-auto sm:w-50 justify-end">
         <button
           onClick={() => onToggleSidebar("people")}

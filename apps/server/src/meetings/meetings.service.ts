@@ -8,17 +8,30 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { MeetingJoinResponse } from "@tobomeet/shared/types";
 
 @Injectable()
 export class MeetingsService {
+  private livekitRoomService: RoomServiceClient;
   constructor(
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
-  ) {}
+  ) {
+    const livekitHost = process.env.LIVEKIT_API_URL;
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+    if (livekitHost && apiKey && apiSecret) {
+      this.livekitRoomService = new RoomServiceClient(
+        livekitHost,
+        apiKey,
+        apiSecret,
+      );
+    }
+  }
 
   /**
    * Tham gia hoặc tự động khởi tạo cuộc họp nếu chưa có ai tạo trong kênh
@@ -104,6 +117,27 @@ export class MeetingsService {
       status: meeting.status,
       isHost: meeting.hostId === userId,
     };
+  }
+
+  /**
+   * Đuổi người dùng ra khỏi cuộc họp (Kick)
+   */
+  async removeParticipant(meetingCode: string, participantIdentity: string) {
+    if (!this.livekitRoomService) {
+      throw new BadRequestException("LiveKit Admin Client chưa được cấu hình");
+    }
+
+    try {
+      await this.livekitRoomService.removeParticipant(
+        meetingCode,
+        participantIdentity,
+      );
+    } catch (error) {
+      console.error("Lỗi khi kick:", error);
+      throw new BadRequestException(
+        "Không thể kick, có thể người này đã rời phòng",
+      );
+    }
   }
 
   /**
