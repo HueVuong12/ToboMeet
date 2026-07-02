@@ -17,5 +17,6 @@ import { Room, RoomSchema } from "../rooms/schemas/room.schema";
   ],
   controllers: [MeetingsController],
   providers: [MeetingsService],
+  exports: [MeetingsService],
 })
 export class MeetingsModule {}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  useGetActiveMeetingQuery,
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
   useJoinMeetingMutation,
@@ -46,6 +47,19 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const { data: membersResponse, isLoading: membersLoading } =
     useGetRoomMembersQuery(roomId);
   const members = membersResponse || [];
+
+  // [MỚI] 1. Tìm thông tin chi tiết của kênh đang được active
+  const currentChannel = room?.channels.find(
+    (c: any) => c.name === activeChannel,
+  );
+
+  // [MỚI] 2. Gọi API lấy trạng thái cuộc họp.
+  // - skip: Bỏ qua không gọi nếu chưa tìm thấy channelId
+  // - pollingInterval: Tự động hỏi lại server mỗi 5 giây (Real-time giả lập)
+  const { data: activeMeeting } = useGetActiveMeetingQuery(
+    { roomId, channelId: currentChannel?._id || "" },
+    { skip: !currentChannel?._id, pollingInterval: 5000 },
+  );
 
   // Trạng thái Layout & Dữ liệu
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
@@ -200,37 +214,55 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Nút Cuộc họp */}
+            {/* Nút Cuộc họp / Tham gia */}
             <div className="relative">
-              <button
-                onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium transition-colors"
-              >
-                <Video size={16} />
-                <span>Cuộc họp</span>
-                <ChevronDown size={14} />
-              </button>
-
-              {isMeetingMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsMeetingMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-12 z-50 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1">
-                    <button
-                      onClick={() => {
-                        setIsMeetingMenuOpen(false);
-                        setShowPreviewModal(true);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Video size={16} /> Bắt đầu họp ngay
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                      <Calendar size={16} /> Lên lịch cuộc họp
-                    </button>
+              {activeMeeting?.isOngoing ? (
+                // TRẠNG THÁI 1: ĐANG CÓ CUỘC HỌP -> Hiện nút Tham gia màu xanh lá nổi bật
+                <button
+                  onClick={() => setShowPreviewModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  <Video size={16} />
+                  <span>Tham gia họp</span>
+                  <div className="relative flex h-2 w-2 ml-1">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                   </div>
+                </button>
+              ) : (
+                // TRẠNG THÁI 2: KHÔNG CÓ CUỘC HỌP -> Hiện menu tạo mới như cũ
+                <>
+                  <button
+                    onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium transition-colors"
+                  >
+                    <Video size={16} />
+                    <span>Cuộc họp</span>
+                    <ChevronDown size={14} />
+                  </button>
+
+                  {isMeetingMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsMeetingMenuOpen(false)}
+                      />
+                      <div className="absolute right-0 top-12 z-50 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1">
+                        <button
+                          onClick={() => {
+                            setIsMeetingMenuOpen(false);
+                            setShowPreviewModal(true);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Video size={16} /> Bắt đầu họp ngay
+                        </button>
+                        <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                          <Calendar size={16} /> Lên lịch cuộc họp
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>

@@ -73,6 +73,16 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    getActiveMeeting: builder.query<
+      { isOngoing: boolean; meetingCode: string | null },
+      { roomId: string; channelId: string }
+    >({
+      query: ({ roomId, channelId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/active`,
+        method: "GET",
+      }),
+    }),
+
     addChannel: builder.mutation<
       RoomResponse,
       { roomId: string; name: string }
@@ -92,6 +102,7 @@ export const roomsApi = baseApi.injectEndpoints({
 
 export const {
   useGetMyRoomsQuery,
+  useGetActiveMeetingQuery,
   useCreateRoomMutation,
   useJoinRoomMutation,
   useGetRoomByIdQuery,

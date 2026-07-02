@@ -69,10 +69,12 @@ export class MeetingsService {
     // Nếu CHƯA CÓ cuộc họp nào, tiến hành tạo mới (Bắt đầu cuộc họp)
     if (!meeting) {
       const randomString = Math.random().toString(36).substring(2, 9);
+      const meetingCode = `meet-${roomId.substring(0, 4)}-${randomString}`;
+
       meeting = await this.meetingModel.create({
         roomId,
         channelId,
-        meetingCode: `meet-${roomId.substring(0, 4)}-${randomString}`,
+        meetingCode,
         status: "ongoing",
         hostId: userId,
       });
@@ -121,6 +123,25 @@ export class MeetingsService {
   }
 
   /**
+   * Lấy trạng thái cuộc họp hiện tại của một kênh
+   */
+  async getActiveMeeting(roomId: string, channelId: string) {
+    const meeting = await this.meetingModel
+      .findOne({
+        roomId,
+        channelId,
+        status: "ongoing",
+      })
+      .exec();
+
+    return {
+      isOngoing: !!meeting,
+      meetingCode: meeting?.meetingCode || null,
+      hostId: meeting?.hostId || null,
+    };
+  }
+
+  /**
    * Đuổi người dùng ra khỏi cuộc họp (Kick)
    */
   async removeParticipant(meetingCode: string, participantIdentity: string) {
@@ -137,6 +158,21 @@ export class MeetingsService {
       console.error("Lỗi khi kick:", error);
       throw new BadRequestException(
         "Không thể kick, có thể người này đã rời phòng",
+      );
+    }
+  }
+
+  /**
+   * Ép LiveKit xóa phòng ngay lập tức không cần đợi Timeout
+   */
+  async forceDeleteLiveKitRoom(meetingCode: string) {
+    if (!this.livekitRoomService) return;
+    try {
+      await this.livekitRoomService.deleteRoom(meetingCode);
+    } catch (error) {
+      console.error(
+        `Không thể xóa phòng ${meetingCode} (có thể đã tự xóa):`,
+        error,
       );
     }
   }
@@ -163,5 +199,18 @@ export class MeetingsService {
     await meeting.save();
 
     return { message: "Cuộc họp đã được kết thúc thành công" };
+  }
+
+  async endMeetingByCode(meetingCode: string) {
+    const meeting = await this.meetingModel.findOne({
+      meetingCode,
+      status: "ongoing",
+    });
+
+    if (meeting) {
+      meeting.status = "ended";
+      await meeting.save();
+      console.log(`Đã đóng cuộc họp: ${meetingCode}`);
+    }
   }
 }

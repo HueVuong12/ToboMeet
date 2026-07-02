@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Body,
   Delete,
+  Get,
 } from "@nestjs/common";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -40,6 +41,19 @@ export class MeetingsController {
       userId,
       body.displayName,
     );
+  }
+
+  /**
+   * GET /api/rooms/:id/channels/:channelId/meetings/active
+   * Lấy trạng thái cuộc họp đang diễn ra trong kênh
+   */
+  @Get("active")
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async getActiveMeeting(
+    @Param("id") roomId: string,
+    @Param("channelId") channelId: string,
+  ) {
+    return this.meetingsService.getActiveMeeting(roomId, channelId);
   }
 
   /**
