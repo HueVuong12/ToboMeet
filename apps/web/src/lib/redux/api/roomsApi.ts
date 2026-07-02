@@ -59,7 +59,7 @@ export const roomsApi = baseApi.injectEndpoints({
       query: ({ roomId, channelId, displayName }) => ({
         url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
         method: "POST",
-        data: { displayName: displayName || undefined }, // Nếu rỗng thì gửi undefined để BE tự lấy tên gốc
+        data: { displayName },
       }),
     }),
 

@@ -77,14 +77,13 @@ export class RoomsController {
    * POST /api/rooms/join — Tham gia phòng bằng mã code
    */
   @Post("join")
-  @HttpCode(HttpStatus.NO_CONTENT)
   async joinRoom(@Body() dto: JoinRoomDto, @Req() req: any) {
     if (!dto.code) {
       throw new BadRequestException("Mã phòng là bắt buộc");
     }
 
     const userId = req.user.id;
-    await this.roomsService.joinRoom(userId, dto.code);
+    return this.roomsService.joinRoom(userId, dto.code);
   }
 
   /**

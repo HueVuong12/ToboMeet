@@ -10,6 +10,7 @@ import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
+import { MeetingJoinResponse } from "@tobomeet/shared/types";
 
 @Injectable()
 export class MeetingsService {
@@ -27,22 +28,23 @@ export class MeetingsService {
     channelId: string,
     userId: string,
     displayName?: string,
-  ) {
+  ): Promise<MeetingJoinResponse> {
     const room = await this.roomModel.findOne({
       _id: roomId,
-      "channels._id": channelId, // Query trực tiếp vào sub-document
+      "channels._id": channelId,
     });
 
     if (!room) {
       throw new NotFoundException("Phòng hoặc Kênh không tồn tại");
     }
 
-    // 1. Tìm thông tin tên hiển thị của User để làm Identity trong LiveKit
+    // Tìm thông tin tên hiển thị của User để làm Identity trong LiveKit
     const user = await this.userModel.findOne({ supabaseId: userId }).exec();
     const finalDisplayName =
       displayName || user?.displayName || "Người dùng ẩn danh";
+    const avatarUrl = user?.avatarUrl || "";
 
-    // 2. Tìm cuộc họp đang diễn ra (ongoing) trong kênh này
+    // Tìm cuộc họp đang diễn ra (ongoing) trong kênh này
     let meeting = await this.meetingModel
       .findOne({
         roomId,
@@ -51,7 +53,7 @@ export class MeetingsService {
       })
       .exec();
 
-    // 3. Nếu CHƯA CÓ cuộc họp nào, tiến hành tạo mới (Bắt đầu cuộc họp)
+    // Nếu CHƯA CÓ cuộc họp nào, tiến hành tạo mới (Bắt đầu cuộc họp)
     if (!meeting) {
       const randomString = Math.random().toString(36).substring(2, 9);
       meeting = await this.meetingModel.create({
@@ -73,12 +75,22 @@ export class MeetingsService {
       );
     }
 
+    const uniqueIdentity = `${userId}-${Math.random().toString(36).substring(2, 8)}`;
+
+    const userInRoom = room.members.find((m) => m.userId === userId);
+    const userRole = userInRoom ? userInRoom.role : "member";
+    const hasAdminPowers = userRole === "owner" || userRole === "admin";
+
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: userId, // Bắt buộc là duy nhất cho mỗi user trong phòng họp
+      identity: uniqueIdentity,
       name: finalDisplayName,
+      metadata: JSON.stringify({
+        avatarUrl: avatarUrl,
+        hasAdminPowers: hasAdminPowers,
+        role: userRole,
+      }),
     });
 
-    // Cấp quyền tham gia vào căn phòng có tên là meetingCode
     at.addGrant({
       roomJoin: true,
       room: meeting.meetingCode,

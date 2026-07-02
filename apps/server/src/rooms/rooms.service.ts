@@ -103,7 +103,7 @@ export class RoomsService {
   /**
    * Tham gia phòng bằng mã code
    */
-  async joinRoom(userId: string, roomCode: string) {
+  async joinRoom(userId: string, roomCode: string): Promise<RoomResponse> {
     const room = await this.roomModel.findOne({ code: roomCode });
     if (!room) throw new NotFoundException("Không tìm thấy phòng với mã này");
 
@@ -117,12 +117,14 @@ export class RoomsService {
       (member) => member.userId === userId,
     );
     if (isAlreadyMember) {
-      return { message: "Bạn đã ở trong phòng này", room };
+      throw new BadRequestException("Bạn đã là thành viên của phòng này");
     }
 
     // Thêm member mới
     room.members.push({ userId, role: "member", joinedAt: new Date() });
     await room.save();
+
+    return this.mapToRoomResponse(room);
   }
 
   /**

@@ -48,7 +48,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   // Trạng thái Layout & Dữ liệu
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true); // Mở mặc định trên Desktop như Teams
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
@@ -131,7 +131,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       }).unwrap();
 
       setShowPreviewModal(false);
-      const meetingUrl = `/meeting?token=${response.token}&roomId=${roomId}&channelName=${activeChannel}`;
+      const meetingUrl = `/meeting?token=${encodeURIComponent(response.token)}&roomId=${encodeURIComponent(roomId)}&channelName=${encodeURIComponent(activeChannel)}&cam=${isPreviewCamOn}&mic=${isPreviewMicOn}`;
       window.open(meetingUrl, "_blank");
     } catch (error) {
       console.error("Lỗi khi join meeting:", error);
@@ -361,7 +361,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                   className={`p-3.5 rounded-full transition-colors ${
                     isPreviewCamOn
                       ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                      : "bg-slate-800 hover:bg-slate-700 text-white"
+                      : "bg-red-100 hover:bg-red-200 text-red-600"
                   }`}
                 >
                   {isPreviewCamOn ? (
