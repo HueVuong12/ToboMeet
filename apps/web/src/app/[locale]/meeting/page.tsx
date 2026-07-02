@@ -34,6 +34,7 @@ import {
 import { useEffect, useState } from "react";
 import "@livekit/components-styles";
 import { useRemoveParticipantMutation } from "@/lib/redux/api/roomsApi";
+import { createPortal } from "react-dom";
 
 export default function CustomMeetingPage() {
   const searchParams = useSearchParams();
@@ -276,10 +277,14 @@ function ParticipantList({
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [kickingUserId, setKickingUserId] = useState<string | null>(null);
-  const [removeParticipant] = useRemoveParticipantMutation();
-
+  const [renameState, setRenameState] = useState<{
+    isOpen: boolean;
+    newName: string;
+  } | null>(null);
   // State lưu danh sách những người đã bị kick thành công để giấu đi ngay lập tức
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
+
+  const [removeParticipant] = useRemoveParticipantMutation();
 
   let localRole = "member";
   try {
@@ -327,6 +332,19 @@ function ParticipantList({
   const displayParticipants = participants.filter(
     (p) => !kickedUsers.includes(p.identity),
   );
+
+  // Xử lý đổi tên người dùng
+  const handleRenameSubmit = async () => {
+    if (!renameState || !renameState.newName.trim()) return;
+    try {
+      // Bắn lệnh cập nhật tên lên LiveKit, nó sẽ tự đồng bộ cho mọi người
+      await localParticipant.setName(renameState.newName.trim());
+      setRenameState(null);
+    } catch (error) {
+      console.error(error);
+      alert("Không thể đổi tên lúc này!");
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -444,7 +462,16 @@ function ParticipantList({
                         onClick={() => setOpenMenuId(null)}
                       ></div>
                       <div className="absolute right-4 top-6 z-50 w-44 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
-                        <button className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors">
+                        <button
+                          onClick={() => {
+                            setRenameState({
+                              isOpen: true,
+                              newName: p.name || "",
+                            });
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                        >
                           <Edit2 size={15} /> Đổi tên
                         </button>
 
@@ -469,6 +496,47 @@ function ParticipantList({
           );
         })}
       </div>
+
+      {/* Render Modal Đổi Tên bằng Portal để lơ lửng trên cùng */}
+      {renameState?.isOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
+              <h3 className="text-lg font-bold text-slate-100 mb-4 tracking-wide">
+                Đổi tên hiển thị
+              </h3>
+
+              <input
+                type="text"
+                value={renameState.newName}
+                onChange={(e) =>
+                  setRenameState({ ...renameState, newName: e.target.value })
+                }
+                placeholder="Nhập tên mới..."
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 mb-6 transition-all"
+                autoFocus // Tự động trỏ nháy chuột vào ô input
+                onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()} // Nhấn Enter để lưu
+              />
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setRenameState(null)}
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleRenameSubmit}
+                  disabled={!renameState.newName.trim()}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white transition-colors shadow-lg shadow-brand-500/30 disabled:opacity-50 disabled:shadow-none"
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

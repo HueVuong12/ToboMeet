@@ -109,6 +109,7 @@ export class MeetingsService {
       room: meeting.meetingCode,
       canPublish: true,
       canSubscribe: true,
+      canUpdateOwnMetadata: true,
     });
 
     return {
