@@ -6,6 +6,7 @@ import { MeetingsService } from "./meetings.service";
 import { Meeting, MeetingSchema } from "./schemas/meeting.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
 import { Room, RoomSchema } from "../rooms/schemas/room.schema";
+import { MeetingsGateway } from "./meetings.gateway";
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { Room, RoomSchema } from "../rooms/schemas/room.schema";
     ]),
   ],
   controllers: [MeetingsController],
-  providers: [MeetingsService],
-  exports: [MeetingsService],
+  providers: [MeetingsService, MeetingsGateway],
+  exports: [MeetingsService, MeetingsGateway],
 })
 export class MeetingsModule {}

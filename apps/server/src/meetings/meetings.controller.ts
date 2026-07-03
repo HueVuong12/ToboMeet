@@ -73,19 +73,4 @@ export class MeetingsController {
       participantIdentity,
     );
   }
-
-  /**
-   * POST /api/rooms/:id/channels/:channelId/meetings/end
-   * Luồng: Chỉ Chủ phòng hoặc Admin mới được phép kết thúc cuộc họp của kênh đó
-   */
-  @Post("end")
-  @HttpCode(HttpStatus.NO_CONTENT) // Trả về 204 không kèm body khi thành công
-  @Roles("owner", "admin")
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
-  async endMeeting(
-    @Param("id") roomId: string,
-    @Param("channelId") channelId: string,
-  ) {
-    await this.meetingsService.endMeeting(roomId, channelId);
-  }
 }

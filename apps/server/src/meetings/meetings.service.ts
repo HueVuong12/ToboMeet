@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -11,6 +13,7 @@ import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { MeetingJoinResponse } from "@tobomeet/shared/types";
+import { MeetingsGateway } from "./meetings.gateway";
 
 @Injectable()
 export class MeetingsService {
@@ -19,6 +22,8 @@ export class MeetingsService {
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    @Inject(forwardRef(() => MeetingsGateway))
+    private readonly meetingsGateway: MeetingsGateway,
   ) {
     const livekitHost = process.env.LIVEKIT_API_URL;
     const apiKey = process.env.LIVEKIT_API_KEY;
@@ -51,7 +56,7 @@ export class MeetingsService {
       throw new NotFoundException("Phòng hoặc Kênh không tồn tại");
     }
 
-    // Tìm thông tin tên hiển thị của User để làm Identity trong LiveKit
+    // Thông tin tên hiển thị của User để làm Identity trong LiveKit
     const user = await this.userModel.findOne({ supabaseId: userId }).exec();
     const finalDisplayName =
       displayName || user?.displayName || "Người dùng ẩn danh";
@@ -66,6 +71,29 @@ export class MeetingsService {
       })
       .exec();
 
+    // Chặn user tham gia cuộc họp nếu họ đã tham gia trên một thiết bị khác (tránh join nhiều tab)
+    if (meeting && this.livekitRoomService) {
+      try {
+        const participants = await this.livekitRoomService.listParticipants(
+          meeting.meetingCode,
+        );
+
+        const isAlreadyInThisRoom = participants.some((p) =>
+          p.identity.startsWith(userId),
+        );
+
+        if (isAlreadyInThisRoom) {
+          throw new BadRequestException(
+            "Bạn đã tham gia cuộc họp này trên một thiết bị hoặc tab khác.",
+          );
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+      }
+    }
+
     // Nếu CHƯA CÓ cuộc họp nào, tiến hành tạo mới (Bắt đầu cuộc họp)
     if (!meeting) {
       const randomString = Math.random().toString(36).substring(2, 9);
@@ -78,9 +106,15 @@ export class MeetingsService {
         status: "ongoing",
         hostId: userId,
       });
+
+      // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
+      this.meetingsGateway.notifyMeetingStatus(channelId, {
+        isOngoing: true,
+        meetingCode: meeting.meetingCode,
+      });
     }
 
-    // 4. Sinh LiveKit Access Token (Vé thông hành) cho người dùng này
+    // Sinh LiveKit Access Token cho người dùng này
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
 
@@ -209,30 +243,6 @@ export class MeetingsService {
     }
   }
 
-  /**
-   * Kết thúc cuộc họp — Chuyển trạng thái sang 'ended' để giải phóng kênh
-   */
-  async endMeeting(roomId: string, channelId: string) {
-    const meeting = await this.meetingModel
-      .findOne({
-        roomId,
-        channelId,
-        status: "ongoing",
-      })
-      .exec();
-
-    if (!meeting) {
-      throw new NotFoundException(
-        "Không tìm thấy cuộc họp nào đang diễn ra trong kênh này",
-      );
-    }
-
-    meeting.status = "ended";
-    await meeting.save();
-
-    return { message: "Cuộc họp đã được kết thúc thành công" };
-  }
-
   async endMeetingByCode(meetingCode: string) {
     const meeting = await this.meetingModel.findOne({
       meetingCode,
@@ -243,6 +253,12 @@ export class MeetingsService {
       meeting.status = "ended";
       await meeting.save();
       console.log(`Đã đóng cuộc họp: ${meetingCode}`);
+
+      // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
+      this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
+        isOngoing: false,
+        meetingCode: null,
+      });
     }
   }
 }

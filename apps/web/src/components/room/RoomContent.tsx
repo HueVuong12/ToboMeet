@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  roomsApi,
   useGetActiveMeetingQuery,
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
@@ -10,7 +11,6 @@ import {
 import Sidebar from "./Sidebar";
 import {
   Loader2,
-  Users,
   Menu,
   X,
   Info,
@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
+import { socket } from "@/lib/socket";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/lib/redux/store";
 
 interface RoomContentProps {
   roomId: string;
@@ -36,7 +39,7 @@ interface RoomContentProps {
 
 export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const t = useTranslations("room");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const dispatch = useDispatch<AppDispatch>();
 
   // API Fetch
   const {
@@ -49,6 +52,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   // Trạng thái Layout & Dữ liệu
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
@@ -60,17 +64,47 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     (c: any) => c.name === activeChannel,
   );
 
-  // - skip: Bỏ qua không gọi nếu chưa tìm thấy channelId
-  // - pollingInterval: Tự động hỏi lại server mỗi 5 giây (Real-time giả lập)
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: currentChannel?._id || "" },
-    { skip: !currentChannel?._id, pollingInterval: 5000 },
+    { skip: !currentChannel?._id },
   );
+
+  // Socket.io: Join/Leave channel và lắng nghe sự kiện thay đổi trạng thái cuộc họp
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const channelId = currentChannel?._id;
+    if (!channelId) return;
+
+    socket.emit("join_channel", channelId);
+
+    const handleStatusChanged = (data: any) => {
+      dispatch(
+        roomsApi.util.updateQueryData(
+          "getActiveMeeting",
+          { roomId, channelId },
+          (draft) => {
+            draft.isOngoing = data.isOngoing;
+            draft.meetingCode = data.meetingCode;
+          },
+        ),
+      );
+    };
+
+    socket.on("meeting_status_changed", handleStatusChanged);
+
+    return () => {
+      socket.emit("leave_channel", channelId);
+      socket.off("meeting_status_changed", handleStatusChanged);
+    };
+  }, [currentChannel?._id, dispatch]); // Chạy lại mỗi khi đổi kênh
 
   const [isJoining, setIsJoining] = useState(false);
   const [joinMeetingApi] = useJoinMeetingMutation();
 
-  // [MỚI] State cho Preview Modal
+  // State cho Preview Modal
   const [previewDisplayName, setPreviewDisplayName] = useState("");
   const [isPreviewCamOn, setIsPreviewCamOn] = useState(true);
   const [isPreviewMicOn, setIsPreviewMicOn] = useState(false);
@@ -78,7 +112,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   // Ref để gắn luồng video vào thẻ <video>
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // [MỚI] Effect xử lý bật/tắt thiết bị cho Preview
+  // Effect xử lý bật/tắt thiết bị cho Preview
   useEffect(() => {
     let currentStream: MediaStream | null = null;
 
@@ -136,7 +170,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
     try {
       setIsJoining(true);
-      // [Cập nhật] Gửi thêm displayName qua BE
       const response = await joinMeetingApi({
         roomId,
         channelId: currentChannel._id,
