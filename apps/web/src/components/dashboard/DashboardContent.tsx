@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { useGetMyRoomsQuery } from "@/lib/redux/api/roomsApi";
 import { logout } from "@/app/[locale]/auth/actions";
@@ -33,6 +34,15 @@ export default function DashboardContent({
   // initialRooms từ server-side prefetch dùng làm dữ liệu tức thì
   // RTK Query vẫn fetch để refresh nhưng không block render
   const { data: rooms = initialRooms, isLoading } = useGetMyRoomsQuery();
+  const router = useRouter();
+
+  useEffect(() => {
+    const pendingCode = localStorage.getItem("pending_join_code");
+    if (pendingCode) {
+      localStorage.removeItem("pending_join_code");
+      router.push(`/room/join?code=${pendingCode}`);
+    }
+  }, [router]);
 
   const [showMenu, setShowMenu] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);

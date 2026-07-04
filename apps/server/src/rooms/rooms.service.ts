@@ -172,6 +172,123 @@ export class RoomsService {
   }
 
   /**
+   * Thêm thành viên bằng email hoặc userId
+   */
+  async addMemberByEmailOrId(
+    userId: string,
+    roomId: string,
+    payload: { email?: string; targetUserId?: string },
+  ): Promise<RoomResponse> {
+    const room = await this.roomModel.findById(roomId);
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    // Kiểm tra xem người thực hiện có quyền hay không (phải là thành viên trong phòng)
+    const isRequesterMember = room.members.some((m) => m.userId === userId);
+    if (!isRequesterMember) {
+      throw new ForbiddenException(
+        "Bạn không có quyền thêm thành viên vào phòng này",
+      );
+    }
+
+    let targetUser: UserDocument | null = null;
+    if (payload.targetUserId) {
+      targetUser = await this.userModel.findOne({
+        supabaseId: payload.targetUserId,
+      });
+    } else if (payload.email) {
+      targetUser = await this.userModel.findOne({
+        email: payload.email.trim().toLowerCase(),
+      });
+    }
+
+    if (!targetUser) {
+      throw new NotFoundException("Không tìm thấy người dùng");
+    }
+
+    // Kiểm tra xem đã là thành viên chưa
+    const isAlreadyMember = room.members.some(
+      (m) => m.userId === targetUser!.supabaseId,
+    );
+    if (isAlreadyMember) {
+      throw new BadRequestException("Thành viên đã tham gia nhóm");
+    }
+
+    // Giới hạn 100 thành viên
+    if (room.members.length >= 100) {
+      throw new BadRequestException("Phòng đã đạt số lượng tối đa (100 người)");
+    }
+
+    // Thêm thành viên
+    room.members.push({
+      userId: targetUser.supabaseId,
+      role: "member",
+      joinedAt: new Date(),
+    });
+    await room.save();
+
+    return this.mapToRoomResponse(room);
+  }
+
+  /**
+   * Thành viên tự rời phòng hoặc Trưởng nhóm rời phòng bàn giao quyền sở hữu
+   */
+  async leaveRoom(roomId: string, userId: string, newOwnerId?: string) {
+    const room = await this.roomModel.findById(roomId);
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    const member = room.members.find((m) => m.userId === userId);
+    if (!member) {
+      throw new BadRequestException("Bạn không phải thành viên phòng này");
+    }
+
+    if (member.role === "owner") {
+      // Trường hợp 1: Phòng chỉ có duy nhất chủ phòng -> Giải tán phòng (xóa khỏi DB)
+      if (room.members.length === 1) {
+        await this.roomModel.findByIdAndDelete(roomId);
+        return { message: "Đã giải tán phòng họp thành công" };
+      }
+
+      // Trường hợp 2: Có thành viên khác nhưng chưa chỉ định người kế nhiệm
+      if (!newOwnerId) {
+        throw new BadRequestException(
+          "Chủ phòng phải bàn giao quyền trước khi rời phòng.",
+        );
+      }
+
+      // Kiểm tra người nhận quyền có tồn tại trong phòng không
+      const newOwner = room.members.find((m) => m.userId === newOwnerId);
+      if (!newOwner) {
+        throw new BadRequestException(
+          "Người kế nhiệm được chọn không thuộc phòng này.",
+        );
+      }
+
+      // Thực hiện chuyển giao quyền sở hữu
+      room.ownerId = newOwnerId;
+      newOwner.role = "owner";
+    }
+
+    // Xóa thành viên rời đi (kể cả chủ phòng cũ) khỏi mảng thành viên
+    room.members = room.members.filter((m) => m.userId !== userId);
+    await room.save();
+    return { message: "Đã rời phòng thành công" };
+  }
+
+  /**
+   * Lấy thông tin sơ bộ của phòng bằng mã code
+   */
+  async getRoomByCode(code: string) {
+    const room = await this.roomModel.findOne({ code: code.trim() });
+    if (!room) throw new NotFoundException("Không tìm thấy phòng họp này");
+    return {
+      _id: room._id.toString(),
+      name: room.name,
+      type: room.type,
+      code: room.code,
+    };
+  }
+
+  /**
    * Tạo mã phòng ngẫu nhiên 7 ký tự (chữ + số)
    */
   private generateRoomCode(): string {

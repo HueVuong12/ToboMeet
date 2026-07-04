@@ -481,7 +481,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         `}
       >
         <div className="h-14 flex items-center justify-between px-5 border-b border-slate-200 min-w-[300px]">
-          <h2 className="text-sm font-bold text-slate-800">Trong kênh này</h2>
+          <h2 className="text-sm font-bold text-slate-800">{t("in_this_channel")}</h2>
           <button
             onClick={() => setIsRightSidebarOpen(false)}
             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 transition-colors"
@@ -495,20 +495,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-slate-500 uppercase">
-                Mọi người ({members.length})
+                {t("people")} ({members.length})
               </h3>
               <button className="text-xs font-medium text-brand-600 hover:underline">
-                Xem tất cả
+                {t("view_all")}
               </button>
             </div>
 
             {membersLoading ? (
               <div className="text-center text-slate-400 py-4 text-sm">
-                Đang tải...
+                {t("loading_title")}
               </div>
             ) : members.length === 0 ? (
               <div className="text-center text-slate-400 py-4 text-sm">
-                Trống.
+                {t("empty")}
               </div>
             ) : (
               <div className="space-y-3">
@@ -539,7 +539,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                         {member.displayName}
                         {member.userId === userId && (
                           <span className="text-slate-400 font-normal ml-1">
-                            (Bạn)
+                            ({t("you")})
                           </span>
                         )}
                       </p>
@@ -547,11 +547,11 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                         {member.role === "owner" ? (
                           <div className="flex items-center gap-0.5 text-amber-600 bg-amber-50 px-1 py-0 rounded text-[9px] font-bold uppercase tracking-wide w-max">
                             <Crown size={9} />
-                            <span>Chủ phòng</span>
+                            <span>{t("room_owner")}</span>
                           </div>
                         ) : (
                           <p className="text-[11px] text-slate-500">
-                            Thành viên
+                            {t("anonymous_user")}
                           </p>
                         )}
                       </div>
@@ -580,7 +580,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                           />
                           <div className="absolute right-4 z-50 w-40 bg-white border border-slate-200 rounded-lg shadow-xl py-1 mt-1">
                             <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              Xem hồ sơ
+                              {t("view_profile")}
                             </button>
                             {userId !== member.userId &&
                               members.find((m) => m.userId === userId)?.role ===
@@ -592,7 +592,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                                 >
-                                  Xóa khỏi phòng
+                                  {t("remove_from_room")}
                                 </button>
                               )}
                           </div>
@@ -608,8 +608,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           <hr className="border-slate-100 my-4" />
 
           <div className="text-xs text-slate-500">
-            <p className="mb-2 font-semibold">Mô tả phòng</p>
-            <p>Không gian làm việc chung dành cho phòng {room.name}.</p>
+            <p className="mb-2 font-semibold">{t("room_description_title")}</p>
+            <p>{t("room_description", { name: room.name })}</p>
           </div>
         </div>
       </aside>

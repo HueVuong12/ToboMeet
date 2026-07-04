@@ -21,6 +21,14 @@ export default function Header({ variant = "default" }: { variant?: "default" | 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll, { passive: true });
+    
+    // Lưu pending_join_code nếu có trong URL
+    const params = new URLSearchParams(window.location.search);
+    const pendingCode = params.get("pending_join_code");
+    if (pendingCode) {
+      localStorage.setItem("pending_join_code", pendingCode);
+    }
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 

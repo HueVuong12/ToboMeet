@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { RoomResponse } from "@tobomeet/shared/types";
-import { useAddChannelMutation } from "@/lib/redux/api/roomsApi";
+import {
+  useAddChannelMutation,
+  useLeaveRoomMutation,
+  useInviteMemberMutation,
+  useGetRoomMembersQuery,
+} from "@/lib/redux/api/roomsApi";
+import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
 import {
   Hash,
   ChevronDown,
@@ -18,6 +24,9 @@ import {
   AlertCircle,
   Copy,
   Check,
+  UserPlus,
+  Link as LinkIcon,
+  LogOut,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
@@ -51,6 +60,85 @@ export default function Sidebar({
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // States cho menu quản lý phòng
+  const [showMenu, setShowMenu] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveRoom, { isLoading: isLeaving }] = useLeaveRoomMutation();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
+  // States và Hooks cho bàn giao quyền chủ phòng
+  const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
+  const { data: roomMembers = [] } = useGetRoomMembersQuery(room._id);
+  const otherMembers = roomMembers.filter((m: any) => m.userId !== userId);
+
+  // States và Hooks cho tính năng tìm kiếm gợi ý & mời thành viên
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+
+  const [searchUsers, { data: searchResults = [], isFetching: isSearching }] =
+    useLazySearchUsersQuery();
+  const [inviteMember, { isLoading: isInviting }] = useInviteMemberMutation();
+
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      const delayDebounceFn = setTimeout(() => {
+        searchUsers(searchQuery.trim());
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [searchQuery, searchUsers]);
+
+  const handleInviteUser = async () => {
+    setInviteError(null);
+    setInviteSuccess(null);
+
+    if (!selectedUser && !searchQuery.trim()) {
+      setInviteError(t("invite_error_empty"));
+      return;
+    }
+
+    try {
+      await inviteMember({
+        roomId: room._id,
+        email: selectedUser ? undefined : searchQuery.trim(),
+        targetUserId: selectedUser ? selectedUser.supabaseId : undefined,
+      }).unwrap();
+
+      setInviteSuccess(t("invite_success"));
+      setSearchQuery("");
+      setSelectedUser(null);
+    } catch (err: any) {
+      setInviteError(
+        err?.data?.message || err?.message || "Không thể thêm thành viên.",
+      );
+    }
+  };
+
+  const handleCopyLink = () => {
+    const inviteLink = `${window.location.origin}/room/join?code=${room.code}`;
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      setToastMessage(t("toast_copied_link"));
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    });
+  };
+
+  const handleLeaveRoom = async () => {
+    try {
+      await leaveRoom({
+        roomId: room._id,
+        newOwnerId: selectedNewOwner || undefined,
+      }).unwrap();
+      router.push("../dashboard");
+    } catch (err: any) {
+      alert(err?.data?.message || err?.message || "Không thể rời phòng");
+    }
+  };
 
   const isMeeting = room.type === "meeting";
   const isOwner = room.ownerId === userId;
@@ -112,14 +200,69 @@ export default function Sidebar({
           </div>
         </div>
 
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="md:hidden ml-2 p-1.5 rounded-md hover:bg-slate-200 text-slate-500"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {/* Dropdown Menu Toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="w-7 h-7 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-500 hover:text-slate-800"
+              title="Tùy chọn phòng"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+
+            {showMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowInviteModal(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                    {t("add_member")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      handleCopyLink();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5 text-slate-500" />
+                    {t("copy_link")}
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowLeaveConfirm(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    {t("leave_room")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="md:hidden p-1.5 rounded-md hover:bg-slate-200 text-slate-500"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Channels Section */}
@@ -287,6 +430,317 @@ export default function Sidebar({
                 </button>
               </div>
             </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Modal Thêm thành viên */}
+      {showInviteModal &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowInviteModal(false)}
+            />
+
+            {/* Dialog */}
+            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  Thêm thành viên vào phòng
+                </h2>
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4 flex flex-col gap-4">
+                {/* Tìm & Thêm Thành Viên */}
+                <div className="flex flex-col gap-1.5 relative">
+                  <label className="text-xs font-bold text-slate-700">
+                    Tìm kiếm thành viên
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={
+                          selectedUser
+                            ? `${selectedUser.displayName} (${selectedUser.email || "Facebook"})`
+                            : searchQuery
+                        }
+                        onChange={(e) => {
+                          if (selectedUser) {
+                            setSelectedUser(null);
+                          }
+                          setSearchQuery(e.target.value);
+                          setInviteError(null);
+                          setInviteSuccess(null);
+                        }}
+                        placeholder="Nhập email hoặc tên tài khoản..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all pr-8"
+                      />
+                      {(searchQuery || selectedUser) && (
+                        <button
+                          onClick={() => {
+                            setSearchQuery("");
+                            setSelectedUser(null);
+                            setInviteError(null);
+                            setInviteSuccess(null);
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-4.5 h-4.5" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleInviteUser}
+                      disabled={isInviting || (!selectedUser && !searchQuery.trim())}
+                      className="px-5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      {isInviting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      <span>Thêm</span>
+                    </button>
+                  </div>
+
+                  {/* Dropdown Gợi ý tìm kiếm */}
+                  {searchQuery.trim().length >= 2 && !selectedUser && (
+                    <div className="absolute top-[68px] left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl py-1.5 z-[60] max-h-48 overflow-y-auto">
+                      {isSearching ? (
+                        <div className="px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Đang tìm kiếm...</span>
+                        </div>
+                      ) : searchResults.length === 0 ? (
+                        <div className="px-4 py-3 text-xs text-slate-400">
+                          Không tìm thấy thành viên phù hợp
+                        </div>
+                      ) : (
+                        searchResults.map((user: any) => (
+                          <button
+                            key={user.supabaseId}
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setSearchQuery("");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 text-left transition-colors"
+                          >
+                            {user.avatarUrl ? (
+                              <img
+                                src={user.avatarUrl}
+                                alt={user.displayName}
+                                className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs uppercase">
+                                {user.displayName?.charAt(0) || "?"}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800 truncate">
+                                {user.displayName}
+                              </p>
+                              <p className="text-[10px] text-slate-400 truncate">
+                                {user.email || "Đăng ký qua Facebook"}
+                              </p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Phản hồi kết quả */}
+                  {inviteError && (
+                    <div className="flex items-center gap-1.5 mt-1 text-red-600 text-xs">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{inviteError}</span>
+                    </div>
+                  )}
+                  {inviteSuccess && (
+                    <div className="flex items-center gap-1.5 mt-1 text-emerald-600 text-xs font-semibold">
+                      <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{inviteSuccess}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end px-6 pb-6 pt-2">
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Modal Xác nhận rời phòng */}
+      {showLeaveConfirm &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => !isLeaving && setShowLeaveConfirm(false)}
+            />
+
+            {/* Dialog */}
+            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isOwner ? t("owner_leave_title") : t("confirm_leave_title")}
+                </h2>
+                {!isLeaving && (
+                  <button
+                    onClick={() => {
+                      setShowLeaveConfirm(false);
+                      setSelectedNewOwner(null);
+                    }}
+                    className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-4 h-4 text-slate-500" />
+                  </button>
+                )}
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4">
+                {isOwner ? (
+                  otherMembers.length === 0 ? (
+                    <p className="text-sm text-slate-600">
+                      {t.rich("owner_leave_no_members_desc", {
+                        name: room.name,
+                        strong1: (chunks) => <strong>{chunks}</strong>,
+                        strong2: (chunks) => <strong>{chunks}</strong>,
+                      })}
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm text-slate-600">
+                        {t.rich("owner_leave_has_members_desc", {
+                          name: room.name,
+                          strong1: (chunks) => <strong>{chunks}</strong>,
+                          strong2: (chunks) => <strong>{chunks}</strong>,
+                        })}
+                      </p>
+
+                      <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1 bg-slate-50">
+                        {otherMembers.map((m: any) => (
+                          <button
+                            key={m.userId}
+                            type="button"
+                            onClick={() => setSelectedNewOwner(m.userId)}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-colors border ${
+                              selectedNewOwner === m.userId
+                                ? "bg-brand-50 border-brand-300 text-brand-900"
+                                : "bg-white border-transparent hover:bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center text-xs uppercase flex-shrink-0">
+                                {m.displayName?.substring(0, 2) || m.email?.substring(0, 2) || "U"}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold truncate">
+                                  {m.displayName || m.email || t("anonymous_user")}
+                                </p>
+                                <p className="text-[10px] text-slate-400 truncate">
+                                  {m.email || t("no_email")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-center w-4 h-4 rounded-full border border-slate-300 bg-white flex-shrink-0">
+                              {selectedNewOwner === m.userId && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-brand-600" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    {t.rich("confirm_leave_desc", {
+                      name: room.name,
+                      strong2: (chunks) => <strong>{chunks}</strong>,
+                    })}
+                  </p>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 px-6 pb-6 pt-2">
+                <button
+                  onClick={() => {
+                    setShowLeaveConfirm(false);
+                    setSelectedNewOwner(null);
+                  }}
+                  disabled={isLeaving}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  {t("cancel")}
+                </button>
+                
+                {isOwner ? (
+                  otherMembers.length === 0 ? (
+                    <button
+                      onClick={handleLeaveRoom}
+                      disabled={isLeaving}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                    >
+                      {isLeaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {t("dissolve_room")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleLeaveRoom}
+                      disabled={isLeaving || !selectedNewOwner}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                    >
+                      {isLeaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {t("transfer_and_leave")}
+                    </button>
+                  )
+                ) : (
+                  <button
+                    onClick={handleLeaveRoom}
+                    disabled={isLeaving}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                  >
+                    {isLeaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {t("confirm_leave_action")}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Toast Notification */}
+      {showToast &&
+        isMounted &&
+        createPortal(
+          <div className="fixed bottom-5 right-5 z-[100] bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
           </div>,
           document.body,
         )}

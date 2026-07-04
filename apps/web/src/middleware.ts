@@ -56,7 +56,12 @@ export async function middleware(request: NextRequest) {
 
   // Nếu người dùng chưa có token (user không tồn tại) và đang vào các trang cần auth
   if (!user && !isPublicPage) {
-    return NextResponse.redirect(new URL(`/${currentLocale}`, request.url));
+    const redirectUrl = new URL(`/${currentLocale}`, request.url);
+    const code = request.nextUrl.searchParams.get("code");
+    if (pathWithoutLocale.startsWith("/room/join") && code) {
+      redirectUrl.searchParams.set("pending_join_code", code);
+    }
+    return NextResponse.redirect(redirectUrl);
   }
 
   return response;

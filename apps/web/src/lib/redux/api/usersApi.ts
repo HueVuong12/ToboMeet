@@ -29,8 +29,21 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["UserSessions"],
     }),
+
+    searchUsers: builder.query<any[], string>({
+      query: (query) => ({
+        url: "/users/search",
+        method: "GET",
+        params: { q: query },
+      }),
+    }),
   }),
-  overrideExisting: false,
+  overrideExisting: true,
 });
 
-export const { useGetSessionsQuery, useRevokeSessionMutation } = usersApi;
+export const {
+  useGetSessionsQuery,
+  useRevokeSessionMutation,
+  useSearchUsersQuery,
+  useLazySearchUsersQuery,
+} = usersApi;

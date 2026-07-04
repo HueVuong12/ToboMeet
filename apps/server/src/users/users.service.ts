@@ -5,6 +5,14 @@ import { Model } from "mongoose";
 import { ConfigService } from "@nestjs/config";
 import { createClient } from "@supabase/supabase-js";
 
+interface SupabaseSession {
+  id: string;
+  ip?: string;
+  user_agent?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 @Injectable()
 export class UsersService {
   private supabaseAdmin;
@@ -73,7 +81,7 @@ export class UsersService {
       throw new BadRequestException("Không thể lấy danh sách thiết bị");
     }
 
-    return data.sessions.map((session: any) => {
+    return data.sessions.map((session: SupabaseSession) => {
       const uaInfo = this.parseUserAgent(session.user_agent);
       return {
         id: session.id,
@@ -100,6 +108,18 @@ export class UsersService {
     }
 
     return { success: true, message: "Đã đăng xuất thiết bị thành công" };
+  }
+
+  async searchUsers(query: string): Promise<User[]> {
+    if (!query || !query.trim()) return [];
+    const searchRegex = new RegExp(query.trim(), "i");
+    return this.userModel
+      .find({
+        $or: [{ email: searchRegex }, { displayName: searchRegex }],
+      })
+      .select("supabaseId email displayName avatarUrl")
+      .limit(10)
+      .exec();
   }
 
   private parseUserAgent(ua: string) {

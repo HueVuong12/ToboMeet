@@ -5,6 +5,7 @@ import {
   UseGuards,
   Delete,
   Param,
+  Query,
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -12,6 +13,12 @@ import { SupabaseGuard } from "../core/guards/supabase.guard";
 @Controller("users")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @UseGuards(SupabaseGuard)
+  @Get("search")
+  async searchUsers(@Query("q") query: string) {
+    return this.usersService.searchUsers(query);
+  }
 
   @UseGuards(SupabaseGuard)
   @Get("me")

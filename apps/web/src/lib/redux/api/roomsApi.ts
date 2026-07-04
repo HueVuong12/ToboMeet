@@ -96,8 +96,41 @@ export const roomsApi = baseApi.injectEndpoints({
         { type: "Room", id: roomId },
       ],
     }),
+
+    leaveRoom: builder.mutation<void, { roomId: string; newOwnerId?: string }>({
+      query: ({ roomId, newOwnerId }) => ({
+        url: `/rooms/${roomId}/leave`,
+        method: "POST",
+        data: { newOwnerId },
+      }),
+      invalidatesTags: ["Room"],
+    }),
+
+    inviteMember: builder.mutation<
+      RoomResponse,
+      { roomId: string; email?: string; targetUserId?: string }
+    >({
+      query: ({ roomId, email, targetUserId }) => ({
+        url: `/rooms/${roomId}/members/invite`,
+        method: "POST",
+        data: { email, targetUserId },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+      ],
+    }),
+
+    getRoomByCode: builder.query<
+      { _id: string; name: string; type: string; code: string },
+      string
+    >({
+      query: (code) => ({
+        url: `/rooms/code/${code}`,
+        method: "GET",
+      }),
+    }),
   }),
-  overrideExisting: false,
+  overrideExisting: true,
 });
 
 export const {
@@ -110,4 +143,7 @@ export const {
   useGetRoomMembersQuery,
   useJoinMeetingMutation,
   useRemoveParticipantMutation,
+  useLeaveRoomMutation,
+  useInviteMemberMutation,
+  useGetRoomByCodeQuery,
 } = roomsApi;

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Room } from "@tobomeet/shared/types";
+import { RoomResponse } from "@tobomeet/shared/types";
 import { Video, GraduationCap, Users } from "lucide-react";
 
 // Gradient presets tương tự Microsoft Teams
@@ -27,7 +27,7 @@ function getGradient(id: string): string {
 }
 
 interface RoomCardProps {
-  room: Room;
+  room: RoomResponse;
 }
 
 export default function RoomCard({ room }: RoomCardProps) {
@@ -88,7 +88,7 @@ export default function RoomCard({ room }: RoomCardProps) {
           {/* Member Count */}
           <span className="inline-flex items-center gap-1 text-xs text-slate-400">
             <Users className="w-3 h-3" />
-            {room.members.length}
+            {room.members?.length || 0}
           </span>
         </div>
       </div>
