@@ -20,6 +20,19 @@ axiosInstance.interceptors.response.use(
     return response.data;
   },
   (error: AxiosError) => {
+    if (error.response?.status === 403) {
+      const data = error.response.data as any;
+      if (
+        data?.message?.includes("bị khóa") ||
+        data?.message?.includes("locked") ||
+        (typeof data?.message === "string" && data.message.includes("khóa"))
+      ) {
+        if (typeof window !== "undefined") {
+          window.location.href = `/${document.documentElement.lang || "vi"}/login?error=error.auth.user_locked`;
+        }
+      }
+    }
+
     if (error.response?.data) {
       return Promise.reject(error.response.data);
     }

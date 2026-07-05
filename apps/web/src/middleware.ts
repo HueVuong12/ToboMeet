@@ -35,14 +35,56 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const localeMatch = pathname.match(/^\/(vi|en)/);
+  const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
+  const currentLocale = localeMatch ? localeMatch[1] : cookieLocale || "vi";
+
+  // Nếu người dùng đã đăng nhập, kiểm tra trạng thái tài khoản trong MongoDB
+  if (user) {
+    try {
+      const nestjsUrl = process.env.NESTJS_BASE_URL || "http://127.0.0.1:3001/api";
+      const statusRes = await fetch(
+        `${nestjsUrl}/users/status-by-email?email=${encodeURIComponent(user.email!)}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        }
+      );
+      if (statusRes.status === 403) {
+        // Tài khoản bị khóa! Buộc đăng xuất trên Supabase và redirect về login
+        await supabase.auth.signOut();
+        const redirectResponse = NextResponse.redirect(
+          new URL(`/${currentLocale}/login?error=error.auth.user_locked`, request.url)
+        );
+        // Copy cookies từ response sang redirectResponse để dọn sạch session cookies
+        response.cookies.getAll().forEach((cookie) => {
+          redirectResponse.cookies.set(cookie.name, cookie.value, {
+            path: "/",
+            httpOnly: true,
+          });
+        });
+        return redirectResponse;
+      }
+    } catch (e) {
+      console.error("Middleware kiểm tra trạng thái người dùng lỗi:", e);
+      await supabase.auth.signOut();
+      const redirectResponse = NextResponse.redirect(
+        new URL(`/${currentLocale}/login?error=error.auth.user_locked`, request.url)
+      );
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, {
+          path: "/",
+          httpOnly: true,
+        });
+      });
+      return redirectResponse;
+    }
+  }
   const pathWithoutLocale = pathname.replace(/^\/(vi|en)/, "") || "/";
   const isAuthPage = AUTH_PATHS.includes(pathWithoutLocale);
   const isHomePage = pathWithoutLocale === "/";
   const isResetting = request.nextUrl.searchParams.get("step") === "reset"; // Đang ở bước reset password
-
-  const localeMatch = pathname.match(/^\/(vi|en)/);
-  const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
-  const currentLocale = localeMatch ? localeMatch[1] : cookieLocale || "vi";
 
   const isCallbackPage = pathWithoutLocale.startsWith("/auth/callback");
   const isPublicPage = isAuthPage || isHomePage || isCallbackPage;

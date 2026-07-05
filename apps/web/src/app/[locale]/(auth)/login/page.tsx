@@ -5,12 +5,14 @@ import Link from "next/link";
 import { login, loginWithOAuth, type FormState } from "../../auth/actions";
 import { Video } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 
 const initialState: FormState = { error: null, message: null };
 
 export default function LoginPage() {
   const t = useTranslations();
-  const pathError = new URLSearchParams(window.location.search).get("error");
+  const searchParams = useSearchParams();
+  const pathError = searchParams.get("error");
   const [loginState, loginAction, isLoginPending] = useActionState(
     login,
     initialState,

@@ -90,6 +90,23 @@ function JoinRoomContent() {
   }
 
   if (fetchRoomError) {
+    const errData = fetchRoomError as any;
+    if (
+      errData.code === 403 ||
+      errData.status === 403 ||
+      errData.message?.includes("khóa") ||
+      errData.message?.includes("locked")
+    ) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+            <Loader2 className="w-12 h-12 text-brand-600 animate-spin mx-auto mb-4" />
+            <h1 className="text-lg font-bold text-slate-900 mb-2">Đang chuyển hướng...</h1>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">

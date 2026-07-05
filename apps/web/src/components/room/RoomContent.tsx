@@ -156,6 +156,22 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     );
   }
 
+  if (roomError) {
+    const errData = roomError as any;
+    if (
+      errData.code === 403 ||
+      errData.status === 403 ||
+      errData.message?.includes("khóa") ||
+      errData.message?.includes("locked")
+    ) {
+      return (
+        <div className="h-screen flex items-center justify-center bg-white">
+          <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
+        </div>
+      );
+    }
+  }
+
   if (roomError || !room) {
     return (
       <div className="h-screen flex items-center justify-center bg-white">

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { User, UserDocument } from "./schemas/user.schema";
 import { Model } from "mongoose";
@@ -33,12 +33,46 @@ export class UsersService {
 
   async getOrCreateUser(tokenPayload): Promise<User> {
     const userId = tokenPayload.id || tokenPayload.sub;
-    const email = tokenPayload.email;
+    const email = tokenPayload.email ? tokenPayload.email.trim().toLowerCase() : "";
     const metadata = tokenPayload.user_metadata || {};
 
-    let user = await this.userModel.findOne({ supabaseId: userId });
+    // Kiểm tra trạng thái khóa (ban) từ Supabase Auth
+    const { data: { user: sbUser }, error: sbError } = await this.supabaseAdmin.auth.admin.getUserById(userId);
+    if (sbError || !sbUser) {
+      throw new ForbiddenException("Không thể xác thực thông tin tài khoản trên Supabase.");
+    }
 
-    if (!user) {
+    const isLocked = sbUser.banned_until && new Date(sbUser.banned_until) > new Date();
+    if (isLocked) {
+      throw new ForbiddenException(
+        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
+      );
+    }
+
+    let user = await this.userModel.findOne({
+      $or: [
+        { supabaseId: userId },
+        { email: { $regex: new RegExp(`^${email}$`, "i") } }
+      ]
+    });
+
+    if (user) {
+      // Đồng bộ supabaseId nếu đăng nhập bằng OAuth mới
+      let hasChanges = false;
+      if (user.supabaseId !== userId) {
+        user.supabaseId = userId;
+        hasChanges = true;
+      }
+      if (user.displayName !== metadata.full_name || user.avatarUrl !== metadata.avatar_url) {
+        user.displayName = metadata.full_name || user.displayName;
+        user.avatarUrl = metadata.avatar_url || user.avatarUrl;
+        hasChanges = true;
+      }
+      if (hasChanges) {
+        await user.save();
+        console.log(`Đã cập nhật/đồng bộ user: ${email}`);
+      }
+    } else {
       user = await this.userModel.create({
         supabaseId: userId,
         email: email,
@@ -46,16 +80,6 @@ export class UsersService {
         avatarUrl: metadata.avatar_url,
       });
       console.log(`Đã tạo mới user: ${email}`);
-    }
-    // Cập nhật lại tên/avatar nếu họ đổi từ Google/Facebook
-    else if (
-      user.displayName !== metadata.full_name ||
-      user.avatarUrl !== metadata.avatar_url
-    ) {
-      user.displayName = metadata.full_name || user.displayName;
-      user.avatarUrl = metadata.avatar_url || user.avatarUrl;
-      await user.save();
-      console.log(`Đã cập nhật user: ${email}`);
     }
 
     return user;
@@ -170,5 +194,33 @@ export class UsersService {
     }
 
     return { os, browser, isMobile, isDesktop };
+  }
+
+  async getUserStatusByEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Tìm người dùng trong Supabase Auth
+    const { data: { users }, error } = await this.supabaseAdmin.auth.admin.listUsers();
+    if (error || !users) {
+      throw new BadRequestException("Không thể lấy danh sách người dùng trên Supabase: " + (error?.message || "Lỗi không rõ"));
+    }
+
+    const sbUser = users.find((u) => u.email?.toLowerCase() === normalizedEmail);
+    if (!sbUser) {
+      return { exists: false };
+    }
+
+    const isLocked = sbUser.banned_until && new Date(sbUser.banned_until) > new Date();
+    if (isLocked) {
+      throw new ForbiddenException(
+        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
+      );
+    }
+
+    return {
+      exists: true,
+      status: "active",
+      role: sbUser.app_metadata?.role || "user",
+    };
   }
 }

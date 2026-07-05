@@ -1,9 +1,9 @@
-// Khi sửa phải cảnh báo nghiêm trọng vì đây là file guard quan trọng, liên quan đến bảo mật
 import {
   Injectable,
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
 } from "@nestjs/common";
 import type { Request } from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -47,11 +47,24 @@ export class SupabaseGuard implements CanActivate {
       );
     }
 
-    // Gắn thông tin user vào request (bao gồm cả app_metadata để check role)
+    // Kiểm tra trạng thái khóa (ban) từ Supabase Auth
+    const isLocked = user.banned_until && new Date(user.banned_until) > new Date();
+    if (isLocked) {
+      throw new ForbiddenException(
+        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
+      );
+    }
+
+    const mappedRole = user.app_metadata?.role || user.role || "user";
+
+    // Log chẩn đoán phân quyền
+    console.log(`[Auth Diagnostic] Request URL: ${request.url} | Email: ${user.email} | Mapped Role: ${mappedRole}`);
+
+    // Gắn thông tin user vào request (Lấy role thực tế từ Supabase)
     request.user = {
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: mappedRole,
       app_metadata: user.app_metadata || {},
       user_metadata: user.user_metadata || {},
     };

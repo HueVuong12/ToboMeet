@@ -29,9 +29,17 @@ type FormStep = "email" | "otp" | "reset" | "success";
 export default function ForgotPasswordForm() {
   const t = useTranslations("forgot_password");
   const t1 = useTranslations("password_reset");
+  const tGlobal = useTranslations();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+
+  const getErrorMessage = (errorKey: string | null | undefined, defaultKey: string) => {
+    if (errorKey === "error.auth.user_locked" || errorKey === "user_locked") {
+      return tGlobal("error.auth.user_locked");
+    }
+    return t1(errorKey || defaultKey);
+  };
 
   // Flow State
   const [isLoading, setIsLoading] = useState(false);
@@ -105,7 +113,7 @@ export default function ForgotPasswordForm() {
       setStep("otp");
       setCountdown(300); // 5 minutes countdown
     } else {
-      setErrorMsg(t1(res.error || "otp_send_failed"));
+      setErrorMsg(getErrorMessage(res.error, "otp_send_failed"));
       triggerShake();
     }
   };
@@ -161,7 +169,7 @@ export default function ForgotPasswordForm() {
       setStep("reset");
       router.replace(`${pathname}?step=reset`);
     } else {
-      setErrorMsg(t1(res.error || "otp_invalid_or_expired"));
+      setErrorMsg(getErrorMessage(res.error, "otp_invalid_or_expired"));
       triggerShake();
     }
   };
@@ -191,7 +199,7 @@ export default function ForgotPasswordForm() {
       setStep("success");
       router.replace(pathname);
     } else {
-      setErrorMsg(t1(res.error || "password_update_failed"));
+      setErrorMsg(getErrorMessage(res.error, "password_update_failed"));
       triggerShake();
     }
   };
@@ -208,7 +216,7 @@ export default function ForgotPasswordForm() {
       setCountdown(300);
       setErrorMsg("");
     } else {
-      setErrorMsg(t1(res.error || "otp_send_failed"));
+      setErrorMsg(getErrorMessage(res.error, "otp_send_failed"));
       triggerShake();
     }
   };

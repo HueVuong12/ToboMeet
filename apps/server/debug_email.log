@@ -1,0 +1,91 @@
+[2026-07-05T08:44:57.280Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4a15c067329c821ad9aea8, status=active
+[2026-07-05T08:44:57.328Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: oldStatus=locked -> newStatus=active
+[2026-07-05T08:44:58.082Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: temtemtem181005@gmail.com
+[2026-07-05T08:44:58.083Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T08:45:00.995Z] [Debug 4/4] Gửi email mở khóa thành công tới temtemtem181005@gmail.com
+[2026-07-05T09:01:42.258Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T09:01:42.309Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: oldStatus=active -> newStatus=active
+[2026-07-05T09:30:56.977Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T09:49:59.526Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T10:40:39.951Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4a29ee07ecb53a943a37cf, status=locked
+[2026-07-05T10:40:40.467Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=true
+[2026-07-05T10:40:40.909Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+[2026-07-05T10:40:40.909Z] [Debug 3/4] Bắt đầu gọi sendLockEmail cho email: 1@gmail.com
+[2026-07-05T10:40:40.910Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T10:40:43.962Z] [Debug 4/4] Gửi email thành công tới 1@gmail.com
+[2026-07-05T10:41:08.458Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=locked
+[2026-07-05T10:41:08.956Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=true
+[2026-07-05T10:41:09.364Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+[2026-07-05T10:41:09.365Z] [Debug 3/4] Bắt đầu gọi sendLockEmail cho email: misshue8@gmail.com
+[2026-07-05T10:41:09.365Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T10:41:12.356Z] [Debug 4/4] Gửi email thành công tới misshue8@gmail.com
+[2026-07-05T11:41:22.981Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T11:41:23.227Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=true -> isLocked=false
+[2026-07-05T11:41:23.676Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:41:23.677Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:41:27.788Z] [Debug 4/4] Gửi email mở khóa thành công tới misshue8@gmail.com
+[2026-07-05T11:41:30.496Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:42:05.389Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=locked
+[2026-07-05T11:42:05.641Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=true
+[2026-07-05T11:42:06.223Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+[2026-07-05T11:42:06.223Z] [Debug 3/4] Bắt đầu gọi sendLockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:42:06.224Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:42:09.530Z] [Debug 4/4] Gửi email thành công tới misshue8@gmail.com
+[2026-07-05T11:42:13.785Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T11:42:14.054Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=true -> isLocked=false
+[2026-07-05T11:42:14.458Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:42:14.459Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:42:17.655Z] [Debug 4/4] Gửi email mở khóa thành công tới misshue8@gmail.com
+[2026-07-05T11:43:03.773Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=locked
+[2026-07-05T11:43:04.036Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=true
+[2026-07-05T11:43:04.651Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+[2026-07-05T11:43:04.652Z] [Debug 3/4] Bắt đầu gọi sendLockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:43:04.652Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:43:07.685Z] [Debug 4/4] Gửi email thành công tới misshue8@gmail.com
+[2026-07-05T11:43:22.826Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T11:43:23.057Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=true -> isLocked=false
+[2026-07-05T11:43:23.462Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:43:23.463Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:43:26.416Z] [Debug 4/4] Gửi email mở khóa thành công tới misshue8@gmail.com
+[2026-07-05T11:43:36.750Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T11:43:36.987Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=false
+[2026-07-05T11:43:37.392Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:43:37.393Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:43:41.047Z] [Debug 4/4] Gửi email mở khóa thành công tới misshue8@gmail.com
+[2026-07-05T11:43:46.957Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T11:43:47.194Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=false
+[2026-07-05T11:43:47.614Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:43:47.615Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:43:50.482Z] [Debug 4/4] Gửi email mở khóa thành công tới misshue8@gmail.com
+[2026-07-05T11:44:09.471Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a4946f815af1ce7133e1cee, status=active
+[2026-07-05T11:44:09.702Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=false
+[2026-07-05T11:44:10.176Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: misshue8@gmail.com
+[2026-07-05T11:44:10.176Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:44:13.945Z] [Debug 4/4] Gửi email mở khóa thành công tới misshue8@gmail.com
+[2026-07-05T11:46:15.396Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a46ac59c31179994ce08d32, status=active
+[2026-07-05T11:46:15.643Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=false
+[2026-07-05T11:46:16.072Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: ngochuevuong12@gmail.com
+[2026-07-05T11:46:16.073Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:46:19.138Z] [Debug 4/4] Gửi email mở khóa thành công tới ngochuevuong12@gmail.com
+[2026-07-05T11:47:09.185Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a46ac59c31179994ce08d32, status=active
+[2026-07-05T11:47:09.425Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=undefined -> isLocked=false
+[2026-07-05T11:47:09.847Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: ngochuevuong12@gmail.com
+[2026-07-05T11:47:09.847Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:47:13.618Z] [Debug 4/4] Gửi email mở khóa thành công tới ngochuevuong12@gmail.com
+[2026-07-05T11:53:45.965Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a46ac59c31179994ce08d32, status=active
+[2026-07-05T11:53:46.192Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=false -> isLocked=false
+[2026-07-05T11:54:56.152Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a424217c2c9ae267c6a0662, status=active
+[2026-07-05T11:54:56.379Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=false -> isLocked=false
+[2026-07-05T11:55:01.342Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:58:47.815Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:59:20.944Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a46ac59c31179994ce08d32, status=locked
+[2026-07-05T11:59:21.180Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=false -> isLocked=true
+[2026-07-05T11:59:21.789Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+[2026-07-05T11:59:21.790Z] [Debug 3/4] Bắt đầu gọi sendLockEmail cho email: ngochuevuong12@gmail.com
+[2026-07-05T11:59:21.792Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:59:24.979Z] [Debug 4/4] Gửi email thành công tới ngochuevuong12@gmail.com
+[2026-07-05T11:59:50.856Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a46ac59c31179994ce08d32, status=active
+[2026-07-05T11:59:51.090Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=true -> isLocked=false
+[2026-07-05T11:59:51.507Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: ngochuevuong12@gmail.com
+[2026-07-05T11:59:51.507Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
+[2026-07-05T11:59:54.689Z] [Debug 4/4] Gửi email mở khóa thành công tới ngochuevuong12@gmail.com

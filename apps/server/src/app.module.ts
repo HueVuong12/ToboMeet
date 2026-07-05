@@ -5,6 +5,7 @@ import { UsersModule } from "./users/users.module";
 import { RoomsModule } from "./rooms/rooms.module";
 import { MeetingsModule } from "./meetings/meetings.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
+import { AdminModule } from "./admin/admin.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
     UsersModule,
     RoomsModule,
     WebhooksModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

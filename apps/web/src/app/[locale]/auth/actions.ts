@@ -14,6 +14,42 @@ export async function login(prevState: FormState, formData: FormData) {
   const password = formData.get("password") as string;
   const supabase = await createClient();
 
+  // 1. Kiểm tra trạng thái tài khoản từ MongoDB qua NestJS
+  try {
+    const nestjsUrl = process.env.NESTJS_BASE_URL || "http://127.0.0.1:3001/api";
+    const statusRes = await fetch(
+      `${nestjsUrl}/users/status-by-email?email=${encodeURIComponent(email)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+
+    if (statusRes.status === 403) {
+      return { error: "error.auth.user_locked", message: null };
+    }
+
+    if (statusRes.ok) {
+      const statusData = await statusRes.json();
+      const userResult = statusData?.result;
+      if (userResult && typeof userResult === "object") {
+        if (userResult.exists === false) {
+          return { error: "error.auth.user_not_found", message: null };
+        }
+        if (userResult.exists === true && userResult.status === "locked") {
+          return { error: "error.auth.user_locked", message: null };
+        }
+      }
+    } else {
+      console.warn("Không thể check status từ NestJS, mã lỗi:", statusRes.status);
+    }
+  } catch (err) {
+    console.error("Lỗi khi kết nối NestJS check status:", err);
+    return { error: "error.auth.login_failed", message: null };
+  }
+
+  // 2. Xác thực bằng Supabase Auth
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -24,7 +60,6 @@ export async function login(prevState: FormState, formData: FormData) {
 
     let errorMessage = "error.auth.login_failed";
 
-    // Bóc tách từng trường hợp lỗi thường gặp của Supabase
     if (error.message.includes("Invalid login credentials")) {
       errorMessage = "error.auth.invalid_credentials";
     } else if (error.message.includes("Email not confirmed")) {
@@ -47,6 +82,26 @@ export async function login(prevState: FormState, formData: FormData) {
 export async function signup(prevState: FormState, formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  
+  // 1. Kiểm tra xem email có bị khóa (BLOCKED) trong MongoDB không
+  try {
+    const nestjsUrl = process.env.NESTJS_BASE_URL || "http://127.0.0.1:3001/api";
+    const statusRes = await fetch(
+      `${nestjsUrl}/users/status-by-email?email=${encodeURIComponent(email)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+    if (statusRes.status === 403) {
+      return { error: "error.auth.user_locked", message: null };
+    }
+  } catch (err) {
+    console.error("Lỗi check status khi đăng ký:", err);
+    return { error: "error.auth.user_locked", message: null };
+  }
+
   const supabase = await createClient();
 
   const { data: isEmailTaken, error: rpcError } = await supabase.rpc(
@@ -142,6 +197,25 @@ export async function logout() {
 
 // 1. Gửi mã OTP về email
 export async function sendPasswordResetOtp(email: string) {
+  // Kiểm tra xem email có bị khóa (BLOCKED) trong MongoDB không
+  try {
+    const nestjsUrl = process.env.NESTJS_BASE_URL || "http://127.0.0.1:3001/api";
+    const statusRes = await fetch(
+      `${nestjsUrl}/users/status-by-email?email=${encodeURIComponent(email)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+    if (statusRes.status === 403) {
+      return { success: false, error: "error.auth.user_locked" };
+    }
+  } catch (err) {
+    console.error("Lỗi check status khi gửi OTP reset mật khẩu:", err);
+    return { success: false, error: "error.auth.user_locked" };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email);
@@ -159,6 +233,25 @@ export async function sendPasswordResetOtp(email: string) {
 
 // 2. Xác thực mã OTP (Tạo phiên đăng nhập tạm thời)
 export async function verifyPasswordResetOtp(email: string, token: string) {
+  // Kiểm tra xem email có bị khóa (BLOCKED) trong MongoDB không
+  try {
+    const nestjsUrl = process.env.NESTJS_BASE_URL || "http://127.0.0.1:3001/api";
+    const statusRes = await fetch(
+      `${nestjsUrl}/users/status-by-email?email=${encodeURIComponent(email)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+    if (statusRes.status === 403) {
+      return { success: false, error: "error.auth.user_locked" };
+    }
+  } catch (err) {
+    console.error("Lỗi check status khi verify OTP:", err);
+    return { success: false, error: "error.auth.user_locked" };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.verifyOtp({
@@ -181,6 +274,28 @@ export async function verifyPasswordResetOtp(email: string, token: string) {
 // 3. Cập nhật mật khẩu mới (Khi đã có phiên đăng nhập từ bước 2)
 export async function updatePassword(password: string) {
   const supabase = await createClient();
+
+  // Kiểm tra xem email có bị khóa (BLOCKED) trong MongoDB không trước khi đổi mật khẩu
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user && user.email) {
+    try {
+      const nestjsUrl = process.env.NESTJS_BASE_URL || "http://127.0.0.1:3001/api";
+      const statusRes = await fetch(
+        `${nestjsUrl}/users/status-by-email?email=${encodeURIComponent(user.email)}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        }
+      );
+      if (statusRes.status === 403) {
+        return { success: false, error: "error.auth.user_locked" };
+      }
+    } catch (err) {
+      console.error("Lỗi check status khi update mật khẩu:", err);
+      return { success: false, error: "error.auth.user_locked" };
+    }
+  }
 
   const { error } = await supabase.auth.updateUser({
     password: password,
