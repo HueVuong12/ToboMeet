@@ -5,6 +5,8 @@ export const axiosInstance = axios.create({
   baseURL: "/api",
 });
 
+let isLoggingOut = false;
+
 axiosInstance.interceptors.response.use(
   (response) => {
     const data = response.data as ApiResponse<unknown>;
@@ -20,17 +22,24 @@ axiosInstance.interceptors.response.use(
     return response.data;
   },
   (error: AxiosError) => {
-    if (error.response?.status === 403) {
-      const data = error.response.data as any;
-      if (
-        data?.message?.includes("bị khóa") ||
-        data?.message?.includes("locked") ||
-        (typeof data?.message === "string" && data.message.includes("khóa"))
-      ) {
-        if (typeof window !== "undefined") {
-          window.location.href = `/${document.documentElement.lang || "vi"}/login?error=error.auth.user_locked`;
-        }
-      }
+    const response = error.response?.data as ApiResponse<unknown>;
+
+    // Nếu tài khoản bị khóa
+    if (
+      error.response?.status === 403 &&
+      response?.code === 4031 && // ACCOUNT_LOCKED
+      !isLoggingOut
+    ) {
+      isLoggingOut = true;
+
+      // locale hiện tại
+      const locale = window.location.pathname.split("/")[1] || "vi";
+
+      // Chuyển sang API logout của Next.js
+      window.location.href = `/api/auth/logout?locale=${locale}`;
+
+      // Không reject nữa vì đang redirect
+      return new Promise(() => {});
     }
 
     if (error.response?.data) {

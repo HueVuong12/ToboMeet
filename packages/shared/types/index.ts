@@ -51,6 +51,21 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Người dùng không tồn tại",
     statusCode: 404,
   },
+  ACCOUNT_LOCKED: {
+    code: 4031,
+    message: "Tài khoản của bạn đã bị khóa",
+    statusCode: 403,
+  },
+  INVALID_TOKEN: {
+    code: 4011,
+    message: "Token không hợp lệ hoặc đã hết hạn",
+    statusCode: 401,
+  },
+  INVALID_CREDENTIALS: {
+    code: 4012,
+    message: "Email hoặc mật khẩu không đúng",
+    statusCode: 401,
+  },
   USER_EXISTED: {
     code: 4001,
     message: "Email này đã được sử dụng",

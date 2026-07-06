@@ -1,4 +1,7 @@
-import { Injectable, BadRequestException, ForbiddenException } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { User, UserDocument } from "./schemas/user.schema";
 import { Model } from "mongoose";
@@ -22,7 +25,9 @@ export class UsersService {
     private configService: ConfigService,
   ) {
     const supabaseUrl = this.configService.get<string>("SUPABASE_URL");
-    const supabaseServiceRole = this.configService.get<string>("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseServiceRole = this.configService.get<string>(
+      "SUPABASE_SERVICE_ROLE_KEY",
+    );
     this.supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
       auth: {
         autoRefreshToken: false,
@@ -33,27 +38,16 @@ export class UsersService {
 
   async getOrCreateUser(tokenPayload): Promise<User> {
     const userId = tokenPayload.id || tokenPayload.sub;
-    const email = tokenPayload.email ? tokenPayload.email.trim().toLowerCase() : "";
+    const email = tokenPayload.email
+      ? tokenPayload.email.trim().toLowerCase()
+      : "";
     const metadata = tokenPayload.user_metadata || {};
-
-    // Kiểm tra trạng thái khóa (ban) từ Supabase Auth
-    const { data: { user: sbUser }, error: sbError } = await this.supabaseAdmin.auth.admin.getUserById(userId);
-    if (sbError || !sbUser) {
-      throw new ForbiddenException("Không thể xác thực thông tin tài khoản trên Supabase.");
-    }
-
-    const isLocked = sbUser.banned_until && new Date(sbUser.banned_until) > new Date();
-    if (isLocked) {
-      throw new ForbiddenException(
-        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
-      );
-    }
 
     let user = await this.userModel.findOne({
       $or: [
         { supabaseId: userId },
-        { email: { $regex: new RegExp(`^${email}$`, "i") } }
-      ]
+        { email: { $regex: new RegExp(`^${email}$`, "i") } },
+      ],
     });
 
     if (user) {
@@ -63,7 +57,10 @@ export class UsersService {
         user.supabaseId = userId;
         hasChanges = true;
       }
-      if (user.displayName !== metadata.full_name || user.avatarUrl !== metadata.avatar_url) {
+      if (
+        user.displayName !== metadata.full_name ||
+        user.avatarUrl !== metadata.avatar_url
+      ) {
         user.displayName = metadata.full_name || user.displayName;
         user.avatarUrl = metadata.avatar_url || user.avatarUrl;
         hasChanges = true;
@@ -93,13 +90,16 @@ export class UsersService {
     let currentSessionId = "";
     try {
       const payloadBase64 = currentToken.split(".")[1];
-      const payload = JSON.parse(Buffer.from(payloadBase64, "base64").toString());
+      const payload = JSON.parse(
+        Buffer.from(payloadBase64, "base64").toString(),
+      );
       currentSessionId = payload.session_id || payload.sid;
     } catch (e) {
       console.error("Lỗi giải mã token lấy session ID:", e);
     }
 
-    const { data, error } = await this.supabaseAdmin.auth.admin.listUserSessions(userId);
+    const { data, error } =
+      await this.supabaseAdmin.auth.admin.listUserSessions(userId);
 
     if (error || !data) {
       throw new BadRequestException("Không thể lấy danh sách thiết bị");
@@ -125,10 +125,13 @@ export class UsersService {
    * Đăng xuất/hủy bỏ một phiên hoạt động
    */
   async revokeSession(userId: string, sessionId: string) {
-    const { error } = await this.supabaseAdmin.auth.admin.destroySession(sessionId);
+    const { error } =
+      await this.supabaseAdmin.auth.admin.destroySession(sessionId);
 
     if (error) {
-      throw new BadRequestException("Không thể đăng xuất thiết bị này: " + error.message);
+      throw new BadRequestException(
+        "Không thể đăng xuất thiết bị này: " + error.message,
+      );
     }
 
     return { success: true, message: "Đã đăng xuất thiết bị thành công" };
@@ -147,7 +150,13 @@ export class UsersService {
   }
 
   private parseUserAgent(ua: string) {
-    if (!ua) return { os: "Không rõ", browser: "Không rõ", isMobile: false, isDesktop: true };
+    if (!ua)
+      return {
+        os: "Không rõ",
+        browser: "Không rõ",
+        isMobile: false,
+        isDesktop: true,
+      };
 
     let os = "Không rõ";
     let browser = "Không rõ";
@@ -183,7 +192,11 @@ export class UsersService {
       isDesktop = false;
     } else if (uaLower.includes("chrome") || uaLower.includes("crios")) {
       browser = "Chrome";
-    } else if (uaLower.includes("safari") && !uaLower.includes("chrome") && !uaLower.includes("android")) {
+    } else if (
+      uaLower.includes("safari") &&
+      !uaLower.includes("chrome") &&
+      !uaLower.includes("android")
+    ) {
       browser = "Safari";
     } else if (uaLower.includes("firefox") || uaLower.includes("fxios")) {
       browser = "Firefox";
@@ -194,33 +207,5 @@ export class UsersService {
     }
 
     return { os, browser, isMobile, isDesktop };
-  }
-
-  async getUserStatusByEmail(email: string) {
-    const normalizedEmail = email.trim().toLowerCase();
-    
-    // Tìm người dùng trong Supabase Auth
-    const { data: { users }, error } = await this.supabaseAdmin.auth.admin.listUsers();
-    if (error || !users) {
-      throw new BadRequestException("Không thể lấy danh sách người dùng trên Supabase: " + (error?.message || "Lỗi không rõ"));
-    }
-
-    const sbUser = users.find((u) => u.email?.toLowerCase() === normalizedEmail);
-    if (!sbUser) {
-      return { exists: false };
-    }
-
-    const isLocked = sbUser.banned_until && new Date(sbUser.banned_until) > new Date();
-    if (isLocked) {
-      throw new ForbiddenException(
-        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
-      );
-    }
-
-    return {
-      exists: true,
-      status: "active",
-      role: sbUser.app_metadata?.role || "user",
-    };
   }
 }

@@ -7,6 +7,7 @@ import { Meeting, MeetingSchema } from "./schemas/meeting.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
 import { Room, RoomSchema } from "../rooms/schemas/room.schema";
 import { MeetingsGateway } from "./meetings.gateway";
+import { SupabaseModule } from "../supabase/supabase.module";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MeetingsGateway } from "./meetings.gateway";
       { name: User.name, schema: UserSchema },
       { name: Room.name, schema: RoomSchema },
     ]),
+    SupabaseModule,
   ],
   controllers: [MeetingsController],
   providers: [MeetingsService, MeetingsGateway],
