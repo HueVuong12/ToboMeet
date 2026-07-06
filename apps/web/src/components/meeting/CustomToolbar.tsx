@@ -1,4 +1,5 @@
 import { useLocalParticipant } from "@livekit/components-react";
+import localforage from "localforage";
 import {
   Hand,
   MessageSquare,
@@ -16,11 +17,15 @@ import { useState } from "react";
  * COMPONENT: Thanh điều khiển (Toolbar)
  */
 export default function CustomToolbar({
+  meetingCode,
   activeTab,
   onToggleSidebar,
+  hasUnreadChat,
 }: {
+  meetingCode: string;
   activeTab: "chat" | "people" | null;
   onToggleSidebar: (tab: "chat" | "people") => void;
+  hasUnreadChat: boolean;
 }) {
   // 1. Trích xuất thêm isScreenShareEnabled từ useLocalParticipant
   const {
@@ -45,7 +50,10 @@ export default function CustomToolbar({
     }
   };
 
-  const leaveMeeting = () => window.close();
+  const leaveMeeting = async () => {
+    await localforage.removeItem(`meeting_chat_${meetingCode}`);
+    window.close();
+  };
 
   return (
     <footer className="h-auto min-h-20 sm:h-20 shrink-0 flex flex-wrap items-center justify-center sm:justify-between px-4 sm:px-6 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800/60 z-30 gap-4 py-2 sm:py-0">
@@ -112,6 +120,7 @@ export default function CustomToolbar({
         </button>
       </div>
       <div className="flex items-center gap-1 sm:gap-2 w-auto sm:w-50 justify-end">
+        {/* Nút mở Sidebar (People/Chat) */}
         <button
           onClick={() => onToggleSidebar("people")}
           className={`p-2.5 rounded-lg transition-colors ${
@@ -122,15 +131,25 @@ export default function CustomToolbar({
         >
           <Users size={20} />
         </button>
+
+        {/* Nút mở Chat với chấm đỏ nhấp nháy khi có tin nhắn chưa đọc */}
         <button
           onClick={() => onToggleSidebar("chat")}
-          className={`p-2.5 rounded-lg transition-colors ${
+          className={`relative p-2.5 rounded-lg transition-colors ${
             activeTab === "chat"
               ? "bg-slate-700 text-brand-400"
               : "text-slate-300 hover:bg-slate-800"
           }`}
         >
           <MessageSquare size={20} />
+
+          {/* Chấm đỏ nhấp nháy khi có tin nhắn chưa đọc */}
+          {hasUnreadChat && activeTab !== "chat" && (
+            <span className="absolute top-1 right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-slate-900"></span>
+            </span>
+          )}
         </button>
       </div>
     </footer>

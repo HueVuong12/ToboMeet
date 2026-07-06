@@ -139,3 +139,15 @@ export interface MeetingJoinResponse {
   status: string;
   isHost: boolean;
 }
+
+// Cấu trúc gói tin chat trong meeting (dùng chung cho Web, Mobile, Desktop)
+export interface ChatMessage {
+  id: string;
+  type: "CHAT";
+  senderIdentity: string;
+  senderName: string;
+  content: string;
+  timestamp: number;
+  isPrivate: boolean;
+  targetName?: string; // Tên người nhận (để hiển thị UI cho người gửi)
+}
