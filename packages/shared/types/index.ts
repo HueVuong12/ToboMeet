@@ -140,14 +140,34 @@ export interface MeetingJoinResponse {
   isHost: boolean;
 }
 
+export type PacketType =
+  | "CHAT"
+  | "FILE_START"
+  | "FILE_CHUNK"
+  | "FILE_DONE"
+  | "MISSING_CHUNKS";
+
 // Cấu trúc gói tin chat trong meeting (dùng chung cho Web, Mobile, Desktop)
 export interface ChatMessage {
   id: string;
-  type: "CHAT";
+  type: PacketType;
   senderIdentity: string;
   senderName: string;
-  content: string;
+  content?: string;
   timestamp: number;
   isPrivate: boolean;
   targetName?: string; // Tên người nhận (để hiển thị UI cho người gửi)
+
+  // Dành cho FILE_START & FILE_DONE
+  fileId?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  totalChunks?: number;
+  chunkData?: string; // Dữ liệu Base64 của 1 khối
+
+  // Dành cho FILE_CHUNK
+  chunkIndex?: number;
+  // Dành cho MISSING_CHUNKS
+  missingIndices?: number[];
 }
