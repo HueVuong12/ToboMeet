@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { LiveKitRoom } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
+import { VideoPresets } from "livekit-client";
 
 export default function MeetingPage() {
   const searchParams = useSearchParams();
@@ -33,6 +34,11 @@ export default function MeetingPage() {
       token={token}
       serverUrl={LIVEKIT_URL}
       connect={true}
+      options={{
+        videoCaptureDefaults: {
+          resolution: VideoPresets.h360,
+        },
+      }}
       onDisconnected={() => {
         window.close();
       }}

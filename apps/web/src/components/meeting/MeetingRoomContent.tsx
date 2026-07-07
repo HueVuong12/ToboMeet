@@ -25,6 +25,7 @@ export default function MeetingRoomContent({
   const [sidebarTab, setSidebarTab] = useState<"chat" | "people">("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const [screenSources, setScreenSources] = useState<any[]>([]);
 
   const storageKey = `meeting_chat_${meetingCode}`;
 
@@ -35,6 +36,23 @@ export default function MeetingRoomContent({
 
   // Dùng useRef để tránh "stale closure" trong sự kiện LiveKit
   const isChatOpenRef = useRef(false);
+
+  useEffect(() => {
+    // Kiểm tra xem có đang chạy trong Electron không
+    if (typeof window !== "undefined" && (window as any).electronAPI) {
+      (window as any).electronAPI.onScreenShareRequest((sources: any[]) => {
+        setScreenSources(sources); // Mở modal và hiển thị danh sách
+      });
+    }
+  }, []);
+
+  const handleSelectSource = (id: string | null) => {
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.selectScreenShare(id); // Gửi ID về lại cho Electron
+    }
+    setScreenSources([]); // Đóng modal
+  };
+
   useEffect(() => {
     isChatOpenRef.current = isSidebarOpen && sidebarTab === "chat";
     // Nếu vừa mở khung chat lên, tắt chấm đỏ ngay
@@ -343,6 +361,57 @@ export default function MeetingRoomContent({
       </main>
 
       <div className="shrink-0 w-full z-30">
+        {/* MODAL CHỌN MÀN HÌNH CHIA SẺ (CHỈ HIỂN THỊ KHI CHẠY TRÊN ELECTRON) */}
+        {screenSources.length > 0 && (
+          <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/80 p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh]">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <h2 className="text-lg font-bold text-slate-100">
+                  Chọn nội dung chia sẻ
+                </h2>
+                <button
+                  onClick={() => handleSelectSource(null)}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  {screenSources.map((source) => (
+                    <div
+                      key={source.id}
+                      onClick={() => handleSelectSource(source.id)}
+                      className="flex flex-col gap-3 p-3 bg-slate-800/50 hover:bg-slate-700/80 border border-slate-700 hover:border-emerald-500/50 rounded-xl cursor-pointer transition-all group"
+                    >
+                      <div className="aspect-video bg-black rounded-lg overflow-hidden border border-slate-900 group-hover:shadow-lg">
+                        <img
+                          src={source.thumbnail}
+                          alt={source.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-300 text-center truncate px-2">
+                        {source.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-slate-800 flex justify-end shrink-0 bg-slate-900/50 rounded-b-2xl">
+                <button
+                  onClick={() => handleSelectSource(null)}
+                  className="px-6 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <CustomToolbar
           meetingCode={meetingCode || ""}
           hasUnreadChat={hasUnreadChat}

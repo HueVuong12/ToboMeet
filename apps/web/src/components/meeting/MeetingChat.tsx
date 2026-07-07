@@ -17,6 +17,7 @@ import {
   Info,
 } from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
+import { toast } from "sonner";
 
 interface MeetingChatProps {
   messages: ChatMessage[];
@@ -56,7 +57,7 @@ export default function MeetingChat({
     if (!file || !localParticipant) return;
 
     if (file.size > 100 * 1024 * 1024) {
-      alert("Chỉ hỗ trợ file dưới 100MB!");
+      toast.error("Chỉ hỗ trợ file dưới 100MB!");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -167,7 +168,7 @@ export default function MeetingChat({
         destinationIdentities = [targetParticipant.identity];
         targetName = targetParticipant.name || "Ẩn danh";
       } else {
-        alert("Người này không còn trong phòng.");
+        toast.error("Người nhận không có trong phòng hoặc đã rời phòng.");
         return;
       }
     }
@@ -208,7 +209,7 @@ export default function MeetingChat({
       setInputValue("");
       setReplyingTo(null);
     } catch (error) {
-      alert("Không thể gửi tin nhắn");
+      toast.error("Gửi tin nhắn thất bại. Vui lòng thử lại.");
     }
   };
 
