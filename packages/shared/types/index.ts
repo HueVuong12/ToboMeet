@@ -145,7 +145,8 @@ export type PacketType =
   | "FILE_START"
   | "FILE_CHUNK"
   | "FILE_DONE"
-  | "MISSING_CHUNKS";
+  | "MISSING_CHUNKS"
+  | "REACT";
 
 // Cấu trúc gói tin chat trong meeting (dùng chung cho Web, Mobile, Desktop)
 export interface ChatMessage {
@@ -170,4 +171,14 @@ export interface ChatMessage {
   chunkIndex?: number;
   // Dành cho MISSING_CHUNKS
   missingIndices?: number[];
+
+  // Dành cho tính năng Reply
+  replyToMsgId?: string;
+  replyToSender?: string;
+  replyToContent?: string;
+
+  // Dành cho tính năng Thả cảm xúc
+  reactions?: { [emoji: string]: string[] }; // Lưu theo dạng: { "👍": ["user_id_1", "user_id_2"] }
+  targetMessageId?: string; // (Chỉ dùng cho loại gói tin REACT)
+  emoji?: string; // (Chỉ dùng cho loại gói tin REACT)
 }

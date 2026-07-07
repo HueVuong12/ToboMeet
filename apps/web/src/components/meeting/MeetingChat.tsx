@@ -6,7 +6,15 @@ import {
   useLocalParticipant,
   useParticipants,
 } from "@livekit/components-react";
-import { Send, Lock, Paperclip, FileText, X, ChevronDown } from "lucide-react";
+import {
+  Send,
+  Lock,
+  Paperclip,
+  FileText,
+  X,
+  ChevronDown,
+  Reply,
+} from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
 
 interface MeetingChatProps {
@@ -24,6 +32,7 @@ export default function MeetingChat({
   const participants = useParticipants();
 
   const [inputValue, setInputValue] = useState("");
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<string>("all");
   const [previewMedia, setPreviewMedia] = useState<{
     url: string;
@@ -57,7 +66,7 @@ export default function MeetingChat({
       activeUploadsRef.current[fileId] = base64Data;
 
       const startMsg: ChatMessage = {
-        id: Math.random().toString(36).substring(2, 9),
+        id: fileId,
         type: "FILE_START",
         senderIdentity: localParticipant.identity,
         senderName: localParticipant.name || "Bạn",
@@ -99,16 +108,17 @@ export default function MeetingChat({
 
       const doneMsg: ChatMessage = {
         ...startMsg,
-        id: Math.random().toString(36).substring(2, 9),
+        id: fileId,
         type: "FILE_DONE",
       };
+
       await localParticipant.publishData(
         encoder.encode(JSON.stringify(doneMsg)),
         { reliable: true },
       );
 
       const finalMessage: ChatMessage = {
-        id: startMsg.id,
+        id: fileId,
         type: "CHAT",
         senderIdentity: localParticipant.identity,
         senderName: localParticipant.name || "Bạn",
@@ -165,6 +175,18 @@ export default function MeetingChat({
       timestamp: Date.now(),
       isPrivate,
       targetName,
+      reactions: {},
+
+      // Nhét thông tin Reply vào (nếu có)
+      ...(replyingTo && {
+        replyToMsgId: replyingTo.id,
+        replyToSender: replyingTo.senderName,
+        replyToContent:
+          replyingTo.content ||
+          (replyingTo.fileName
+            ? `[Tệp] ${replyingTo.fileName}`
+            : "[Ảnh/Video]"),
+      }),
     };
 
     const encoder = new TextEncoder();
@@ -178,14 +200,60 @@ export default function MeetingChat({
       );
       setMessages((prev) => [...prev, newMessage]);
       setInputValue("");
+      setReplyingTo(null);
     } catch (error) {
       alert("Không thể gửi tin nhắn");
     }
   };
 
+  // Hàm xử lý khi người dùng thả cảm xúc vào tin nhắn
+  const handleReact = async (targetMessageId: string, emoji: string) => {
+    if (!localParticipant) return;
+
+    const reactMsg: ChatMessage = {
+      id: Math.random().toString(36).substring(2, 9),
+      type: "REACT",
+      senderIdentity: localParticipant.identity,
+      senderName: localParticipant.name || "Bạn",
+      timestamp: Date.now(),
+      isPrivate: false,
+      targetMessageId,
+      emoji,
+    };
+
+    const encoder = new TextEncoder();
+    try {
+      await localParticipant.publishData(
+        encoder.encode(JSON.stringify(reactMsg)),
+        { reliable: true },
+      );
+
+      // Tự cập nhật vào UI của chính mình ngay lập tức
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id === targetMessageId) {
+            const newReactions = { ...(msg.reactions || {}) };
+            const users = newReactions[emoji] || [];
+            if (!users.includes(localParticipant.identity)) {
+              newReactions[emoji] = [...users, localParticipant.identity];
+            } else {
+              newReactions[emoji] = users.filter(
+                (id) => id !== localParticipant.identity,
+              );
+            }
+            return { ...msg, reactions: newReactions };
+          }
+          return msg;
+        }),
+      );
+    } catch (error) {}
+  };
+
   const otherParticipants = participants.filter(
     (p) => p.identity !== localParticipant?.identity,
   );
+  // Danh sách cảm xúc cơ bản
+  const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "🎉"];
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
@@ -254,7 +322,7 @@ export default function MeetingChat({
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                className={`group flex flex-col relative ${isMe ? "items-end" : "items-start"}`}
               >
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-xs font-semibold text-slate-300">
@@ -272,6 +340,45 @@ export default function MeetingChat({
                 <div
                   className={`relative max-w-[90%] flex flex-col gap-1.5 ${isMe ? "items-end" : "items-start"}`}
                 >
+                  {/* ============================================================== */}
+                  {/* THANH MENU NỔI KHI HOVER */}
+                  {/* ============================================================== */}
+                  <div
+                    className={`absolute -top-10 ${isMe ? "right-2" : "left-2"} opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800/95 backdrop-blur-sm border border-slate-700/80 rounded-xl shadow-xl flex items-center p-1 z-20 gap-0.5`}
+                  >
+                    <button
+                      onClick={() => setReplyingTo(msg)}
+                      title="Trả lời"
+                      className="p-1.5 text-slate-300 hover:text-emerald-400 hover:bg-slate-700/80 rounded transition-colors"
+                    >
+                      <Reply size={16} />
+                    </button>
+                    <div className="w-px h-4 bg-slate-600 mx-1"></div>
+                    {QUICK_EMOJIS.map((emj) => (
+                      <button
+                        key={emj}
+                        onClick={() => handleReact(msg.id, emj)}
+                        className="px-1.5 py-1 text-base hover:scale-125 transition-transform"
+                      >
+                        {emj}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* ============================================================== */}
+                  {/* BLOCK NHÚNG TIN NHẮN REPLY (NẾU CÓ) */}
+                  {/* ============================================================== */}
+                  {msg.replyToMsgId && (
+                    <div
+                      className={`text-[11px] mt-0.5 px-2 py-1 mb-0.5 rounded border-l-2 ${isMe ? "border-emerald-300 bg-emerald-700/30 text-emerald-100" : "border-brand-400 bg-slate-800 text-slate-300"} w-full max-w-xs opacity-80 cursor-pointer line-clamp-2`}
+                    >
+                      <span className="font-semibold block">
+                        {msg.replyToSender}
+                      </span>
+                      {msg.replyToContent}
+                    </div>
+                  )}
+
                   {/* HIỂN THỊ ẢNH/VIDEO (Không bọc nền màu) */}
                   {msg.chunkData &&
                     (msg.fileType?.startsWith("image/") ||
@@ -338,6 +445,37 @@ export default function MeetingChat({
                       </p>
                     </div>
                   )}
+
+                  {/* ============================================================== */}
+                  {/* HIỂN THỊ CÁC REACTION CỦA TIN NHẮN */}
+                  {/* ============================================================== */}
+                  {msg.reactions &&
+                    Object.values(msg.reactions).some(
+                      (users) => users.length > 0,
+                    ) && (
+                      <div
+                        className={`flex flex-wrap gap-1 mt-0.5 ${isMe ? "justify-end" : "justify-start"} w-full`}
+                      >
+                        {Object.entries(msg.reactions).map(([emoji, users]) => {
+                          if (users.length === 0) return null;
+                          const hasReacted = users.includes(
+                            localParticipant?.identity || "",
+                          );
+                          return (
+                            <button
+                              key={emoji}
+                              onClick={() => handleReact(msg.id, emoji)}
+                              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ring-1 transition-colors ${hasReacted ? "bg-slate-700 ring-emerald-500 text-emerald-400" : "bg-slate-800/80 ring-slate-700 text-slate-300 hover:bg-slate-700"}`}
+                            >
+                              <span>{emoji}</span>
+                              <span className="font-medium">
+                                {users.length}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                 </div>
 
                 {msg.isPrivate && (
@@ -358,6 +496,29 @@ export default function MeetingChat({
       </div>
 
       <div className="shrink-0 flex flex-col gap-2">
+        {/* ============================================================== */}
+        {/* BANNER HIỂN THỊ ĐANG TRẢ LỜI AI ĐÓ */}
+        {/* ============================================================== */}
+        {replyingTo && (
+          <div className="bg-slate-800/80 px-3 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center border border-slate-700 backdrop-blur-sm">
+            <div className="truncate pr-2">
+              <span className="font-semibold text-emerald-400 mr-1">
+                Đang trả lời {replyingTo.senderName}:
+              </span>
+              {replyingTo.content ||
+                (replyingTo.fileName
+                  ? `[Tệp] ${replyingTo.fileName}`
+                  : "[Ảnh/Video]")}
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors shrink-0"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         <div className="relative">
           <select
             value={selectedTarget}

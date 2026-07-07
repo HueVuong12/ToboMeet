@@ -86,8 +86,40 @@ export default function MeetingRoomContent({
 
         // Nhận dữ liệu chat từ người khác
         if (data.type === "CHAT") {
+          data.reactions = data.reactions || {};
           setMessages((prev) => [...prev, data]);
           if (!isChatOpenRef.current) setHasUnreadChat(true);
+        }
+
+        // Xử lý thả cảm xúc (REACTION) từ người khác
+        else if (data.type === "REACT" && data.targetMessageId && data.emoji) {
+          console.log(
+            `Người dùng ${data.senderIdentity} thả cảm xúc ${data.emoji} cho tin nhắn ${data.targetMessageId}`,
+          );
+          setMessages((prev) =>
+            prev.map((msg) => {
+              // Tìm đúng tin nhắn đang bị thả cảm xúc
+              if (msg.id === data.targetMessageId) {
+                const newReactions = { ...(msg.reactions || {}) };
+                const usersWhoReacted = newReactions[data.emoji!] || [];
+
+                // Nếu user này chưa thả -> Thêm vào, Nếu thả rồi -> Xóa đi (Toggle)
+                if (!usersWhoReacted.includes(data.senderIdentity)) {
+                  newReactions[data.emoji!] = [
+                    ...usersWhoReacted,
+                    data.senderIdentity,
+                  ];
+                } else {
+                  newReactions[data.emoji!] = usersWhoReacted.filter(
+                    (id) => id !== data.senderIdentity,
+                  );
+                }
+
+                return { ...msg, reactions: newReactions };
+              }
+              return msg;
+            }),
+          );
         }
 
         // Bắt đầu nhận file từ người khác
@@ -231,7 +263,7 @@ export default function MeetingRoomContent({
 
               // Gửi lại FILE_DONE
               const doneMsg: ChatMessage = {
-                id: Math.random().toString(36).substring(2, 9),
+                id: data.fileId || Math.random().toString(36).substring(2, 9),
                 type: "FILE_DONE",
                 senderIdentity: room.localParticipant.identity,
                 senderName: room.localParticipant.name || "Bạn",
