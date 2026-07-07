@@ -14,6 +14,7 @@ import {
   X,
   ChevronDown,
   Reply,
+  Info,
 } from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
 
@@ -38,6 +39,11 @@ export default function MeetingChat({
     url: string;
     type: string;
     name: string;
+  } | null>(null);
+
+  // State quản lý Modal xem chi tiết cảm xúc
+  const [reactionDetails, setReactionDetails] = useState<{
+    [emoji: string]: string[];
   } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -253,10 +259,113 @@ export default function MeetingChat({
     (p) => p.identity !== localParticipant?.identity,
   );
   // Danh sách cảm xúc cơ bản
-  const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "🎉"];
+  const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😡", "🎉"];
+
+  // Hàm lấy thông tin chi tiết (Tên + Avatar) của người dùng
+  const getParticipantDetails = (id: string) => {
+    let name = "Người dùng ẩn danh";
+    let avatarUrl = "";
+
+    // Tìm user trong phòng hoặc chính mình
+    const p =
+      id === localParticipant?.identity
+        ? localParticipant
+        : participants.find((x) => x.identity === id);
+
+    if (p) {
+      name = p.name || name;
+      // Thử trích xuất avatar từ metadata (nếu backend của bạn có set metadata lúc tạo token)
+      try {
+        if (p.metadata) {
+          const meta = JSON.parse(p.metadata);
+          avatarUrl = meta.avatar || meta.avatarUrl || meta.picture || "";
+        }
+      } catch (e) {}
+    }
+
+    // Nếu là chính mình thì hiện chữ "Bạn", nhưng vẫn lấy đúng chữ cái đầu của tên thật
+    const displayName = id === localParticipant?.identity ? "Bạn" : name;
+    const initial = name.charAt(0).toUpperCase();
+
+    return { displayName, initial, avatarUrl };
+  };
 
   return (
     <div className="flex flex-col h-full bg-transparent relative">
+      {/* MODAL XEM CHI TIẾT CẢM XÚC */}
+      {reactionDetails &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-4"
+            onClick={() => setReactionDetails(null)}
+          >
+            <div
+              className="bg-slate-800 rounded-2xl w-full max-w-xs border border-slate-700 shadow-2xl overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center p-4 border-b border-slate-700/50">
+                <h3 className="text-sm font-semibold text-slate-200">
+                  Chi tiết cảm xúc
+                </h3>
+                <button
+                  onClick={() => setReactionDetails(null)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-4 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                {Object.entries(reactionDetails).map(([emoji, users]) => {
+                  if (users.length === 0) return null;
+                  return (
+                    <div key={emoji} className="flex flex-col gap-1.5">
+                      <div className="text-sm border-b border-slate-700/50 pb-1 mb-1 flex items-center gap-2">
+                        <span className="text-lg">{emoji}</span>
+                        <span className="text-xs font-medium text-slate-400">
+                          {users.length} người
+                        </span>
+                      </div>
+
+                      {/* Vòng lặp hiển thị từng người thả cảm xúc */}
+                      {users.map((userId) => {
+                        const { displayName, initial, avatarUrl } =
+                          getParticipantDetails(userId);
+
+                        return (
+                          <div
+                            key={userId}
+                            className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-700/40 rounded-lg transition-colors"
+                          >
+                            {/* Hiển thị Avatar thật hoặc Avatar chữ cái */}
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={displayName}
+                                className="w-6 h-6 rounded-full object-cover bg-slate-700 border border-slate-600"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xs text-white font-bold shadow-sm">
+                                {initial}
+                              </div>
+                            )}
+
+                            {/* Tên người dùng */}
+                            <span className="text-sm text-slate-300 font-medium">
+                              {displayName}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {/* MODAL PHÓNG TO ẢNH VÀ VIDEO */}
       {previewMedia &&
         typeof document !== "undefined" &&
@@ -311,7 +420,7 @@ export default function MeetingChat({
         className="hidden"
       />
 
-      <div className="flex-1 overflow-y-auto pr-2 space-y-4 mb-4 custom-scrollbar">
+      <div className="flex-1 pt-4 overflow-y-auto pr-2 space-y-4 mb-4 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-slate-500 text-sm">
             Chưa có tin nhắn nào. Bắt đầu trò chuyện!
@@ -340,9 +449,7 @@ export default function MeetingChat({
                 <div
                   className={`relative max-w-[90%] flex flex-col gap-1.5 ${isMe ? "items-end" : "items-start"}`}
                 >
-                  {/* ============================================================== */}
                   {/* THANH MENU NỔI KHI HOVER */}
-                  {/* ============================================================== */}
                   <div
                     className={`absolute -top-10 ${isMe ? "right-2" : "left-2"} opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800/95 backdrop-blur-sm border border-slate-700/80 rounded-xl shadow-xl flex items-center p-1 z-20 gap-0.5`}
                   >
@@ -365,9 +472,7 @@ export default function MeetingChat({
                     ))}
                   </div>
 
-                  {/* ============================================================== */}
                   {/* BLOCK NHÚNG TIN NHẮN REPLY (NẾU CÓ) */}
-                  {/* ============================================================== */}
                   {msg.replyToMsgId && (
                     <div
                       className={`text-[11px] mt-0.5 px-2 py-1 mb-0.5 rounded border-l-2 ${isMe ? "border-emerald-300 bg-emerald-700/30 text-emerald-100" : "border-brand-400 bg-slate-800 text-slate-300"} w-full max-w-xs opacity-80 cursor-pointer line-clamp-2`}
@@ -446,9 +551,7 @@ export default function MeetingChat({
                     </div>
                   )}
 
-                  {/* ============================================================== */}
                   {/* HIỂN THỊ CÁC REACTION CỦA TIN NHẮN */}
-                  {/* ============================================================== */}
                   {msg.reactions &&
                     Object.values(msg.reactions).some(
                       (users) => users.length > 0,
@@ -474,6 +577,15 @@ export default function MeetingChat({
                             </button>
                           );
                         })}
+
+                        {/* Nút Info để xem chi tiết ai đã thả cảm xúc */}
+                        <button
+                          onClick={() => setReactionDetails(msg.reactions!)}
+                          title="Xem người đã thả cảm xúc"
+                          className="ml-0.5 p-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-full transition-colors"
+                        >
+                          <Info size={12} />
+                        </button>
                       </div>
                     )}
                 </div>
@@ -496,9 +608,7 @@ export default function MeetingChat({
       </div>
 
       <div className="shrink-0 flex flex-col gap-2">
-        {/* ============================================================== */}
         {/* BANNER HIỂN THỊ ĐANG TRẢ LỜI AI ĐÓ */}
-        {/* ============================================================== */}
         {replyingTo && (
           <div className="bg-slate-800/80 px-3 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center border border-slate-700 backdrop-blur-sm">
             <div className="truncate pr-2">
@@ -566,7 +676,9 @@ export default function MeetingChat({
 
         {/* Chú thích dung lượng */}
         <p className="text-[10px] text-slate-500 text-center mt-0.5">
-          Chỉ cho phép gửi file dưới 100MB
+          Chỉ cho phép gửi file dưới 100MB, chỉ chọn và gửi được 1 file tại 1
+          thời điểm. Ảnh/Video sẽ hiển thị trực tiếp, các loại file khác sẽ hiển
+          thị dưới dạng thẻ tải xuống.
         </p>
       </div>
     </div>
