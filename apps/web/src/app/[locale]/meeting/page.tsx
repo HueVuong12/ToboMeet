@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { LiveKitRoom } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
-import { VideoPresets } from "livekit-client";
 
 export default function MeetingPage() {
+  const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const channelName = searchParams.get("channelName");
@@ -17,7 +18,14 @@ export default function MeetingPage() {
 
   const initialCam = searchParams.get("cam") !== "false";
   const initialMic = searchParams.get("mic") === "true";
-  const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+
+  // Parse các thiết bị từ URL
+  const micId = searchParams.get("micId");
+  const speakerId = searchParams.get("speakerId");
+  const cameraConfig = searchParams.get("cameraConfig");
+  const parsed = cameraConfig
+    ? JSON.parse(decodeURIComponent(cameraConfig))
+    : null;
 
   if (!token || !LIVEKIT_URL) {
     return (
@@ -35,9 +43,27 @@ export default function MeetingPage() {
       serverUrl={LIVEKIT_URL}
       connect={true}
       options={{
+        // Cấu hình Camera
         videoCaptureDefaults: {
-          resolution: VideoPresets.h360,
+          deviceId: parsed?.deviceId,
+          resolution: {
+            width: parsed?.width,
+            height: parsed?.height,
+            frameRate: 30,
+          },
         },
+        // Cấu hình Micro
+        ...(micId && {
+          audioCaptureDefaults: {
+            deviceId: micId,
+          },
+        }),
+        // Cấu hình Loa / Tai nghe
+        ...(speakerId && {
+          audioOutput: {
+            deviceId: speakerId,
+          },
+        }),
       }}
       onDisconnected={() => {
         window.close();

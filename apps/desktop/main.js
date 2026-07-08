@@ -35,8 +35,6 @@ function createWindow() {
 
   mainWindow.loadURL(targetUrl);
 
-  mainWindow.webContents.openDevTools();
-
   // Cấu hình xử lý khi mở cửa sổ mới (window.open)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     // 1. Nếu là link phòng họp -> Cho phép Electron mở một Popup Window mới
