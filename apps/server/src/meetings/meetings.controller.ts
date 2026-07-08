@@ -40,6 +40,7 @@ export class MeetingsController {
       channelId,
       userId,
       body.displayName,
+      body.forceSwitch,
     );
   }
 

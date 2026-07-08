@@ -1,7 +1,6 @@
 // src/meetings/meetings.service.ts
 import {
   Injectable,
-  NotFoundException,
   BadRequestException,
   Inject,
   forwardRef,
@@ -12,8 +11,9 @@ import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import { MeetingJoinResponse } from "@tobomeet/shared/types";
+import { ErrorCode, MeetingJoinResponse } from "@tobomeet/shared/types";
 import { MeetingsGateway } from "./meetings.gateway";
+import { AppException } from "../core/exceptions/app.exception";
 
 @Injectable()
 export class MeetingsService {
@@ -40,12 +40,14 @@ export class MeetingsService {
 
   /**
    * Tham gia hoặc tự động khởi tạo cuộc họp nếu chưa có ai tạo trong kênh
+   * Chỉ cho phép 1 thiết bị vào 1 kênh họp tại 1 thời điểm
    */
   async joinOrCreateMeeting(
     roomId: string,
     channelId: string,
     userId: string,
     displayName?: string,
+    forceSwitch?: boolean,
   ): Promise<MeetingJoinResponse> {
     const room = await this.roomModel.findOne({
       _id: roomId,
@@ -53,7 +55,7 @@ export class MeetingsService {
     });
 
     if (!room) {
-      throw new NotFoundException("Phòng hoặc Kênh không tồn tại");
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
     }
 
     // Thông tin tên hiển thị của User để làm Identity trong LiveKit
@@ -83,12 +85,27 @@ export class MeetingsService {
         );
 
         if (isAlreadyInThisRoom) {
-          throw new BadRequestException(
-            "Bạn đã tham gia cuộc họp này trên một thiết bị hoặc tab khác.",
-          );
+          // Nếu là yêu cầu chuyển thiết bị
+          if (forceSwitch) {
+            const oldParticipant = participants.find((p) =>
+              p.identity.startsWith(userId),
+            );
+            if (oldParticipant) {
+              await this.livekitRoomService.removeParticipant(
+                meeting.meetingCode,
+                oldParticipant.identity,
+              );
+              await new Promise((resolve) => setTimeout(resolve, 500)); // Đợi LiveKit dọn dẹp
+            }
+          } else {
+            throw new AppException(ErrorCode.ALREADY_IN_MEETING);
+          }
         }
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (
+          error instanceof AppException ||
+          error instanceof BadRequestException
+        ) {
           throw error;
         }
       }
@@ -119,12 +136,14 @@ export class MeetingsService {
     const apiSecret = process.env.LIVEKIT_API_SECRET;
 
     if (!apiKey || !apiSecret) {
-      throw new BadRequestException(
-        "Chưa cấu hình LiveKit API Key/Secret ở file .env",
-      );
+      // Không gửi chi tiết lỗi hệ thống cho client
+      console.error("Chưa cấu hình LiveKit API Key/Secret ở file .env");
+      throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
-    const uniqueIdentity = `${userId}-${Math.random().toString(36).substring(2, 8)}`;
+    // HƯNG NOTE LẠI: CHÌA KHOÁ ĐỂ CUỘC HỌP CHỈ DIỄN RA TRÊN 1 THIẾT BỊ
+    // Chỉ dùng đúng userId làm định danh duy nhất
+    const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
     const userRole = userInRoom ? userInRoom.role : "member";
@@ -180,7 +199,8 @@ export class MeetingsService {
    */
   async removeParticipant(meetingCode: string, participantIdentity: string) {
     if (!this.livekitRoomService) {
-      throw new BadRequestException("LiveKit Admin Client chưa được cấu hình");
+      console.error("LiveKit Admin Client chưa được cấu hình");
+      throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
     try {
@@ -223,23 +243,15 @@ export class MeetingsService {
         await this.livekitRoomService.listParticipants(meetingCode);
 
       if (participants.length === 0) {
-        console.log(
-          `[Xác nhận] Phòng ${meetingCode} thực sự trống. Đóng ngay lập tức!`,
-        );
-
         // 1. Cập nhật Database
         await this.endMeetingByCode(meetingCode);
 
         // 2. Ép giải tán phòng
         await this.forceDeleteLiveKitRoom(meetingCode);
-      } else {
-        console.log(
-          `Phòng ${meetingCode} vẫn còn ${participants.length} người. Tiếp tục duy trì.`,
-        );
       }
     } catch (error) {
       // Bỏ qua lỗi nếu phòng đã không còn tồn tại trên LiveKit
-      console.log(`Phòng ${meetingCode} có thể đã được dọn dẹp.`);
+      console.log(`Phòng ${meetingCode} có thể đã được dọn dẹp.`, error);
     }
   }
 

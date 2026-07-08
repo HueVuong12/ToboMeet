@@ -9,7 +9,6 @@ interface RoomPageProps {
 export default async function RoomPage({ params }: RoomPageProps) {
   const { id } = await params;
 
-  // Middleware đã bảo vệ route — chỉ cần lấy user.id, không cần kiểm tra + redirect lại
   const supabase = await createClient();
   const {
     data: { session },

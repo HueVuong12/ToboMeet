@@ -66,6 +66,16 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Email hoặc mật khẩu không đúng",
     statusCode: 401,
   },
+  ALREADY_IN_MEETING: {
+    code: 4013,
+    message: "Đã trong cuộc họp",
+    statusCode: 401,
+  },
+  ROOM_OR_CHANNEL_NOT_FOUND: {
+    code: 4041,
+    message: "Phòng hoặc kênh không tồn tại",
+    statusCode: 404,
+  },
   USER_EXISTED: {
     code: 4001,
     message: "Email này đã được sử dụng",
@@ -81,7 +91,12 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Phòng họp đã đạt số lượng tối đa",
     statusCode: 400,
   },
-  // Thêm các lỗi khác của hệ thống vào đây...
+  // Lỗi hệ thống (50x), không public lỗi chi tiết cho người dùng
+  SERVER_ERROR: {
+    code: 5011,
+    message: "Lỗi hệ thống, vui lòng thử lại sau",
+    statusCode: 501,
+  },
 };
 
 // ─── Navigation ───────────────────────────────────────────────────────────────

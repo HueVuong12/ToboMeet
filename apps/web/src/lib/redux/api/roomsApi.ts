@@ -54,12 +54,17 @@ export const roomsApi = baseApi.injectEndpoints({
 
     joinMeeting: builder.mutation<
       MeetingJoinResponse,
-      { roomId: string; channelId: string; displayName?: string }
+      {
+        roomId: string;
+        channelId: string;
+        displayName?: string;
+        forceSwitch?: boolean;
+      }
     >({
-      query: ({ roomId, channelId, displayName }) => ({
+      query: ({ roomId, channelId, displayName, forceSwitch }) => ({
         url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
         method: "POST",
-        data: { displayName },
+        data: { displayName, forceSwitch },
       }),
     }),
 
