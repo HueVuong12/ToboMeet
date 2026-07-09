@@ -49,17 +49,17 @@ export function EventProvider({
           action: {
             label: "Cho phép",
             onClick: () => {
-              // 1. Xóa cờ ở thiết bị này
+              // Xóa cờ ở thiết bị này
               localStorage.removeItem(`active_meeting_${data.roomId}`);
 
-              // 2. Bắn một CustomEvent để Component RoomContent (nếu đang bật) tự động đóng Popup
+              // Bắn một CustomEvent để Component RoomContent (nếu đang bật) tự động đóng Popup
               window.dispatchEvent(
                 new CustomEvent("FORCE_CLOSE_MEETING_WINDOW", {
                   detail: data.roomId,
                 }),
               );
 
-              // 3. Báo lại cho máy kia là đã nhả phòng
+              // Báo lại cho máy kia là đã nhả phòng
               socket.emit("accept_switch_device", {
                 ...data,
                 targetSocketId: data.requesterSocketId, // Đẩy ID của Máy B lên Server

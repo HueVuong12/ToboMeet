@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 import { LiveKitRoom } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
-import { Loader2, Video, Mic, VideoOff, MicOff } from "lucide-react";
+import { Loader2, Video, Mic, VideoOff, MicOff, LogOut } from "lucide-react";
 import { useJoinMeetingByCodeMutation } from "@/lib/redux/api/meetingsApi";
+import { toast } from "sonner";
 
 export default function MeetingPage() {
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
@@ -28,7 +29,6 @@ export default function MeetingPage() {
     ? JSON.parse(decodeURIComponent(cameraConfig))
     : null;
 
-  // Dữ liệu ẩn và Trạng thái
   const [meetingData, setMeetingData] = useState<{
     token: string;
     roomId: string;
@@ -36,13 +36,15 @@ export default function MeetingPage() {
     channelName: string;
   } | null>(null);
 
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
   const [status, setStatus] = useState<
     "LOOKING_FOR_TOKEN" | "IN_LOBBY" | "JOINED"
   >("LOOKING_FOR_TOKEN");
   const [joinMeetingByCodeApi, { isLoading: isJoining }] =
     useJoinMeetingByCodeMutation();
 
-  // LOGIC TÌM TOKEN (TỪ CHỦ PHÒNG) HOẶC RƠI VÀO PHÒNG CHỜ
+  // Logic tìm token hoặc vào phòng chờ (Lobby)
   useEffect(() => {
     if (!meetingCode) return;
     const bc = new BroadcastChannel(`token_channel_${meetingCode}`);
@@ -77,7 +79,7 @@ export default function MeetingPage() {
     };
   }, [meetingCode, status]);
 
-  // KHÁCH (GUEST) GỌI API LẤY VÉ VÀO CỬA
+  // Tham gia bằng link, dùng cho cả khách bên ngoài hoặc người trong phòng
   const handleJoinFromLink = async () => {
     if (!meetingCode) return;
     try {
@@ -92,16 +94,85 @@ export default function MeetingPage() {
         channelId: response.channelId,
         channelName: response.channelName,
       });
+
+      localStorage.setItem(
+        `active_meeting_${response.roomId}`,
+        response.channelId,
+      );
+
       setStatus("JOINED");
-    } catch (error) {
-      alert("Mã cuộc họp không hợp lệ hoặc cuộc họp đã kết thúc.");
+    } catch (error: any) {
+      // Code 4013: Đang có thiết bị khác trong cuộc họp
+      if (error?.code === 4013) {
+        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.");
+        // Không cần hỏi chuyển thiết bị
+      } else {
+        toast.error("Không thể tham gia cuộc họp lúc này.");
+      }
     }
+  };
+
+  const handleDisconnect = () => {
+    setIsDisconnecting(true);
+    if (meetingData)
+      localStorage.removeItem(`active_meeting_${meetingData.roomId}`);
+
+    setTimeout(() => {
+      window.close();
+
+      // Fallback chuyển hướng nếu window.close() bị chặn
+      setTimeout(() => {
+        if (meetingData?.roomId) {
+          window.location.href = `/room/${meetingData.roomId}`;
+        } else {
+          window.location.href = "/";
+        }
+      }, 300);
+    }, 1000);
   };
 
   if (status === "LOOKING_FOR_TOKEN") {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#1f1f1f] text-white">
-        Đang tải cấu hình...
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-950 text-white space-y-6">
+        <div className="relative flex items-center justify-center">
+          {/* Hiệu ứng ánh sáng tỏa ra phía sau */}
+          <div className="absolute inset-0 bg-brand-500 rounded-full blur-2xl opacity-20 animate-pulse"></div>
+          {/* Icon Video nằm giữa */}
+          <div className="w-20 h-20 bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl flex items-center justify-center z-10 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-tr from-brand-500/10 to-transparent"></div>
+            <Video
+              className="text-brand-400 animate-pulse"
+              size={36}
+              strokeWidth={1.5}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-200">
+            Chuẩn bị không gian
+          </h2>
+          <p className="text-slate-400 text-sm flex items-center gap-2">
+            <Loader2 className="animate-spin text-brand-500" size={16} />
+            Đang thiết lập kết nối...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isDisconnecting) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-950 text-white space-y-6 transition-opacity duration-500">
+        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 mb-2">
+          <LogOut className="text-red-500 animate-pulse" size={32} />
+        </div>
+        <h2 className="text-2xl font-semibold tracking-tight text-slate-200">
+          Đang rời cuộc họp
+        </h2>
+        <p className="text-slate-400 text-sm flex items-center gap-2">
+          <Loader2 className="animate-spin text-slate-500" size={16} />
+          Đang dọn dẹp...
+        </p>
       </div>
     );
   }
@@ -184,7 +255,7 @@ export default function MeetingPage() {
         ...(micId && { audioCaptureDefaults: { deviceId: micId } }),
         ...(speakerId && { audioOutput: { deviceId: speakerId } }),
       }}
-      onDisconnected={() => window.close()}
+      onDisconnected={handleDisconnect}
     >
       <MeetingRoomContent
         channelName={meetingData.channelName}

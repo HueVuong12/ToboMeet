@@ -116,6 +116,14 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   // LẮNG NGHE ĐỒNG Ý CHUYỂN THIẾT BỊ VÀ ĐÓNG POPUP
   useEffect(() => {
+    const checkStatus = () => {
+      const savedChannel = localStorage.getItem(`active_meeting_${roomId}`);
+      setIsJoinedOnThisDevice(savedChannel === currentChannel?._id);
+    };
+
+    checkStatus();
+    window.addEventListener("storage", checkStatus);
+
     // Máy B Lắng nghe: Khi Máy A bấm "Cho phép" ở Toast Toàn cục
     const handleSwitchAccepted = (data: any) => {
       if (
@@ -143,6 +151,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
     return () => {
       socket.off("switch_device_accepted", handleSwitchAccepted);
+      window.removeEventListener("storage", checkStatus);
       window.removeEventListener(
         "FORCE_CLOSE_MEETING_WINDOW",
         handleForceClose,
