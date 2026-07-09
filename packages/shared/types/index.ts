@@ -153,6 +153,10 @@ export interface MeetingJoinResponse {
   meetingCode: string;
   status: string;
   isHost: boolean;
+
+  roomId: string;
+  channelId: string;
+  channelName: string;
 }
 
 export type PacketType =

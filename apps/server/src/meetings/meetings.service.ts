@@ -167,12 +167,47 @@ export class MeetingsService {
       canUpdateOwnMetadata: true,
     });
 
+    const currentChannel = room.channels.find(
+      (c) => c._id.toString() === channelId.toString(),
+    );
+
     return {
       token: await at.toJwt(),
       meetingCode: meeting.meetingCode,
       status: meeting.status,
       isHost: meeting.hostId === userId,
+
+      roomId: roomId.toString(),
+      channelId: channelId.toString(),
+      channelName: currentChannel?.name,
     };
+  }
+
+  async joinMeetingByCode(
+    meetingCode: string,
+    userId: string,
+    displayName?: string,
+  ): Promise<MeetingJoinResponse> {
+    // Tra cứu ngược từ Database xem meetingCode này thuộc về Room và Channel nào
+    const meeting = await this.meetingModel
+      .findOne({
+        meetingCode,
+        status: "ongoing", // Chỉ cho phép vào nếu cuộc họp đang diễn ra
+      })
+      .exec();
+
+    if (!meeting) {
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+    }
+
+    // Gọi lại hàm joinOrCreateMeeting gốc bằng các ID đã tìm thấy trong DB
+    return this.joinOrCreateMeeting(
+      meeting.roomId,
+      meeting.channelId,
+      userId,
+      displayName,
+      false,
+    );
   }
 
   /**

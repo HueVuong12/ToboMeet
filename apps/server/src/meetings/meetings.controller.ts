@@ -75,3 +75,27 @@ export class MeetingsController {
     );
   }
 }
+
+@Controller("meetings") // Public meeting API
+export class GlobalMeetingsController {
+  constructor(private readonly meetingsService: MeetingsService) {}
+
+  /**
+   * POST /api/meetings/join-by-code
+   * Khách từ bên ngoài gửi meetingCode lên để xin vào phòng
+   */
+  @Post("join-by-code")
+  @UseGuards(SupabaseGuard)
+  async joinMeetingByCode(
+    @Body() body: { meetingCode: string; displayName?: string },
+    @Req() req: any,
+  ) {
+    const userId = req.user.id;
+
+    return this.meetingsService.joinMeetingByCode(
+      body.meetingCode,
+      userId,
+      body.displayName,
+    );
+  }
+}

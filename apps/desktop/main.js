@@ -38,7 +38,7 @@ function createWindow() {
   // Cấu hình xử lý khi mở cửa sổ mới (window.open)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     // 1. Nếu là link phòng họp -> Cho phép Electron mở một Popup Window mới
-    if (url.includes("/meeting?token=")) {
+    if (url.includes("/meeting")) {
       return {
         action: "allow",
         overrideBrowserWindowOptions: {

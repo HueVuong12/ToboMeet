@@ -218,12 +218,24 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
       setShowPreviewModal(false);
 
-      // Thêm micId + speakerId
-      const meetingUrl = `/meeting?token=${encodeURIComponent(
-        response.token,
-      )}&roomId=${roomId}&channelId=${currentChannel._id}&channelName=${encodeURIComponent(
-        activeChannel,
-      )}&meetingCode=${response.meetingCode}&cam=${config.isCamOn}&cameraConfig=${cameraConfig}&mic=${config.isMicOn}&micId=${config.micId}&speakerId=${config.speakerId}`;
+      // URL SẠCH: Chỉ chứa meetingCode và thiết bị phần cứng
+      const meetingUrl = `/meeting/${response.meetingCode}?cam=${config.isCamOn}&cameraConfig=${cameraConfig}&mic=${config.isMicOn}&micId=${config.micId}&speakerId=${config.speakerId}`;
+
+      // Truyền token qua RAM (không lộ token trên URL)
+      const bc = new BroadcastChannel(`token_channel_${response.meetingCode}`);
+      bc.onmessage = (event) => {
+        if (event.data === "TAB_B_READY") {
+          // Khi Tab Meeting kêu "Sẵn sàng", bắn toàn bộ payload sang
+          bc.postMessage({
+            type: "TOKEN_PAYLOAD",
+            token: response.token,
+            roomId: roomId,
+            channelId: currentChannel._id,
+            channelName: activeChannel,
+          });
+          setTimeout(() => bc.close(), 500); // Đóng kênh
+        }
+      };
 
       // Đánh dấu thiết bị này là thiết bị đang trong cuộc họp
       localStorage.setItem(`active_meeting_${roomId}`, currentChannel._id);
