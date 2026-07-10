@@ -89,3 +89,5 @@
 [2026-07-05T11:59:51.507Z] [Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: ngochuevuong12@gmail.com
 [2026-07-05T11:59:51.507Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
 [2026-07-05T11:59:54.689Z] [Debug 4/4] Gửi email mở khóa thành công tới ngochuevuong12@gmail.com
+[2026-07-10T14:42:22.700Z] [Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=6a424217c2c9ae267c6a0662, status=active
+[2026-07-10T14:42:22.959Z] [Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=false -> isLocked=false
