@@ -277,7 +277,7 @@
     "security_note": "Connection secured with 256-bit SSL encryption",
     "back_to_login": "Back to login",
     "otp_title": "Enter Security Code",
-    "otp_subtitle": "We just sent a 8-digit code to {email}. Please enter the code to continue.",
+    "otp_subtitle": "We just sent a 6-digit code to {email}. Please enter the code to continue.",
     "error_invalid_otp": "Invalid or expired verification code.",
     "otp_submit_btn": "Verify Code",
     "otp_help_link": "I can't access this email",

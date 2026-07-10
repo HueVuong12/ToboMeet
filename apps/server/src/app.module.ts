@@ -6,6 +6,7 @@ import { RoomsModule } from "./rooms/rooms.module";
 import { MeetingsModule } from "./meetings/meetings.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { AdminModule } from "./admin/admin.module";
+import { SupabaseModule } from "./supabase/supabase.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AdminModule } from "./admin/admin.module";
     RoomsModule,
     WebhooksModule,
     AdminModule,
+    SupabaseModule,
   ],
 })
 export class AppModule {}

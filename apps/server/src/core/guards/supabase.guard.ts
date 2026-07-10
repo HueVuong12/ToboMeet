@@ -1,64 +1,39 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  UnauthorizedException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
 import type { Request } from "express";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseService } from "../../supabase/supabase.service";
+import { AppException } from "../exceptions/app.exception";
+import { ErrorCode } from "@tobomeet/shared/types";
 
 @Injectable()
 export class SupabaseGuard implements CanActivate {
-  private supabase: SupabaseClient;
-
-  constructor() {
-    const supabaseUrl =
-      process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Thiếu cấu hình SUPABASE_URL hoặc SUPABASE_ANON_KEY");
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
-  }
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
-      throw new UnauthorizedException("Không tìm thấy Access Token");
+      throw new AppException(ErrorCode.INVALID_TOKEN);
     }
 
-    // Gọi API của Supabase để verify token và lấy cục dữ liệu user
     const {
       data: { user },
       error,
-    } = await this.supabase.auth.getUser(token);
+    } = await this.supabaseService.client.auth.getUser(token);
 
     if (error || !user) {
       // Bắt mọi lỗi: Token hết hạn, sai chữ ký, user đã bị khóa/xóa...
-      throw new UnauthorizedException(
-        `Xác thực thất bại: ${error?.message || "Token không hợp lệ"}`,
-      );
+      throw new AppException(ErrorCode.INVALID_TOKEN);
     }
 
     // Kiểm tra trạng thái khóa (ban) từ Supabase Auth
-    const isLocked = user.banned_until && new Date(user.banned_until) > new Date();
+    const isLocked =
+      user.banned_until && new Date(user.banned_until) > new Date();
     if (isLocked) {
-      throw new ForbiddenException(
-        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
-      );
+      throw new AppException(ErrorCode.ACCOUNT_LOCKED);
     }
 
     const mappedRole = user.app_metadata?.role || user.role || "user";
-
-    // Log chẩn đoán phân quyền
-    console.log(`[Auth Diagnostic] Request URL: ${request.url} | Email: ${user.email} | Mapped Role: ${mappedRole}`);
 
     // Gắn thông tin user vào request (Lấy role thực tế từ Supabase)
     request.user = {

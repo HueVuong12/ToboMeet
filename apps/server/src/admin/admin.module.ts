@@ -6,6 +6,7 @@ import { User, UserSchema } from "../users/schemas/user.schema";
 import { Room, RoomSchema } from "../rooms/schemas/room.schema";
 import { Meeting, MeetingSchema } from "../meetings/schemas/meeting.schema";
 import { MeetingsModule } from "../meetings/meetings.module";
+import { SupabaseModule } from "../supabase/supabase.module";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MeetingsModule } from "../meetings/meetings.module";
       { name: Meeting.name, schema: MeetingSchema },
     ]),
     forwardRef(() => MeetingsModule),
+    SupabaseModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

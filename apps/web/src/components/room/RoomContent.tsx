@@ -22,15 +22,13 @@ import {
   Video,
   ChevronDown,
   Calendar,
-  Mic,
-  VideoOff,
-  MicOff,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { createPortal } from "react-dom";
 import { socket } from "@/lib/socket";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
+import PreviewModal from "./PreviewModal";
+import { toast } from "sonner";
 
 interface RoomContentProps {
   roomId: string;
@@ -69,6 +67,15 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     { skip: !currentChannel?._id },
   );
 
+  // Quản lý cửa sổ popup phòng họp
+  const meetingWindowRef = useRef<Window | null>(null);
+
+  // Lưu tạm cấu hình thiết bị khi user bấm "Chuyển" để lúc Máy A đồng ý thì Máy B tự động join
+  const pendingJoinConfigRef = useRef<any>(null);
+
+  // State xác định xem thiết bị này có đang là thiết bị "đang họp" không
+  const [isJoinedOnThisDevice, setIsJoinedOnThisDevice] = useState(false);
+
   // Socket.io: Join/Leave channel và lắng nghe sự kiện thay đổi trạng thái cuộc họp
   useEffect(() => {
     if (!socket.connected) {
@@ -78,7 +85,12 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     const channelId = currentChannel?._id;
     if (!channelId) return;
 
-    socket.emit("join_channel", channelId);
+    const joinChannel = () => {
+      socket.emit("join_channel", channelId);
+    };
+
+    if (socket.connected) joinChannel();
+    socket.on("connect", joinChannel); // Fix lỗi mất trạng thái khi Server Restart
 
     const handleStatusChanged = (data: any) => {
       dispatch(
@@ -97,56 +109,58 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
     return () => {
       socket.emit("leave_channel", channelId);
+      socket.off("connect", joinChannel);
       socket.off("meeting_status_changed", handleStatusChanged);
     };
   }, [currentChannel?._id, dispatch]); // Chạy lại mỗi khi đổi kênh
 
+  // LẮNG NGHE ĐỒNG Ý CHUYỂN THIẾT BỊ VÀ ĐÓNG POPUP
+  useEffect(() => {
+    const checkStatus = () => {
+      const savedChannel = localStorage.getItem(`active_meeting_${roomId}`);
+      setIsJoinedOnThisDevice(savedChannel === currentChannel?._id);
+    };
+
+    checkStatus();
+    window.addEventListener("storage", checkStatus);
+
+    // Máy B Lắng nghe: Khi Máy A bấm "Cho phép" ở Toast Toàn cục
+    const handleSwitchAccepted = (data: any) => {
+      if (
+        data.channelId === currentChannel?._id &&
+        pendingJoinConfigRef.current
+      ) {
+        toast.success("Đã kết nối thiết bị mới, đang vào phòng...");
+        handleJoinMeeting(pendingJoinConfigRef.current, true); // forceSwitch = true
+
+        pendingJoinConfigRef.current = null;
+      }
+    };
+    socket.on("switch_device_accepted", handleSwitchAccepted);
+
+    // Máy A Lắng nghe: Khi EventProvider yêu cầu đóng cửa sổ (Bằng Custom DOM Event)
+    const handleForceClose = (e: any) => {
+      if (e.detail === roomId) {
+        if (meetingWindowRef.current && !meetingWindowRef.current.closed) {
+          meetingWindowRef.current.close(); // Tự động đóng popup
+        }
+        setIsJoinedOnThisDevice(false);
+      }
+    };
+    window.addEventListener("FORCE_CLOSE_MEETING_WINDOW", handleForceClose);
+
+    return () => {
+      socket.off("switch_device_accepted", handleSwitchAccepted);
+      window.removeEventListener("storage", checkStatus);
+      window.removeEventListener(
+        "FORCE_CLOSE_MEETING_WINDOW",
+        handleForceClose,
+      );
+    };
+  }, [currentChannel?._id, roomId]);
+
   const [isJoining, setIsJoining] = useState(false);
   const [joinMeetingApi] = useJoinMeetingMutation();
-
-  // State cho Preview Modal
-  const [previewDisplayName, setPreviewDisplayName] = useState("");
-  const [isPreviewCamOn, setIsPreviewCamOn] = useState(true);
-  const [isPreviewMicOn, setIsPreviewMicOn] = useState(false);
-
-  // Ref để gắn luồng video vào thẻ <video>
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Effect xử lý bật/tắt thiết bị cho Preview
-  useEffect(() => {
-    let currentStream: MediaStream | null = null;
-
-    const startMedia = async () => {
-      if (!showPreviewModal) return;
-      try {
-        // Xin quyền truy cập thiết bị
-        currentStream = await navigator.mediaDevices.getUserMedia({
-          video: isPreviewCamOn,
-          audio: isPreviewMicOn,
-        });
-
-        // Gắn luồng (stream) vào thẻ video
-        if (videoRef.current) {
-          videoRef.current.srcObject = currentStream;
-        }
-      } catch (err) {
-        console.error("Không thể truy cập thiết bị:", err);
-      }
-    };
-
-    if (showPreviewModal && (isPreviewCamOn || isPreviewMicOn)) {
-      startMedia();
-    } else if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    // Cleanup: Tắt camera/mic khi đóng modal hoặc component unmount
-    return () => {
-      if (currentStream) {
-        currentStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [showPreviewModal, isPreviewCamOn, isPreviewMicOn]);
 
   if (roomLoading) {
     return (
@@ -180,8 +194,18 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     );
   }
 
-  const handleJoinMeeting = async () => {
-    const currentChannel = room?.channels.find((c) => c.name === activeChannel);
+  const handleJoinMeeting = async (
+    config: {
+      displayName: string;
+      isCamOn: boolean;
+      isMicOn: boolean;
+      cameraId: string;
+      micId: string;
+      speakerId: string;
+      resolution: { width: number; height: number };
+    },
+    forceSwitch = false,
+  ) => {
     if (!currentChannel?._id) return;
 
     try {
@@ -189,15 +213,80 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       const response = await joinMeetingApi({
         roomId,
         channelId: currentChannel._id,
-        displayName: previewDisplayName || undefined,
+        displayName: config.displayName || undefined,
+        forceSwitch,
       }).unwrap();
 
+      const cameraConfig = encodeURIComponent(
+        JSON.stringify({
+          deviceId: config.cameraId,
+          width: config.resolution.width,
+          height: config.resolution.height,
+        }),
+      );
+
       setShowPreviewModal(false);
-      const meetingUrl = `/meeting?token=${encodeURIComponent(response.token)}&roomId=${roomId}&channelId=${currentChannel._id}&channelName=${encodeURIComponent(activeChannel)}&meetingCode=${response.meetingCode}&cam=${isPreviewCamOn}&mic=${isPreviewMicOn}`;
-      window.open(meetingUrl, "_blank");
-    } catch (error) {
-      console.error("Lỗi khi join meeting:", error);
-      alert("Không thể tham gia cuộc họp lúc này.");
+
+      // URL SẠCH: Chỉ chứa meetingCode và thiết bị phần cứng
+      const meetingUrl = `/meeting/${response.meetingCode}?cam=${config.isCamOn}&cameraConfig=${cameraConfig}&mic=${config.isMicOn}&micId=${config.micId}&speakerId=${config.speakerId}`;
+
+      // Truyền token qua RAM (không lộ token trên URL)
+      const bc = new BroadcastChannel(`token_channel_${response.meetingCode}`);
+      bc.onmessage = (event) => {
+        if (event.data === "TAB_B_READY") {
+          // Khi Tab Meeting kêu "Sẵn sàng", bắn toàn bộ payload sang
+          bc.postMessage({
+            type: "TOKEN_PAYLOAD",
+            token: response.token,
+            roomId: roomId,
+            channelId: currentChannel._id,
+            channelName: activeChannel,
+          });
+          setTimeout(() => bc.close(), 500); // Đóng kênh
+        }
+      };
+
+      // Đánh dấu thiết bị này là thiết bị đang trong cuộc họp
+      localStorage.setItem(`active_meeting_${roomId}`, currentChannel._id);
+      setIsJoinedOnThisDevice(true);
+
+      setTimeout(() => {
+        // Lưu lại Ref của cửa sổ để đóng sau này
+        meetingWindowRef.current = window.open(meetingUrl, "_blank");
+
+        // Lắng nghe xem khi nào cửa sổ này bị tắt thì reset trạng thái
+        const timer = setInterval(() => {
+          if (meetingWindowRef.current?.closed) {
+            clearInterval(timer);
+            localStorage.removeItem(`active_meeting_${roomId}`);
+            setIsJoinedOnThisDevice(false);
+          }
+        }, 1000);
+      }, 800);
+    } catch (error: any) {
+      // Code 4013: Đang có thiết bị khác trong cuộc họp
+      if (error?.code === 4013) {
+        setShowPreviewModal(false);
+        pendingJoinConfigRef.current = config; // Lưu cấu hình chờ duyệt
+
+        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
+          duration: 10000,
+          action: {
+            label: "Chuyển sang máy này",
+            onClick: () => {
+              socket.emit("request_switch_device", {
+                userId,
+                channelId: currentChannel._id,
+                roomId: roomId,
+                requesterSocketId: socket.id,
+              });
+              toast.info("Đang chờ xác nhận từ thiết bị khác...");
+            },
+          },
+        });
+      } else {
+        toast.error("Không thể tham gia cuộc họp lúc này.");
+      }
     } finally {
       setIsJoining(false);
     }
@@ -265,20 +354,24 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             {/* Nút Cuộc họp / Tham gia */}
             <div className="relative">
               {activeMeeting?.isOngoing ? (
-                // TRẠNG THÁI 1: ĐANG CÓ CUỘC HỌP -> Hiện nút Tham gia màu xanh lá nổi bật
-                <button
-                  onClick={() => setShowPreviewModal(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-emerald-600/20"
-                >
-                  <Video size={16} />
-                  <span>Tham gia họp</span>
-                  <div className="relative flex h-2 w-2 ml-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                  </div>
-                </button>
+                isJoinedOnThisDevice ? (
+                  // TRẠNG THÁI 1: ĐANG HỌP TRÊN CHÍNH MÁY NÀY
+                  <button className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium border border-emerald-300 cursor-default">
+                    <Video size={16} />
+                    <span>Đang họp</span>
+                  </button>
+                ) : (
+                  // TRẠNG THÁI 2: ĐANG HỌP Ở MÁY KHÁC (HOẶC CHƯA VÀO) -> Nút Chuyển thiết bị
+                  <button
+                    onClick={() => setShowPreviewModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-amber-500/20"
+                  >
+                    <Video size={16} />
+                    <span>Tham gia</span>
+                  </button>
+                )
               ) : (
-                // TRẠNG THÁI 2: KHÔNG CÓ CUỘC HỌP -> Hiện menu tạo mới như cũ
+                // TRẠNG THÁI 3: KHÔNG CÓ CUỘC HỌP -> Hiện menu tạo mới như cũ
                 <>
                   <button
                     onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
@@ -383,104 +476,12 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         />
       )}
 
-      {showPreviewModal &&
-        createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 mx-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-slate-800">
-                  Chuẩn bị tham gia
-                </h2>
-                <button
-                  onClick={() => setShowPreviewModal(false)}
-                  className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Khu vực Video Preview */}
-              <div className="aspect-video bg-slate-900 rounded-xl mb-4 flex items-center justify-center overflow-hidden relative border border-slate-200">
-                {isPreviewCamOn ? (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted // Luôn muted để không bị vọng âm thanh của chính mình
-                    className="w-full h-full object-cover transform -scale-x-100" // scale-x-100 để lật gương (mirror) camera
-                  />
-                ) : (
-                  <div className="text-slate-500 flex flex-col items-center">
-                    <VideoOff size={32} className="mb-2 opacity-50" />
-                    <span>Camera đang tắt</span>
-                  </div>
-                )}
-
-                {/* Chỉ báo trạng thái Mic trên khung video */}
-                {!isPreviewMicOn && (
-                  <div className="absolute top-3 right-3 bg-red-500 text-white p-1.5 rounded-md shadow-sm">
-                    <MicOff size={14} />
-                  </div>
-                )}
-              </div>
-
-              {/* Control Test Cam/Mic */}
-              <div className="flex gap-4 justify-center mb-6">
-                <button
-                  onClick={() => setIsPreviewMicOn(!isPreviewMicOn)}
-                  className={`p-3.5 rounded-full transition-colors ${
-                    isPreviewMicOn
-                      ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                      : "bg-red-100 hover:bg-red-200 text-red-600"
-                  }`}
-                >
-                  {isPreviewMicOn ? <Mic size={20} /> : <MicOff size={20} />}
-                </button>
-                <button
-                  onClick={() => setIsPreviewCamOn(!isPreviewCamOn)}
-                  className={`p-3.5 rounded-full transition-colors ${
-                    isPreviewCamOn
-                      ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                      : "bg-red-100 hover:bg-red-200 text-red-600"
-                  }`}
-                >
-                  {isPreviewCamOn ? (
-                    <Video size={20} />
-                  ) : (
-                    <VideoOff size={20} />
-                  )}
-                </button>
-              </div>
-
-              {/* [MỚI] Ô nhập tên hiển thị */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  Tên hiển thị trong cuộc họp
-                </label>
-                <input
-                  type="text"
-                  value={previewDisplayName}
-                  onChange={(e) => setPreviewDisplayName(e.target.value)}
-                  placeholder="Nhập tên của bạn (tùy chọn)"
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                />
-              </div>
-
-              <button
-                onClick={handleJoinMeeting}
-                disabled={isJoining}
-                className="w-full bg-brand-600 text-white py-3 rounded-xl font-semibold hover:bg-brand-700 disabled:opacity-50 transition-colors flex justify-center items-center gap-2"
-              >
-                {isJoining ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  "Tham gia ngay"
-                )}
-              </button>
-            </div>
-          </div>,
-          document.body,
-        )}
+      <PreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        onJoin={handleJoinMeeting}
+        isJoining={isJoining}
+      />
 
       <aside
         className={`
@@ -497,7 +498,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         `}
       >
         <div className="h-14 flex items-center justify-between px-5 border-b border-slate-200 min-w-[300px]">
-          <h2 className="text-sm font-bold text-slate-800">{t("in_this_channel")}</h2>
+          <h2 className="text-sm font-bold text-slate-800">
+            {t("in_this_channel")}
+          </h2>
           <button
             onClick={() => setIsRightSidebarOpen(false)}
             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 transition-colors"

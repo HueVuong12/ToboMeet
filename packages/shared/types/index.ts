@@ -51,6 +51,31 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Người dùng không tồn tại",
     statusCode: 404,
   },
+  ACCOUNT_LOCKED: {
+    code: 4031,
+    message: "Tài khoản của bạn đã bị khóa",
+    statusCode: 403,
+  },
+  INVALID_TOKEN: {
+    code: 4011,
+    message: "Token không hợp lệ hoặc đã hết hạn",
+    statusCode: 401,
+  },
+  INVALID_CREDENTIALS: {
+    code: 4012,
+    message: "Email hoặc mật khẩu không đúng",
+    statusCode: 401,
+  },
+  ALREADY_IN_MEETING: {
+    code: 4013,
+    message: "Đã trong cuộc họp",
+    statusCode: 401,
+  },
+  ROOM_OR_CHANNEL_NOT_FOUND: {
+    code: 4041,
+    message: "Phòng hoặc kênh không tồn tại",
+    statusCode: 404,
+  },
   USER_EXISTED: {
     code: 4001,
     message: "Email này đã được sử dụng",
@@ -66,7 +91,12 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Phòng họp đã đạt số lượng tối đa",
     statusCode: 400,
   },
-  // Thêm các lỗi khác của hệ thống vào đây...
+  // Lỗi hệ thống (50x), không public lỗi chi tiết cho người dùng
+  SERVER_ERROR: {
+    code: 5011,
+    message: "Lỗi hệ thống, vui lòng thử lại sau",
+    statusCode: 501,
+  },
 };
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
@@ -123,4 +153,51 @@ export interface MeetingJoinResponse {
   meetingCode: string;
   status: string;
   isHost: boolean;
+
+  roomId: string;
+  channelId: string;
+  channelName: string;
+}
+
+export type PacketType =
+  | "CHAT"
+  | "FILE_START"
+  | "FILE_CHUNK"
+  | "FILE_DONE"
+  | "MISSING_CHUNKS"
+  | "REACT";
+
+// Cấu trúc gói tin chat trong meeting (dùng chung cho Web, Mobile, Desktop)
+export interface ChatMessage {
+  id: string;
+  type: PacketType;
+  senderIdentity: string;
+  senderName: string;
+  content?: string;
+  timestamp: number;
+  isPrivate: boolean;
+  targetName?: string; // Tên người nhận (để hiển thị UI cho người gửi)
+
+  // Dành cho FILE_START & FILE_DONE
+  fileId?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  totalChunks?: number;
+  chunkData?: string; // Dữ liệu Base64 của 1 khối
+
+  // Dành cho FILE_CHUNK
+  chunkIndex?: number;
+  // Dành cho MISSING_CHUNKS
+  missingIndices?: number[];
+
+  // Dành cho tính năng Reply
+  replyToMsgId?: string;
+  replyToSender?: string;
+  replyToContent?: string;
+
+  // Dành cho tính năng Thả cảm xúc
+  reactions?: { [emoji: string]: string[] }; // Lưu theo dạng: { "👍": ["user_id_1", "user_id_2"] }
+  targetMessageId?: string; // (Chỉ dùng cho loại gói tin REACT)
+  emoji?: string; // (Chỉ dùng cho loại gói tin REACT)
 }

@@ -42,9 +42,4 @@ export class UsersController {
     const userId = req.user.id;
     return this.usersService.revokeSession(userId, sessionId);
   }
-
-  @Get("status-by-email")
-  async getStatusByEmail(@Query("email") email: string) {
-    return this.usersService.getUserStatusByEmail(email);
-  }
 }

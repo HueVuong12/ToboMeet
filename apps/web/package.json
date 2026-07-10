@@ -17,13 +17,15 @@
     "@tobomeet/shared": "*",
     "axios": "^1.18.0",
     "livekit-client": "^2.20.0",
+    "localforage": "^1.10.0",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "next-intl": "^4.13.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-redux": "^9.3.0",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
