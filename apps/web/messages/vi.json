@@ -264,7 +264,7 @@
     "security_note": "Kết nối được bảo vệ bằng mã hóa SSL 256-bit",
     "back_to_login": "Quay lại trang đăng nhập",
     "otp_title": "Nhập mã bảo mật",
-    "otp_subtitle": "Chúng tôi vừa gửi mã gồm 8 chữ số đến {email}. Vui lòng nhập mã để tiếp tục.",
+    "otp_subtitle": "Chúng tôi vừa gửi mã gồm 6 chữ số đến {email}. Vui lòng nhập mã để tiếp tục.",
     "error_invalid_otp": "Mã xác minh không chính xác hoặc đã hết hạn.",
     "otp_submit_btn": "Xác nhận mã",
     "otp_help_link": "Tôi không truy cập được email này",

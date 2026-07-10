@@ -358,7 +358,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                   // TRẠNG THÁI 1: ĐANG HỌP TRÊN CHÍNH MÁY NÀY
                   <button className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium border border-emerald-300 cursor-default">
                     <Video size={16} />
-                    <span>Đang họp trên thiết bị này</span>
+                    <span>Đang họp</span>
                   </button>
                 ) : (
                   // TRẠNG THÁI 2: ĐANG HỌP Ở MÁY KHÁC (HOẶC CHƯA VÀO) -> Nút Chuyển thiết bị
@@ -367,7 +367,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                     className="flex items-center gap-2 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-amber-500/20"
                   >
                     <Video size={16} />
-                    <span>Tham gia / Chuyển thiết bị</span>
+                    <span>Tham gia</span>
                   </button>
                 )
               ) : (
