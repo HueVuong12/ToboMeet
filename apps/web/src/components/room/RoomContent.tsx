@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   roomsApi,
   useGetActiveMeetingQuery,
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
-  useJoinMeetingMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
 import {
@@ -28,7 +27,7 @@ import { socket } from "@/lib/socket";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
 import PreviewModal from "./PreviewModal";
-import { toast } from "sonner";
+import { useMeetingManager } from "@/hooks/useMeetingManager";
 
 interface RoomContentProps {
   roomId: string;
@@ -39,7 +38,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const t = useTranslations("room");
   const dispatch = useDispatch<AppDispatch>();
 
-  // API Fetch
   const {
     data: room,
     isLoading: roomLoading,
@@ -67,16 +65,16 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     { skip: !currentChannel?._id },
   );
 
-  // Quản lý cửa sổ popup phòng họp
-  const meetingWindowRef = useRef<Window | null>(null);
+  const { handleJoinMeeting, isJoining, isJoinedOnThisDevice } =
+    useMeetingManager({
+      roomId,
+      userId,
+      currentChannel,
+      activeChannel,
+      setShowPreviewModal,
+    });
 
-  // Lưu tạm cấu hình thiết bị khi user bấm "Chuyển" để lúc Máy A đồng ý thì Máy B tự động join
-  const pendingJoinConfigRef = useRef<any>(null);
-
-  // State xác định xem thiết bị này có đang là thiết bị "đang họp" không
-  const [isJoinedOnThisDevice, setIsJoinedOnThisDevice] = useState(false);
-
-  // Socket.io: Join/Leave channel và lắng nghe sự kiện thay đổi trạng thái cuộc họp
+  // Join/Leave channel và lắng nghe sự kiện thay đổi trạng thái cuộc họp
   useEffect(() => {
     if (!socket.connected) {
       socket.connect();
@@ -114,54 +112,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     };
   }, [currentChannel?._id, dispatch]); // Chạy lại mỗi khi đổi kênh
 
-  // LẮNG NGHE ĐỒNG Ý CHUYỂN THIẾT BỊ VÀ ĐÓNG POPUP
-  useEffect(() => {
-    const checkStatus = () => {
-      const savedChannel = localStorage.getItem(`active_meeting_${roomId}`);
-      setIsJoinedOnThisDevice(savedChannel === currentChannel?._id);
-    };
-
-    checkStatus();
-    window.addEventListener("storage", checkStatus);
-
-    // Máy B Lắng nghe: Khi Máy A bấm "Cho phép" ở Toast Toàn cục
-    const handleSwitchAccepted = (data: any) => {
-      if (
-        data.channelId === currentChannel?._id &&
-        pendingJoinConfigRef.current
-      ) {
-        toast.success("Đã kết nối thiết bị mới, đang vào phòng...");
-        handleJoinMeeting(pendingJoinConfigRef.current, true); // forceSwitch = true
-
-        pendingJoinConfigRef.current = null;
-      }
-    };
-    socket.on("switch_device_accepted", handleSwitchAccepted);
-
-    // Máy A Lắng nghe: Khi EventProvider yêu cầu đóng cửa sổ (Bằng Custom DOM Event)
-    const handleForceClose = (e: any) => {
-      if (e.detail === roomId) {
-        if (meetingWindowRef.current && !meetingWindowRef.current.closed) {
-          meetingWindowRef.current.close(); // Tự động đóng popup
-        }
-        setIsJoinedOnThisDevice(false);
-      }
-    };
-    window.addEventListener("FORCE_CLOSE_MEETING_WINDOW", handleForceClose);
-
-    return () => {
-      socket.off("switch_device_accepted", handleSwitchAccepted);
-      window.removeEventListener("storage", checkStatus);
-      window.removeEventListener(
-        "FORCE_CLOSE_MEETING_WINDOW",
-        handleForceClose,
-      );
-    };
-  }, [currentChannel?._id, roomId]);
-
-  const [isJoining, setIsJoining] = useState(false);
-  const [joinMeetingApi] = useJoinMeetingMutation();
-
   if (roomLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-white">
@@ -193,104 +143,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       </div>
     );
   }
-
-  const handleJoinMeeting = async (
-    config: {
-      displayName: string;
-      isCamOn: boolean;
-      isMicOn: boolean;
-      cameraId: string;
-      micId: string;
-      speakerId: string;
-      resolution: { width: number; height: number };
-    },
-    forceSwitch = false,
-  ) => {
-    if (!currentChannel?._id) return;
-
-    try {
-      setIsJoining(true);
-      const response = await joinMeetingApi({
-        roomId,
-        channelId: currentChannel._id,
-        displayName: config.displayName || undefined,
-        forceSwitch,
-      }).unwrap();
-
-      const cameraConfig = encodeURIComponent(
-        JSON.stringify({
-          deviceId: config.cameraId,
-          width: config.resolution.width,
-          height: config.resolution.height,
-        }),
-      );
-
-      setShowPreviewModal(false);
-
-      // URL SẠCH: Chỉ chứa meetingCode và thiết bị phần cứng
-      const meetingUrl = `/meeting/${response.meetingCode}?cam=${config.isCamOn}&cameraConfig=${cameraConfig}&mic=${config.isMicOn}&micId=${config.micId}&speakerId=${config.speakerId}`;
-
-      // Truyền token qua RAM (không lộ token trên URL)
-      const bc = new BroadcastChannel(`token_channel_${response.meetingCode}`);
-      bc.onmessage = (event) => {
-        if (event.data === "TAB_B_READY") {
-          // Khi Tab Meeting kêu "Sẵn sàng", bắn toàn bộ payload sang
-          bc.postMessage({
-            type: "TOKEN_PAYLOAD",
-            token: response.token,
-            roomId: roomId,
-            channelId: currentChannel._id,
-            channelName: activeChannel,
-          });
-          setTimeout(() => bc.close(), 500); // Đóng kênh
-        }
-      };
-
-      // Đánh dấu thiết bị này là thiết bị đang trong cuộc họp
-      localStorage.setItem(`active_meeting_${roomId}`, currentChannel._id);
-      setIsJoinedOnThisDevice(true);
-
-      setTimeout(() => {
-        // Lưu lại Ref của cửa sổ để đóng sau này
-        meetingWindowRef.current = window.open(meetingUrl, "_blank");
-
-        // Lắng nghe xem khi nào cửa sổ này bị tắt thì reset trạng thái
-        const timer = setInterval(() => {
-          if (meetingWindowRef.current?.closed) {
-            clearInterval(timer);
-            localStorage.removeItem(`active_meeting_${roomId}`);
-            setIsJoinedOnThisDevice(false);
-          }
-        }, 1000);
-      }, 800);
-    } catch (error: any) {
-      // Code 4013: Đang có thiết bị khác trong cuộc họp
-      if (error?.code === 4013) {
-        setShowPreviewModal(false);
-        pendingJoinConfigRef.current = config; // Lưu cấu hình chờ duyệt
-
-        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
-          duration: 10000,
-          action: {
-            label: "Chuyển sang máy này",
-            onClick: () => {
-              socket.emit("request_switch_device", {
-                userId,
-                channelId: currentChannel._id,
-                roomId: roomId,
-                requesterSocketId: socket.id,
-              });
-              toast.info("Đang chờ xác nhận từ thiết bị khác...");
-            },
-          },
-        });
-      } else {
-        toast.error("Không thể tham gia cuộc họp lúc này.");
-      }
-    } finally {
-      setIsJoining(false);
-    }
-  };
 
   return (
     <div className="h-screen w-full flex bg-white font-sans overflow-hidden text-slate-900">
