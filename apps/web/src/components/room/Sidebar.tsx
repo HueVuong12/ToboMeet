@@ -9,6 +9,7 @@ import {
   useLeaveRoomMutation,
   useInviteMemberMutation,
   useGetRoomMembersQuery,
+  useDisbandRoomMutation,
 } from "@/lib/redux/api/roomsApi";
 import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
 import {
@@ -27,6 +28,7 @@ import {
   UserPlus,
   Link as LinkIcon,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
@@ -66,6 +68,8 @@ export default function Sidebar({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaveRoom, { isLoading: isLeaving }] = useLeaveRoomMutation();
+  const [showDisbandConfirm, setShowDisbandConfirm] = useState(false);
+  const [disbandRoom, { isLoading: isDisbanding }] = useDisbandRoomMutation();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
@@ -137,6 +141,16 @@ export default function Sidebar({
       router.push("../dashboard");
     } catch (err: any) {
       alert(err?.data?.message || err?.message || "Không thể rời phòng");
+    }
+  };
+
+  const handleDisbandRoom = async () => {
+    try {
+      await disbandRoom(room._id).unwrap();
+      setShowDisbandConfirm(false);
+      router.push("../dashboard");
+    } catch (err: any) {
+      alert(err?.data?.message || err?.message || "Không thể giải tán phòng");
     }
   };
 
@@ -249,6 +263,18 @@ export default function Sidebar({
                     <LogOut className="w-3.5 h-3.5" />
                     {t("leave_room")}
                   </button>
+                  {isOwner && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowDisbandConfirm(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {t("dissolve_room")}
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -728,6 +754,62 @@ export default function Sidebar({
                     {t("confirm_leave_action")}
                   </button>
                 )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Modal Xác nhận Giải tán phòng */}
+      {showDisbandConfirm &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowDisbandConfirm(false)}
+            />
+
+            {/* Dialog */}
+            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {t("disband_confirm_title")}
+                </h2>
+                <button
+                  onClick={() => setShowDisbandConfirm(false)}
+                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4">
+                <p className="text-sm text-slate-600">
+                  {t("disband_confirm_desc")}
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 px-6 pb-6 pt-2">
+                <button
+                  onClick={() => setShowDisbandConfirm(false)}
+                  disabled={isDisbanding}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  onClick={handleDisbandRoom}
+                  disabled={isDisbanding}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                >
+                  {isDisbanding && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {t("dissolve_room")}
+                </button>
               </div>
             </div>
           </div>,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   roomsApi,
   useGetActiveMeetingQuery,
@@ -38,14 +39,16 @@ interface RoomContentProps {
 export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const t = useTranslations("room");
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
 
   // API Fetch
   const {
     data: room,
     isLoading: roomLoading,
     error: roomError,
+    refetch: refetchRoom,
   } = useGetRoomByIdQuery(roomId);
-  const { data: membersResponse, isLoading: membersLoading } =
+  const { data: membersResponse, isLoading: membersLoading, refetch: refetchMembers } =
     useGetRoomMembersQuery(roomId);
   const members = membersResponse || [];
 
@@ -113,6 +116,40 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       socket.off("meeting_status_changed", handleStatusChanged);
     };
   }, [currentChannel?._id, dispatch]); // Chạy lại mỗi khi đổi kênh
+
+  // Lắng nghe cập nhật phòng realtime (rời phòng, bị xóa, giải tán)
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit("join_room", roomId);
+
+    const handleRoomUpdated = (data: any) => {
+      console.log("[Socket Web] Nhận sự kiện cập nhật phòng:", data);
+      
+      // Tải lại dữ liệu chi tiết phòng họp và danh sách thành viên
+      refetchRoom();
+      refetchMembers();
+
+      // Nếu chính mình là người rời đi, bị xóa hoặc phòng bị giải tán
+      if (
+        (data.type === "member_left" && data.leftUserId === userId) ||
+        (data.type === "member_removed" && data.removedUserId === userId) ||
+        data.type === "room_disbanded"
+      ) {
+        toast.info("Bạn không còn ở trong phòng này nữa hoặc phòng đã bị giải tán.");
+        router.push("../dashboard");
+      }
+    };
+
+    socket.on("room_updated", handleRoomUpdated);
+
+    return () => {
+      socket.emit("leave_room", roomId);
+      socket.off("room_updated", handleRoomUpdated);
+    };
+  }, [roomId, userId, refetchRoom, refetchMembers, router]);
 
   // LẮNG NGHE ĐỒNG Ý CHUYỂN THIẾT BỊ VÀ ĐÓNG POPUP
   useEffect(() => {

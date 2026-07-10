@@ -11,12 +11,14 @@ import { CreateRoomDto } from "./dto/create-room.dto";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { RoomMemberResponse, RoomResponse } from "@tobomeet/shared/types";
 import { RoomMember } from "./schemas/room-member.schema";
+import { MeetingsGateway } from "../meetings/meetings.gateway";
 
 @Injectable()
 export class RoomsService {
   constructor(
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly meetingsGateway: MeetingsGateway,
   ) {}
 
   /**
@@ -43,7 +45,7 @@ export class RoomsService {
    */
   async getMyRooms(userId: string): Promise<RoomResponse[]> {
     const rooms = await this.roomModel
-      .find({ "members.userId": userId })
+      .find({ "members.userId": userId, isDeleted: { $ne: true } })
       .sort({ updatedAt: -1 })
       .exec();
 
@@ -85,7 +87,7 @@ export class RoomsService {
    * Xóa thành viên khỏi phòng
    */
   async removeMember(roomId: string, targetUserId: string) {
-    const room = await this.roomModel.findById(roomId);
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Phòng không tồn tại");
 
     // Không cho phép xóa chủ phòng
@@ -94,9 +96,18 @@ export class RoomsService {
       throw new BadRequestException("Không thể xóa chủ phòng");
     }
 
-    // Xóa khỏi mảng và lưu
+    // Xóa khỏi mảng và lưu sử dụng filter và markModified
     room.members = room.members.filter((m) => m.userId !== targetUserId);
+    room.markModified("members");
     await room.save();
+
+    // Phát tín hiệu realtime
+    this.meetingsGateway.notifyRoomUpdated(roomId, {
+      type: "member_removed",
+      removedUserId: targetUserId,
+      roomId,
+    });
+
     return { message: "Đã xóa thành viên" };
   }
 
@@ -104,7 +115,7 @@ export class RoomsService {
    * Tham gia phòng bằng mã code
    */
   async joinRoom(userId: string, roomCode: string): Promise<RoomResponse> {
-    const room = await this.roomModel.findOne({ code: roomCode });
+    const room = await this.roomModel.findOne({ code: roomCode, isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Không tìm thấy phòng với mã này");
 
     // Ràng buộc 1: Giới hạn 100 thành viên
@@ -131,7 +142,7 @@ export class RoomsService {
    * Lấy chi tiết 1 phòng theo ID
    */
   async getRoomById(roomId: string): Promise<Room> {
-    const room = await this.roomModel.findById(roomId);
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
 
     if (!room) {
       throw new NotFoundException("Phòng không tồn tại");
@@ -148,7 +159,7 @@ export class RoomsService {
     roomId: string,
     channelName: string,
   ): Promise<Room> {
-    const room = await this.roomModel.findById(roomId);
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
 
     if (!room) {
       throw new NotFoundException("Phòng không tồn tại");
@@ -179,7 +190,7 @@ export class RoomsService {
     roomId: string,
     payload: { email?: string; targetUserId?: string },
   ): Promise<RoomResponse> {
-    const room = await this.roomModel.findById(roomId);
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Phòng không tồn tại");
 
     // Kiểm tra xem người thực hiện có quyền hay không (phải là thành viên trong phòng)
@@ -226,6 +237,13 @@ export class RoomsService {
     });
     await room.save();
 
+    // Phát tín hiệu realtime
+    this.meetingsGateway.notifyRoomUpdated(room._id.toString(), {
+      type: "member_added",
+      addedUserId: targetUser.supabaseId,
+      roomId: room._id.toString(),
+    });
+
     return this.mapToRoomResponse(room);
   }
 
@@ -233,7 +251,7 @@ export class RoomsService {
    * Thành viên tự rời phòng hoặc Trưởng nhóm rời phòng bàn giao quyền sở hữu
    */
   async leaveRoom(roomId: string, userId: string, newOwnerId?: string) {
-    const room = await this.roomModel.findById(roomId);
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Phòng không tồn tại");
 
     const member = room.members.find((m) => m.userId === userId);
@@ -242,9 +260,10 @@ export class RoomsService {
     }
 
     if (member.role === "owner") {
-      // Trường hợp 1: Phòng chỉ có duy nhất chủ phòng -> Giải tán phòng (xóa khỏi DB)
+      // Trường hợp 1: Phòng chỉ có duy nhất chủ phòng -> Giải tán phòng (xóa mềm)
       if (room.members.length === 1) {
-        await this.roomModel.findByIdAndDelete(roomId);
+        room.isDeleted = true;
+        await room.save();
         return { message: "Đã giải tán phòng họp thành công" };
       }
 
@@ -256,8 +275,8 @@ export class RoomsService {
       }
 
       // Kiểm tra người nhận quyền có tồn tại trong phòng không
-      const newOwner = room.members.find((m) => m.userId === newOwnerId);
-      if (!newOwner) {
+      const newOwnerIndex = room.members.findIndex((m) => m.userId === newOwnerId);
+      if (newOwnerIndex === -1) {
         throw new BadRequestException(
           "Người kế nhiệm được chọn không thuộc phòng này.",
         );
@@ -265,20 +284,53 @@ export class RoomsService {
 
       // Thực hiện chuyển giao quyền sở hữu
       room.ownerId = newOwnerId;
-      newOwner.role = "owner";
+      room.members[newOwnerIndex].role = "owner";
     }
 
-    // Xóa thành viên rời đi (kể cả chủ phòng cũ) khỏi mảng thành viên
+    // Xóa thành viên rời đi (kể cả chủ phòng cũ) khỏi mảng thành viên bằng filter và markModified
     room.members = room.members.filter((m) => m.userId !== userId);
+    room.markModified("members");
     await room.save();
+
+    // Phát tín hiệu realtime
+    this.meetingsGateway.notifyRoomUpdated(roomId, {
+      type: "member_left",
+      leftUserId: userId,
+      newOwnerId: newOwnerId || null,
+      roomId,
+    });
+
     return { message: "Đã rời phòng thành công" };
+  }
+
+  /**
+   * Giải tán phòng họp (xóa mềm - soft delete)
+   */
+  async disbandRoom(roomId: string, userId: string) {
+    const room = await this.roomModel.findById(roomId);
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    if (room.ownerId !== userId) {
+      throw new ForbiddenException("Chỉ chủ phòng mới có quyền giải tán phòng");
+    }
+
+    room.isDeleted = true;
+    await room.save();
+
+    // Phát tín hiệu realtime
+    this.meetingsGateway.notifyRoomUpdated(roomId, {
+      type: "room_disbanded",
+      roomId,
+    });
+
+    return { message: "Đã giải tán phòng họp thành công" };
   }
 
   /**
    * Lấy thông tin sơ bộ của phòng bằng mã code
    */
   async getRoomByCode(code: string) {
-    const room = await this.roomModel.findOne({ code: code.trim() });
+    const room = await this.roomModel.findOne({ code: code.trim(), isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Không tìm thấy phòng họp này");
     return {
       _id: room._id.toString(),

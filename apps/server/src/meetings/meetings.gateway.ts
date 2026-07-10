@@ -83,6 +83,24 @@ export class MeetingsGateway
     }
   }
 
+  @SubscribeMessage("join_room")
+  handleJoinRoom(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    client.join(`room_${roomId}`);
+    console.log(`[Socket] Client ${client.id} joined room channel: room_${roomId}`);
+  }
+
+  @SubscribeMessage("leave_room")
+  handleLeaveRoom(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    client.leave(`room_${roomId}`);
+    console.log(`[Socket] Client ${client.id} left room channel: room_${roomId}`);
+  }
+
   /**
    * Cập nhật trạng thái cuộc họp mới cho tất cả người dùng trong kênh
    */
@@ -91,5 +109,12 @@ export class MeetingsGateway
     data: { isOngoing: boolean; meetingCode?: string },
   ) {
     this.server.to(channelId).emit("meeting_status_changed", data);
+  }
+
+  /**
+   * Phát tín hiệu cập nhật phòng họp realtime
+   */
+  notifyRoomUpdated(roomId: string, data: { type: string; [key: string]: any }) {
+    this.server.to(`room_${roomId}`).emit("room_updated", data);
   }
 }

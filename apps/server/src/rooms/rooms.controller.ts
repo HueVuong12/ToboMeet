@@ -36,6 +36,7 @@ export class RoomsController {
    */
   @Post()
   async createRoom(@Body() dto: CreateRoomDto, @Req() req: AuthenticatedRequest) {
+    console.log(`[RoomsController] Yêu cầu tạo phòng từ userId: ${req.user?.id}`, dto);
     if (!dto.name || !dto.type) {
       throw new BadRequestException("Tên phòng và loại phòng là bắt buộc");
     }
@@ -47,7 +48,14 @@ export class RoomsController {
     }
 
     const userId = req.user.id;
-    return this.roomsService.createRoom(userId, dto);
+    try {
+      const result = await this.roomsService.createRoom(userId, dto);
+      console.log(`[RoomsController] Tạo phòng THÀNH CÔNG, code: ${result.code}`);
+      return result;
+    } catch (err) {
+      console.error(`[RoomsController] Tạo phòng THẤT BẠI:`, err);
+      throw err;
+    }
   }
 
   /**
@@ -162,5 +170,15 @@ export class RoomsController {
   @Get(":id")
   async getRoomById(@Param("id") id: string) {
     return this.roomsService.getRoomById(id);
+  }
+
+  /**
+   * DELETE /api/rooms/:id — Giải tán phòng họp (chủ phòng thực hiện)
+   */
+  @Delete(":id")
+  @HttpCode(HttpStatus.OK)
+  async disbandRoom(@Param("id") roomId: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
+    return this.roomsService.disbandRoom(roomId, userId);
   }
 }

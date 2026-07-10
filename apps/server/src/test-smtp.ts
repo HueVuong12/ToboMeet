@@ -21,7 +21,7 @@ async function testSMTP() {
   console.log("=============================");
 
   if (!host || !user || !pass) {
-    console.error("❌ LỖI: Thiếu thông tin SMTP trong file .env!");
+    console.error(" LỖI: Thiếu thông tin SMTP trong file .env!");
     return;
   }
 
@@ -33,11 +33,11 @@ async function testSMTP() {
   });
 
   try {
-    console.log("⏳ Đang thử kết nối SMTP...");
+    console.log("Đang thử kết nối SMTP...");
     await transporter.verify();
-    console.log("✅ KẾT NỐI SMTP THÀNH CÔNG!");
-  } catch (err: any) {
-    console.error("❌ LỖI KẾT NỐI SMTP:");
+    console.log("KẾT NỐI SMTP THÀNH CÔNG!");
+  } catch (err) {
+    console.error(" LỖI KẾT NỐI SMTP:");
     console.error(err);
   }
 }

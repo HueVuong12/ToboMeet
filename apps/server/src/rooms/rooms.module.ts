@@ -5,6 +5,7 @@ import { RoomsService } from "./rooms.service";
 import { Room, RoomSchema } from "./schemas/room.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
 import { SupabaseModule } from "../supabase/supabase.module";
+import { MeetingsModule } from "../meetings/meetings.module";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SupabaseModule } from "../supabase/supabase.module";
       { name: User.name, schema: UserSchema },
     ]),
     SupabaseModule,
+    MeetingsModule,
   ],
   controllers: [RoomsController],
   providers: [RoomsService],

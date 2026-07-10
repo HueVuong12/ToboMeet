@@ -10,6 +10,12 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       providesTags: ["User"],
     }),
+    searchUsers: builder.query<UserResponse[], string>({
+      query: (query) => ({
+        url: `/users/search?q=${encodeURIComponent(query)}`,
+        method: "GET",
+      }),
+    }),
     getSessions: builder.query<any[], void>({
       query: () => ({
         url: "/users/me/sessions",
@@ -32,4 +38,5 @@ export const {
   useGetMeQuery,
   useGetSessionsQuery,
   useRevokeSessionMutation,
+  useSearchUsersQuery,
 } = usersApi;

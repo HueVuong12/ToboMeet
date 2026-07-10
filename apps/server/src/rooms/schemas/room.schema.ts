@@ -24,6 +24,9 @@ export class Room {
 
   @Prop({ type: [ChannelSchema], default: [] })
   channels: Channel[];
+
+  @Prop({ type: Boolean, default: false })
+  isDeleted?: boolean;
 }
 
 export const RoomSchema = SchemaFactory.createForClass(Room);

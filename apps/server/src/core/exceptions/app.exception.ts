@@ -5,8 +5,13 @@ export class AppException extends HttpException {
   private readonly errorDetail: ErrorDetail;
 
   constructor(errorDetail: ErrorDetail) {
-    super(errorDetail.message, errorDetail.statusCode);
-    this.errorDetail = errorDetail;
+    const safeError = errorDetail || {
+      code: 5000,
+      message: "Đã có lỗi hệ thống xảy ra",
+      statusCode: 500,
+    };
+    super(safeError.message, safeError.statusCode);
+    this.errorDetail = safeError;
   }
 
   getErrorDetail(): ErrorDetail {

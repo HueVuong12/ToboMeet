@@ -1,9 +1,5 @@
+import "./polyfill";
 import { NestFactory } from "@nestjs/core";
-import ws from "ws";
-
-// Polyfill WebSocket toàn cục cho Node.js v20 (để Supabase sử dụng)
-globalThis.WebSocket = ws as any;
-
 import { AppModule } from "./app.module";
 import { TransformInterceptor } from "./core/interceptors/transform.interceptor";
 import { GlobalExceptionFilter } from "./core/filters/global-exception.filter";
@@ -44,7 +40,7 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
+  await app.listen(port, "0.0.0.0");
 
   console.log(`🚀 Backend đang chạy tại: http://localhost:${port}/api`);
 }

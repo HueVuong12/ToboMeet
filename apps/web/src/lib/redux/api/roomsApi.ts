@@ -111,6 +111,14 @@ export const roomsApi = baseApi.injectEndpoints({
       invalidatesTags: ["Room"],
     }),
 
+    disbandRoom: builder.mutation<void, string>({
+      query: (roomId) => ({
+        url: `/rooms/${roomId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Room"],
+    }),
+
     inviteMember: builder.mutation<
       RoomResponse,
       { roomId: string; email?: string; targetUserId?: string }
@@ -149,6 +157,7 @@ export const {
   useJoinMeetingMutation,
   useRemoveParticipantMutation,
   useLeaveRoomMutation,
+  useDisbandRoomMutation,
   useInviteMemberMutation,
   useGetRoomByCodeQuery,
 } = roomsApi;

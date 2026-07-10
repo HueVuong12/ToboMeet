@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   // Modals state
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -107,30 +108,46 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Settings button removed from header as it is now in bottom navigation */}
-        <View className="w-10 h-10" />
+        {/* Nút bật/tắt tìm kiếm ở góc phải */}
+        <TouchableOpacity
+          onPress={() => {
+            setIsSearching(!isSearching);
+            if (isSearching) {
+              setSearchQuery("");
+            }
+          }}
+          className="p-2"
+        >
+          <Feather name="search" size={20} color="#94A3B8" />
+        </TouchableOpacity>
       </View>
 
       {/* Main Content Area */}
       <View className="flex-1">
-        {/* Search and Action Row */}
-        <View className="p-6 gap-4">
-          {/* Search Input */}
-          <View className="relative flex-row items-center bg-white border border-slate-100 rounded-2xl px-4 py-3">
-            <Feather name="search" size={18} color="#94A3B8" style={{ marginRight: 10 }} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t("dashboard.search_placeholder")}
-              className="flex-1 text-sm text-slate-800"
-            />
-            {searchQuery !== "" && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
+        {/* Action Row */}
+        <View className="p-6 pb-4 gap-4">
+          {/* Ô tìm kiếm xuất hiện bên dưới Header khi active */}
+          {isSearching && (
+            <View className="relative flex-row items-center bg-white border border-slate-100 rounded-2xl px-4 py-3 shadow-sm">
+              <Feather name="search" size={18} color="#94A3B8" style={{ marginRight: 10 }} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t("dashboard.search_placeholder")}
+                placeholderTextColor="#94A3B8"
+                autoFocus
+                className="flex-1 text-sm text-slate-800 p-0"
+              />
+              <TouchableOpacity
+                onPress={() => {
+                  setIsSearching(false);
+                  setSearchQuery("");
+                }}
+              >
                 <Feather name="x" size={16} color="#94A3B8" />
               </TouchableOpacity>
-            )}
-          </View>
-
+            </View>
+          )}
           {/* Join or Create buttons */}
           <View className="flex-row gap-3">
             <TouchableOpacity

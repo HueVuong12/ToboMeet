@@ -22,6 +22,7 @@ export default function RootLayout() {
 
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [session, setSession] = useState<unknown>(null);
+  const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -54,10 +55,14 @@ export default function RootLayout() {
       router.replace("/(auth)/login");
     }
 
-    setTimeout(() => {
-      SplashScreen.hideAsync();
-    }, 100);
-  }, [session, isAuthReady, segments, navigationState?.key]);
+    if (!isSplashHidden) {
+      setTimeout(() => {
+        SplashScreen.hideAsync()
+          .then(() => setIsSplashHidden(true))
+          .catch((err) => console.log("Splash Screen already hidden or errored:", err.message));
+      }, 100);
+    }
+  }, [session, isAuthReady, segments, navigationState?.key, isSplashHidden]);
 
   const showGlobalLanguageSwitcher = segments[0] === "(auth)";
 

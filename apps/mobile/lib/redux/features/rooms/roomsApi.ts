@@ -44,6 +44,39 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
+    addMemberByEmailOrId: builder.mutation<Room, { roomId: string; email?: string; targetUserId?: string }>({
+      query: ({ roomId, email, targetUserId }) => ({
+        url: `/rooms/${roomId}/members/invite`,
+        method: "POST",
+        data: { email, targetUserId },
+      }),
+      invalidatesTags: (result, error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+    leaveRoom: builder.mutation<any, { roomId: string; newOwnerId?: string }>({
+      query: ({ roomId, newOwnerId }) => ({
+        url: `/rooms/${roomId}/leave`,
+        method: "POST",
+        data: { newOwnerId },
+      }),
+      invalidatesTags: ["Room"],
+    }),
+    disbandRoom: builder.mutation<any, string>({
+      query: (roomId) => ({
+        url: `/rooms/${roomId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Room"],
+    }),
+    getRoomMembers: builder.query<any[], string>({
+      query: (roomId) => ({
+        url: `/rooms/${roomId}/members`,
+        method: "GET",
+      }),
+      providesTags: (result, error, roomId) => [{ type: "Room", id: roomId }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -54,4 +87,8 @@ export const {
   useCreateRoomMutation,
   useJoinRoomMutation,
   useAddChannelMutation,
+  useAddMemberByEmailOrIdMutation,
+  useLeaveRoomMutation,
+  useDisbandRoomMutation,
+  useGetRoomMembersQuery,
 } = roomsApi;
