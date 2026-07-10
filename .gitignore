@@ -50,3 +50,7 @@ pnpm-debug.log*
 # Testing
 coverage/
 **/coverage/
+
+# Local Node portable
+.node20/
+node.zip

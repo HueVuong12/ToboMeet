@@ -1,4 +1,9 @@
 import { NestFactory } from "@nestjs/core";
+import ws from "ws";
+
+// Polyfill WebSocket toàn cục cho Node.js v20 (để Supabase sử dụng)
+globalThis.WebSocket = ws as any;
+
 import { AppModule } from "./app.module";
 import { TransformInterceptor } from "./core/interceptors/transform.interceptor";
 import { GlobalExceptionFilter } from "./core/filters/global-exception.filter";
