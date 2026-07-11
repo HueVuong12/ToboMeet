@@ -130,6 +130,7 @@ export interface Channel {
 export interface RoomResponse {
   _id: string;
   name: string;
+  description?: string;
   type: "meeting" | "classroom";
   code: string;
   ownerId: string;

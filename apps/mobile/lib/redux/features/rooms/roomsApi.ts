@@ -1,23 +1,32 @@
-import { Room } from "@tobomeet/shared/types";
+import {
+  MeetingJoinResponse,
+  RoomMemberResponse,
+  RoomResponse,
+} from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
 export const roomsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getMyRooms: builder.query<Room[], void>({
+    getMyRooms: builder.query<RoomResponse[], void>({
       query: () => ({
         url: "/rooms/my",
         method: "GET",
       }),
       providesTags: ["Room"],
     }),
-    getRoomById: builder.query<Room, string>({
+
+    getRoomById: builder.query<RoomResponse, string>({
       query: (id) => ({
         url: `/rooms/${id}`,
         method: "GET",
       }),
       providesTags: (result, error, id) => [{ type: "Room", id }],
     }),
-    createRoom: builder.mutation<Room, { name: string; type: "meeting" | "classroom" }>({
+
+    createRoom: builder.mutation<
+      RoomResponse,
+      { name: string; type: "meeting" | "classroom" }
+    >({
       query: (body) => ({
         url: "/rooms",
         method: "POST",
@@ -25,7 +34,8 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
-    joinRoom: builder.mutation<Room, { code: string }>({
+
+    joinRoom: builder.mutation<RoomResponse, { code: string }>({
       query: (body) => ({
         url: "/rooms/join",
         method: "POST",
@@ -33,7 +43,11 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
-    addChannel: builder.mutation<Room, { roomId: string; name: string }>({
+
+    addChannel: builder.mutation<
+      RoomResponse,
+      { roomId: string; name: string }
+    >({
       query: ({ roomId, name }) => ({
         url: `/rooms/${roomId}/channels`,
         method: "POST",
@@ -44,7 +58,11 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
-    addMemberByEmailOrId: builder.mutation<Room, { roomId: string; email?: string; targetUserId?: string }>({
+
+    addMemberByEmailOrId: builder.mutation<
+      RoomResponse,
+      { roomId: string; email?: string; targetUserId?: string }
+    >({
       query: ({ roomId, email, targetUserId }) => ({
         url: `/rooms/${roomId}/members/invite`,
         method: "POST",
@@ -55,7 +73,8 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
-    leaveRoom: builder.mutation<any, { roomId: string; newOwnerId?: string }>({
+
+    leaveRoom: builder.mutation<void, { roomId: string; newOwnerId?: string }>({
       query: ({ roomId, newOwnerId }) => ({
         url: `/rooms/${roomId}/leave`,
         method: "POST",
@@ -63,25 +82,56 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
-    disbandRoom: builder.mutation<any, string>({
+
+    disbandRoom: builder.mutation<void, string>({
       query: (roomId) => ({
         url: `/rooms/${roomId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["Room"],
     }),
-    getRoomMembers: builder.query<any[], string>({
+
+    getRoomMembers: builder.query<RoomMemberResponse[], string>({
       query: (roomId) => ({
         url: `/rooms/${roomId}/members`,
         method: "GET",
       }),
       providesTags: (result, error, roomId) => [{ type: "Room", id: roomId }],
     }),
+
+    getActiveMeeting: builder.query<
+      { isOngoing: boolean; meetingCode: string | null },
+      { roomId: string; channelId: string }
+    >({
+      query: ({ roomId, channelId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/active`,
+        method: "GET",
+      }),
+    }),
+
+    joinMeeting: builder.mutation<
+      MeetingJoinResponse,
+      {
+        roomId: string;
+        channelId: string;
+        displayName?: string;
+        forceSwitch?: boolean;
+      }
+    >({
+      query: ({ roomId, channelId, displayName, forceSwitch }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
+        method: "POST",
+        data: { displayName, forceSwitch },
+      }),
+    }),
   }),
+
   overrideExisting: false,
 });
 
 export const {
+  useGetActiveMeetingQuery,
+  useJoinMeetingMutation,
   useGetMyRoomsQuery,
   useGetRoomByIdQuery,
   useCreateRoomMutation,

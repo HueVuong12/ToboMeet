@@ -12,6 +12,8 @@ import { supabase } from "../lib/supabase";
 import { View } from "react-native";
 import LanguageSwitcher from "../components/commons/LanguageSwitcher";
 import StoreProvider from "../lib/redux/StoreProvider";
+import Toast from "react-native-toast-message";
+import { EventProvider } from "../providers/EventProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -59,7 +61,12 @@ export default function RootLayout() {
       setTimeout(() => {
         SplashScreen.hideAsync()
           .then(() => setIsSplashHidden(true))
-          .catch((err) => console.log("Splash Screen already hidden or errored:", err.message));
+          .catch((err) =>
+            console.log(
+              "Splash Screen already hidden or errored:",
+              err.message,
+            ),
+          );
       }, 100);
     }
   }, [session, isAuthReady, segments, navigationState?.key, isSplashHidden]);
@@ -70,7 +77,10 @@ export default function RootLayout() {
     <View style={{ flex: 1 }}>
       <StoreProvider>
         {showGlobalLanguageSwitcher && <LanguageSwitcher />}
-        <Slot />
+        <EventProvider>
+          <Slot />
+        </EventProvider>
+        <Toast />
       </StoreProvider>
     </View>
   );
