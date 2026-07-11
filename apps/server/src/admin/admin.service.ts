@@ -80,18 +80,18 @@ export class AdminService {
     const averageMeetingDuration =
       endedMeetings.length > 0 ? Math.round(totalDurationMinutes / endedMeetings.length) : 0;
 
-    // Lấy dữ liệu biểu đồ lượt sử dụng theo ngày (30 ngày gần nhất)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Lấy dữ liệu biểu đồ lượt sử dụng theo ngày (365 ngày gần nhất để hỗ trợ bộ lọc lên tới 1 năm ở frontend)
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
 
     const meetings = await this.meetingModel
-      .find({ createdAt: { $gte: thirtyDaysAgo } })
+      .find({ createdAt: { $gte: oneYearAgo } })
       .select("createdAt")
       .exec();
 
     // Group theo ngày định dạng YYYY-MM-DD
     const chartDataMap: Record<string, number> = {};
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 364; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = d.toISOString().split("T")[0];
