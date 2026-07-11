@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   roomsApi,
   useGetActiveMeetingQuery,
@@ -38,15 +37,13 @@ interface RoomContentProps {
 export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const t = useTranslations("room");
   const dispatch = useDispatch<AppDispatch>();
-  const router = useRouter();
 
   const {
     data: room,
     isLoading: roomLoading,
     error: roomError,
-    refetch: refetchRoom,
   } = useGetRoomByIdQuery(roomId);
-  const { data: membersResponse, isLoading: membersLoading, refetch: refetchMembers } =
+  const { data: membersResponse, isLoading: membersLoading } =
     useGetRoomMembersQuery(roomId);
   const members = membersResponse || [];
 
@@ -115,87 +112,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     };
   }, [currentChannel?._id, dispatch]); // Chạy lại mỗi khi đổi kênh
 
-  // Lắng nghe cập nhật phòng realtime (rời phòng, bị xóa, giải tán)
-  useEffect(() => {
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    socket.emit("join_room", roomId);
-
-    const handleRoomUpdated = (data: any) => {
-      console.log("[Socket Web] Nhận sự kiện cập nhật phòng:", data);
-      
-      // Tải lại dữ liệu chi tiết phòng họp và danh sách thành viên
-      refetchRoom();
-      refetchMembers();
-
-      // Nếu chính mình là người rời đi, bị xóa hoặc phòng bị giải tán
-      if (
-        (data.type === "member_left" && data.leftUserId === userId) ||
-        (data.type === "member_removed" && data.removedUserId === userId) ||
-        data.type === "room_disbanded"
-      ) {
-        toast.info("Bạn không còn ở trong phòng này nữa hoặc phòng đã bị giải tán.");
-        router.push("../dashboard");
-      }
-    };
-
-    socket.on("room_updated", handleRoomUpdated);
-
-    return () => {
-      socket.emit("leave_room", roomId);
-      socket.off("room_updated", handleRoomUpdated);
-    };
-  }, [roomId, userId, refetchRoom, refetchMembers, router]);
-
-  // LẮNG NGHE ĐỒNG Ý CHUYỂN THIẾT BỊ VÀ ĐÓNG POPUP
-  useEffect(() => {
-    const checkStatus = () => {
-      const savedChannel = localStorage.getItem(`active_meeting_${roomId}`);
-      setIsJoinedOnThisDevice(savedChannel === currentChannel?._id);
-    };
-
-    checkStatus();
-    window.addEventListener("storage", checkStatus);
-
-    // Máy B Lắng nghe: Khi Máy A bấm "Cho phép" ở Toast Toàn cục
-    const handleSwitchAccepted = (data: any) => {
-      if (
-        data.channelId === currentChannel?._id &&
-        pendingJoinConfigRef.current
-      ) {
-        toast.success("Đã kết nối thiết bị mới, đang vào phòng...");
-        handleJoinMeeting(pendingJoinConfigRef.current, true); // forceSwitch = true
-
-        pendingJoinConfigRef.current = null;
-      }
-    };
-    socket.on("switch_device_accepted", handleSwitchAccepted);
-
-    // Máy A Lắng nghe: Khi EventProvider yêu cầu đóng cửa sổ (Bằng Custom DOM Event)
-    const handleForceClose = (e: any) => {
-      if (e.detail === roomId) {
-        if (meetingWindowRef.current && !meetingWindowRef.current.closed) {
-          meetingWindowRef.current.close(); // Tự động đóng popup
-        }
-        setIsJoinedOnThisDevice(false);
-      }
-    };
-    window.addEventListener("FORCE_CLOSE_MEETING_WINDOW", handleForceClose);
-
-    return () => {
-      socket.off("switch_device_accepted", handleSwitchAccepted);
-      window.removeEventListener("storage", checkStatus);
-      window.removeEventListener(
-        "FORCE_CLOSE_MEETING_WINDOW",
-        handleForceClose,
-      );
-    };
-  }, [currentChannel?._id, roomId]);
-
-  const [isJoining, setIsJoining] = useState(false);
-  const [joinMeetingApi] = useJoinMeetingMutation();
   if (roomLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-white">
