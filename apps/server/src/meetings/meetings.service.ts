@@ -86,17 +86,9 @@ export class MeetingsService {
 
         if (isAlreadyInThisRoom) {
           // Nếu là yêu cầu chuyển thiết bị
+          // Tạo token mới và join vào, thiết bị khác sẽ tự động ngắt kết nối
           if (forceSwitch) {
-            const oldParticipant = participants.find((p) =>
-              p.identity.startsWith(userId),
-            );
-            if (oldParticipant) {
-              await this.livekitRoomService.removeParticipant(
-                meeting.meetingCode,
-                oldParticipant.identity,
-              );
-              await new Promise((resolve) => setTimeout(resolve, 500)); // Đợi LiveKit dọn dẹp
-            }
+            console.log(`Tiến hành cấp Token thế chỗ cho user ${userId}`);
           } else {
             throw new AppException(ErrorCode.ALREADY_IN_MEETING);
           }

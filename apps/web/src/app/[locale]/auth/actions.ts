@@ -15,7 +15,7 @@ export async function login(prevState: FormState, formData: FormData) {
   const supabase = await createClient();
 
   // Xác thực bằng Supabase Auth
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -42,6 +42,14 @@ export async function login(prevState: FormState, formData: FormData) {
   }
 
   const locale = await getLocale();
+
+  // Lấy role từ dữ liệu trả về sau khi login thành công
+  const role = authData.user?.app_metadata?.role;
+
+  // Điều hướng dựa trên role
+  if (role === "admin") {
+    return redirect(`/${locale}/admin`);
+  }
 
   return redirect(`/${locale}/dashboard`);
 }
@@ -113,7 +121,8 @@ export async function loginWithOAuth(
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${siteUrl}/auth/callback?next=/${locale}/dashboard`,
+      // Middleware sẽ bắt trang gốc này và kiểm tra role để bẻ lái tiếp!
+      redirectTo: `${siteUrl}/auth/callback?next=/${locale}`,
     },
   });
 

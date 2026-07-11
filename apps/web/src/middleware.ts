@@ -34,10 +34,14 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Đọc role từ app_metadata của Supabase
+  const role = user?.app_metadata?.role;
+
   const pathname = request.nextUrl.pathname;
   const pathWithoutLocale = pathname.replace(/^\/(vi|en)/, "") || "/";
   const isAuthPage = AUTH_PATHS.includes(pathWithoutLocale);
   const isHomePage = pathWithoutLocale === "/";
+  const isAdminPage = pathWithoutLocale.startsWith("/admin");
   const isResetting = request.nextUrl.searchParams.get("step") === "reset"; // Đang ở bước reset password
 
   const localeMatch = pathname.match(/^\/(vi|en)/);
@@ -47,8 +51,21 @@ export async function middleware(request: NextRequest) {
   const isCallbackPage = pathWithoutLocale.startsWith("/auth/callback");
   const isPublicPage = isAuthPage || isHomePage || isCallbackPage;
 
+  // Nếu vào trang admin mà không có user hoặc role không phải admin -> Giả vờ như trang không tồn tại (404)
+  if (isAdminPage && role !== "admin") {
+    return NextResponse.rewrite(new URL(`/${currentLocale}/404`, request.url));
+  }
+
   // Nếu người dùng đã có token (user tồn tại) và đang vào các trang cấm
   if (user && (isAuthPage || isHomePage) && !isResetting) {
+    // Nếu là admin -> Bẻ lái vào /admin
+    if (role === "admin") {
+      return NextResponse.redirect(
+        new URL(`/${currentLocale}/admin`, request.url),
+      );
+    }
+
+    // Nếu là user thường -> Bẻ lái vào /dashboard
     return NextResponse.redirect(
       new URL(`/${currentLocale}/dashboard`, request.url),
     );
