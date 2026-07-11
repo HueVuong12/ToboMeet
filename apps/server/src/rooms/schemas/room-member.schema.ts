@@ -14,5 +14,8 @@ export class RoomMember {
 
   @Prop({ default: () => new Date() })
   joinedAt: Date;
+
+  @Prop({ type: Boolean, default: false })
+  isLeft?: boolean;
 }
 export const RoomMemberSchema = SchemaFactory.createForClass(RoomMember);

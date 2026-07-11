@@ -33,7 +33,7 @@ export default function UserDialog({
     if (user) {
       setEmail(user.email);
       setRole(user.role === "admin" ? "admin" : "user");
-      setStatus(user.status);
+      setStatus(user.status === "ACTIVE" || user.status === "active" ? "active" : "locked");
     }
   }, [user]);
 

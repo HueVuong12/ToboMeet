@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import { useGetAdminStatsQuery } from "@/lib/redux/api/adminApi";
-import { Loader2, ArrowLeft, LayoutDashboard, Users, Menu, X, ChevronLeft, ChevronRight, Video } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutDashboard, Users, Menu, X, ChevronLeft, ChevronRight, Video, FolderOpen } from "lucide-react";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import AdminDashboardHeader from "@/components/admin/AdminDashboardHeader";
 import AdminStatsGrid from "@/components/admin/AdminStatsGrid";
 import AdminUsageChart from "@/components/admin/AdminUsageChart";
 import AdminRecentActivity from "@/components/admin/AdminRecentActivity";
 import UserManagement from "@/components/admin/UserManagement";
+import AdminRoomManagement from "@/components/admin/AdminRoomManagement";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 function AdminDashboardContent() {
   const router = useRouter();
   const t = useTranslations("admin");
-  const [activeTab, setActiveTab] = useState<"overview" | "users">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "rooms">("overview");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   
@@ -134,6 +135,21 @@ function AdminDashboardContent() {
             <Users className="w-5 h-5 shrink-0" />
             {!isCollapsed && <span>{t("user_management")}</span>}
           </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("rooms");
+              setIsMobileOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+              activeTab === "rooms"
+                ? "bg-brand-50 text-brand-600"
+                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+            }`}
+          >
+            <FolderOpen className="w-5 h-5 shrink-0" />
+            {!isCollapsed && <span>{t("rooms_management_title")}</span>}
+          </button>
         </nav>
 
         {/* Sidebar Footer */}
@@ -197,9 +213,13 @@ function AdminDashboardContent() {
                 </div>
               )}
             </>
-          ) : (
+          ) : activeTab === "users" ? (
             <div className="mt-2">
               <UserManagement />
+            </div>
+          ) : (
+            <div className="mt-2">
+              <AdminRoomManagement />
             </div>
           )}
         </div>

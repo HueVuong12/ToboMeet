@@ -167,25 +167,46 @@ export class AdminService {
 
     const usersWithStatus = await Promise.all(
       users.map(async (u) => {
-        let isLocked = false;
-        let role = "user";
-        try {
-          const { data: { user: sbUser } } = await this.supabaseAdmin.auth.admin.getUserById(u.supabaseId);
-          if (sbUser) {
-            isLocked = !!(sbUser.banned_until && new Date(sbUser.banned_until) > new Date());
-            role = sbUser.app_metadata?.role || "user";
+        let currentStatus = u.status || "ACTIVE";
+        let lockType = u.lockType;
+        let lockedUntil = u.lockedUntil;
+
+        // Tự động mở khóa (self-healing) nếu thời hạn khóa đã hết
+        if (currentStatus === "BLOCKED" && u.lockType === "TEMPORARY" && u.lockedUntil && new Date() >= u.lockedUntil) {
+          try {
+            await this.unlockUserAccount(u._id.toString(), "System (Self-healing)");
+            currentStatus = "ACTIVE";
+            lockType = null;
+            lockedUntil = null;
+          } catch (e) {
+            this.logEmailDebug(`Lỗi tự động mở khóa khi duyệt danh sách: ${e.message}`);
           }
-        } catch (e) {
-          this.logEmailDebug(`Lỗi lấy user ${u.email} từ Supabase`, e);
         }
+
+        let violationCountsObj = {};
+        if (u.violationCounts) {
+          violationCountsObj = Object.fromEntries(u.violationCounts);
+        }
+
         return {
           id: u._id,
           supabaseId: u.supabaseId,
           email: u.email,
           displayName: u.displayName || "",
           avatarUrl: u.avatarUrl || "",
-          role: role,
-          status: isLocked ? "locked" : "active",
+          role: u.role || "user",
+          status: currentStatus,
+          lockType,
+          lockSource: u.lockSource,
+          lockedAt: u.lockedAt,
+          lockedUntil,
+          lockReason: u.lockReason,
+          lockedBy: u.lockedBy,
+          recommendedDuration: u.recommendedDuration,
+          actualDuration: u.actualDuration,
+          violationType: u.violationType,
+          violationCounts: violationCountsObj,
+          lockHistory: u.lockHistory || [],
           createdAt: (u as any).createdAt,
         };
       })
@@ -243,6 +264,8 @@ export class AdminService {
         supabaseId,
         email: normalizedEmail,
         displayName: displayName || normalizedEmail.split("@")[0],
+        role: role || "user",
+        status: "ACTIVE",
       });
 
       return {
@@ -251,7 +274,7 @@ export class AdminService {
         email: newUser.email,
         displayName: newUser.displayName,
         role: role || "user",
-        status: "active",
+        status: "ACTIVE",
         createdAt: (newUser as any).createdAt,
       };
     } catch (dbError) {
@@ -262,27 +285,15 @@ export class AdminService {
   }
 
   async updateUserAccount(id: string, displayName: string, role: string, status: string, adminEmail?: string) {
-    this.logEmailDebug(`[Debug 1/4] Nhận yêu cầu cập nhật tài khoản: id=${id}, status=${status}`);
+    this.logEmailDebug(`[Debug] Cập nhật thông tin tài khoản: id=${id}, role=${role}`);
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException("Người dùng không tồn tại");
     }
 
-    // Lấy thông tin tài khoản từ Supabase Auth
-    const { data: { user: sbUser }, error: getSbError } = await this.supabaseAdmin.auth.admin.getUserById(user.supabaseId);
-    if (getSbError || !sbUser) {
-      throw new BadRequestException("Không tìm thấy tài khoản tương ứng trên Supabase");
-    }
-
-    const wasLocked = !!(sbUser.banned_until && new Date(sbUser.banned_until) > new Date());
-    const isLocked = status === "locked";
-
-    this.logEmailDebug(`[Debug 2/4] Kiểm tra chuyển đổi trạng thái: wasLocked=${wasLocked} -> isLocked=${isLocked}`);
-
     user.displayName = displayName;
+    user.role = role;
     await user.save();
-
-    let emailWarning: string | undefined = undefined;
 
     // Cập nhật vai trò (role) lên Supabase
     const { error: roleError } = await this.supabaseAdmin.auth.admin.updateUserById(
@@ -293,46 +304,7 @@ export class AdminService {
       }
     );
     if (roleError) {
-      this.logEmailDebug(`Lỗi cập nhật role sang Supabase: ${roleError.message || JSON.stringify(roleError)}`);
-    }
-
-    // Nếu thay đổi trạng thái hoạt động, đồng bộ Khóa/Mở khóa vào Supabase Auth
-    if (wasLocked !== isLocked) {
-      const banDuration = isLocked ? "876000h" : "none"; // 100 năm hoặc none
-      const { error: banError } = await this.supabaseAdmin.auth.admin.updateUserById(
-        user.supabaseId,
-        { ban_duration: banDuration }
-      );
-      if (banError) {
-        this.logEmailDebug(`Lỗi đồng bộ trạng thái khóa sang Supabase: ${banError.message || JSON.stringify(banError)}`);
-      }
-
-      if (isLocked) {
-        const { error: signOutError } = await this.supabaseAdmin.auth.admin.signOut(user.supabaseId);
-        if (signOutError) {
-          this.logEmailDebug(`Lỗi thu hồi phiên đăng nhập trên Supabase: ${signOutError.message}`);
-        } else {
-          this.logEmailDebug(`Đã thu hồi tất cả phiên hoạt động của người dùng ${user.email} trên Supabase`);
-        }
-
-        this.logEmailDebug(`[Debug 3/4] Bắt đầu gọi sendLockEmail cho email: ${user.email}`);
-        try {
-          await this.sendLockEmail(user.email);
-          this.logEmailDebug(`[Debug 4/4] Gửi email thành công tới ${user.email}`);
-        } catch (err: any) {
-          this.logEmailDebug(`[Debug ERROR] Gửi email thất bại đến ${user.email}`, err);
-          emailWarning = `Gửi email thông báo khóa đến người dùng thất bại. Chi tiết lỗi: ${err.message || err}`;
-        }
-      } else {
-        this.logEmailDebug(`[Debug 3/4] Bắt đầu gọi sendUnlockEmail cho email: ${user.email}`);
-        try {
-          await this.sendUnlockEmail(user.email);
-          this.logEmailDebug(`[Debug 4/4] Gửi email mở khóa thành công tới ${user.email}`);
-        } catch (err: any) {
-          this.logEmailDebug(`[Debug ERROR] Gửi email mở khóa thất bại đến ${user.email}`, err);
-          emailWarning = `Gửi email thông báo mở khóa đến người dùng thất bại. Chi tiết lỗi: ${err.message || err}`;
-        }
-      }
+      this.logEmailDebug(`Lỗi cập nhật role sang Supabase: ${roleError.message}`);
     }
 
     return {
@@ -341,9 +313,8 @@ export class AdminService {
       email: user.email,
       displayName: user.displayName,
       role: role,
-      status: isLocked ? "locked" : "active",
+      status: user.status || "ACTIVE",
       createdAt: (user as any).createdAt,
-      emailWarning,
     };
   }
 
@@ -602,5 +573,435 @@ Trân trọng,
     await this.userModel.deleteOne({ _id: user._id }).exec();
 
     return { success: true, message: "Đã xóa tài khoản vĩnh viễn thành công" };
+  }
+
+  // --- HỆ THỐNG XỬ LÝ VI PHẠM & KHÓA TÀI KHOẢN ---
+
+  async sendPenaltyEmail(
+    email: string,
+    details: {
+      violationType: string;
+      lockReason: string;
+      actualDuration: string;
+      lockedAt: Date;
+      lockedUntil?: Date;
+    }
+  ) {
+    const host = this.configService.get<string>("SMTP_HOST");
+    const port = this.configService.get<number>("SMTP_PORT") || 587;
+    const user = this.configService.get<string>("SMTP_USER");
+    const pass = this.configService.get<string>("SMTP_PASS");
+    const from = this.configService.get<string>("SMTP_FROM") || '"ToboMeet Support" <noreply@tobomeet.com>';
+
+    if (!host || !user || !pass) {
+      throw new Error("Cấu hình SMTP bị thiếu.");
+    }
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: Number(port) === 465,
+      auth: { user, pass },
+    });
+
+    const formatTime = (d?: Date) => {
+      if (!d) return "Tài khoản của bạn đã bị khóa cho đến khi quản trị viên mở khóa.";
+      return d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+    };
+
+    const isWarning = details.actualDuration === "Cảnh báo" || details.actualDuration === "warning";
+    const subject = isWarning ? "Cảnh cáo vi phạm tài khoản ToboMeet" : "Thông báo tài khoản bị khóa";
+
+    let text = `Chào bạn,\n\n`;
+    if (isWarning) {
+      text += `Tài khoản của bạn trên ToboMeet đã bị nhắc nhở/cảnh cáo vì hành vi vi phạm.\n\n`;
+    } else {
+      text += `Tài khoản của bạn trên ToboMeet đã bị khóa.\n\n`;
+    }
+    
+    text += `Chi tiết xử lý vi phạm:\n`;
+    text += `- Hành vi vi phạm: ${details.violationType}\n`;
+    text += `- Lý do khóa: ${details.lockReason}\n`;
+    text += `- Thời gian áp dụng: ${details.actualDuration}\n`;
+    text += `- Thời điểm bắt đầu: ${formatTime(details.lockedAt)}\n`;
+    
+    if (!isWarning) {
+      if (!details.lockedUntil) {
+        text += `- Thời điểm kết thúc dự kiến: Tài khoản của bạn đã bị khóa cho đến khi quản trị viên mở khóa.\n\n`;
+      } else {
+        text += `- Thời điểm kết thúc dự kiến: ${formatTime(details.lockedUntil)}\n\n`;
+      }
+      text += `Bạn sẽ không thể đăng nhập hoặc thực hiện các cuộc họp trong thời gian bị khóa.\n`;
+    } else {
+      text += `\nLưu ý: Đây là cảnh cáo đầu tiên. Nếu bạn tiếp tục vi phạm hành vi này, tài khoản của bạn sẽ bị tạm khóa theo quy định.\n`;
+    }
+
+    text += `\nNếu bạn có thắc mắc hoặc cho rằng đây là một sự nhầm lẫn, vui lòng liên hệ với Quản trị viên để được hỗ trợ.\n\n`;
+    text += `Trân trọng,\nĐội ngũ hỗ trợ ToboMeet`;
+
+    const mailOptions = {
+      from,
+      to: email,
+      subject,
+      text,
+    };
+
+    await transporter.sendMail(mailOptions);
+  }
+
+  async checkLockByEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.userModel.findOne({
+      email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") }
+    }).exec();
+
+    if (!user) {
+      return { isLocked: false };
+    }
+
+    // Tự động mở khóa (self-healing) nếu thời hạn khóa đã hết
+    if (user.status === "BLOCKED" && user.lockType === "TEMPORARY" && user.lockedUntil && new Date() >= user.lockedUntil) {
+      try {
+        await this.unlockUserAccount(user._id.toString(), "System (Self-healing)");
+        return { isLocked: false };
+      } catch (e) {
+        this.logEmailDebug(`Lỗi tự động mở khóa khi checkLockByEmail: ${e.message}`);
+      }
+    }
+
+    if (user.status === "BLOCKED") {
+      return {
+        isLocked: true,
+        status: user.status,
+        lockType: user.lockType,
+        lockedUntil: user.lockedUntil,
+        lockReason: user.lockReason,
+        violationType: user.violationType,
+      };
+    }
+
+    return { isLocked: false };
+  }
+
+  async lockUserAccount(id: string, body: any, adminEmail: string) {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) {
+      throw new NotFoundException("Người dùng không tồn tại");
+    }
+
+    const { violationType, recommendedDuration, actualDuration, lockReason, sendEmail, lockSource } = body;
+
+    const mapping: Record<string, string> = {
+      "Spam": "Spam / Quảng cáo",
+      "Harassment": "Quấy rối người khác",
+      "Inappropriate_Content": "Nội dung không phù hợp",
+      "Impersonation": "Mạo danh",
+      "Malware_Fraud": "Phát tán mã độc / Lừa đảo"
+    };
+
+    let finalReason = lockReason;
+    let finalViolationType = violationType;
+
+    if (violationType === "OTHER" || violationType === "Other") {
+      finalViolationType = "OTHER";
+      if (!lockReason || !lockReason.trim()) {
+        throw new BadRequestException("Vui lòng nhập lý do khóa tài khoản.");
+      }
+      finalReason = lockReason.trim();
+    } else {
+      finalReason = mapping[violationType] || violationType;
+    }
+
+    // 1. Cập nhật violationCounts
+    const counts = user.violationCounts || new Map<string, number>();
+    const normalizedViolation = finalViolationType.trim();
+    const currentCount = (counts.get(normalizedViolation) || 0) + 1;
+    counts.set(normalizedViolation, currentCount);
+    user.violationCounts = counts;
+
+    // 2. Phân tích actualDuration
+    let durationType: "TEMPORARY" | "INDEFINITE" | "WARNING" = "TEMPORARY";
+    let durationMs: number | undefined;
+    let untilDate: Date | undefined;
+
+    if (actualDuration === "Cảnh báo" || actualDuration === "warning") {
+      durationType = "WARNING";
+    } else if (
+      actualDuration === "Vô thời hạn" ||
+      actualDuration === "indefinite" ||
+      actualDuration === "Khóa cho đến khi quản trị viên mở khóa"
+    ) {
+      durationType = "INDEFINITE";
+    } else if (actualDuration.includes("-") && !isNaN(Date.parse(actualDuration))) {
+      untilDate = new Date(actualDuration);
+      durationMs = untilDate.getTime() - Date.now();
+      if (durationMs < 0) durationMs = 0;
+    } else {
+      const map: Record<string, number> = {
+        "1 giờ": 1 * 60 * 60 * 1000,
+        "1h": 1 * 60 * 60 * 1000,
+        "6 giờ": 6 * 60 * 60 * 1000,
+        "6h": 6 * 60 * 60 * 1000,
+        "12 giờ": 12 * 60 * 60 * 1000,
+        "12h": 12 * 60 * 60 * 1000,
+        "24 giờ": 24 * 60 * 60 * 1000,
+        "24h": 24 * 60 * 60 * 1000,
+        "3 ngày": 3 * 24 * 60 * 60 * 1000,
+        "3d": 3 * 24 * 60 * 60 * 1000,
+        "7 ngày": 7 * 24 * 60 * 60 * 1000,
+        "7d": 7 * 24 * 60 * 60 * 1000,
+        "30 ngày": 30 * 24 * 60 * 60 * 1000,
+        "30d": 30 * 24 * 60 * 60 * 1000,
+      };
+      durationMs = map[actualDuration] || (24 * 60 * 60 * 1000);
+      untilDate = new Date(Date.now() + durationMs);
+    }
+
+    const lockedAt = new Date();
+
+    // 3. Thực hiện khóa hoặc cảnh báo
+    let emailSentSuccess = false;
+    
+    if (durationType === "WARNING") {
+      user.lockHistory.push({
+        lockedBy: adminEmail,
+        lockedAt,
+        lockType: "WARNING",
+        lockSource: lockSource || "MANUAL",
+        violationType: normalizedViolation,
+        violationCount: currentCount,
+        recommendedDuration,
+        actualDuration,
+        lockReason: finalReason,
+        emailSent: false, // sẽ cập nhật lại sau khi gửi email
+      });
+    } else {
+      user.status = "BLOCKED";
+      user.lockType = durationType;
+      user.lockSource = lockSource || "MANUAL";
+      user.lockedAt = lockedAt;
+      user.lockedUntil = untilDate || null;
+      user.lockReason = finalReason;
+      user.lockedBy = adminEmail;
+      user.recommendedDuration = recommendedDuration;
+      user.actualDuration = actualDuration;
+      user.violationType = normalizedViolation;
+
+      user.lockHistory.push({
+        lockedBy: adminEmail,
+        lockedAt,
+        lockedUntil: untilDate,
+        lockType: durationType,
+        lockSource: lockSource || "MANUAL",
+        violationType: normalizedViolation,
+        violationCount: currentCount,
+        recommendedDuration,
+        actualDuration,
+        lockReason: finalReason,
+        emailSent: false, // sẽ cập nhật lại sau khi gửi email
+      });
+
+      const banDuration = durationType === "INDEFINITE" 
+        ? "876000h" 
+        : `${Math.ceil((durationMs || 0) / (60 * 60 * 1000))}h`;
+      
+      const { error: banError } = await this.supabaseAdmin.auth.admin.updateUserById(
+        user.supabaseId,
+        { ban_duration: banDuration }
+      );
+      if (banError) {
+        this.logEmailDebug(`Lỗi đồng bộ trạng thái khóa sang Supabase: ${banError.message}`);
+      }
+
+      const { error: signOutError } = await this.supabaseAdmin.auth.admin.signOut(user.supabaseId);
+      if (signOutError) {
+        this.logEmailDebug(`Lỗi thu hồi phiên đăng nhập trên Supabase: ${signOutError.message}`);
+      }
+    }
+
+    // 4. Gửi email thông báo (bắt buộc)
+    let emailWarning: string | undefined = undefined;
+    try {
+      await this.sendPenaltyEmail(user.email, {
+        violationType: normalizedViolation,
+        lockReason: finalReason,
+        actualDuration,
+        lockedAt,
+        lockedUntil: untilDate,
+      });
+      emailSentSuccess = true;
+    } catch (err: any) {
+      this.logEmailDebug(`Lỗi gửi email phạt cho ${user.email}: ${err.message}`);
+      emailWarning = "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
+    }
+
+    if (user.lockHistory.length > 0) {
+      user.lockHistory[user.lockHistory.length - 1].emailSent = emailSentSuccess;
+    }
+
+    await user.save();
+
+    let violationCountsObj = {};
+    if (user.violationCounts) {
+      violationCountsObj = Object.fromEntries(user.violationCounts);
+    }
+
+    return {
+      id: user._id,
+      email: user.email,
+      status: user.status,
+      lockType: user.lockType,
+      lockedUntil: user.lockedUntil,
+      violationCounts: violationCountsObj,
+      emailSent: emailSentSuccess,
+      emailWarning,
+    };
+  }
+
+  async unlockUserAccount(id: string, adminEmail: string) {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) {
+      throw new NotFoundException("Người dùng không tồn tại");
+    }
+
+    user.status = "ACTIVE";
+    user.lockType = null;
+    user.lockSource = null;
+    user.lockedAt = null;
+    user.lockedUntil = null;
+    user.lockReason = null;
+    user.lockedBy = null;
+    user.recommendedDuration = null;
+    user.actualDuration = null;
+    user.violationType = null;
+
+    if (user.lockHistory && user.lockHistory.length > 0) {
+      const lastLock = user.lockHistory[user.lockHistory.length - 1];
+      if (!lastLock.unlockedAt) {
+        lastLock.unlockedAt = new Date();
+        lastLock.unlockedBy = adminEmail;
+      }
+    }
+
+    await user.save();
+
+    const { error: banError } = await this.supabaseAdmin.auth.admin.updateUserById(
+      user.supabaseId,
+      { ban_duration: "none" }
+    );
+    if (banError) {
+      this.logEmailDebug(`Lỗi gỡ ban trên Supabase: ${banError.message}`);
+    }
+
+    try {
+      await this.sendUnlockEmail(user.email);
+    } catch (err: any) {
+      this.logEmailDebug(`Lỗi gửi email mở khóa đến ${user.email}: ${err.message}`);
+    }
+
+    return { success: true, message: "Mở khóa tài khoản thành công" };
+  }
+
+  async extendUserLock(id: string, body: any, adminEmail: string) {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) {
+      throw new NotFoundException("Người dùng không tồn tại");
+    }
+
+    const { actualDuration, lockReason } = body;
+    const lockedAt = new Date();
+
+    let durationType: "TEMPORARY" | "INDEFINITE" = "TEMPORARY";
+    let durationMs: number | undefined;
+    let untilDate: Date | undefined;
+
+    if (
+      actualDuration === "Vô thời hạn" ||
+      actualDuration === "indefinite" ||
+      actualDuration === "Khóa cho đến khi quản trị viên mở khóa"
+    ) {
+      durationType = "INDEFINITE";
+    } else if (actualDuration.includes("-") && !isNaN(Date.parse(actualDuration))) {
+      untilDate = new Date(actualDuration);
+      durationMs = untilDate.getTime() - Date.now();
+      if (durationMs < 0) durationMs = 0;
+    } else {
+      const map: Record<string, number> = {
+        "1 giờ": 1 * 60 * 60 * 1000,
+        "1h": 1 * 60 * 60 * 1000,
+        "6 giờ": 6 * 60 * 60 * 1000,
+        "6h": 6 * 60 * 60 * 1000,
+        "12 giờ": 12 * 60 * 60 * 1000,
+        "12h": 12 * 60 * 60 * 1000,
+        "24 giờ": 24 * 60 * 60 * 1000,
+        "24h": 24 * 60 * 60 * 1000,
+        "3 ngày": 3 * 24 * 60 * 60 * 1000,
+        "3d": 3 * 24 * 60 * 60 * 1000,
+        "7 ngày": 7 * 24 * 60 * 60 * 1000,
+        "7d": 7 * 24 * 60 * 60 * 1000,
+        "30 ngày": 30 * 24 * 60 * 60 * 1000,
+        "30d": 30 * 24 * 60 * 60 * 1000,
+      };
+      durationMs = map[actualDuration] || (24 * 60 * 60 * 1000);
+      untilDate = new Date(Date.now() + durationMs);
+    }
+
+    user.lockType = durationType;
+    user.lockedAt = lockedAt;
+    user.lockedUntil = untilDate || null;
+    user.lockReason = `${user.lockReason || ""} | Gia hạn: ${lockReason}`;
+    user.lockedBy = adminEmail;
+    user.actualDuration = actualDuration;
+
+    user.lockHistory.push({
+      lockedBy: adminEmail,
+      lockedAt,
+      lockedUntil: untilDate,
+      lockType: durationType,
+      lockSource: "MANUAL",
+      violationType: `${user.violationType || "Vi phạm"} (Gia hạn)`,
+      violationCount: 0,
+      recommendedDuration: "N/A",
+      actualDuration,
+      lockReason,
+      emailSent: false, // sẽ cập nhật lại sau khi gửi email
+    });
+
+    const banDuration = durationType === "INDEFINITE" 
+      ? "876000h" 
+      : `${Math.ceil((durationMs || 0) / (60 * 60 * 1000))}h`;
+    
+    await this.supabaseAdmin.auth.admin.updateUserById(
+      user.supabaseId,
+      { ban_duration: banDuration }
+    );
+
+    let emailSentSuccess = false;
+    let emailWarning: string | undefined = undefined;
+    try {
+      await this.sendPenaltyEmail(user.email, {
+        violationType: `${user.violationType || "Vi phạm"} (Gia hạn)`,
+        lockReason,
+        actualDuration,
+        lockedAt,
+        lockedUntil: untilDate,
+      });
+      emailSentSuccess = true;
+    } catch (err: any) {
+      this.logEmailDebug(`Lỗi gửi email gia hạn khóa đến ${user.email}: ${err.message}`);
+      emailWarning = "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
+    }
+
+    if (user.lockHistory.length > 0) {
+      user.lockHistory[user.lockHistory.length - 1].emailSent = emailSentSuccess;
+    }
+
+    await user.save();
+
+    return { 
+      success: true, 
+      message: "Gia hạn thời gian khóa thành công",
+      emailWarning 
+    };
   }
 }

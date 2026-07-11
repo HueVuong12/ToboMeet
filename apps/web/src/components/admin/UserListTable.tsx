@@ -92,12 +92,12 @@ export default function UserListTable({
                   <td className="px-6 py-4 text-sm">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                        user.status === "active"
+                        user.status === "active" || user.status === "ACTIVE"
                           ? "bg-green-50 text-green-700 border border-green-200"
                           : "bg-red-50 text-red-700 border border-red-200"
                       }`}
                     >
-                      {user.status === "active" ? "Active" : "Locked"}
+                      {user.status === "active" || user.status === "ACTIVE" ? "Active" : "Blocked"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-400">
@@ -110,7 +110,7 @@ export default function UserListTable({
                     {/* Sửa */}
                     <button
                       onClick={() => onEdit(user)}
-                      className="inline-flex items-center p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-lg transition-colors"
+                      className="inline-flex items-center p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
                       title={t("edit_info")}
                     >
                       <Edit2 className="w-4 h-4" />
@@ -119,7 +119,7 @@ export default function UserListTable({
                     {/* Đổi mật khẩu */}
                     <button
                       onClick={() => onResetPassword(user)}
-                      className="inline-flex items-center p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-lg transition-colors"
+                      className="inline-flex items-center p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
                       title={t("reset_password")}
                     >
                       <Key className="w-4 h-4" />
@@ -128,14 +128,14 @@ export default function UserListTable({
                     {/* Khóa/Mở khóa */}
                     <button
                       onClick={() => onToggleLock(user)}
-                      className={`inline-flex items-center p-1.5 rounded-lg transition-colors ${
-                        user.status === "active"
+                      className={`inline-flex items-center p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        user.status === "active" || user.status === "ACTIVE"
                           ? "bg-amber-50 hover:bg-amber-100 text-amber-600"
                           : "bg-green-50 hover:bg-green-100 text-green-600"
                       }`}
-                      title={user.status === "active" ? t("lock_account") : t("unlock_account")}
+                      title={user.status === "active" || user.status === "ACTIVE" ? t("lock_account") : t("unlock_account")}
                     >
-                      {user.status === "active" ? (
+                      {user.status === "active" || user.status === "ACTIVE" ? (
                         <ShieldAlert className="w-4 h-4" />
                       ) : (
                         <ShieldCheck className="w-4 h-4" />
