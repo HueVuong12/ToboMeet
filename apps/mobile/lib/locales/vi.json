@@ -107,6 +107,7 @@
     "empty_title": "Chưa có nhóm nào",
     "empty_description": "Hãy tạo hoặc tham gia một nhóm để bắt đầu",
     "select_room_type": "Chọn loại nhóm",
+    "room_type_label": "Loại phòng: ",
     "step_back": "Quay lại",
     "search_placeholder": "Tìm kiếm phòng họp hoặc lớp học...",
     "no_results_title": "Không tìm thấy phòng phù hợp",

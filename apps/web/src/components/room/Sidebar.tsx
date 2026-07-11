@@ -118,7 +118,7 @@ export default function Sidebar({
       setSelectedUser(null);
     } catch (err: any) {
       setInviteError(
-        err?.data?.message || err?.message || "Không thể thêm thành viên.",
+        err?.data?.message || err?.message || t("invite_error_fallback"),
       );
     }
   };
@@ -140,7 +140,7 @@ export default function Sidebar({
       }).unwrap();
       router.push("../dashboard");
     } catch (err: any) {
-      alert(err?.data?.message || err?.message || "Không thể rời phòng");
+      alert(err?.data?.message || err?.message || t("leave_error_fallback"));
     }
   };
 
@@ -476,7 +476,7 @@ export default function Sidebar({
               {/* Header */}
               <div className="flex items-center justify-between px-6 pt-6 pb-2">
                 <h2 className="text-lg font-bold text-slate-900">
-                  Thêm thành viên vào phòng
+                  {t("add_member_to_room")}
                 </h2>
                 <button
                   onClick={() => setShowInviteModal(false)}
@@ -491,7 +491,7 @@ export default function Sidebar({
                 {/* Tìm & Thêm Thành Viên */}
                 <div className="flex flex-col gap-1.5 relative">
                   <label className="text-xs font-bold text-slate-700">
-                    Tìm kiếm thành viên
+                    {t("search_member")}
                   </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
@@ -510,7 +510,7 @@ export default function Sidebar({
                           setInviteError(null);
                           setInviteSuccess(null);
                         }}
-                        placeholder="Nhập email hoặc tên tài khoản..."
+                        placeholder={t("search_member_placeholder")}
                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all pr-8"
                       />
                       {(searchQuery || selectedUser) && (
@@ -533,7 +533,7 @@ export default function Sidebar({
                       className="px-5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
                     >
                       {isInviting && <Loader2 className="w-4 h-4 animate-spin" />}
-                      <span>Thêm</span>
+                      <span>{t("add_action")}</span>
                     </button>
                   </div>
 
@@ -543,11 +543,11 @@ export default function Sidebar({
                       {isSearching ? (
                         <div className="px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Đang tìm kiếm...</span>
+                          <span>{t("searching")}</span>
                         </div>
                       ) : searchResults.length === 0 ? (
                         <div className="px-4 py-3 text-xs text-slate-400">
-                          Không tìm thấy thành viên phù hợp
+                          {t("no_member_found")}
                         </div>
                       ) : (
                         searchResults.map((user: any) => (
@@ -575,7 +575,7 @@ export default function Sidebar({
                                 {user.displayName}
                               </p>
                               <p className="text-[10px] text-slate-400 truncate">
-                                {user.email || "Đăng ký qua Facebook"}
+                                {user.email || t("registered_via_facebook")}
                               </p>
                             </div>
                           </button>
@@ -606,7 +606,7 @@ export default function Sidebar({
                   onClick={() => setShowInviteModal(false)}
                   className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
                 >
-                  Đóng
+                  {t("close_action")}
                 </button>
               </div>
             </div>

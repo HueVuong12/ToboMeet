@@ -109,6 +109,7 @@
     "empty_title": "No teams yet",
     "empty_description": "Create or join a team to get started",
     "select_room_type": "Select team type",
+    "room_type_label": "Room Type: ",
     "step_back": "Back",
     "search_placeholder": "Search for meeting rooms or classrooms...",
     "no_results_title": "No matching rooms found",

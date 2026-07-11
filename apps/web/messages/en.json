@@ -398,6 +398,8 @@
     "owner_leave_no_members_desc": "You are the <strong1>Owner</strong1>. This group has no other members to hand over ownership. If you leave, <strong2>{name}</strong2> will be dissolved completely. Are you sure you want to dissolve the room?",
     "owner_leave_has_members_desc": "You are the <strong1>Owner</strong1>. Please select a member below to transfer the Owner role before leaving the group <strong2>{name}</strong2>:",
     "dissolve_room": "Dissolve room",
+    "disband_confirm_title": "Dissolve room",
+    "disband_confirm_desc": "Are you sure you want to dissolve this meeting room? This action will delete the meeting room and all members will be removed.",
     "transfer_and_leave": "Transfer & Leave",
     "confirm_leave_action": "Confirm leaving",
     "anonymous_user": "Member",
@@ -431,7 +433,17 @@
     "view_profile": "View profile",
     "remove_from_room": "Remove from room",
     "room_description_title": "Room description",
-    "room_description": "Common workspace for room {name}."
+    "room_description": "Common workspace for room {name}.",
+    "add_member_to_room": "Add member to room",
+    "search_member": "Search members",
+    "search_member_placeholder": "Enter email or username...",
+    "searching": "Searching...",
+    "no_member_found": "No matching members found",
+    "registered_via_facebook": "Registered via Facebook",
+    "add_action": "Add",
+    "close_action": "Close",
+    "invite_error_fallback": "Failed to add member.",
+    "leave_error_fallback": "Failed to leave room."
   },
   "admin": {
     "title": "System Overview",

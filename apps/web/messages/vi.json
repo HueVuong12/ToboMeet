@@ -420,7 +420,17 @@
     "view_profile": "Xem hồ sơ",
     "remove_from_room": "Xóa khỏi phòng",
     "room_description_title": "Mô tả phòng",
-    "room_description": "Không gian làm việc chung dành cho phòng {name}."
+    "room_description": "Không gian làm việc chung dành cho phòng {name}.",
+    "add_member_to_room": "Thêm thành viên vào phòng",
+    "search_member": "Tìm kiếm thành viên",
+    "search_member_placeholder": "Nhập email hoặc tên tài khoản...",
+    "searching": "Đang tìm kiếm...",
+    "no_member_found": "Không tìm thấy thành viên phù hợp",
+    "registered_via_facebook": "Đăng ký qua Facebook",
+    "add_action": "Thêm",
+    "close_action": "Đóng",
+    "invite_error_fallback": "Không thể thêm thành viên.",
+    "leave_error_fallback": "Không thể rời phòng."
   },
   "admin": {
     "title": "Tổng quan hệ thống",

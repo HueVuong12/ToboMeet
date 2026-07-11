@@ -215,8 +215,8 @@ export default function HomeScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="font-bold text-slate-800 text-sm truncate">{item.name}</Text>
-                  <Text className="text-[11px] text-slate-400 mt-1 uppercase font-semibold">
-                    Code: {item.code}
+                  <Text className="text-[11px] text-slate-400 mt-1 font-semibold">
+                    {item.type === "classroom" ? t("dashboard.classroom") : t("dashboard.meeting")}
                   </Text>
                 </View>
               </View>

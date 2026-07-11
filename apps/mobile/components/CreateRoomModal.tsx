@@ -56,8 +56,9 @@ export default function CreateRoomModal({
       setSelectedType(null);
       setRoomName("");
       onSuccess(room._id);
-    } catch (err: any) {
-      setError(err?.message || t("dashboard.create_room_failed"));
+    } catch (err) {
+      const errorResponse = err as { message?: string; data?: { message?: string } };
+      setError(errorResponse.data?.message || errorResponse.message || t("dashboard.create_room_failed"));
     }
   };
 
