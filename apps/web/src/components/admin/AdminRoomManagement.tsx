@@ -188,7 +188,7 @@ export default function AdminRoomManagement() {
 
             {/* Dropdown Options Menu */}
             {isOpenStatusDropdown && (
-              <div className="absolute top-[54px] left-0 right-0 bg-white border border-slate-150 rounded-xl shadow-lg shadow-slate-100/50 py-1.5 z-30 animate-in fade-in slide-in-from-top-2 duration-150 transform origin-top">
+              <div className="absolute top-[54px] left-0 right-0 bg-white border border-slate-150 rounded-xl shadow-lg shadow-slate-100/50 py-1.5 z-30 animate-in fade-in slide-in-from-top-2 duration-150 transform origin-top overflow-hidden">
                 {[
                   { value: "all", label: t("filter_all") },
                   { value: "active", label: t("room_status_active") },
@@ -236,7 +236,7 @@ export default function AdminRoomManagement() {
 
             {/* Dropdown Options Menu */}
             {isOpenTypeDropdown && (
-              <div className="absolute top-[54px] left-0 right-0 bg-white border border-slate-150 rounded-xl shadow-lg shadow-slate-100/50 py-1.5 z-30 animate-in fade-in slide-in-from-top-2 duration-150 transform origin-top">
+              <div className="absolute top-[54px] left-0 right-0 bg-white border border-slate-150 rounded-xl shadow-lg shadow-slate-100/50 py-1.5 z-30 animate-in fade-in slide-in-from-top-2 duration-150 transform origin-top overflow-hidden">
                 {[
                   { value: "all", label: t("filter_all") },
                   { value: "meeting", label: t("room_type_meeting") },
@@ -286,7 +286,7 @@ export default function AdminRoomManagement() {
 
             {/* Dropdown Options Menu */}
             {isOpenTimeRangeDropdown && (
-              <div className="absolute top-[54px] left-0 right-0 bg-white border border-slate-150 rounded-xl shadow-lg shadow-slate-100/50 py-1.5 z-30 animate-in fade-in slide-in-from-top-2 duration-150 transform origin-top">
+              <div className="absolute top-[54px] left-0 right-0 bg-white border border-slate-150 rounded-xl shadow-lg shadow-slate-100/50 py-1.5 z-30 animate-in fade-in slide-in-from-top-2 duration-150 transform origin-top overflow-hidden">
                 {[
                   { value: "all", label: t("filter_all") },
                   { value: "today", label: t("filter_today") },

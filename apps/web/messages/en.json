@@ -443,10 +443,20 @@
     "add_action": "Add",
     "close_action": "Close",
     "invite_error_fallback": "Failed to add member.",
-    "leave_error_fallback": "Failed to leave room."
+    "leave_error_fallback": "Failed to leave room.",
+    "remove_member_title": "Remove member",
+    "remove_member_confirm": "Are you sure you want to remove <strong>{name}</strong> from the room?",
+    "remove_member_cancel": "Cancel",
+    "remove_member_action": "Remove member",
+    "remove_member_loading": "Removing...",
+    "remove_member_success": "Member removed from room successfully.",
+    "remove_member_error": "Failed to remove member."
   },
   "admin": {
     "title": "System Overview",
+    "settings": "Settings",
+    "settings_general": "General Settings",
+    "logout": "Log out",
     "user_management": "User Management",
     "user_management_desc": "Manage user roles, lock/unlock status, and account settings.",
     "desc": "Real-time statistics and resource administration for ToBoMeet.",

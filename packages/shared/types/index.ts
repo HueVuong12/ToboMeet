@@ -133,6 +133,7 @@ export interface RoomResponse {
   type: "meeting" | "classroom";
   code: string;
   ownerId: string;
+  description?: string;
   members?: RoomMemberResponse[];
   channels: Channel[];
   createdAt: string;
@@ -142,7 +143,11 @@ export interface RoomResponse {
 export interface RoomMemberResponse {
   userId: string;
   role: "owner" | "member";
+  status?: "ACTIVE" | "REMOVED" | "LEFT";
   joinedAt: string;
+  removedAt?: string;
+  removedBy?: string;
+  rejoinedAt?: string;
   displayName?: string;
   avatarUrl?: string;
   email?: string;

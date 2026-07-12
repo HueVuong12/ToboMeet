@@ -1,7 +1,0 @@
-[2026-07-11T11:20:11.945Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
-[2026-07-11T11:22:30.445Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***
-[2026-07-11T11:23:59.598Z] [Debug] Cập nhật thông tin tài khoản: id=6a4946f815af1ce7133e1cee, role=user
-[2026-07-11T11:24:10.952Z] [Debug] Cập nhật thông tin tài khoản: id=6a4946f815af1ce7133e1cee, role=user
-[2026-07-11T11:25:02.144Z] [Debug] Cập nhật thông tin tài khoản: id=6a4946f815af1ce7133e1cee, role=admin
-[2026-07-11T11:33:39.489Z] [Debug] Cập nhật thông tin tài khoản: id=6a46ac59c31179994ce08d32, role=user
-[2026-07-11T12:32:53.344Z] [Debug] Cập nhật thông tin tài khoản: id=6a4a46c134ce0418c8b2ffdc, role=user

@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  ForbiddenException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -154,7 +155,10 @@ export class MeetingsService {
     const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
-    const userRole = userInRoom ? userInRoom.role : "member";
+    if (!userInRoom || userInRoom.isLeft === true || userInRoom.status === "REMOVED" || userInRoom.status === "LEFT") {
+      throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
+    }
+    const userRole = userInRoom.role;
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
     const at = new AccessToken(apiKey, apiSecret, {

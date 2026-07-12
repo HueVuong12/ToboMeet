@@ -51,7 +51,7 @@ export default function SettingsModal({
             try {
               await revokeSession(sessionId).unwrap();
               refetch();
-            } catch (err) {
+            } catch {
               Alert.alert("Lỗi", t("settings.devices.logout_failed"));
             }
           },

@@ -16,6 +16,7 @@ export class RoomActivity {
       "MEETING_ENDED",
       "USER_JOINED",
       "USER_LEFT",
+      "MEMBER_REMOVED",
       "SCREEN_SHARE",
       "POLL_CREATED",
       "WHITEBOARD_CREATED",

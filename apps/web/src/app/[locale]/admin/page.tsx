@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useGetAdminStatsQuery } from "@/lib/redux/api/adminApi";
-import { Loader2, ArrowLeft, LayoutDashboard, Users, Menu, X, ChevronLeft, ChevronRight, Video, FolderOpen } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutDashboard, Users, Menu, X, ChevronLeft, ChevronRight, Video, FolderOpen, Settings, LogOut } from "lucide-react";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import AdminDashboardHeader from "@/components/admin/AdminDashboardHeader";
 import AdminStatsGrid from "@/components/admin/AdminStatsGrid";
@@ -10,6 +10,8 @@ import AdminUsageChart from "@/components/admin/AdminUsageChart";
 import AdminRecentActivity from "@/components/admin/AdminRecentActivity";
 import UserManagement from "@/components/admin/UserManagement";
 import AdminRoomManagement from "@/components/admin/AdminRoomManagement";
+import SettingsDialog from "@/components/dashboard/SettingsDialog";
+import { logout } from "@/app/[locale]/auth/actions";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -17,6 +19,12 @@ function AdminDashboardContent() {
   const router = useRouter();
   const t = useTranslations("admin");
   const [activeTab, setActiveTab] = useState<"overview" | "users" | "rooms">("overview");
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+  };
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   
@@ -153,7 +161,7 @@ function AdminDashboardContent() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-slate-100 space-y-1.5 shrink-0">
+        <div className="mt-auto p-3 border-t border-slate-100 space-y-1.5 shrink-0">
           <button
             onClick={() => router.push("/dashboard")}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-slate-100"
@@ -176,6 +184,58 @@ function AdminDashboardContent() {
               </>
             )}
           </button>
+
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowSettingsDropdown(!showSettingsDropdown);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+                showSettingsDropdown || showSettingsDialog
+                  ? "bg-brand-50 text-brand-600"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Settings className="w-5 h-5 shrink-0" />
+              {!isCollapsed && <span>{t("settings")}</span>}
+            </button>
+
+            {/* Settings Popup Menu */}
+            {showSettingsDropdown && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowSettingsDropdown(false)}
+                />
+
+                {/* Menu */}
+                <div className="absolute left-full bottom-0 mb-2 ml-4 w-56 bg-white rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.12)] border border-slate-100 py-2 z-50 flex flex-col text-[14px]">
+                  <button
+                    onClick={() => {
+                      setShowSettingsDropdown(false);
+                      setShowSettingsDialog(true);
+                      setIsMobileOpen(false);
+                    }}
+                    className="flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-slate-50 transition-colors w-full text-left font-medium"
+                  >
+                    <Settings className="w-[18px] h-[18px] text-slate-500" />
+                    <span>{t("settings_general")}</span>
+                  </button>
+
+                  <div className="h-[1px] bg-slate-100 my-1.5 w-full"></div>
+
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors w-full text-left font-medium"
+                  >
+                    <LogOut className="w-[18px] h-[18px] text-red-500" />
+                    <span>{t("logout")}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -224,6 +284,10 @@ function AdminDashboardContent() {
           )}
         </div>
       </main>
+
+      {showSettingsDialog && (
+        <SettingsDialog onClose={() => setShowSettingsDialog(false)} />
+      )}
     </div>
   );
 }

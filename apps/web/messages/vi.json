@@ -430,10 +430,20 @@
     "add_action": "Thêm",
     "close_action": "Đóng",
     "invite_error_fallback": "Không thể thêm thành viên.",
-    "leave_error_fallback": "Không thể rời phòng."
+    "leave_error_fallback": "Không thể rời phòng.",
+    "remove_member_title": "Xóa thành viên",
+    "remove_member_confirm": "Bạn có chắc chắn muốn xóa thành viên <strong>{name}</strong> khỏi phòng?",
+    "remove_member_cancel": "Hủy",
+    "remove_member_action": "Xóa thành viên",
+    "remove_member_loading": "Đang xóa...",
+    "remove_member_success": "Đã xóa thành viên khỏi phòng.",
+    "remove_member_error": "Không thể xóa thành viên."
   },
   "admin": {
     "title": "Tổng quan hệ thống",
+    "settings": "Cài đặt",
+    "settings_general": "Cài đặt chung",
+    "logout": "Đăng xuất",
     "user_management": "Quản lý người dùng",
     "user_management_desc": "Quản lý vai trò, trạng thái hoạt động và các thiết lập tài khoản người dùng.",
     "desc": "Thống kê thời gian thực và quản trị tài nguyên của ToBoMeet.",
