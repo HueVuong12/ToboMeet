@@ -160,6 +160,12 @@ export interface MeetingJoinResponse {
   channelName: string;
 }
 
+export interface ActiveMeetingResponse {
+  isOngoing: boolean;
+  meetingCode: string | null;
+  hostId: string;
+}
+
 export type PacketType =
   | "CHAT"
   | "FILE_START"

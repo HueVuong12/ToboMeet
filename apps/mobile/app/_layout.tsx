@@ -14,7 +14,10 @@ import LanguageSwitcher from "../components/commons/LanguageSwitcher";
 import StoreProvider from "../lib/redux/StoreProvider";
 import Toast from "react-native-toast-message";
 import { EventProvider } from "../providers/EventProvider";
+import { registerGlobals } from "@livekit/react-native";
+import { Session } from "@supabase/supabase-js";
 
+registerGlobals();
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -23,7 +26,7 @@ export default function RootLayout() {
   const navigationState = useRootNavigationState();
 
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [session, setSession] = useState<unknown>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   useEffect(() => {
@@ -72,12 +75,15 @@ export default function RootLayout() {
   }, [session, isAuthReady, segments, navigationState?.key, isSplashHidden]);
 
   const showGlobalLanguageSwitcher = segments[0] === "(auth)";
+  const currentUserId = session ? session.user?.id : undefined;
+
+  if (!isAuthReady || !navigationState?.key) return null; // chặn splash screen qua trang login
 
   return (
     <View style={{ flex: 1 }}>
       <StoreProvider>
         {showGlobalLanguageSwitcher && <LanguageSwitcher />}
-        <EventProvider>
+        <EventProvider userId={currentUserId}>
           <Slot />
         </EventProvider>
         <Toast />

@@ -52,8 +52,7 @@ export function useMeetingManager({
     const handleSwitchAccepted = async (data: any) => {
       if (data.channelId === activeChannelId) {
         toast.success("Đã kết nối thiết bị mới, đang vào phòng...");
-        // Gọi lại hàm join với forceSwitch = true
-        handleJoinMeeting(true);
+        handleJoinMeeting(true); // forceSwitch = true, cho phép chuyển thiết bị
       }
     };
 

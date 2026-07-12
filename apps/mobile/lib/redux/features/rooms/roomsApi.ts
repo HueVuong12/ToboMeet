@@ -1,4 +1,5 @@
 import {
+  ActiveMeetingResponse,
   MeetingJoinResponse,
   RoomMemberResponse,
   RoomResponse,
@@ -100,7 +101,7 @@ export const roomsApi = baseApi.injectEndpoints({
     }),
 
     getActiveMeeting: builder.query<
-      { isOngoing: boolean; meetingCode: string | null },
+      ActiveMeetingResponse,
       { roomId: string; channelId: string }
     >({
       query: ({ roomId, channelId }) => ({

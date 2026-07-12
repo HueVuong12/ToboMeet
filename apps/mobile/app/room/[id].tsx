@@ -23,6 +23,7 @@ import {
   useLeaveRoomMutation,
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
+  roomsApi,
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
   useGetMeQuery,
@@ -31,11 +32,14 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
 import { useMeetingManager } from "../../hooks/useMeetingManager";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../lib/redux/store";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
 
   const { data: room, isLoading, error, refetch } = useGetRoomByIdQuery(id);
   const { data: profile } = useGetMeQuery();
@@ -82,6 +86,48 @@ export default function RoomDetailScreen() {
       userId: profile?.supabaseId,
       displayName: profile?.displayName,
     });
+
+  // Lắng nghe sự kiện phòng họp của Kênh (Channel) hiện tại
+  useEffect(() => {
+    if (!activeChannelId || !id) return;
+
+    // Join vào room socket của channel
+    const joinChannel = () => {
+      socket.emit("join_channel", activeChannelId);
+    };
+
+    if (socket.connected) {
+      joinChannel();
+    }
+
+    // Đảm bảo join lại nếu mạng chập chờn
+    socket.on("connect", joinChannel);
+
+    const handleStatusChanged = (data: {
+      isOngoing: boolean;
+      meetingCode: string;
+    }) => {
+      // Cập nhật trực tiếp cache của RTK Query để UI đổi nút ngay lập tức
+      dispatch(
+        roomsApi.util.updateQueryData(
+          "getActiveMeeting",
+          { roomId: id, channelId: activeChannelId },
+          (draft) => {
+            draft.isOngoing = data.isOngoing;
+            draft.meetingCode = data.meetingCode;
+          },
+        ),
+      );
+    };
+
+    socket.on("meeting_status_changed", handleStatusChanged);
+
+    return () => {
+      socket.emit("leave_channel", activeChannelId);
+      socket.off("connect", joinChannel);
+      socket.off("meeting_status_changed", handleStatusChanged);
+    };
+  }, [activeChannelId, id, dispatch]);
 
   // Lắng nghe cập nhật phòng realtime trên Mobile
   useEffect(() => {
@@ -339,7 +385,8 @@ export default function RoomDetailScreen() {
               <TouchableOpacity
                 onPress={() => handleJoinMeeting(false)}
                 disabled={isJoining}
-                className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90 shadow-sm"
+                // className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90 shadow-sm"
+                className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
               >
                 {isJoining ? (
                   <ActivityIndicator size="small" color="#ffffff" />
