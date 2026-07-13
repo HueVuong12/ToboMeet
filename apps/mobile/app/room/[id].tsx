@@ -510,7 +510,9 @@ export default function RoomDetailScreen() {
 
                 <View>
                   <Text className="font-bold text-slate-900 text-lg">
-                    {room.name}
+                    {room.name.length > 15
+                      ? `${room.name.slice(0, 15)}...`
+                      : room.name}
                   </Text>
                   <View className="flex-row items-center gap-1 mt-0.5">
                     <Feather name="video" size={14} color="#0052FF" />

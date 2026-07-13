@@ -42,6 +42,15 @@ export function useMeetingManager({
       const savedChannel = await AsyncStorage.getItem(
         `active_meeting_${roomId}`,
       );
+
+      // Nếu Server báo phòng này hiện KHÔNG CÓ cuộc họp nào diễn ra
+      // nhưng điện thoại lại có lưu cờ (do lần trước crash app) -> Lập tức xóa cờ rác!
+      if (activeMeeting && !activeMeeting.isOngoing && savedChannel) {
+        await AsyncStorage.removeItem(`active_meeting_${roomId}`);
+        setIsJoinedOnThisDevice(false);
+        return;
+      }
+
       setIsJoinedOnThisDevice(savedChannel === activeChannelId);
     };
     checkActiveDevice();

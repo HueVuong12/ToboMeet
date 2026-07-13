@@ -1,5 +1,5 @@
 import React, { useEffect, createContext, useContext } from "react";
-import { Alert, DeviceEventEmitter } from "react-native";
+import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { socket } from "../lib/socket";
 import { toast } from "../lib/toast";
@@ -61,19 +61,13 @@ export function EventProvider({
                     `active_meeting_${data.roomId}`,
                   );
 
-                  // Phát sự kiện nội bộ của React Native để Màn hình Meeting tự động đóng
-                  DeviceEventEmitter.emit(
-                    "FORCE_CLOSE_MEETING_WINDOW",
-                    data.roomId,
-                  );
-
                   // Báo lại cho máy kia là đã nhả phòng
                   socket.emit("accept_switch_device", {
                     ...data,
                     targetSocketId: data.requesterSocketId, // Đẩy ID của Máy kia lên Server
                   });
 
-                  toast.success("Đã chuyển cuộc họp sang thiết bị kia.");
+                  toast.success("Đang tự động chuyển cuộc họp...");
                 },
               },
             ],

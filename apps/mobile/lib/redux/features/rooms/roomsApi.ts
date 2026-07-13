@@ -125,6 +125,16 @@ export const roomsApi = baseApi.injectEndpoints({
         data: { displayName, forceSwitch },
       }),
     }),
+
+    removeParticipant: builder.mutation<
+      void,
+      { roomId: string; channelId: string; code: string; identity: string }
+    >({
+      query: ({ roomId, channelId, code, identity }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}`,
+        method: "DELETE",
+      }),
+    }),
   }),
 
   overrideExisting: false,
@@ -140,6 +150,7 @@ export const {
   useAddChannelMutation,
   useAddMemberByEmailOrIdMutation,
   useLeaveRoomMutation,
+  useRemoveParticipantMutation,
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
 } = roomsApi;
