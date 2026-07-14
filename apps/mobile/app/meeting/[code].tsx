@@ -11,6 +11,7 @@ import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import MobileToolbar from "../../components/meeting/MobileToolbar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MembersModal from "../../components/meeting/MembersModal";
+import MobileChatModal from "../../components/meeting/MobileChatModal";
 
 // MÀN HÌNH CHÍNH
 export default function MobileMeetingScreen() {
@@ -20,6 +21,7 @@ export default function MobileMeetingScreen() {
 
   const [meetingData, setMeetingData] = useState<MeetingPayload | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
 
   useEffect(() => {
     const data = MeetingStore.get();
@@ -116,7 +118,7 @@ export default function MobileMeetingScreen() {
         <MobileToolbar
           initialFacingMode={roomOptions.videoCaptureDefaults.facingMode}
           onOpenMembers={() => setShowMembersModal(true)}
-          onOpenChat={() => Alert.alert("Thông báo", "Mở khung chat...")}
+          onOpenChat={() => setShowChatModal(true)}
         />
 
         <MembersModal
@@ -125,6 +127,11 @@ export default function MobileMeetingScreen() {
           roomId={meetingData.roomId}
           channelId={meetingData.channelId}
           meetingCode={code}
+        />
+
+        <MobileChatModal
+          visible={showChatModal}
+          onClose={() => setShowChatModal(false)}
         />
       </View>
     </LiveKitRoom>

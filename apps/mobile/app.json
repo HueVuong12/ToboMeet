@@ -36,6 +36,12 @@
     },
     "plugins": [
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép ToboMeet truy cập thư viện ảnh."
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Cho phép ứng dụng sử dụng camera",
