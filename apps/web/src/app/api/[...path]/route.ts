@@ -24,10 +24,15 @@ async function handleProxy(
     headers.set("Authorization", `Bearer ${session.access_token}`);
   }
 
-  let body: string | undefined;
+  let body: any = undefined;
 
   if (request.method !== "GET" && request.method !== "HEAD") {
-    body = await request.text();
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("multipart/form-data")) {
+      body = await request.arrayBuffer();
+    } else {
+      body = await request.text();
+    }
   }
 
   try {

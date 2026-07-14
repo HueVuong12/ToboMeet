@@ -30,6 +30,7 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
 import PreviewModal from "./PreviewModal";
 import { useMeetingManager } from "@/hooks/useMeetingManager";
+import ReportUserModal from "./ReportUserModal";
 
 interface RoomContentProps {
   roomId: string;
@@ -58,6 +59,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [memberToReport, setMemberToReport] = useState<{
+    userId: string;
+    displayName: string;
+  } | null>(null);
 
   // Tìm thông tin chi tiết của kênh đang được active
   const currentChannel = room?.channels.find(
@@ -523,6 +528,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                             <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                               {t("view_profile")}
                             </button>
+                            {userId !== member.userId && (
+                              <button
+                                onClick={() => {
+                                  setMemberToReport({
+                                    userId: member.userId,
+                                    displayName: member.displayName || "Người dùng",
+                                  });
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                              >
+                                {t("report_user")}
+                              </button>
+                            )}
                              {userId !== member.userId &&
                               members.find((m) => m.userId === userId)?.role ===
                                 "owner" && (
@@ -531,7 +550,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                     setMemberToRemove({ userId: member.userId, displayName: member.displayName || "Người dùng" });
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-slate-100"
                                 >
                                   {t("remove_from_room")}
                                 </button>
@@ -607,6 +626,15 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             </div>
           </div>
         </div>
+      )}
+      {/* Modal báo cáo người dùng */}
+      {memberToReport && (
+        <ReportUserModal
+          isOpen={!!memberToReport}
+          onClose={() => setMemberToReport(null)}
+          reportedUserId={memberToReport.userId}
+          reportedUserName={memberToReport.displayName}
+        />
       )}
     </div>
   );
