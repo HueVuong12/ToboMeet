@@ -1,9 +1,9 @@
 // app/meeting/[code].tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, ActivityIndicator, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { MeetingStore } from "../../lib/meetingStore";
+import { MeetingPayload, MeetingStore } from "../../lib/meetingStore";
 
 // LIVEKIT COMPONENTS
 import { LiveKitRoom } from "@livekit/react-native";
@@ -18,13 +18,7 @@ export default function MobileMeetingScreen() {
   const router = useRouter();
   const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL;
 
-  const [meetingData, setMeetingData] = useState<{
-    token: string;
-    roomId: string;
-    channelId: string;
-    isCamOn: boolean;
-    isMicOn: boolean;
-  } | null>(null);
+  const [meetingData, setMeetingData] = useState<MeetingPayload | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
 
   useEffect(() => {
@@ -34,6 +28,26 @@ export default function MobileMeetingScreen() {
       MeetingStore.clear();
     }
   }, []);
+
+  // Luôn chạy khi màn hình bị đóng
+  useEffect(() => {
+    return () => {
+      if (meetingData?.roomId) {
+        AsyncStorage.removeItem(`active_meeting_${meetingData.roomId}`);
+      }
+    };
+  }, [meetingData?.roomId]);
+
+  const roomOptions = useMemo(() => {
+    return {
+      videoCaptureDefaults: {
+        // Dịch ngôn ngữ: "front" -> "user", "back" -> "environment"
+        facingMode: (meetingData?.cameraFacing === "back"
+          ? "environment"
+          : "user") as "user" | "environment",
+      },
+    };
+  }, [meetingData?.cameraFacing]);
 
   if (!meetingData || !LIVEKIT_URL) {
     return (
@@ -57,6 +71,7 @@ export default function MobileMeetingScreen() {
       connect={true}
       video={meetingData.isCamOn}
       audio={meetingData.isMicOn}
+      options={roomOptions}
       onDisconnected={async () => {
         if (meetingData?.roomId) {
           await AsyncStorage.removeItem(`active_meeting_${meetingData.roomId}`);
@@ -100,6 +115,7 @@ export default function MobileMeetingScreen() {
         </View>
 
         <MobileToolbar
+          initialFacingMode={roomOptions.videoCaptureDefaults.facingMode}
           onOpenMembers={() => setShowMembersModal(true)}
           onOpenChat={() => Alert.alert("Thông báo", "Mở khung chat...")}
         />

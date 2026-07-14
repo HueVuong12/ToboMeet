@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "tobomeet",
+    "name": "ToboMeet",
     "scheme": "tobomeet",
     "slug": "mobile",
     "version": "1.0.0",
@@ -35,6 +35,13 @@
       "backgroundColor": "#ffffff"
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép ứng dụng sử dụng camera",
+          "microphonePermission": "Cho phép ứng dụng sử dụng micro"
+        }
+      ],
       "expo-router",
       "expo-asset",
       "@livekit/react-native-expo-plugin",

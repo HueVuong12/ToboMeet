@@ -4,12 +4,15 @@ import { Feather } from "@expo/vector-icons";
 
 // LIVEKIT COMPONENTS
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
+import { toast } from "../../lib/toast";
 
 // COMPONENT: THANH ĐIỀU KHIỂN
 export default function MobileToolbar({
+  initialFacingMode,
   onOpenMembers,
   onOpenChat,
 }: {
+  initialFacingMode?: "user" | "environment";
   onOpenMembers: () => void;
   onOpenChat: () => void;
 }) {
@@ -22,45 +25,87 @@ export default function MobileToolbar({
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   const toggleCam = () => localParticipant.setCameraEnabled(!isCameraEnabled);
 
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(
+    initialFacingMode || "user",
+  );
+
+  const handleFlipCamera = async () => {
+    const trackPublication = localParticipant.videoTrackPublications
+      .values()
+      .next().value;
+
+    if (trackPublication?.videoTrack) {
+      const videoTrack = trackPublication.videoTrack;
+      // Đảo ngược trạng thái hiện tại
+      const newFacingMode = facingMode === "user" ? "environment" : "user";
+
+      try {
+        // Gọi API của LiveKit để khởi động lại Camera với hướng mới
+        await videoTrack.restartTrack({ facingMode: newFacingMode });
+        setFacingMode(newFacingMode); // Lưu lại trạng thái
+      } catch (error) {
+        console.error(error);
+        toast.error("Không thể lật Camera lúc này.");
+      }
+    }
+  };
+
   return (
     <View
       style={{
-        backgroundColor: "#0f172a", // Nền tối hòa vào background
+        backgroundColor: "#0f172a",
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
         paddingVertical: 12,
-        paddingBottom: 28, // Tránh rãnh vuốt dưới đáy iOS/Android
+        paddingBottom: 28,
         borderTopWidth: 1,
         borderTopColor: "rgba(255,255,255,0.05)",
-        gap: 8, // Khoảng cách đều, nhỏ gọn giống web
+        gap: 6, // Giảm gap một chút xíu để nhét thêm nút mà không bị tràn màn hình
       }}
     >
       {/* Nút Camera */}
       <TouchableOpacity
         onPress={toggleCam}
         style={{
-          width: 48,
-          height: 48,
+          width: 44, // Thu nhỏ một chút xíu để vừa màn hình
+          height: 44,
           borderRadius: 14,
-          backgroundColor: "#1e293b", // Màu slate tối thanh lịch
+          backgroundColor: "#1e293b",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
         <Feather
           name={isCameraEnabled ? "video" : "video-off"}
-          size={20}
+          size={18}
           color="white"
         />
+      </TouchableOpacity>
+
+      {/* Nút Lật Camera (Chỉ sáng lên khi đang bật Camera) */}
+      <TouchableOpacity
+        onPress={handleFlipCamera}
+        disabled={!isCameraEnabled} // Khóa nút nếu chưa bật cam
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          backgroundColor: "#1e293b",
+          justifyContent: "center",
+          alignItems: "center",
+          opacity: isCameraEnabled ? 1 : 0.4, // Làm mờ đi nếu không dùng được
+        }}
+      >
+        <Feather name="refresh-ccw" size={18} color="white" />
       </TouchableOpacity>
 
       {/* Nút Mic */}
       <TouchableOpacity
         onPress={toggleMic}
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           borderRadius: 14,
           backgroundColor: "#1e293b",
           justifyContent: "center",
@@ -69,7 +114,7 @@ export default function MobileToolbar({
       >
         <Feather
           name={isMicrophoneEnabled ? "mic" : "mic-off"}
-          size={20}
+          size={18}
           color="white"
         />
       </TouchableOpacity>
@@ -78,8 +123,8 @@ export default function MobileToolbar({
       <TouchableOpacity
         onPress={() => setIsHandRaised(!isHandRaised)}
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           borderRadius: 14,
           backgroundColor: isHandRaised ? "rgba(245, 158, 11, 0.2)" : "#1e293b",
           borderWidth: isHandRaised ? 1 : 0,
@@ -90,12 +135,12 @@ export default function MobileToolbar({
       >
         <Feather
           name="heart"
-          size={20}
+          size={18}
           color={isHandRaised ? "#f59e0b" : "white"}
         />
       </TouchableOpacity>
 
-      {/* Nút Rời đi (Màu đỏ, bo góc giống các nút khác, không có text) */}
+      {/* Nút Rời đi */}
       <TouchableOpacity
         onPress={() => {
           Alert.alert("Rời phòng", "Bạn có chắc chắn muốn rời cuộc họp?", [
@@ -110,46 +155,46 @@ export default function MobileToolbar({
           ]);
         }}
         style={{
-          width: 56, // Hơi rộng hơn chút xíu để làm điểm nhấn
-          height: 48,
+          width: 52,
+          height: 44,
           borderRadius: 14,
           backgroundColor: "#ef4444",
           justifyContent: "center",
           alignItems: "center",
-          marginHorizontal: 4, // Tách nhẹ ra khỏi các nút chức năng
+          marginHorizontal: 2,
         }}
       >
-        <Feather name="phone-off" size={20} color="white" />
+        <Feather name="phone-off" size={18} color="white" />
       </TouchableOpacity>
 
       {/* Nút Thành Viên */}
       <TouchableOpacity
         onPress={onOpenMembers}
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           borderRadius: 14,
           backgroundColor: "#1e293b",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Feather name="users" size={20} color="white" />
+        <Feather name="users" size={18} color="white" />
       </TouchableOpacity>
 
       {/* Nút Chat */}
       <TouchableOpacity
         onPress={onOpenChat}
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           borderRadius: 14,
           backgroundColor: "#1e293b",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Feather name="message-square" size={20} color="white" />
+        <Feather name="message-square" size={18} color="white" />
       </TouchableOpacity>
     </View>
   );

@@ -17,6 +17,12 @@ interface UseMeetingManagerProps {
   displayName?: string;
 }
 
+export interface DeviceConfig {
+  isCamOn: boolean;
+  isMicOn: boolean;
+  cameraFacing: "front" | "back";
+}
+
 export function useMeetingManager({
   roomId,
   activeChannelId,
@@ -32,7 +38,7 @@ export function useMeetingManager({
   // Theo dõi trạng thái cuộc họp hiện tại từ Server
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: activeChannelId || "" },
-    { skip: !roomId || !activeChannelId },
+    { skip: !roomId || !activeChannelId, refetchOnMountOrArgChange: true },
   );
 
   // Kiểm tra Local Storage (AsyncStorage) xem máy này có đang họp không
@@ -74,12 +80,13 @@ export function useMeetingManager({
   // Hàm xử lý tham gia cuộc họp
   const handleJoinMeeting = async (
     forceSwitch = false,
-    config?: { isCamOn: boolean; isMicOn: boolean },
+    config?: DeviceConfig,
   ) => {
     if (!roomId || !activeChannelId) return;
 
     const isCamOn = config?.isCamOn ?? true;
     const isMicOn = config?.isMicOn ?? false;
+    const cameraFacing = config?.cameraFacing;
 
     try {
       setIsJoining(true);
@@ -100,6 +107,7 @@ export function useMeetingManager({
         channelId: activeChannelId,
         isCamOn: isCamOn,
         isMicOn: isMicOn,
+        cameraFacing: cameraFacing,
       });
 
       // Chuyển hướng sang màn hình Gọi Video

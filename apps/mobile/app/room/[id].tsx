@@ -34,6 +34,7 @@ import { socket } from "../../lib/socket";
 import { useMeetingManager } from "../../hooks/useMeetingManager";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../lib/redux/store";
+import PreviewModal from "../../components/meeting/PreviewModal";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -69,6 +70,7 @@ export default function RoomDetailScreen() {
 
   // Handover state (Leave Room as Owner)
   const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Drawer states
   const [showLeftDrawer, setShowLeftDrawer] = useState(false);
@@ -383,7 +385,7 @@ export default function RoomDetailScreen() {
               </View>
             ) : (
               <TouchableOpacity
-                onPress={() => handleJoinMeeting(false)}
+                onPress={() => setShowPreviewModal(true)}
                 disabled={isJoining}
                 // className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90 shadow-sm"
                 className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
@@ -398,7 +400,7 @@ export default function RoomDetailScreen() {
             )
           ) : (
             <TouchableOpacity
-              onPress={() => handleJoinMeeting(false)}
+              onPress={() => setShowPreviewModal(true)}
               disabled={isJoining}
               className="bg-[#0052FF] px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
             >
@@ -1141,6 +1143,15 @@ export default function RoomDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <PreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        isJoining={isJoining}
+        onJoin={(config) => {
+          handleJoinMeeting(false, config);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

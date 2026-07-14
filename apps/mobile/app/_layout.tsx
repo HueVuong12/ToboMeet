@@ -9,13 +9,13 @@ import {
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { supabase } from "../lib/supabase";
-import { View } from "react-native";
 import LanguageSwitcher from "../components/commons/LanguageSwitcher";
 import StoreProvider from "../lib/redux/StoreProvider";
 import Toast from "react-native-toast-message";
 import { EventProvider } from "../providers/EventProvider";
 import { registerGlobals } from "@livekit/react-native";
 import { Session } from "@supabase/supabase-js";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 registerGlobals();
 SplashScreen.preventAutoHideAsync();
@@ -80,14 +80,19 @@ export default function RootLayout() {
   if (!isAuthReady || !navigationState?.key) return null; // chặn splash screen qua trang login
 
   return (
-    <View style={{ flex: 1 }}>
-      <StoreProvider>
-        {showGlobalLanguageSwitcher && <LanguageSwitcher />}
-        <EventProvider userId={currentUserId}>
-          <Slot />
-        </EventProvider>
-        <Toast />
-      </StoreProvider>
-    </View>
+    <SafeAreaProvider>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "#ffffff" }} // Đổi màu nền này cho khớp với màu chủ đạo của app bạn
+        edges={["bottom"]} // Chỉ định đẩy phần bottom lên. (Top thường do Header của navigation lo rồi)
+      >
+        <StoreProvider>
+          {showGlobalLanguageSwitcher && <LanguageSwitcher />}
+          <EventProvider userId={currentUserId}>
+            <Slot />
+          </EventProvider>
+          <Toast />
+        </StoreProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
