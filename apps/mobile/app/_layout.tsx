@@ -55,7 +55,7 @@ export default function RootLayout() {
     const isResetPasswordFlow = segments.includes("forgot-password");
 
     if (session && inAuthGroup && !isResetPasswordFlow) {
-      router.replace("/home");
+      router.replace("/dashboard");
     } else if (!session && !inAuthGroup) {
       router.replace("/(auth)/login");
     }
@@ -83,7 +83,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <SafeAreaView
         style={{ flex: 1, backgroundColor: "#ffffff" }} // Đổi màu nền này cho khớp với màu chủ đạo của app bạn
-        edges={["bottom"]} // Chỉ định đẩy phần bottom lên. (Top thường do Header của navigation lo rồi)
+        edges={["bottom", "top"]}
       >
         <StoreProvider>
           {showGlobalLanguageSwitcher && <LanguageSwitcher />}

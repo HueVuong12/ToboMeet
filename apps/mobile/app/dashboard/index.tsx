@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   FlatList,
   TextInput,
   Image,
@@ -18,9 +17,9 @@ import { useGetMyRoomsQuery } from "../../lib/redux/features/rooms/roomsApi";
 import { Feather } from "@expo/vector-icons";
 import JoinRoomModal from "../../components/JoinRoomModal";
 import CreateRoomModal from "../../components/CreateRoomModal";
-import SettingsModal from "../../components/SettingsModal";
+import { toast } from "../../lib/toast";
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -31,13 +30,11 @@ export default function HomeScreen() {
   // Modals state
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<"groups" | "settings">("groups");
 
   const { data: profile } = useGetMeQuery(undefined, {
     refetchOnMountOrArgChange: true,
   });
-  const { data: rooms, isLoading: isRoomsLoading, refetch: refetchRooms } = useGetMyRoomsQuery();
+  const { data: rooms, isLoading: isRoomsLoading } = useGetMyRoomsQuery();
 
   useEffect(() => {
     fetchSession();
@@ -57,25 +54,18 @@ export default function HomeScreen() {
       } else {
         router.replace("/(auth)/login");
       }
-    } catch (error: any) {
-      Alert.alert("Lỗi tải dữ liệu", error.message);
+    } catch (error) {
+      console.error(error);
+      toast.error("Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-    } catch (error: any) {
-      Alert.alert("Lỗi đăng xuất", error.message);
-    }
-  };
-
-  const filteredRooms = rooms?.filter((room) =>
-    room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    room.code.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredRooms = rooms?.filter(
+    (room) =>
+      room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      room.code.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   if (loading || isRoomsLoading) {
@@ -87,21 +77,28 @@ export default function HomeScreen() {
   }
 
   return (
-    <View className="flex-1 bg-slate-50 pt-12">
+    <View className="flex-1 bg-slate-50">
       {/* Header */}
       <View className="flex-row justify-between items-center px-6 py-4 bg-white border-b border-slate-100">
         <View className="flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-full bg-blue-100 justify-center items-center overflow-hidden">
             {profile?.avatarUrl ? (
-              <Image source={{ uri: profile.avatarUrl }} className="w-full h-full" />
+              <Image
+                source={{ uri: profile.avatarUrl }}
+                className="w-full h-full"
+              />
             ) : (
               <Text className="font-bold text-blue-600 text-lg">
-                {(profile?.displayName || user?.email || "U").charAt(0).toUpperCase()}
+                {(profile?.displayName || user?.email || "U")
+                  .charAt(0)
+                  .toUpperCase()}
               </Text>
             )}
           </View>
           <View>
-            <Text className="text-xs text-slate-400 font-semibold">{t("dashboard.title")}</Text>
+            <Text className="text-xs text-slate-400 font-semibold">
+              {t("dashboard.title")}
+            </Text>
             <Text className="text-sm font-bold text-slate-800 truncate max-w-[150px]">
               {profile?.displayName || user?.email?.split("@")[0]}
             </Text>
@@ -129,7 +126,12 @@ export default function HomeScreen() {
           {/* Ô tìm kiếm xuất hiện bên dưới Header khi active */}
           {isSearching && (
             <View className="relative flex-row items-center bg-white border border-slate-100 rounded-2xl px-4 py-3 shadow-sm">
-              <Feather name="search" size={18} color="#94A3B8" style={{ marginRight: 10 }} />
+              <Feather
+                name="search"
+                size={18}
+                color="#94A3B8"
+                style={{ marginRight: 10 }}
+              />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -184,8 +186,12 @@ export default function HomeScreen() {
                   <Feather name="search" size={24} color="#94A3B8" />
                 </View>
                 <View className="items-center">
-                  <Text className="text-sm font-bold text-slate-800">{t("dashboard.no_results_title")}</Text>
-                  <Text className="text-xs text-slate-400 mt-1">{t("dashboard.no_results_desc")}</Text>
+                  <Text className="text-sm font-bold text-slate-800">
+                    {t("dashboard.no_results_title")}
+                  </Text>
+                  <Text className="text-xs text-slate-400 mt-1">
+                    {t("dashboard.no_results_desc")}
+                  </Text>
                 </View>
               </View>
             ) : (
@@ -194,8 +200,12 @@ export default function HomeScreen() {
                   <Feather name="folder" size={24} color="#94A3B8" />
                 </View>
                 <View className="items-center">
-                  <Text className="text-sm font-bold text-slate-800">{t("dashboard.empty_title")}</Text>
-                  <Text className="text-xs text-slate-400 mt-1">{t("dashboard.empty_description")}</Text>
+                  <Text className="text-sm font-bold text-slate-800">
+                    {t("dashboard.empty_title")}
+                  </Text>
+                  <Text className="text-xs text-slate-400 mt-1">
+                    {t("dashboard.empty_description")}
+                  </Text>
                 </View>
               </View>
             )
@@ -214,9 +224,13 @@ export default function HomeScreen() {
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-bold text-slate-800 text-sm truncate">{item.name}</Text>
+                  <Text className="font-bold text-slate-800 text-sm truncate">
+                    {item.name}
+                  </Text>
                   <Text className="text-[11px] text-slate-400 mt-1 font-semibold">
-                    {item.type === "classroom" ? t("dashboard.classroom") : t("dashboard.meeting")}
+                    {item.type === "classroom"
+                      ? t("dashboard.classroom")
+                      : t("dashboard.meeting")}
                   </Text>
                 </View>
               </View>
@@ -224,50 +238,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         />
-      </View>
-
-      {/* Bottom Navigation Bar */}
-      <View className="flex-row bg-white border-t border-slate-100 py-2.5 px-12 justify-between items-center shadow-lg">
-        {/* Tab Nhóm - Video Icon as requested */}
-        <TouchableOpacity
-          onPress={() => setActiveBottomTab("groups")}
-          className="items-center justify-center flex-1 py-1"
-        >
-          <Feather
-            name="video"
-            size={22}
-            color={activeBottomTab === "groups" ? "#0052FF" : "#94A3B8"}
-          />
-          <Text
-            className={`text-[10px] font-bold mt-1.5 ${
-              activeBottomTab === "groups" ? "text-[#0052FF]" : "text-slate-400"
-            }`}
-          >
-            Nhóm
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tab Cài đặt - Gear Icon */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveBottomTab("settings");
-            setShowSettingsModal(true);
-          }}
-          className="items-center justify-center flex-1 py-1"
-        >
-          <Feather
-            name="settings"
-            size={22}
-            color={activeBottomTab === "settings" ? "#0052FF" : "#94A3B8"}
-          />
-          <Text
-            className={`text-[10px] font-bold mt-1.5 ${
-              activeBottomTab === "settings" ? "text-[#0052FF]" : "text-slate-400"
-            }`}
-          >
-            Cài đặt
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* Modals */}
@@ -287,15 +257,6 @@ export default function HomeScreen() {
           setShowCreateModal(false);
           router.push(`/room/${roomId}`);
         }}
-      />
-
-      <SettingsModal
-        visible={showSettingsModal}
-        onClose={() => {
-          setShowSettingsModal(false);
-          setActiveBottomTab("groups"); // Reset back to groups tab when closed
-        }}
-        onLogout={handleLogout}
       />
     </View>
   );

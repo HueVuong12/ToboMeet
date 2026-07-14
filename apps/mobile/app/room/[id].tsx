@@ -35,6 +35,7 @@ import { useMeetingManager } from "../../hooks/useMeetingManager";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../lib/redux/store";
 import PreviewModal from "../../components/meeting/PreviewModal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -80,6 +81,8 @@ export default function RoomDetailScreen() {
 
   const isOwner = room && profile && room.ownerId === profile.supabaseId;
   const hasNavigatedAway = React.useRef(false);
+
+  const insets = useSafeAreaInsets();
 
   const { handleJoinMeeting, isJoining, isJoinedOnThisDevice, activeMeeting } =
     useMeetingManager({
@@ -162,7 +165,7 @@ export default function RoomDetailScreen() {
         Alert.alert("Thông báo", "Bạn đã bị mời ra khỏi phòng.", [
           {
             text: "OK",
-            onPress: () => router.replace("/home"),
+            onPress: () => router.replace("/dashboard"),
           },
         ]);
       } else if (isRoomDisbanded) {
@@ -174,7 +177,7 @@ export default function RoomDetailScreen() {
         Alert.alert("Thông báo", msg, [
           {
             text: "OK",
-            onPress: () => router.replace("/home"),
+            onPress: () => router.replace("/dashboard"),
           },
         ]);
       }
@@ -278,7 +281,7 @@ export default function RoomDetailScreen() {
       }).unwrap();
       setShowHandoverModal(false);
       Alert.alert("Thông báo", "Bạn đã rời phòng thành công.");
-      router.replace("/home");
+      router.replace("/dashboard");
     } catch (err) {
       const errorResponse = err as {
         message?: string;
@@ -327,7 +330,7 @@ export default function RoomDetailScreen() {
           {t("room.room_not_found")}
         </Text>
         <TouchableOpacity
-          onPress={() => router.replace("/home")}
+          onPress={() => router.replace("/dashboard")}
           className="mt-6 bg-[#0052FF] px-6 py-3 rounded-xl"
         >
           <Text className="text-white font-bold text-sm">
@@ -345,7 +348,7 @@ export default function RoomDetailScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-slate-50 pt-12"
+      className="flex-1 bg-slate-50"
     >
       {/* Main Top Header */}
       <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-slate-100">
@@ -496,14 +499,14 @@ export default function RoomDetailScreen() {
           />
 
           {/* Drawer Sheet */}
-          <View className="w-[280px] bg-white h-full shadow-2xl flex-col pt-12">
+          <View className="w-[280px] bg-white h-full shadow-2xl flex-col">
             {/* Drawer Header */}
             <View className="px-5 py-4 border-b border-slate-100 flex-row justify-between items-center">
               <View className="flex-row items-center gap-3">
                 <TouchableOpacity
                   onPress={() => {
                     setShowLeftDrawer(false);
-                    router.replace("/home");
+                    router.replace("/dashboard");
                   }}
                   className="p-1"
                 >
@@ -646,7 +649,7 @@ export default function RoomDetailScreen() {
           />
 
           {/* Drawer Sheet */}
-          <View className="w-[280px] bg-white h-full shadow-2xl flex-col pt-12">
+          <View className="w-[280px] bg-white h-full shadow-2xl flex-col">
             {/* Drawer Header */}
             <View className="px-5 py-4 border-b border-slate-100 flex-row justify-between items-center">
               <Text className="font-bold text-slate-900 text-lg">
@@ -749,7 +752,13 @@ export default function RoomDetailScreen() {
         animationType="slide"
         onRequestClose={() => setShowGroupActionsModal(false)}
       >
-        <View className="flex-1 justify-end bg-black/40">
+        <View
+          className="flex-1 justify-end bg-black/40"
+          style={{
+            paddingTop: Math.max(insets.top, 20), // Đẩy xuống khỏi tai thỏ/camera đục lỗ
+            paddingBottom: Math.max(insets.bottom, 20), // Đẩy lên khỏi phím điều hướng
+          }}
+        >
           {/* Backdrop đóng menu */}
           <TouchableOpacity
             activeOpacity={1}

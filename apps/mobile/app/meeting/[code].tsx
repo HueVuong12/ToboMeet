@@ -87,8 +87,7 @@ export default function MobileMeetingScreen() {
       <View style={{ flex: 1, backgroundColor: "#0f172a" }}>
         <View
           style={{
-            height: 90,
-            paddingTop: 40,
+            height: 70,
             justifyContent: "center",
             alignItems: "center",
             borderBottomWidth: 1,
