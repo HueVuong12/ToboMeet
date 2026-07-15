@@ -1,18 +1,25 @@
 import React from "react";
 import { View, Text, Image } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 
-import { VideoView } from "@livekit/react-native";
+import { TrackReference, VideoView } from "@livekit/react-native";
 import { Track, VideoTrack } from "livekit-client";
+import { useHandRaise } from "../../hooks/useHandRaise";
 
 // COMPONENT: Ô VIDEO TÁI SỬ DỤNG (TILE)
-export default function ParticipantTile({ trackRef }: { trackRef: any }) {
+export default function ParticipantTile({
+  trackRef,
+}: {
+  trackRef: TrackReference;
+}) {
   const publication = trackRef.publication;
   const videoTrack = publication?.track as VideoTrack;
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
 
   const isMuted = publication?.isMuted ?? false;
   const showVideo = !!videoTrack && !isMuted;
+  const { getHandState } = useHandRaise();
+  const handState = getHandState(trackRef.participant);
 
   // Xử lý Metadata để lấy Avatar
   let avatarUrl = null;
@@ -76,6 +83,36 @@ export default function ParticipantTile({ trackRef }: { trackRef: any }) {
               </Text>
             </View>
           )}
+        </View>
+      )}
+
+      {/* BADGE GIƠ TAY NỔI TRÊN GÓC PHẢI */}
+      {handState.isRaised && (
+        <View
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            backgroundColor: "rgba(245, 158, 11, 0.9)", // Màu amber-500
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 8,
+            flexDirection: "row",
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: "#fbbf24",
+            zIndex: 10,
+          }}
+        >
+          <Ionicons
+            name="hand-left"
+            size={12}
+            color="white"
+            style={{ marginRight: 4 }}
+          />
+          <Text style={{ color: "white", fontSize: 10, fontWeight: "bold" }}>
+            Giơ tay
+          </Text>
         </View>
       )}
 

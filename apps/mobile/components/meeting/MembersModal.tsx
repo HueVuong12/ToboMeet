@@ -14,9 +14,11 @@ import {
   useLocalParticipant,
   useParticipants,
 } from "@livekit/components-react";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { toast } from "../../lib/toast";
 import { useRemoveParticipantMutation } from "../../lib/redux/features/rooms/roomsApi";
+import { useHandRaise } from "../../hooks/useHandRaise";
+import { Participant } from "livekit-client";
 
 // COMPONENT: DANH SÁCH THÀNH VIÊN (BOTTOM SHEET)
 export default function MembersModal({
@@ -34,6 +36,7 @@ export default function MembersModal({
 }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
+  const { getHandState } = useHandRaise();
 
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
@@ -51,16 +54,28 @@ export default function MembersModal({
     if (localParticipant.metadata) {
       localRole = JSON.parse(localParticipant.metadata).role || "member";
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error(e);
+  }
   const isLocalAdmin = localRole === "owner" || localRole === "admin";
 
-  // Lọc bỏ những người đã bị kick
-  const displayParticipants = participants.filter(
-    (p) => !kickedUsers.includes(p.identity),
-  );
+  // Lọc những người bị kick và sắp xếp thứ tự giơ tay
+  const displayParticipants = participants
+    .filter((p) => !kickedUsers.includes(p.identity))
+    .sort((a, b) => {
+      const stateA = getHandState(a);
+      const stateB = getHandState(b);
+
+      if (stateA.isRaised && stateB.isRaised) {
+        return parseInt(stateA.raisedAt) - parseInt(stateB.raisedAt);
+      }
+      if (stateA.isRaised) return -1;
+      if (stateB.isRaised) return 1;
+      return 0;
+    });
 
   // Hàm xử lý Kick
-  const handleRemove = (participant: any) => {
+  const handleRemove = (participant: Participant) => {
     Alert.alert(
       "Xác nhận",
       `Bạn có chắc chắn muốn đuổi ${participant.name} khỏi cuộc họp?`,
@@ -109,6 +124,7 @@ export default function MembersModal({
       await localParticipant.setName(renameState.newName.trim());
       setRenameState(null);
     } catch (error) {
+      console.error(error);
       toast.error("Không thể đổi tên lúc này!");
     }
   };
@@ -206,6 +222,7 @@ export default function MembersModal({
               const isMe = p.identity === localParticipant.identity;
               const isMuted = !p.isMicrophoneEnabled;
               const showMenuButton = isMe || isLocalAdmin; // Chỉ hiện 3 chấm nếu là mình hoặc là Admin
+              const { isRaised } = getHandState(p);
 
               let avatarUrl = "";
               let role = "member";
@@ -313,6 +330,11 @@ export default function MembersModal({
                       gap: 8,
                     }}
                   >
+                    {/* HIỆN ICON BÀN TAY NẾU ĐANG GIƠ TAY */}
+                    {isRaised && (
+                      <Ionicons name="hand-left" size={14} color="#fbbf24" />
+                    )}
+
                     <View
                       style={{
                         padding: 6,

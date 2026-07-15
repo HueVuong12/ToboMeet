@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { View, TouchableOpacity, Alert } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 
 // LIVEKIT COMPONENTS
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { toast } from "../../lib/toast";
+import { useHandRaise } from "../../hooks/useHandRaise";
 
 // COMPONENT: THANH ĐIỀU KHIỂN
 export default function MobileToolbar({
@@ -19,7 +20,7 @@ export default function MobileToolbar({
   const room = useRoomContext();
   const { isMicrophoneEnabled, isCameraEnabled, localParticipant } =
     useLocalParticipant();
-  const [isHandRaised, setIsHandRaised] = useState(false);
+  const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
   const toggleMic = () =>
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
@@ -118,24 +119,26 @@ export default function MobileToolbar({
         />
       </TouchableOpacity>
 
-      {/* Nút Giơ tay */}
+      {/* NÚT GIƠ TAY */}
       <TouchableOpacity
-        onPress={() => setIsHandRaised(!isHandRaised)}
+        onPress={toggleHandRaise}
         style={{
           width: 44,
           height: 44,
           borderRadius: 14,
-          backgroundColor: isHandRaised ? "rgba(245, 158, 11, 0.2)" : "#1e293b",
-          borderWidth: isHandRaised ? 1 : 0,
+          backgroundColor: isLocalHandRaised
+            ? "rgba(245, 158, 11, 0.2)"
+            : "#1e293b",
+          borderWidth: isLocalHandRaised ? 1 : 0,
           borderColor: "rgba(245, 158, 11, 0.3)",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Feather
-          name="heart"
+        <Ionicons
+          name="hand-left"
           size={18}
-          color={isHandRaised ? "#f59e0b" : "white"}
+          color={isLocalHandRaised ? "#f59e0b" : "white"}
         />
       </TouchableOpacity>
 
