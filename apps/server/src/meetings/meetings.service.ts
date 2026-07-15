@@ -12,8 +12,10 @@ import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import { RoomActivity, RoomActivityDocument } from "../rooms/schemas/room-activity.schema";
-import { ErrorCode, MeetingJoinResponse } from "@tobomeet/shared/types";
+import {
+  RoomActivity,
+  RoomActivityDocument,
+} from "../rooms/schemas/room-activity.schema";
 import {
   ErrorCode,
   MeetingJoinResponse,
@@ -34,7 +36,8 @@ export class MeetingsService {
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
-    @InjectModel(RoomActivity.name) private activityModel: Model<RoomActivityDocument>,
+    @InjectModel(RoomActivity.name)
+    private activityModel: Model<RoomActivityDocument>,
     @Inject(forwardRef(() => MeetingsGateway))
     private readonly meetingsGateway: MeetingsGateway,
   ) {
@@ -165,7 +168,12 @@ export class MeetingsService {
     const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
-    if (!userInRoom || userInRoom.isLeft === true || userInRoom.status === "REMOVED" || userInRoom.status === "LEFT") {
+    if (
+      !userInRoom ||
+      userInRoom.isLeft === true ||
+      userInRoom.status === "REMOVED" ||
+      userInRoom.status === "LEFT"
+    ) {
       throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
     }
     const userRole = userInRoom.role;
@@ -369,9 +377,14 @@ export class MeetingsService {
       console.log(`Đã đóng cuộc họp: ${meetingCode}`);
 
       // Cập nhật trạng thái phòng họp thành ended (nếu không có meeting ongoing khác)
-      const otherOngoing = await this.meetingModel.findOne({ roomId: meeting.roomId, status: "ongoing" }).exec();
+      const otherOngoing = await this.meetingModel
+        .findOne({ roomId: meeting.roomId, status: "ongoing" })
+        .exec();
       if (!otherOngoing) {
-        await this.roomModel.updateOne({ _id: meeting.roomId, status: { $ne: "disbanded" } }, { status: "ended" });
+        await this.roomModel.updateOne(
+          { _id: meeting.roomId, status: { $ne: "disbanded" } },
+          { status: "ended" },
+        );
       }
 
       // Ghi nhận hoạt động phòng

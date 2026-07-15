@@ -5,7 +5,6 @@ import {
   useParticipants,
   useRoomContext,
 } from "@livekit/components-react";
-import { Participant, RoomEvent } from "livekit-client";
 import {
   Crown,
   Edit2,
@@ -282,7 +281,7 @@ export default function ParticipantList({
       {/* Render Modal Đổi Tên bằng Portal để lơ lửng trên cùng */}
       {renameState?.isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
             <div className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
               <h3 className="text-lg font-bold text-slate-100 mb-4 tracking-wide">
                 Đổi tên hiển thị

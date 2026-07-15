@@ -134,7 +134,6 @@ export interface RoomResponse {
   type: "meeting" | "classroom";
   code: string;
   ownerId: string;
-  description?: string;
   members?: RoomMemberResponse[];
   channels: Channel[];
   createdAt: string;
