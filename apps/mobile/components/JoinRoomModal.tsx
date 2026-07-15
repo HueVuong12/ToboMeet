@@ -35,8 +35,9 @@ export default function JoinRoomModal({
       const room = await joinRoom({ code: code.trim() }).unwrap();
       setCode("");
       onSuccess(room._id);
-    } catch (err: any) {
-      setError(err?.message || t("dashboard.room_not_found_code"));
+    } catch (err) {
+      const errorResponse = err as { message?: string } | undefined;
+      setError(errorResponse?.message || t("dashboard.room_not_found_code"));
     }
   };
 

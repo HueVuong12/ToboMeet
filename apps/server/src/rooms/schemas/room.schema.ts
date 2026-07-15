@@ -27,6 +27,9 @@ export class Room {
 
   @Prop({ type: Boolean, default: false })
   isDeleted?: boolean;
+
+  @Prop({ type: String, enum: ["active", "ended", "disbanded"], default: "active" })
+  status?: string;
 }
 
 export const RoomSchema = SchemaFactory.createForClass(Room);

@@ -23,6 +23,7 @@ import {
   useLeaveRoomMutation,
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
+  useRemoveMemberMutation,
   roomsApi,
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
@@ -54,6 +55,31 @@ export default function RoomDetailScreen() {
   const [addMember] = useAddMemberByEmailOrIdMutation();
   const [leaveRoom] = useLeaveRoomMutation();
   const [disbandRoom] = useDisbandRoomMutation();
+  const [removeMember] = useRemoveMemberMutation();
+
+  const handleRemoveMember = (targetUserId: string, targetDisplayName: string) => {
+    Alert.alert(
+      "Xóa thành viên",
+      `Bạn có chắc chắn muốn xóa ${targetDisplayName} khỏi phòng không?`,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removeMember({ roomId: room?._id || "", userId: targetUserId }).unwrap();
+              Alert.alert("Thành công", "Đã xóa thành viên khỏi phòng.");
+              refetchMembers();
+            } catch (err) {
+              const errorResponse = err as { message?: string };
+              Alert.alert("Lỗi", errorResponse.message || "Không thể xóa thành viên.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [isChannelsExpanded, setIsChannelsExpanded] = useState(true);
@@ -154,6 +180,7 @@ export default function RoomDetailScreen() {
 
       if (hasNavigatedAway.current) return;
 
+      const isKicked = data.type === "member_removed" && data.removedUserId === profile?.supabaseId;
       // Chỉ xử lý cảnh báo và điều hướng cưỡng chế khi người dùng bị động rời phòng hoặc phòng bị giải tán
       const isKicked =
         data.type === "member_removed" &&
@@ -162,7 +189,7 @@ export default function RoomDetailScreen() {
 
       if (isKicked) {
         hasNavigatedAway.current = true;
-        Alert.alert("Thông báo", "Bạn đã bị mời ra khỏi phòng.", [
+        Alert.alert("Thông báo", "Bạn đã bị Chủ phòng xóa khỏi phòng.", [
           {
             text: "OK",
             onPress: () => router.replace("/dashboard"),
@@ -183,11 +210,37 @@ export default function RoomDetailScreen() {
       }
     };
 
+    const handleKickedFromMeeting = (data: { roomId: string }) => {
+      if (data.roomId === id && !hasNavigatedAway.current) {
+        hasNavigatedAway.current = true;
+        Alert.alert("Thông báo", "Bạn đã bị Chủ phòng xóa khỏi phòng.", [
+          {
+            text: "OK",
+            onPress: () => router.replace("/dashboard"),
+          },
+        ]);
+      }
+    };
+
+    const handleKickedFromMeeting = (data: { roomId: string }) => {
+      if (data.roomId === id && !hasNavigatedAway.current) {
+        hasNavigatedAway.current = true;
+        Alert.alert("Thông báo", "Bạn đã bị Chủ phòng xóa khỏi phòng.", [
+          {
+            text: "OK",
+            onPress: () => router.replace("/home"),
+          },
+        ]);
+      }
+    };
+
     socket.on("room_updated", handleRoomUpdated);
+    socket.on("member_kicked_from_meeting", handleKickedFromMeeting);
 
     return () => {
       socket.emit("leave_room", id);
       socket.off("room_updated", handleRoomUpdated);
+      socket.off("member_kicked_from_meeting", handleKickedFromMeeting);
     };
   }, [id, profile?.supabaseId, room?.ownerId]);
 
@@ -678,6 +731,7 @@ export default function RoomDetailScreen() {
                 </View>
 
                 {membersList?.map((m) => {
+                {membersList?.map((m) => {
                   const memberIsOwner = m.role === "owner";
                   return (
                     <View
@@ -693,6 +747,7 @@ export default function RoomDetailScreen() {
                             />
                           ) : (
                             <Text className="font-bold text-blue-600 text-sm">
+                              {(m.displayName || "U").charAt(0).toUpperCase()}
                               {m.displayName?.charAt(0).toUpperCase()}
                             </Text>
                           )}
@@ -701,6 +756,7 @@ export default function RoomDetailScreen() {
                       </View>
                       <View className="flex-1">
                         <Text className="text-base font-bold text-slate-800">
+                          {m.displayName || "Người dùng"} {m.userId === profile?.supabaseId && <Text className="text-slate-400 font-normal text-xs">(Bạn)</Text>}
                           {m.displayName}{" "}
                           {m.userId === profile?.supabaseId && (
                             <Text className="text-slate-400 font-normal text-xs">
@@ -723,6 +779,14 @@ export default function RoomDetailScreen() {
                           )}
                         </View>
                       </View>
+                      {room?.ownerId === profile?.supabaseId && m.userId !== profile?.supabaseId && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveMember(m.userId, m.displayName || "Người dùng")}
+                          className="w-8 h-8 rounded-lg bg-red-50 justify-center items-center"
+                        >
+                          <Feather name="user-x" size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                   );
                 })}
@@ -944,6 +1008,8 @@ export default function RoomDetailScreen() {
                         )}
                       </View>
                       <View className="flex-1">
+                        <Text className="text-base font-bold text-slate-800">{item.displayName || "Người dùng"}</Text>
+                        <Text className="text-xs text-slate-400 mt-0.5">{item.email}</Text>
                         <Text className="text-base font-bold text-slate-800">
                           {item.displayName}
                         </Text>
@@ -1025,7 +1091,7 @@ export default function RoomDetailScreen() {
                     onPress={() => {
                       Alert.alert(
                         "Xác nhận bàn giao",
-                        `Bàn giao quyền chủ phòng cho ${item.displayName} và rời phòng?`,
+                        `Bàn giao quyền chủ phòng cho ${item.displayName || "Người dùng"} và rời phòng?`,
                         [
                           { text: "Hủy", style: "cancel" },
                           {
@@ -1046,11 +1112,14 @@ export default function RoomDetailScreen() {
                         />
                       ) : (
                         <Text className="font-bold text-blue-600 text-sm">
+                          {(item.displayName || "U").charAt(0).toUpperCase()}
                           {item.displayName?.charAt(0).toUpperCase()}
                         </Text>
                       )}
                     </View>
                     <View className="flex-1">
+                      <Text className="text-base font-bold text-slate-800">{item.displayName || "Người dùng"}</Text>
+                      <Text className="text-xs text-slate-400 mt-0.5">{item.email}</Text>
                       <Text className="text-base font-bold text-slate-800">
                         {item.displayName}
                       </Text>

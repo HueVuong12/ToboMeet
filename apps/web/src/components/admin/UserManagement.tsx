@@ -7,11 +7,12 @@ import {
   AdminUserResponse,
   useUpdateUserMutation,
 } from "@/lib/redux/api/adminApi";
-import { Search, UserPlus, Loader2, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, UserPlus, Loader2, Check, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import UserListTable from "./UserListTable";
 import UserDialog from "./UserDialog";
 import ResetPasswordDialog from "./ResetPasswordDialog";
 import AdminConfirmDialog from "./AdminConfirmDialog";
+import ViolationDialog from "./ViolationDialog";
 import { createPortal } from "react-dom";
 
 export default function UserManagement() {
@@ -37,6 +38,9 @@ export default function UserManagement() {
 
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<AdminUserResponse | null>(null);
+
+  const [isViolationOpen, setIsViolationOpen] = useState(false);
+  const [violationUser, setViolationUser] = useState<AdminUserResponse | null>(null);
 
   // Confirm Dialog state
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -67,41 +71,8 @@ export default function UserManagement() {
   };
 
   const handleToggleLockClick = (user: AdminUserResponse) => {
-    const newStatus = user.status === "active" ? "locked" : "active";
-    
-    setConfirmTitle(newStatus === "locked" ? t("lock_confirm_title") : t("unlock_confirm_title"));
-    setConfirmDesc(
-      newStatus === "locked"
-        ? t("lock_confirm_desc", { name: user.displayName || user.email })
-        : t("unlock_confirm_desc", { name: user.displayName || user.email })
-    );
-    setConfirmVariant("warning");
-    
-    setConfirmAction(() => async () => {
-      try {
-        console.log(`[Frontend Log] Chuẩn bị gửi yêu cầu updateUser: id=${user.id}, newStatus=${newStatus}`);
-        const res = await updateUser({
-          id: user.id,
-          displayName: user.displayName,
-          role: user.role,
-          status: newStatus,
-        }).unwrap();
-        console.log(`[Frontend Log] updateUser phản hồi thành công:`, res);
-        setIsConfirmOpen(false);
-        
-        const successMsg = newStatus === "locked" ? t("lock_success") : t("unlock_success");
-        if (res && res.emailWarning) {
-          triggerToast(`${successMsg} ${t("warning_prefix")}${res.emailWarning}`);
-        } else {
-          triggerToast(successMsg);
-        }
-      } catch (err: any) {
-        setIsConfirmOpen(false);
-        triggerToast(t("error_prefix") + (err?.data?.message || err?.message));
-      }
-    });
-    
-    setIsConfirmOpen(true);
+    setViolationUser(user);
+    setIsViolationOpen(true);
   };
 
   return (
@@ -219,6 +190,18 @@ export default function UserManagement() {
         />
       )}
 
+      {/* Violation modal */}
+      {isViolationOpen && violationUser && (
+        <ViolationDialog
+          user={violationUser}
+          onClose={() => {
+            setIsViolationOpen(false);
+            setViolationUser(null);
+          }}
+          onSuccess={triggerToast}
+        />
+      )}
+
       {/* Confirm Dialog */}
       {isConfirmOpen && (
         <AdminConfirmDialog
@@ -234,8 +217,14 @@ export default function UserManagement() {
       {/* Toast Alert */}
       {showToast &&
         createPortal(
-          <div className="fixed bottom-5 right-5 z-[100] bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <Check className="w-4 h-4 text-emerald-400" />
+          <div className={`fixed bottom-5 right-5 z-[100] text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+            toastMsg.includes("không thể gửi email") ? "bg-amber-600 border border-amber-500" : "bg-slate-900"
+          }`}>
+            {toastMsg.includes("không thể gửi email") ? (
+              <AlertTriangle className="w-4 h-4 text-white" />
+            ) : (
+              <Check className="w-4 h-4 text-emerald-400" />
+            )}
             <span>{toastMsg}</span>
           </div>,
           document.body,

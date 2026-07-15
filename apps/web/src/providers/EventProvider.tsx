@@ -73,9 +73,25 @@ export function EventProvider({
 
     socket.on("switch_device_requested", handleSwitchRequested);
 
+    const handleKickedFromMeeting = (data: { roomId: string }) => {
+      toast.error("Bạn đã bị Chủ phòng xóa khỏi phòng.");
+      localStorage.removeItem(`active_meeting_${data.roomId}`);
+      window.dispatchEvent(
+        new CustomEvent("FORCE_CLOSE_MEETING_WINDOW", {
+          detail: data.roomId,
+        }),
+      );
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1500);
+    };
+
+    socket.on("member_kicked_from_meeting", handleKickedFromMeeting);
+
     return () => {
       socket.off("connect", handleConnect);
       socket.off("switch_device_requested", handleSwitchRequested);
+      socket.off("member_kicked_from_meeting", handleKickedFromMeeting);
     };
   }, [userId]);
 

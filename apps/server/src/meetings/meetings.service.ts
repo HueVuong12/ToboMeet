@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  ForbiddenException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -11,6 +12,8 @@ import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
+import { RoomActivity, RoomActivityDocument } from "../rooms/schemas/room-activity.schema";
+import { ErrorCode, MeetingJoinResponse } from "@tobomeet/shared/types";
 import {
   ErrorCode,
   MeetingJoinResponse,
@@ -31,6 +34,7 @@ export class MeetingsService {
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    @InjectModel(RoomActivity.name) private activityModel: Model<RoomActivityDocument>,
     @Inject(forwardRef(() => MeetingsGateway))
     private readonly meetingsGateway: MeetingsGateway,
   ) {
@@ -125,6 +129,20 @@ export class MeetingsService {
         hostId: userId,
       });
 
+      // Cập nhật trạng thái phòng họp thành active
+      await this.roomModel.updateOne({ _id: roomId }, { status: "active" });
+
+      // Ghi nhận hoạt động phòng
+      await this.activityModel.create({
+        roomId,
+        type: "MEETING_STARTED",
+        metadata: {
+          userId,
+          displayName: finalDisplayName,
+          details: `Chủ phòng bắt đầu cuộc họp (Mã cuộc họp: ${meetingCode})`,
+        },
+      });
+
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(channelId, {
         isOngoing: true,
@@ -147,7 +165,10 @@ export class MeetingsService {
     const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
-    const userRole = userInRoom ? userInRoom.role : "member";
+    if (!userInRoom || userInRoom.isLeft === true || userInRoom.status === "REMOVED" || userInRoom.status === "LEFT") {
+      throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
+    }
+    const userRole = userInRoom.role;
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
     const at = new AccessToken(apiKey, apiSecret, {
@@ -346,6 +367,21 @@ export class MeetingsService {
       meeting.status = "ended";
       await meeting.save();
       console.log(`Đã đóng cuộc họp: ${meetingCode}`);
+
+      // Cập nhật trạng thái phòng họp thành ended (nếu không có meeting ongoing khác)
+      const otherOngoing = await this.meetingModel.findOne({ roomId: meeting.roomId, status: "ongoing" }).exec();
+      if (!otherOngoing) {
+        await this.roomModel.updateOne({ _id: meeting.roomId, status: { $ne: "disbanded" } }, { status: "ended" });
+      }
+
+      // Ghi nhận hoạt động phòng
+      await this.activityModel.create({
+        roomId: meeting.roomId,
+        type: "MEETING_ENDED",
+        metadata: {
+          details: `Cuộc họp đã kết thúc (Mã cuộc họp: ${meetingCode})`,
+        },
+      });
 
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {

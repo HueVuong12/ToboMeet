@@ -1,3 +1,4 @@
+import { RoomResponse, RoomMemberResponse } from "@tobomeet/shared/types";
 import {
   ActiveMeetingResponse,
   MeetingJoinResponse,
@@ -9,12 +10,14 @@ import { baseApi } from "../../api/baseApi";
 export const roomsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMyRooms: builder.query<RoomResponse[], void>({
+    getMyRooms: builder.query<RoomResponse[], void>({
       query: () => ({
         url: "/rooms/my",
         method: "GET",
       }),
       providesTags: ["Room"],
     }),
+    getRoomById: builder.query<RoomResponse, string>({
 
     getRoomById: builder.query<RoomResponse, string>({
       query: (id) => ({
@@ -23,6 +26,7 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       providesTags: (result, error, id) => [{ type: "Room", id }],
     }),
+    createRoom: builder.mutation<RoomResponse, { name: string; type: "meeting" | "classroom" }>({
 
     createRoom: builder.mutation<
       RoomResponse,
@@ -35,6 +39,7 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
+    joinRoom: builder.mutation<RoomResponse, { code: string }>({
 
     joinRoom: builder.mutation<RoomResponse, { code: string }>({
       query: (body) => ({
@@ -44,6 +49,7 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
+    addChannel: builder.mutation<RoomResponse, { roomId: string; name: string }>({
 
     addChannel: builder.mutation<
       RoomResponse,
@@ -59,6 +65,7 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
+    addMemberByEmailOrId: builder.mutation<RoomResponse, { roomId: string; email?: string; targetUserId?: string }>({
 
     addMemberByEmailOrId: builder.mutation<
       RoomResponse,
@@ -74,6 +81,7 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
+    leaveRoom: builder.mutation<void, { roomId: string; newOwnerId?: string }>({
 
     leaveRoom: builder.mutation<void, { roomId: string; newOwnerId?: string }>({
       query: ({ roomId, newOwnerId }) => ({
@@ -83,6 +91,7 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
+    disbandRoom: builder.mutation<void, string>({
 
     disbandRoom: builder.mutation<void, string>({
       query: (roomId) => ({
@@ -91,6 +100,17 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
+    removeMember: builder.mutation<void, { roomId: string; userId: string }>({
+      query: ({ roomId, userId }) => ({
+        url: `/rooms/${roomId}/members/${userId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+    getRoomMembers: builder.query<RoomMemberResponse[], string>({
 
     getRoomMembers: builder.query<RoomMemberResponse[], string>({
       query: (roomId) => ({
@@ -153,4 +173,5 @@ export const {
   useRemoveParticipantMutation,
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
+  useRemoveMemberMutation,
 } = roomsApi;

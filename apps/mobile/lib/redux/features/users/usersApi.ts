@@ -1,6 +1,18 @@
 import { UserResponse } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
+export interface UserSession {
+  id: string;
+  ip: string;
+  os: string;
+  browser: string;
+  isMobile: boolean;
+  isDesktop: boolean;
+  isCurrent: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMe: builder.query<UserResponse, void>({
@@ -16,7 +28,7 @@ export const usersApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
-    getSessions: builder.query<any[], void>({
+    getSessions: builder.query<UserSession[], void>({
       query: () => ({
         url: "/users/me/sessions",
         method: "GET",

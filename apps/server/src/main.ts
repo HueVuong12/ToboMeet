@@ -4,6 +4,7 @@ import { AppModule } from "./app.module";
 import { TransformInterceptor } from "./core/interceptors/transform.interceptor";
 import { GlobalExceptionFilter } from "./core/filters/global-exception.filter";
 import * as express from "express";
+import * as path from "path";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -22,6 +23,9 @@ async function bootstrap() {
 
   app.use(express.urlencoded({ extended: true }));
   app.setGlobalPrefix("api");
+
+  // Serve static uploaded files
+  app.use("/api/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
   // Trong môi trường dev: cho phép mọi origin (bao gồm thiết bị mobile trên LAN)
   // Trong môi trường prod: chỉ cho phép các domain cụ thể trong CLIENT_URL (phân cách bằng dấu phẩy)

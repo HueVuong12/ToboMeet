@@ -123,4 +123,83 @@ export class AdminController {
     }
     return this.adminService.deleteUserAccount(id);
   }
+
+  // --- HỆ THỐNG XỬ LÝ VI PHẠM & KHÓA TÀI KHOẢN ---
+
+  @Get("check-lock")
+  async checkLock(@Query("email") email: string) {
+    if (!email) {
+      throw new BadRequestException("Email là bắt buộc");
+    }
+    return this.adminService.checkLockByEmail(email);
+  }
+
+  @Post("users/:id/lock")
+  async lockUser(
+    @Req() req,
+    @Param("id") id: string,
+    @Body("violationType") violationType: string,
+    @Body("recommendedDuration") recommendedDuration: string,
+    @Body("actualDuration") actualDuration: string,
+    @Body("lockReason") lockReason: string,
+    @Body("sendEmail") sendEmail: boolean,
+    @Body("lockSource") lockSource?: string,
+  ) {
+    if (req.user?.role !== "admin") {
+      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+    }
+
+    if (!violationType || !actualDuration || !lockReason) {
+      throw new BadRequestException("Thiếu thông tin vi phạm hoặc lý do khóa");
+    }
+
+    const adminEmail = req.user?.email || "admin";
+    return this.adminService.lockUserAccount(
+      id,
+      {
+        violationType,
+        recommendedDuration,
+        actualDuration,
+        lockReason,
+        sendEmail,
+        lockSource: lockSource || "MANUAL",
+      },
+      adminEmail
+    );
+  }
+
+  @Post("users/:id/unlock")
+  async unlockUser(@Req() req, @Param("id") id: string) {
+    if (req.user?.role !== "admin") {
+      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+    }
+    const adminEmail = req.user?.email || "admin";
+    return this.adminService.unlockUserAccount(id, adminEmail);
+  }
+
+  @Post("users/:id/extend-lock")
+  async extendUserLock(
+    @Req() req,
+    @Param("id") id: string,
+    @Body("actualDuration") actualDuration: string,
+    @Body("lockReason") lockReason: string,
+  ) {
+    if (req.user?.role !== "admin") {
+      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+    }
+
+    if (!actualDuration || !lockReason) {
+      throw new BadRequestException("Thiếu thông tin thời gian gia hạn hoặc lý do");
+    }
+
+    const adminEmail = req.user?.email || "admin";
+    return this.adminService.extendUserLock(
+      id,
+      {
+        actualDuration,
+        lockReason,
+      },
+      adminEmail
+    );
+  }
 }

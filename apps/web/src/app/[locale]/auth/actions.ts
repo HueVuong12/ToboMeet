@@ -36,6 +36,40 @@ export async function login(prevState: FormState, formData: FormData) {
       errorMessage = "error.auth.too_many_requests";
     } else if (error.message.includes("User is banned")) {
       errorMessage = "error.auth.user_locked";
+      try {
+        const nestApiUrl = process.env.NESTJS_BASE_URL || "http://localhost:3001/api";
+        const res = await fetch(`${nestApiUrl}/admin/check-lock?email=${encodeURIComponent(email)}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const lockInfo = await res.json();
+          // Nếu backend tự động mở khóa thành công
+          if (lockInfo && lockInfo.result && lockInfo.result.isLocked === false) {
+            return { error: "Tài khoản vừa được mở khóa tự động! Vui lòng nhấn Đăng nhập lại.", message: null };
+          }
+          if (lockInfo && lockInfo.result && lockInfo.result.isLocked) {
+            const info = lockInfo.result;
+            if (info.lockType === "INDEFINITE") {
+              return {
+                error: `Tài khoản của bạn đã bị khóa vô thời hạn cho đến khi quản trị viên mở khóa. (Lý do: ${info.lockReason})`,
+                message: null,
+              };
+            } else {
+              const formattedDate = new Date(info.lockedUntil).toLocaleString("vi-VN", {
+                timeZone: "Asia/Ho_Chi_Minh",
+              });
+              return {
+                error: `Tài khoản của bạn đang bị tạm khóa đến ${formattedDate} do hành vi: ${info.violationType}. (Lý do: ${info.lockReason})`,
+                message: null,
+              };
+            }
+          }
+        }
+      } catch (checkErr) {
+        console.error("Không thể lấy chi tiết khóa từ backend:", checkErr);
+      }
     }
 
     return { error: errorMessage, message: null };

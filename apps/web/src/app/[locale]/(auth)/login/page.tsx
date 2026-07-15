@@ -71,7 +71,7 @@ export default function LoginPage() {
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium">
-          {t(error)}
+          {error.startsWith("error.") ? t(error) : error}
         </div>
       )}
 

@@ -487,7 +487,7 @@ export default function Sidebar({
               </div>
 
               {/* Body */}
-              <div className="px-6 py-4 flex flex-col gap-4">
+              <div className="px-6 pt-4 pb-6 flex flex-col gap-4">
                 {/* Tìm & Thêm Thành Viên */}
                 <div className="flex flex-col gap-1.5 relative">
                   <label className="text-xs font-bold text-slate-700">
@@ -539,7 +539,7 @@ export default function Sidebar({
 
                   {/* Dropdown Gợi ý tìm kiếm */}
                   {searchQuery.trim().length >= 2 && !selectedUser && (
-                    <div className="absolute top-[68px] left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl py-1.5 z-[60] max-h-48 overflow-y-auto">
+                    <div className="w-full mt-2 bg-slate-50 border border-slate-200 rounded-xl py-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                       {isSearching ? (
                         <div className="px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -600,15 +600,7 @@ export default function Sidebar({
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="flex justify-end px-6 pb-6 pt-2">
-                <button
-                  onClick={() => setShowInviteModal(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
-                >
-                  {t("close_action")}
-                </button>
-              </div>
+
             </div>
           </div>,
           document.body,

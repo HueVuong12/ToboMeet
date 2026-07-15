@@ -71,7 +71,10 @@ export class RoomsController {
    * GET /api/rooms/:id/members — Lấy toàn bộ danh sách thành viên trong phòng
    */
   @Get(":id/members")
-  async getRoomMembers(@Param("id") roomId: string) {
+  async getRoomMembers(@Param("id") roomId: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
+    // Kiểm tra quyền thành viên trước
+    await this.roomsService.getRoomByIdForUser(roomId, userId);
     return this.roomsService.getRoomMembers(roomId);
   }
 
@@ -84,8 +87,10 @@ export class RoomsController {
   async removeMember(
     @Param("id") roomId: string,
     @Param("userId") targetUserId: string,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.roomsService.removeMember(roomId, targetUserId);
+    const ownerId = req.user.id;
+    return this.roomsService.removeMember(roomId, targetUserId, ownerId);
   }
 
   /**
@@ -153,6 +158,8 @@ export class RoomsController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
+    // Kiểm tra quyền thành viên trước
+    await this.roomsService.getRoomByIdForUser(roomId, userId);
     return this.roomsService.leaveRoom(roomId, userId, newOwnerId);
   }
 
@@ -168,8 +175,9 @@ export class RoomsController {
    * GET /api/rooms/:id — Lấy chi tiết phòng
    */
   @Get(":id")
-  async getRoomById(@Param("id") id: string) {
-    return this.roomsService.getRoomById(id);
+  async getRoomById(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
+    return this.roomsService.getRoomByIdForUser(id, userId);
   }
 
   /**
