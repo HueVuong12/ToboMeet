@@ -58,7 +58,6 @@ export default function MobileToolbar({
         justifyContent: "center",
         alignItems: "center",
         paddingVertical: 12,
-        paddingBottom: 28,
         borderTopWidth: 1,
         borderTopColor: "rgba(255,255,255,0.05)",
         gap: 6, // Giảm gap một chút xíu để nhét thêm nút mà không bị tràn màn hình
