@@ -1,11 +1,15 @@
+import { useHandRaise } from "@/hooks/useHandRaise";
 import { useRemoveParticipantMutation } from "@/lib/redux/api/roomsApi";
 import {
   useLocalParticipant,
   useParticipants,
+  useRoomContext,
 } from "@livekit/components-react";
+import { Participant, RoomEvent } from "livekit-client";
 import {
   Crown,
   Edit2,
+  Hand,
   Loader2,
   Mic,
   MicOff,
@@ -13,8 +17,9 @@ import {
   Shield,
   UserMinus,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 
 /**
  * COMPONENT: Danh sách người tham gia
@@ -28,6 +33,7 @@ export default function ParticipantList({
   channelId: string | null;
   meetingCode: string | null;
 }) {
+  const room = useRoomContext();
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
 
@@ -41,6 +47,23 @@ export default function ParticipantList({
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
 
   const [removeParticipant] = useRemoveParticipantMutation();
+
+  const { getHandState } = useHandRaise();
+
+  // Lọc bỏ những người đã bị kick và SẮP XẾP DANH SÁCH GIƠ TAY
+  const displayParticipants = participants
+    .filter((p) => !kickedUsers.includes(p.identity))
+    .sort((a, b) => {
+      const stateA = getHandState(a);
+      const stateB = getHandState(b);
+
+      if (stateA.isRaised && stateB.isRaised) {
+        return parseInt(stateA.raisedAt) - parseInt(stateB.raisedAt);
+      }
+      if (stateA.isRaised) return -1;
+      if (stateB.isRaised) return 1;
+      return 0;
+    });
 
   let localRole = "member";
   try {
@@ -78,16 +101,11 @@ export default function ParticipantList({
       setKickedUsers((prev) => [...prev, identity]);
     } catch (error) {
       console.error(error);
-      alert("Không thể thực hiện thao tác đuổi khỏi phòng!");
+      toast.error("Không thể thực hiện thao tác đuổi khỏi phòng!");
     } finally {
       setKickingUserId(null);
     }
   };
-
-  // Lọc bỏ những người đã bị kick trước khi render
-  const displayParticipants = participants.filter(
-    (p) => !kickedUsers.includes(p.identity),
-  );
 
   // Xử lý đổi tên người dùng
   const handleRenameSubmit = async () => {
@@ -98,7 +116,7 @@ export default function ParticipantList({
       setRenameState(null);
     } catch (error) {
       console.error(error);
-      alert("Không thể đổi tên lúc này!");
+      toast.error("Không thể đổi tên lúc này!");
     }
   };
 
@@ -118,6 +136,7 @@ export default function ParticipantList({
         {displayParticipants.map((p) => {
           let avatarUrl = "";
           let role = "member";
+          const { isRaised } = getHandState(p);
           try {
             if (p.metadata) {
               const meta = JSON.parse(p.metadata);
@@ -177,8 +196,15 @@ export default function ParticipantList({
 
               {/* Cụm Action (Mic + Menu) */}
               <div className="flex items-center gap-1 shrink-0">
+                {/* ICON GIƠ TAY */}
+                {isRaised && (
+                  <Hand
+                    size={14}
+                    className="text-amber-400 mr-1 fill-amber-400 animate-pulse"
+                  />
+                )}
                 {/* Trạng thái Mic */}
-                <div className="text-slate-400 mr-1">
+                <div className="text-slate-400">
                   {p.isMicrophoneEnabled ? (
                     <div className="p-1.5 bg-slate-800/50 rounded-lg">
                       <Mic size={14} className="text-emerald-400" />

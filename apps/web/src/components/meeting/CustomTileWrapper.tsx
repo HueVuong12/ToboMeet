@@ -1,8 +1,10 @@
+import { useHandRaise } from "@/hooks/useHandRaise";
 import {
   ParticipantTile,
   TrackReferenceOrPlaceholder,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
+import { Hand } from "lucide-react";
 
 /**
  * COMPONENT: Wrapper thông minh cho từng ô Video
@@ -19,6 +21,8 @@ export default function CustomTileWrapper({
 }) {
   const participant = trackRef.participant;
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
+  const { getHandState } = useHandRaise();
+  const handState = getHandState(participant);
 
   // Giải mã Avatar từ metadata (giống hệt logic ở ParticipantList)
   let avatarUrl = "";
@@ -42,6 +46,14 @@ export default function CustomTileWrapper({
           objectFit: isMain && isScreenShare ? "contain" : "cover",
         }}
       />
+
+      {/* ICON BÀN TAY HIỂN THỊ TRÊN GÓC VIDEO */}
+      {handState.isRaised && (
+        <div className="absolute top-2 right-2 bg-amber-500/90 text-white p-1.5 rounded-lg shadow-lg shadow-amber-500/30 z-20 flex items-center gap-1.5 border border-amber-400 backdrop-blur-md">
+          <Hand size={14} className="fill-white animate-bounce" />
+          <span className="text-xs font-bold">Giơ tay</span>
+        </div>
+      )}
 
       {/* 2. Lớp Overlay hiển thị Avatar (Chỉ hiện khi tắt Camera) */}
       {isCameraOff && (

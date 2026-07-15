@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   Platform,
-  Keyboard,
   ActivityIndicator,
   ScrollView,
   Linking,
@@ -28,6 +27,7 @@ import { ChatMessage } from "@tobomeet/shared/types";
 import { toast } from "../../lib/toast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useGeneratePresignedUploadUrlMutation } from "../../lib/redux/features/meetings/meetingsApi";
+import { KeyboardAvoidingView } from "react-native";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😡", "🎉"];
 
@@ -315,35 +315,19 @@ export default function MobileChatModal({
     }
   };
 
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => setKeyboardHeight(e.endCoordinates.height),
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => setKeyboardHeight(0),
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity
-          activeOpacity={1}
-          className="absolute inset-0 bg-black/50"
-          onPress={onClose}
-        />
+      <TouchableOpacity
+        activeOpacity={1}
+        className="absolute inset-0 bg-black/50"
+        onPress={onClose}
+      />
 
-        <View
-          className="bg-slate-900 rounded-t-3xl overflow-hidden border-t border-slate-700 flex-col"
-          style={{ height: "85%" }}
-        >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+      >
+        <View className="bg-slate-900 flex-1 mt-24 rounded-t-3xl overflow-hidden border-t border-slate-700 flex-col">
           {/* Header */}
           <View className="flex-row justify-between items-center p-4 border-b border-slate-800 shrink-0">
             <Text className="text-white font-bold text-lg">
@@ -509,7 +493,10 @@ export default function MobileChatModal({
           )}
 
           {/* Khung nhập liệu & Nút gửi */}
-          <View className="p-3 border-t border-slate-800 bg-slate-900 flex-row items-center gap-2 shrink-0">
+          <View
+            className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center gap-2 shrink-0"
+            style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+          >
             {isProcessing ? (
               <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
                 <ActivityIndicator size="small" color="#10b981" />
@@ -555,18 +542,8 @@ export default function MobileChatModal({
               </>
             )}
           </View>
-
-          {/* CỤC ĐỆM BÀN PHÍM */}
-          <View
-            style={{
-              height:
-                keyboardHeight > 0
-                  ? keyboardHeight
-                  : Math.max(insets.bottom, 12),
-            }}
-          />
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {/* MENU ACTION (Mở khi nhấn giữ tin nhắn) */}
       <Modal visible={!!activeMessage} transparent animationType="fade">
