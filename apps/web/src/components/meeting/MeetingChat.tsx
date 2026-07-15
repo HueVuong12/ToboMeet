@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, MutableRefObject } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   useLocalParticipant,
@@ -18,20 +18,23 @@ import {
 } from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { toast } from "sonner";
+import { useGeneratePresignedUploadUrlMutation } from "@/lib/redux/api/meetingsApi";
 
 interface MeetingChatProps {
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  activeUploadsRef: MutableRefObject<{ [fileId: string]: string }>;
+  meetingCode: string;
 }
 
 export default function MeetingChat({
   setMessages,
   messages,
-  activeUploadsRef,
+  meetingCode,
 }: MeetingChatProps) {
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants();
+
+  const [generatePresignedUrl] = useGeneratePresignedUploadUrlMutation();
 
   const [inputValue, setInputValue] = useState("");
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -49,103 +52,80 @@ export default function MeetingChat({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // tối đa 50MB
 
-  const CHUNK_SIZE = 16 * 1024;
-
+  // Upload file dùng S3 presigned url
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !localParticipant) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error("Chỉ hỗ trợ file dưới 100MB!");
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Chỉ hỗ trợ file dưới 50MB!");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const fullDataUrl = ev.target?.result as string;
-      const base64Data = fullDataUrl.split(",")[1];
+    const toastId = toast.loading(`Đang tải lên ${file.name}...`);
 
-      const fileId = Math.random().toString(36).substring(2, 15);
-      const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
-
-      activeUploadsRef.current[fileId] = base64Data;
-
-      const startMsg: ChatMessage = {
-        id: fileId,
-        type: "FILE_START",
-        senderIdentity: localParticipant.identity,
-        senderName: localParticipant.name || "Bạn",
-        timestamp: Date.now(),
-        isPrivate: selectedTarget !== "all",
-        fileId,
+    try {
+      // Xin presigned url từ BE
+      const { presignedUrl, publicUrl } = await generatePresignedUrl({
         fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        totalChunks,
-      };
+        meetingCode: meetingCode,
+      }).unwrap();
 
-      const encoder = new TextEncoder();
-      await localParticipant.publishData(
-        encoder.encode(JSON.stringify(startMsg)),
-        { reliable: true },
-      );
+      // Upload trực tiếp lên S3 (supabase storage)
+      const uploadResponse = await fetch(presignedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
 
-      for (let i = 0; i < totalChunks; i++) {
-        const chunkStr = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        const chunkMsg: ChatMessage = {
-          id: Math.random().toString(36).substring(2, 9),
-          type: "FILE_CHUNK",
-          senderIdentity: localParticipant.identity,
-          senderName: localParticipant.name || "Bạn",
-          timestamp: Date.now(),
-          isPrivate: selectedTarget !== "all",
-          fileId,
-          chunkIndex: i,
-          chunkData: chunkStr,
-        };
-
-        await localParticipant.publishData(
-          encoder.encode(JSON.stringify(chunkMsg)),
-          { reliable: true },
-        );
-        await new Promise((resolve) => setTimeout(resolve, 5));
+      if (!uploadResponse.ok) {
+        throw new Error("Lỗi khi tải file lên máy chủ lưu trữ");
       }
 
-      const doneMsg: ChatMessage = {
-        ...startMsg,
-        id: fileId,
-        type: "FILE_DONE",
-      };
-
-      await localParticipant.publishData(
-        encoder.encode(JSON.stringify(doneMsg)),
-        { reliable: true },
-      );
-
-      const finalMessage: ChatMessage = {
-        id: fileId,
+      const isPrivate = selectedTarget !== "all";
+      const fileMsg: ChatMessage = {
+        id: Math.random().toString(36).substring(2, 9),
         type: "CHAT",
         senderIdentity: localParticipant.identity,
         senderName: localParticipant.name || "Bạn",
-        timestamp: startMsg.timestamp,
-        isPrivate: startMsg.isPrivate,
-        targetName:
-          selectedTarget !== "all"
-            ? participants.find((p) => p.identity === selectedTarget)?.name
-            : undefined,
+        timestamp: Date.now(),
+        isPrivate: isPrivate,
+        targetName: isPrivate
+          ? participants.find((p) => p.identity === selectedTarget)?.name
+          : undefined,
         fileName: file.name,
         fileType: file.type,
-        chunkData: URL.createObjectURL(file),
+        publicUrl: publicUrl,
       };
 
-      setMessages((prev) => [...prev, finalMessage]);
+      const encoder = new TextEncoder();
+      let destinationIdentities: string[] = [];
+      if (isPrivate) {
+        destinationIdentities = [selectedTarget];
+      }
 
+      // Gửi qua LiveKit
+      await localParticipant.publishData(
+        encoder.encode(JSON.stringify(fileMsg)),
+        {
+          reliable: true,
+          ...(destinationIdentities.length > 0 && { destinationIdentities }),
+        },
+      );
+
+      setMessages((prev) => [...prev, fileMsg]);
+      toast.success("Tải file thành công!", { id: toastId });
+    } catch (error) {
+      console.error(error);
+      toast.error("Lỗi tải file lên", { id: toastId });
+    } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-
-    reader.readAsDataURL(file);
+    }
   };
 
   useEffect(() => {
@@ -486,14 +466,14 @@ export default function MeetingChat({
                   )}
 
                   {/* HIỂN THỊ ẢNH/VIDEO (Không bọc nền màu) */}
-                  {msg.chunkData &&
+                  {msg.publicUrl &&
                     (msg.fileType?.startsWith("image/") ||
                       msg.fileType?.startsWith("video/")) && (
                       <div
                         className="cursor-pointer overflow-hidden rounded-xl relative group shadow-sm bg-slate-900/30"
                         onClick={() =>
                           setPreviewMedia({
-                            url: msg.chunkData!,
+                            url: msg.publicUrl!,
                             type: msg.fileType!,
                             name: msg.fileName!,
                           })
@@ -501,13 +481,13 @@ export default function MeetingChat({
                       >
                         {msg.fileType?.startsWith("image/") ? (
                           <img
-                            src={msg.chunkData}
+                            src={msg.publicUrl}
                             alt={msg.fileName}
                             className="max-w-full max-h-48 object-contain transition-transform duration-300 group-hover:scale-105"
                           />
                         ) : (
                           <video
-                            src={msg.chunkData}
+                            src={msg.publicUrl}
                             className="max-w-full max-h-48 object-cover"
                           />
                         )}
@@ -521,11 +501,11 @@ export default function MeetingChat({
                     )}
 
                   {/* HIỂN THỊ TÀI LIỆU KHÁC (Được style lại dạng thẻ Card đẹp mắt) */}
-                  {msg.chunkData &&
+                  {msg.publicUrl &&
                     !msg.fileType?.startsWith("image/") &&
                     !msg.fileType?.startsWith("video/") && (
                       <a
-                        href={msg.chunkData}
+                        href={msg.publicUrl}
                         download={msg.fileName}
                         className="flex items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-600/50 shadow-sm w-full"
                       >
@@ -677,7 +657,7 @@ export default function MeetingChat({
 
         {/* Chú thích dung lượng */}
         <p className="text-[10px] text-slate-500 text-center mt-0.5">
-          Chỉ cho phép gửi file dưới 100MB, chỉ chọn và gửi được 1 file tại 1
+          Chỉ cho phép gửi file dưới 50MB, chỉ chọn và gửi được 1 file tại 1
           thời điểm. Ảnh/Video sẽ hiển thị trực tiếp, các loại file khác sẽ hiển
           thị dưới dạng thẻ tải xuống.
         </p>

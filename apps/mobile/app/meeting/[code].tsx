@@ -1,7 +1,7 @@
 // app/meeting/[code].tsx
 
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MeetingPayload, MeetingStore } from "../../lib/meetingStore";
 
@@ -130,6 +130,7 @@ export default function MobileMeetingScreen() {
         />
 
         <MobileChatModal
+          meetingCode={code}
           visible={showChatModal}
           onClose={() => setShowChatModal(false)}
         />

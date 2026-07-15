@@ -11,14 +11,23 @@ import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import { ErrorCode, MeetingJoinResponse } from "@tobomeet/shared/types";
+import {
+  ErrorCode,
+  MeetingJoinResponse,
+  PresignedUploadResponse,
+} from "@tobomeet/shared/types";
 import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseService } from "../supabase/supabase.service";
 
 @Injectable()
 export class MeetingsService {
   private livekitRoomService: RoomServiceClient;
+  private supabase: SupabaseClient;
+  private readonly BUCKET_NAME = "meeting-chat";
   constructor(
+    private readonly supabaseService: SupabaseService,
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
@@ -173,6 +182,51 @@ export class MeetingsService {
       channelId: channelId.toString(),
       channelName: currentChannel?.name,
     };
+  }
+
+  /**
+   * Sinh presigned url upload cho meeting chat
+   */
+  async generatePresignedUrl(
+    originalFileName: string,
+    meetingCode: string,
+  ): Promise<PresignedUploadResponse> {
+    try {
+      // Chống trùng lặp tên file (Thêm timestamp và chuỗi ngẫu nhiên)
+      const fileExtension = originalFileName.includes(".")
+        ? originalFileName.split(".").pop()
+        : "bin";
+      const safeName = originalFileName
+        .replace(/[^a-zA-Z0-9]/g, "_")
+        .substring(0, 20);
+      const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${safeName}.${fileExtension}`;
+
+      // Phân loại theo meeting code
+      const filePath = `${meetingCode}/${uniqueFileName}`;
+
+      // Gọi hàm tạo URL upload tạm thời (Hết hạn sau 60 giây)
+      const { data, error } = await this.supabaseService.admin.storage
+        .from(this.BUCKET_NAME)
+        .createSignedUploadUrl(filePath);
+
+      if (error) {
+        console.error("Supabase Storage Error:", error);
+        throw new AppException(ErrorCode.SERVER_ERROR);
+      }
+
+      // Lấy Public URL để lưu vào database
+      const { data: publicUrlData } = this.supabaseService.admin.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(filePath);
+
+      return {
+        presignedUrl: data.signedUrl,
+        publicUrl: publicUrlData.publicUrl,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
   }
 
   async joinMeetingByCode(

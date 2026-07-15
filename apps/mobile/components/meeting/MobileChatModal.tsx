@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -7,31 +7,30 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  KeyboardAvoidingView,
   Platform,
-  Alert,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { RoomEvent } from "livekit-client";
 
-// 3 Thư viện mới cài
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { toast } from "../../lib/toast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const CHUNK_SIZE = 16 * 1024; // 16KB mỗi gói tin
+import { useGeneratePresignedUploadUrlMutation } from "../../lib/redux/features/meetings/meetingsApi";
 
 export default function MobileChatModal({
   visible,
   onClose,
+  meetingCode,
 }: {
   visible: boolean;
   onClose: () => void;
+  meetingCode: string;
 }) {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
@@ -39,9 +38,11 @@ export default function MobileChatModal({
   const [inputValue, setInputValue] = useState("");
   const insets = useSafeAreaInsets();
 
-  const fileReceiveBuffer = useRef<{ [fileId: string]: string[] }>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [generatePresignedUrl] = useGeneratePresignedUploadUrlMutation();
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // tối đa 50MB
 
-  // LOGIC NHẬN TIN NHẮN & FILE TỪ LIVEKIT
+  // LOGIC NHẬN TIN NHẮN
   useEffect(() => {
     if (!room) return;
 
@@ -52,52 +53,11 @@ export default function MobileChatModal({
       try {
         const data = JSON.parse(jsonString) as ChatMessage;
 
-        // Nhận Text
-        if (data.type === "CHAT" && !data.fileId) {
+        // Chỉ cần xử lý đúng 1 loại CHAT (Text và Link S3 đều chung loại này)
+        if (data.type === "CHAT") {
           setMessages((prev) => [...prev, data]);
         }
-
-        // Nhận File - Bắt đầu
-        else if (data.type === "FILE_START" && data.fileId) {
-          fileReceiveBuffer.current[data.fileId] = new Array(data.totalChunks);
-        }
-
-        // Nhận File - Từng mảnh
-        else if (
-          data.type === "FILE_CHUNK" &&
-          data.fileId &&
-          data.chunkData !== undefined
-        ) {
-          fileReceiveBuffer.current[data.fileId][data.chunkIndex!] =
-            data.chunkData;
-        }
-
-        // Nhận File - Kết thúc & Ráp lại
-        else if (data.type === "FILE_DONE" && data.fileId) {
-          const buffer = fileReceiveBuffer.current[data.fileId];
-          const allBase64 = buffer.join("");
-
-          // KHÁC BIỆT VỚI WEB: Lưu file thẳng vào bộ nhớ đệm của điện thoại
-          const fileUri = `${FileSystem.cacheDirectory}${data.fileName}`;
-          await FileSystem.writeAsStringAsync(fileUri, allBase64, {
-            encoding: "base64",
-          });
-
-          const finalMessage: ChatMessage = {
-            id: data.id,
-            type: "CHAT",
-            senderIdentity: data.senderIdentity,
-            senderName: data.senderName,
-            timestamp: data.timestamp,
-            fileName: data.fileName,
-            fileType: data.fileType,
-            isPrivate: data.isPrivate || false,
-            chunkData: fileUri, // Sử dụng URI của điện thoại (file://...)
-          };
-
-          setMessages((prev) => [...prev, finalMessage]);
-          delete fileReceiveBuffer.current[data.fileId];
-        }
+        // Có thể thêm logic REACT ở đây nếu bạn muốn phát triển tiếp
       } catch (error) {
         console.log("Lỗi parse tin nhắn:", error);
       }
@@ -133,99 +93,71 @@ export default function MobileChatModal({
     setInputValue("");
   };
 
-  // LOGIC XỬ LÝ GỬI FILE/ẢNH (DÙNG CHUNG)
+  // XỬ LÝ GỬI FILE/ẢNH QUA SUPABASE S3
   const processAndSendFile = async (
     uri: string,
     name: string,
     type: string,
     size: number,
   ) => {
-    if (size > 100 * 1024 * 1024) {
-      Alert.alert("Lỗi", "Chỉ hỗ trợ file dưới 100MB!");
+    if (size > MAX_FILE_SIZE) {
+      toast.error("Chỉ hỗ trợ file dưới 50MB!");
       return;
     }
 
+    setIsProcessing(true);
     try {
-      // Đọc file từ điện thoại thành chuỗi Base64
-      const base64Data = await FileSystem.readAsStringAsync(uri, {
-        encoding: "base64",
+      // 1. Gọi API lấy link upload
+      const { presignedUrl, publicUrl } = await generatePresignedUrl({
+        fileName: name,
+        meetingCode: meetingCode,
+      }).unwrap();
+
+      // 2. Dùng FileSystem.uploadAsync để đẩy thẳng file không làm đầy RAM
+      const uploadResult = await FileSystem.uploadAsync(presignedUrl, uri, {
+        httpMethod: "PUT",
+        headers: {
+          "Content-Type": type || "application/octet-stream",
+        },
       });
 
-      const fileId = Math.random().toString(36).substring(2, 15);
-      const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
-      const encoder = new TextEncoder();
+      if (uploadResult.status !== 200) {
+        throw new Error("Lỗi khi đẩy file lên cloud");
+      }
 
-      // 3.1 Gửi tín hiệu BẮT ĐẦU
-      const startMsg: ChatMessage = {
-        id: fileId,
-        type: "FILE_START",
+      // 3. Đẩy tin nhắn vào LiveKit với publicUrl
+      const fileMsg: ChatMessage = {
+        id: Math.random().toString(36).substring(2, 9),
+        type: "CHAT",
         senderIdentity: localParticipant.identity,
         senderName: localParticipant.name || "Bạn",
         timestamp: Date.now(),
-        fileId,
         isPrivate: false,
         fileName: name,
-        fileSize: size,
         fileType: type,
-        totalChunks,
+        publicUrl: publicUrl,
       };
+
+      const encoder = new TextEncoder();
       await localParticipant.publishData(
-        encoder.encode(JSON.stringify(startMsg)),
+        encoder.encode(JSON.stringify(fileMsg)),
         { reliable: true },
       );
 
-      // 3.2 Gửi TỪNG MẢNH (Vòng lặp)
-      for (let i = 0; i < totalChunks; i++) {
-        const chunkStr = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        const chunkMsg: ChatMessage = {
-          id: Math.random().toString(36).substring(2, 9),
-          type: "FILE_CHUNK",
-          fileId,
-          isPrivate: false,
-          senderIdentity: localParticipant.identity,
-          senderName: localParticipant.name || "Bạn",
-          chunkIndex: i,
-          chunkData: chunkStr,
-          timestamp: Date.now(),
-        };
-        await localParticipant.publishData(
-          encoder.encode(JSON.stringify(chunkMsg)),
-          { reliable: true },
-        );
-        await new Promise((resolve) => setTimeout(resolve, 5)); // Chống nghẽn mạng
-      }
-
-      // 3.3 Gửi tín hiệu KẾT THÚC
-      const doneMsg: ChatMessage = {
-        ...startMsg,
-        id: fileId,
-        type: "FILE_DONE",
-      };
-      await localParticipant.publishData(
-        encoder.encode(JSON.stringify(doneMsg)),
-        { reliable: true },
-      );
-
-      // Hiển thị lên màn hình của mình
-      setMessages((prev) => [
-        ...prev,
-        {
-          ...startMsg,
-          type: "CHAT",
-          chunkData: uri, // Dùng luôn URI gốc của máy để hiển thị cho nhanh
-        },
-      ]);
+      setMessages((prev) => [...prev, fileMsg]);
     } catch (error) {
       console.error(error);
-      toast.error("Không thể xử lý file này.");
+      toast.error("Không thể tải file lên.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  // PICKER: CHỌN ẢNH TỪ GALLERY
+  // CHỌN ẢNH / FILE
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Chỉ chọn ảnh/video
-      quality: 0.7, // Giảm chất lượng xíu để gửi cho nhanh
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
     });
 
     if (!result.canceled) {
@@ -236,10 +168,9 @@ export default function MobileChatModal({
     }
   };
 
-  // PICKER: CHỌN FILE TỪ ĐIỆN THOẠI
   const handlePickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*", // Cho phép chọn mọi loại file (PDF, Word, Excel...)
+      type: "*/*",
       copyToCacheDirectory: true,
     });
 
@@ -254,11 +185,10 @@ export default function MobileChatModal({
     }
   };
 
-  // 1. THÊM STATE VÀ EFFECT ĐỂ LẮNG NGHE BÀN PHÍM
+  // LẮNG NGHE BÀN PHÍM VÀ UI
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    // iOS dùng WillShow cho mượt, Android dùng DidShow cho chính xác
     const showSub = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       (e) => setKeyboardHeight(e.endCoordinates.height),
@@ -274,18 +204,15 @@ export default function MobileChatModal({
     };
   }, []);
 
-  // 2. GIAO DIỆN CHAT ĐÃ FIX
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View className="flex-1 justify-end">
-        {/* Lớp nền đen mờ */}
         <TouchableOpacity
           activeOpacity={1}
           className="absolute inset-0 bg-black/50"
           onPress={onClose}
         />
 
-        {/* Khung Chat cố định 85% màn hình */}
         <View
           className="bg-slate-900 rounded-t-3xl overflow-hidden border-t border-slate-700 flex-col"
           style={{ height: "85%" }}
@@ -303,9 +230,9 @@ export default function MobileChatModal({
             </TouchableOpacity>
           </View>
 
-          {/* Danh sách tin nhắn - BẮT BUỘC PHẢI CÓ style={{ flex: 1 }} */}
+          {/* Danh sách tin nhắn */}
           <FlatList
-            style={{ flex: 1 }} // <--- CHÌA KHÓA QUAN TRỌNG ĐỂ KHÔNG BỊ CHE INPUT
+            style={{ flex: 1 }}
             data={messages}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ padding: 16, gap: 12 }}
@@ -323,7 +250,7 @@ export default function MobileChatModal({
 
                   {item.fileType?.startsWith("image/") ? (
                     <Image
-                      source={{ uri: item.chunkData }}
+                      source={{ uri: item.publicUrl }}
                       className="w-48 h-48 rounded-xl bg-slate-800"
                       resizeMode="cover"
                     />
@@ -351,45 +278,55 @@ export default function MobileChatModal({
             }}
           />
 
-          {/* Khung nhập liệu & Nút gửi File (Loại bỏ hoàn toàn paddingBottom ở đây) */}
+          {/* Khung nhập liệu & Nút gửi */}
           <View className="p-3 border-t border-slate-800 bg-slate-900 flex-row items-center gap-2 shrink-0">
-            <TouchableOpacity
-              onPress={handlePickImage}
-              className="p-2.5 rounded-full bg-slate-800"
-            >
-              <Feather name="image" size={20} color="#3b82f6" />
-            </TouchableOpacity>
+            {isProcessing ? (
+              <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
+                <ActivityIndicator size="small" color="#10b981" />
+                <Text className="text-emerald-400 font-medium ml-2 text-sm">
+                  Đang tải file lên...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  onPress={handlePickImage}
+                  className="p-2.5 rounded-full bg-slate-800"
+                >
+                  <Feather name="image" size={20} color="#3b82f6" />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handlePickDocument}
-              className="p-2.5 rounded-full bg-slate-800"
-            >
-              <Feather name="paperclip" size={20} color="#10b981" />
-            </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handlePickDocument}
+                  className="p-2.5 rounded-full bg-slate-800"
+                >
+                  <Feather name="paperclip" size={20} color="#10b981" />
+                </TouchableOpacity>
 
-            <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
-              <TextInput
-                value={inputValue}
-                onChangeText={setInputValue}
-                placeholder="Nhập tin nhắn..."
-                placeholderTextColor="#64748b"
-                className="flex-1 py-3 text-white text-base"
-              />
-              <TouchableOpacity
-                onPress={handleSendText}
-                disabled={!inputValue.trim()}
-              >
-                <Feather
-                  name="send"
-                  size={20}
-                  color={inputValue.trim() ? "#3b82f6" : "#475569"}
-                />
-              </TouchableOpacity>
-            </View>
+                <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
+                  <TextInput
+                    value={inputValue}
+                    onChangeText={setInputValue}
+                    placeholder="Nhập tin nhắn..."
+                    placeholderTextColor="#64748b"
+                    className="flex-1 py-3 text-white text-base"
+                  />
+                  <TouchableOpacity
+                    onPress={handleSendText}
+                    disabled={!inputValue.trim()}
+                  >
+                    <Feather
+                      name="send"
+                      size={20}
+                      color={inputValue.trim() ? "#3b82f6" : "#475569"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
 
-          {/* CỤC ĐỆM BÀN PHÍM (SPACER) */}
-          {/* Khi bàn phím bật, cục này sẽ cao bằng bàn phím, đẩy chính xác Input Bar lên mép */}
+          {/* CỤC ĐỆM BÀN PHÍM */}
           <View
             style={{
               height:

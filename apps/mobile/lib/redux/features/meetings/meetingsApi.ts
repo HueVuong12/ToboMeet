@@ -2,7 +2,7 @@ import {
   MeetingJoinResponse,
   PresignedUploadResponse,
 } from "@tobomeet/shared/types";
-import { baseApi } from "./baseApi";
+import { baseApi } from "../../api/baseApi";
 
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({

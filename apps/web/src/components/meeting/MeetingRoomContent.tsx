@@ -29,11 +29,6 @@ export default function MeetingRoomContent({
 
   const storageKey = `meeting_chat_${meetingCode}`;
 
-  // Bộ đệm hứng file từ người khác
-  const fileReceiveBuffer = useRef<{ [fileId: string]: string[] }>({});
-  // Bộ đệm lưu trữ file gốc của MÌNH để sẵn sàng gửi bù nếu bị đòi
-  const activeUploadsRef = useRef<{ [fileId: string]: string }>({});
-
   // Dùng useRef để tránh "stale closure" trong sự kiện LiveKit
   const isChatOpenRef = useRef(false);
 
@@ -102,26 +97,21 @@ export default function MeetingRoomContent({
       try {
         const data = JSON.parse(jsonString) as ChatMessage;
 
-        // Nhận dữ liệu chat từ người khác
+        // Nhận dữ liệu CHAT (bao gồm cả File dạng Link S3)
         if (data.type === "CHAT") {
           data.reactions = data.reactions || {};
           setMessages((prev) => [...prev, data]);
           if (!isChatOpenRef.current) setHasUnreadChat(true);
         }
 
-        // Xử lý thả cảm xúc (REACTION) từ người khác
+        // Xử lý thả cảm xúc (REACTION)
         else if (data.type === "REACT" && data.targetMessageId && data.emoji) {
-          console.log(
-            `Người dùng ${data.senderIdentity} thả cảm xúc ${data.emoji} cho tin nhắn ${data.targetMessageId}`,
-          );
           setMessages((prev) =>
             prev.map((msg) => {
-              // Tìm đúng tin nhắn đang bị thả cảm xúc
               if (msg.id === data.targetMessageId) {
                 const newReactions = { ...(msg.reactions || {}) };
                 const usersWhoReacted = newReactions[data.emoji!] || [];
 
-                // Nếu user này chưa thả -> Thêm vào, Nếu thả rồi -> Xóa đi (Toggle)
                 if (!usersWhoReacted.includes(data.senderIdentity)) {
                   newReactions[data.emoji!] = [
                     ...usersWhoReacted,
@@ -132,174 +122,11 @@ export default function MeetingRoomContent({
                     (id) => id !== data.senderIdentity,
                   );
                 }
-
                 return { ...msg, reactions: newReactions };
               }
               return msg;
             }),
           );
-        }
-
-        // Bắt đầu nhận file từ người khác
-        else if (data.type === "FILE_START" && data.fileId) {
-          fileReceiveBuffer.current[data.fileId] = new Array(data.totalChunks);
-        }
-
-        // Nhận từng chunk file, lưu vào bộ đệm, chờ FILE_DONE để ráp file
-        else if (
-          data.type === "FILE_CHUNK" &&
-          data.fileId &&
-          data.chunkData !== undefined
-        ) {
-          fileReceiveBuffer.current[data.fileId][data.chunkIndex!] =
-            data.chunkData;
-        }
-
-        // Kết thúc nhận file, ráp file và hiển thị, hoặc đòi nợ nếu thiếu chunk
-        else if (data.type === "FILE_DONE" && data.fileId) {
-          const buffer = fileReceiveBuffer.current[data.fileId];
-          const missing: number[] = [];
-
-          for (let i = 0; i < data.totalChunks!; i++) {
-            if (!buffer[i]) missing.push(i);
-          }
-
-          if (missing.length > 0) {
-            // Nếu thiếu mảnh, gửi lại yêu cầu đòi nợ
-            console.warn(`Rớt ${missing.length} mảnh. Đang đòi lại...`);
-            const nackMsg: ChatMessage = {
-              id: Math.random().toString(36).substring(2, 9),
-              type: "MISSING_CHUNKS",
-              senderIdentity: room.localParticipant.identity,
-              senderName: room.localParticipant.name || "Bạn",
-              timestamp: Date.now(),
-              isPrivate: true,
-              targetName: data.senderIdentity,
-              fileId: data.fileId,
-              missingIndices: missing,
-            };
-
-            const encoder = new TextEncoder();
-            room.localParticipant.publishData(
-              encoder.encode(JSON.stringify(nackMsg)),
-              {
-                reliable: true,
-                destinationIdentities: [data.senderIdentity],
-              },
-            );
-          } else {
-            // NẾU ĐỦ: Ráp file và hiển thị
-            const allChunks = buffer.join("");
-            const mimeType = data.fileType || "application/octet-stream";
-
-            // Thuật toán giải mã Base64 sang Blob và tạo URL ảo
-            let completeDataUrl = "";
-            try {
-              // 1. Dịch ngược chuỗi Base64 thành chuỗi byte
-              const byteString = atob(allChunks);
-
-              // 2. Tạo mảng nhị phân (ArrayBuffer) có kích thước bằng file
-              const ab = new ArrayBuffer(byteString.length);
-              const ia = new Uint8Array(ab);
-
-              // 3. Đổ dữ liệu vào mảng
-              for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-              }
-
-              // 4. Đóng gói thành Blob và tạo URL ảo siêu ngắn
-              const blob = new Blob([ab], { type: mimeType });
-              completeDataUrl = URL.createObjectURL(blob);
-            } catch (error) {
-              console.error("Lỗi khi giải mã Base64 sang Blob:", error);
-              // Fallback nếu có lỗi
-              completeDataUrl = `data:${mimeType};base64,${allChunks}`;
-            }
-
-            const finalMessage: ChatMessage = {
-              id: data.id,
-              type: "CHAT",
-              senderIdentity: data.senderIdentity,
-              senderName: data.senderName,
-              timestamp: data.timestamp,
-              isPrivate: data.isPrivate,
-              targetName: data.targetName,
-              fileName: data.fileName,
-              fileType: data.fileType,
-              chunkData: completeDataUrl,
-            };
-
-            setMessages((prev) => [...prev, finalMessage]);
-            if (!isChatOpenRef.current) setHasUnreadChat(true);
-
-            delete fileReceiveBuffer.current[data.fileId]; // Dọn rác
-          }
-        }
-
-        // [NGƯỜI GỬI] BỊ ĐÒI NỢ -> GỬI BÙ MẢNH RỚT
-        else if (
-          data.type === "MISSING_CHUNKS" &&
-          data.fileId &&
-          data.missingIndices
-        ) {
-          const base64Data = activeUploadsRef.current[data.fileId];
-
-          if (base64Data) {
-            console.log(`Đang gửi bù ${data.missingIndices.length} mảnh...`);
-            const encoder = new TextEncoder();
-            const CHUNK_SIZE = 16 * 1024;
-
-            // Chạy ngầm để không block UI
-            (async () => {
-              for (const missingIndex of data.missingIndices!) {
-                const start = missingIndex * CHUNK_SIZE;
-                const end = Math.min(start + CHUNK_SIZE, base64Data.length);
-                const chunkBase64 = base64Data.slice(start, end);
-
-                const chunkMsg: ChatMessage = {
-                  id: Math.random().toString(36).substring(2, 9),
-                  type: "FILE_CHUNK",
-                  senderIdentity: room.localParticipant.identity,
-                  senderName: room.localParticipant.name || "Bạn",
-                  timestamp: Date.now(),
-                  isPrivate: true,
-                  fileId: data.fileId,
-                  chunkIndex: missingIndex,
-                  chunkData: chunkBase64,
-                };
-
-                await room.localParticipant.publishData(
-                  encoder.encode(JSON.stringify(chunkMsg)),
-                  {
-                    reliable: true,
-                    destinationIdentities: [data.senderIdentity],
-                  },
-                );
-
-                await new Promise((resolve) => setTimeout(resolve, 5)); // Vẫn phải Sleep
-              }
-
-              // Gửi lại FILE_DONE
-              const doneMsg: ChatMessage = {
-                id: data.fileId || Math.random().toString(36).substring(2, 9),
-                type: "FILE_DONE",
-                senderIdentity: room.localParticipant.identity,
-                senderName: room.localParticipant.name || "Bạn",
-                timestamp: Date.now(),
-                isPrivate: true,
-                fileId: data.fileId,
-                totalChunks: Math.ceil(base64Data.length / CHUNK_SIZE),
-              };
-
-              await room.localParticipant.publishData(
-                encoder.encode(JSON.stringify(doneMsg)),
-                {
-                  reliable: true,
-                  destinationIdentities: [data.senderIdentity],
-                },
-              );
-            })();
-          }
         }
       } catch (error) {}
     };
@@ -344,9 +171,9 @@ export default function MeetingRoomContent({
             <div className="flex-1 overflow-y-auto p-4">
               {sidebarTab === "chat" ? (
                 <MeetingChat
-                  activeUploadsRef={activeUploadsRef}
                   messages={messages}
                   setMessages={setMessages}
+                  meetingCode={meetingCode}
                 />
               ) : (
                 <ParticipantList
