@@ -25,6 +25,7 @@ import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseService } from "../supabase/supabase.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class MeetingsService {
@@ -32,6 +33,7 @@ export class MeetingsService {
   private supabase: SupabaseClient;
   private readonly BUCKET_NAME = "meeting-chat";
   constructor(
+    private eventEmitter: EventEmitter2,
     private readonly supabaseService: SupabaseService,
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,

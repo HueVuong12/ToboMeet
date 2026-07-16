@@ -136,27 +136,27 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     if (socket.connected) joinRoomSocket();
     socket.on("connect", joinRoomSocket);
 
-    const handleRoomUpdated = (data: any) => {
-      if (data.type === "member_removed" && data.removedUserId === userId) {
-        toast.error("Bạn đã bị Chủ phòng xóa khỏi phòng.");
-        localStorage.removeItem(`active_meeting_${roomId}`);
-        window.dispatchEvent(
-          new CustomEvent("FORCE_CLOSE_MEETING_WINDOW", {
-            detail: roomId,
-          }),
-        );
-        setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 1500);
-      }
-    };
+    // const handleRoomUpdated = (data: any) => {
+    //   if (data.type === "member_removed" && data.removedUserId === userId) {
+    //     toast.error("Bạn đã bị Chủ phòng xóa khỏi phòng.");
+    //     localStorage.removeItem(`active_meeting_${roomId}`);
+    //     window.dispatchEvent(
+    //       new CustomEvent("FORCE_CLOSE_MEETING_WINDOW", {
+    //         detail: roomId,
+    //       }),
+    //     );
+    //     setTimeout(() => {
+    //       window.location.href = "/dashboard";
+    //     }, 1500);
+    //   }
+    // };
 
-    socket.on("room_updated", handleRoomUpdated);
+    // socket.on("room_updated", handleRoomUpdated);
 
     return () => {
       socket.emit("leave_room", roomId);
       socket.off("connect", joinRoomSocket);
-      socket.off("room_updated", handleRoomUpdated);
+      // socket.off("room_updated", handleRoomUpdated);
     };
   }, [roomId, userId]);
 

@@ -12,17 +12,19 @@ import { User, UserDocument } from "../users/schemas/user.schema";
 import { RoomActivity, RoomActivityDocument } from "./schemas/room-activity.schema";
 import { RoomMemberResponse, RoomResponse } from "@tobomeet/shared/types";
 import { RoomMember } from "./schemas/room-member.schema";
-import { MeetingsGateway } from "../meetings/meetings.gateway";
 import { MeetingsService } from "../meetings/meetings.service";
 import { Meeting } from "../meetings/schemas/meeting.schema";
+import { RoomsGateway } from "./rooms.gateway";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class RoomsService {
   constructor(
+    private eventEmitter: EventEmitter2,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(RoomActivity.name) private activityModel: Model<RoomActivityDocument>,
-    private readonly meetingsGateway: MeetingsGateway,
+    private readonly roomsGateway: RoomsGateway,
     private readonly meetingsService: MeetingsService,
   ) {}
 
@@ -152,8 +154,6 @@ export class RoomsService {
     }
 
     // Ghi nhận hoạt động phòng
-
-    // Ghi nhận hoạt động phòng
     const ownerUser = await this.userModel.findOne({ supabaseId: ownerId });
     const targetUser = await this.userModel.findOne({ supabaseId: targetUserId });
     const details = `${ownerUser?.displayName || "Chủ phòng"} đã xóa ${targetUser?.displayName || "Thành viên"} khỏi phòng.`;
@@ -168,11 +168,17 @@ export class RoomsService {
       },
     });
 
-    // Phát tín hiệu realtime
-    if (this.meetingsGateway.server) {
-      this.meetingsGateway.server.to(`user_${targetUserId}`).emit("member_kicked_from_meeting", { roomId });
-    }
-    this.meetingsGateway.notifyRoomUpdated(roomId, {
+    // Tạo thông báo cho người bị kick (async)
+    this.eventEmitter.emit('notification.kicked', {
+      userId: targetUserId,
+      metadata: { 
+        roomId: roomId,
+        roomName: room.name,  // FE cần tên phòng để hiển thị: "Bạn bị kick khỏi phòng XYZ"
+        kickedAt: new Date().toISOString()
+      },
+    });
+
+    this.roomsGateway.notifyRoomUpdated(roomId, {
       type: "member_removed",
       removedUserId: targetUserId,
       roomId,
@@ -202,10 +208,10 @@ export class RoomsService {
     }
 
     // Nếu từng bị xóa bởi chủ phòng (status === "REMOVED"), không cho tự tham gia lại
-    const removedMember = room.members.find((m) => m.userId === userId && m.status === "REMOVED");
-    if (removedMember) {
-      throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
-    }
+    // const removedMember = room.members.find((m) => m.userId === userId && m.status === "REMOVED");
+    // if (removedMember) {
+    //   throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
+    // }
 
     // Kiểm tra xem trước đó từng là thành viên và đã rời phòng (LEFT)
     const previousMemberIndex = room.members.findIndex(
@@ -353,7 +359,7 @@ export class RoomsService {
     await room.save();
 
     // Phát tín hiệu realtime
-    this.meetingsGateway.notifyRoomUpdated(room._id.toString(), {
+    this.roomsGateway.notifyRoomUpdated(room._id.toString(), {
       type: "member_added",
       addedUserId: targetUser.supabaseId,
       roomId: room._id.toString(),
@@ -412,7 +418,7 @@ export class RoomsService {
     }
 
     // Phát tín hiệu realtime
-    this.meetingsGateway.notifyRoomUpdated(roomId, {
+    this.roomsGateway.notifyRoomUpdated(roomId, {
       type: "member_left",
       leftUserId: userId,
       newOwnerId: newOwnerId || null,
@@ -437,7 +443,7 @@ export class RoomsService {
     await room.save();
 
     // Phát tín hiệu realtime
-    this.meetingsGateway.notifyRoomUpdated(roomId, {
+    this.roomsGateway.notifyRoomUpdated(roomId, {
       type: "room_disbanded",
       roomId,
     });

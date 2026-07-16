@@ -9,9 +9,13 @@ import { AdminModule } from "./admin/admin.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { ReportsModule } from "./reports/reports.module";
 import { UploadsModule } from "./uploads/uploads.module";
+import { AppGateway } from "./core/gateways/app.gateway";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -30,6 +34,8 @@ import { UploadsModule } from "./uploads/uploads.module";
     SupabaseModule,
     ReportsModule,
     UploadsModule,
+    NotificationsModule,
   ],
+  providers: [AppGateway],
 })
 export class AppModule {}
