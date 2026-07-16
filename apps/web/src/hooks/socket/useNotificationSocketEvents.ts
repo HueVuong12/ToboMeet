@@ -2,24 +2,38 @@
 import { useEffect } from "react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useRoomCacheManager } from "../useRoomCacheManager";
 
 export function useNotificationSocketEvents() {
+  const router = useRouter();
+  const { removeRoomFromMyList } = useRoomCacheManager();
+
   useEffect(() => {
     const handleNotifications = (notifications: any[]) => {
+      const currentPath = window.location.pathname;
       if (!notifications || notifications.length === 0) return;
 
       notifications.forEach((notif, index) => {
         setTimeout(() => {
-          // PHIÊN DỊCH TYPE THÀNH THÔNG BÁO TẠI FRONTEND
           switch (notif.type) {
             case "KICKED":
+              const roomId = notif.metadata?.roomId;
+              const isCurrentlyInRoom = currentPath.includes(`/room/${roomId}`);
+
+              if (roomId) removeRoomFromMyList(roomId); // dọn cache rtk query
+
               toast.info("Thông báo hệ thống", {
                 description: `Bạn đã bị kick khỏi ${notif.metadata?.roomName || ""}.`,
                 duration: 8000,
               });
-              // setTimeout(() => {
-              //   window.location.href = "/dashboard";
-              // }, 1500);
+
+              if (isCurrentlyInRoom) {
+                // Nếu đang trong phòng bị kick thì tự động văng ra ngoài
+                setTimeout(() => {
+                  router.push("/dashboard");
+                }, 1500);
+              }
               break;
 
             case "ROOM_DISBANDED":

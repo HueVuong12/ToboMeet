@@ -55,7 +55,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
         .sort({ createdAt: 1 });
 
       if (unreadNotifs.length > 0) {
-        console.log("Đã gửi thông báo", unreadNotifs.length);
         client.emit("receive_notifications", unreadNotifs); // xả tất cả thông báo chưa nhận được
       }
     } catch (error) {

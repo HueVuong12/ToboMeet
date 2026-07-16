@@ -9,9 +9,9 @@ import { AdminModule } from "./admin/admin.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { ReportsModule } from "./reports/reports.module";
 import { UploadsModule } from "./uploads/uploads.module";
-import { AppGateway } from "./core/gateways/app.gateway";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { CoreModule } from "./core/core.module";
 
 @Module({
   imports: [
@@ -26,6 +26,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
       }),
       inject: [ConfigService],
     }),
+    CoreModule,
     MeetingsModule,
     UsersModule,
     RoomsModule,
@@ -36,6 +37,6 @@ import { NotificationsModule } from "./notifications/notifications.module";
     UploadsModule,
     NotificationsModule,
   ],
-  providers: [AppGateway],
+  providers: [],
 })
 export class AppModule {}
