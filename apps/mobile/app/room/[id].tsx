@@ -36,6 +36,7 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../lib/redux/store";
 import PreviewModal from "../../components/meeting/PreviewModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRoomUpdateListener } from "../../hooks/socket/useRoomUpdateListener";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -85,7 +86,7 @@ export default function RoomDetailScreen() {
   const [messageText, setMessageText] = useState("");
 
   const isOwner = room && profile && room.ownerId === profile.supabaseId;
-  const hasNavigatedAway = React.useRef(false);
+  // const hasNavigatedAway = React.useRef(false);
 
   const insets = useSafeAreaInsets();
 
@@ -96,6 +97,9 @@ export default function RoomDetailScreen() {
       userId: profile?.supabaseId,
       displayName: profile?.displayName,
     });
+
+  // Lắng nghe bất kì sự kiện nào trong room, đã refractor thành hook
+  useRoomUpdateListener(id, profile?.supabaseId);
 
   // Lắng nghe sự kiện phòng họp của Kênh (Channel) hiện tại
   useEffect(() => {
@@ -140,61 +144,61 @@ export default function RoomDetailScreen() {
   }, [activeChannelId, id, dispatch]);
 
   // Lắng nghe cập nhật phòng realtime trên Mobile
-  useEffect(() => {
-    if (!id) return;
+  // useEffect(() => {
+  //   if (!id) return;
 
-    if (!socket.connected) {
-      socket.connect();
-    }
+  //   if (!socket.connected) {
+  //     socket.connect();
+  //   }
 
-    socket.emit("join_room", id);
+  //   socket.emit("join_room", id);
 
-    const handleRoomUpdated = (data: {
-      type: string;
-      removedUserId?: string;
-    }) => {
-      console.log("[Socket Mobile] Room updated:", data);
-      refetch();
-      refetchMembers();
+  //   const handleRoomUpdated = (data: {
+  //     type: string;
+  //     removedUserId?: string;
+  //   }) => {
+  //     console.log("[Socket Mobile] Room updated:", data);
+  //     refetch();
+  //     refetchMembers();
 
-      if (hasNavigatedAway.current) return;
+  //     if (hasNavigatedAway.current) return;
 
-      // Chỉ xử lý cảnh báo và điều hướng cưỡng chế khi người dùng bị động rời phòng hoặc phòng bị giải tán
-      const isKicked =
-        data.type === "member_removed" &&
-        data.removedUserId === profile?.supabaseId;
-      const isRoomDisbanded = data.type === "room_disbanded";
+  //     // Chỉ xử lý cảnh báo và điều hướng cưỡng chế khi người dùng bị động rời phòng hoặc phòng bị giải tán
+  //     const isKicked =
+  //       data.type === "member_removed" &&
+  //       data.removedUserId === profile?.supabaseId;
+  //     const isRoomDisbanded = data.type === "room_disbanded";
 
-      if (isKicked) {
-        hasNavigatedAway.current = true;
-        Alert.alert("Thông báo", "Bạn đã bị mời ra khỏi phòng.", [
-          {
-            text: "OK",
-            onPress: () => router.replace("/dashboard"),
-          },
-        ]);
-      } else if (isRoomDisbanded) {
-        hasNavigatedAway.current = true;
-        const msg =
-          room?.ownerId === profile?.supabaseId
-            ? "Đã giải tán phòng họp thành công."
-            : "Phòng này đã bị giải tán bởi chủ phòng.";
-        Alert.alert("Thông báo", msg, [
-          {
-            text: "OK",
-            onPress: () => router.replace("/dashboard"),
-          },
-        ]);
-      }
-    };
+  //     if (isKicked) {
+  //       hasNavigatedAway.current = true;
+  //       Alert.alert("Thông báo", "Bạn đã bị mời ra khỏi phòng.", [
+  //         {
+  //           text: "OK",
+  //           onPress: () => router.replace("/dashboard"),
+  //         },
+  //       ]);
+  //     } else if (isRoomDisbanded) {
+  //       hasNavigatedAway.current = true;
+  //       const msg =
+  //         room?.ownerId === profile?.supabaseId
+  //           ? "Đã giải tán phòng họp thành công."
+  //           : "Phòng này đã bị giải tán bởi chủ phòng.";
+  //       Alert.alert("Thông báo", msg, [
+  //         {
+  //           text: "OK",
+  //           onPress: () => router.replace("/dashboard"),
+  //         },
+  //       ]);
+  //     }
+  //   };
 
-    socket.on("room_updated", handleRoomUpdated);
+  //   socket.on("room_updated", handleRoomUpdated);
 
-    return () => {
-      socket.emit("leave_room", id);
-      socket.off("room_updated", handleRoomUpdated);
-    };
-  }, [id, profile?.supabaseId, room?.ownerId]);
+  //   return () => {
+  //     socket.emit("leave_room", id);
+  //     socket.off("room_updated", handleRoomUpdated);
+  //   };
+  // }, [id, profile?.supabaseId, room?.ownerId]);
 
   // Set default active channel once room loads
   useEffect(() => {

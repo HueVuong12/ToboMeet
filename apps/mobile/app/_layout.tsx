@@ -16,6 +16,7 @@ import { EventProvider } from "../providers/EventProvider";
 import { registerGlobals } from "@livekit/react-native";
 import { Session } from "@supabase/supabase-js";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { GlobalSocketListeners } from "../providers/GlobalSocketListeners";
 
 registerGlobals();
 SplashScreen.preventAutoHideAsync();
@@ -88,6 +89,7 @@ export default function RootLayout() {
         <StoreProvider>
           {showGlobalLanguageSwitcher && <LanguageSwitcher />}
           <EventProvider userId={currentUserId}>
+            <GlobalSocketListeners />
             <Slot />
           </EventProvider>
           <Toast />

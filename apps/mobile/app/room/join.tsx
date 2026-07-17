@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -13,6 +12,7 @@ import {
   useGetRoomByCodeQuery,
   useJoinRoomMutation,
 } from "../../lib/redux/features/rooms/roomsApi";
+import { toast } from "../../lib/toast";
 
 export default function JoinScreen() {
   const router = useRouter();
@@ -47,13 +47,9 @@ export default function JoinScreen() {
     try {
       const room = await joinRoom({ code: code.trim() }).unwrap();
       router.replace(`/room/${room._id}`);
-    } catch (err: any) {
-      Alert.alert(
-        "Lỗi tham gia",
-        err?.data?.message ||
-          err?.message ||
-          "Không thể tham gia phòng. Vui lòng thử lại!",
-      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể tham gia phòng. Vui lòng thử lại!");
     }
   };
 

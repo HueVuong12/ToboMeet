@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   FlatList,
   TextInput,
   Image,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { User } from "@supabase/supabase-js";
@@ -30,11 +31,17 @@ export default function DashboardScreen() {
   // Modals state
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Trạng thái pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data: profile } = useGetMeQuery(undefined, {
+  const { data: profile, refetch: refetchProfile } = useGetMeQuery(undefined, {
     refetchOnMountOrArgChange: true,
   });
-  const { data: rooms, isLoading: isRoomsLoading } = useGetMyRoomsQuery();
+  const {
+    data: rooms,
+    isLoading: isRoomsLoading,
+    refetch: refetchRooms,
+  } = useGetMyRoomsQuery(undefined, { refetchOnMountOrArgChange: true });
 
   useEffect(() => {
     fetchSession();
@@ -61,6 +68,18 @@ export default function DashboardScreen() {
       setLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Gọi refetch song song để làm mới cả danh sách phòng và thông tin user
+      await Promise.all([refetchRooms(), refetchProfile()]);
+    } catch (error) {
+      toast.error("Không thể tải lại dữ liệu");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchRooms, refetchProfile]);
 
   const filteredRooms = rooms?.filter(
     (room) =>
@@ -179,6 +198,14 @@ export default function DashboardScreen() {
           data={filteredRooms}
           keyExtractor={(item) => item._id}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              colors={["#0052FF"]} // Màu vòng xoay trên Android
+              tintColor="#0052FF" // Màu vòng xoay trên iOS
+            />
+          }
           ListEmptyComponent={
             searchQuery !== "" ? (
               <View className="items-center justify-center py-20 gap-4">

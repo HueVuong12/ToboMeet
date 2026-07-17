@@ -1,8 +1,6 @@
-import React, { useEffect, createContext, useContext } from "react";
-import { Alert } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, createContext, useContext, useRef } from "react";
 import { socket } from "../lib/socket";
-import { toast } from "../lib/toast";
+import { AppState, AppStateStatus } from "react-native";
 
 const EventContext = createContext<unknown>(null);
 
@@ -13,6 +11,39 @@ export function EventProvider({
   userId?: string;
   children: React.ReactNode;
 }) {
+  const appState = useRef(AppState.currentState);
+
+  // Quản lý trạng thái Socket theo vòng đời của App (AppState)
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        if (
+          appState.current.match(/inactive|background/) &&
+          nextAppState === "active"
+        ) {
+          // App được mở lại lên màn hình chính -> Kết nối lại Socket
+          if (!socket.connected) {
+            socket.connect();
+          }
+        } else if (
+          nextAppState === "background" ||
+          nextAppState === "inactive"
+        ) {
+          // App bị ẩn đi (người dùng thoát ra màn hình chính) -> Ngắt kết nối
+          if (socket.connected) {
+            socket.disconnect();
+          }
+        }
+        appState.current = nextAppState;
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   useEffect(() => {
     if (!userId) return;
 
@@ -33,56 +64,8 @@ export function EventProvider({
     // Lắng nghe mỗi khi mạng chập chờn hoặc server restart xong
     socket.on("connect", handleConnect);
 
-    // Xử lý yêu cầu xin nhường quyền Handoff từ thiết bị khác
-    const handleSwitchRequested = async (data: {
-      userId: string;
-      channelId: string;
-      roomId: string;
-      requesterSocketId: string;
-    }) => {
-      try {
-        // Lấy trạng thái lưu từ AsyncStorage (Lưu ý: Phải có await)
-        const activeChannel = await AsyncStorage.getItem(
-          `active_meeting_${data.roomId}`,
-        );
-
-        if (activeChannel === data.channelId) {
-          Alert.alert(
-            "Yêu cầu chuyển thiết bị",
-            "Thiết bị khác của bạn đang yêu cầu chuyển cuộc họp. Bạn có muốn cho phép không?",
-            [
-              { text: "Từ chối", style: "cancel" },
-              {
-                text: "Cho phép",
-                style: "default",
-                onPress: async () => {
-                  // Xóa cờ ở thiết bị này
-                  await AsyncStorage.removeItem(
-                    `active_meeting_${data.roomId}`,
-                  );
-
-                  // Báo lại cho máy kia là đã nhả phòng
-                  socket.emit("accept_switch_device", {
-                    ...data,
-                    targetSocketId: data.requesterSocketId, // Đẩy ID của Máy kia lên Server
-                  });
-
-                  toast.success("Đang tự động chuyển cuộc họp...");
-                },
-              },
-            ],
-          );
-        }
-      } catch (error) {
-        console.error("Lỗi khi kiểm tra AsyncStorage:", error);
-      }
-    };
-
-    socket.on("switch_device_requested", handleSwitchRequested);
-
     return () => {
       socket.off("connect", handleConnect);
-      socket.off("switch_device_requested", handleSwitchRequested);
     };
   }, [userId]);
 
