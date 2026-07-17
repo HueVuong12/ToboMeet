@@ -189,4 +189,26 @@ export class RoomsController {
     const userId = req.user.id;
     return this.roomsService.disbandRoom(roomId, userId);
   }
+
+  // Hưng thêm vào, không đụng phần code bên dưới
+
+  /**
+   * GET /api/rooms/:id/check-member — Kiểm tra thành viên có trong phòng không (bằng ID)
+   */
+  @Get(":id/check-member")
+  async checkMemberById(@Param("id") roomId: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user.id; // Lấy userId từ JWT token[cite: 9]
+    const isMember = await this.roomsService.checkUserInRoomById(roomId, userId);
+    return { isMember };
+  }
+
+  /**
+   * GET /api/rooms/code/:code/check-member — Kiểm tra thành viên có trong phòng không (bằng Code)
+   */
+  @Get("code/:code/check-member")
+  async checkMemberByCode(@Param("code") code: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user.id; // Lấy userId từ JWT token[cite: 9]
+    const isMember = await this.roomsService.checkUserInRoomByCode(code, userId);
+    return { isMember };
+  }
 }

@@ -3,7 +3,11 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useJoinRoomMutation, useGetMyRoomsQuery, useGetRoomByCodeQuery } from "@/lib/redux/api/roomsApi";
+import {
+  useJoinRoomMutation,
+  useCheckMemberByCodeQuery,
+  useGetRoomByCodeQuery,
+} from "@/lib/redux/api/roomsApi";
 import { Loader2, AlertCircle, Users } from "lucide-react";
 import StoreProvider from "@/lib/redux/StoreProvider";
 
@@ -13,26 +17,49 @@ function JoinRoomContent() {
   const code = searchParams.get("code");
   const t = useTranslations("room");
 
-  const { data: myRooms, isLoading: isRoomsLoading } = useGetMyRoomsQuery();
-  const { data: roomDetails, error: fetchRoomError, isLoading: isFetchRoomLoading } = useGetRoomByCodeQuery(code || "", {
+  const {
+    data: checkMemberData,
+    isLoading: isCheckingMember,
+    error: checkMemberError,
+  } = useCheckMemberByCodeQuery(code || "", {
+    skip: !code,
+  });
+
+  const {
+    data: roomDetails,
+    error: fetchRoomError,
+    isLoading: isFetchRoomLoading,
+  } = useGetRoomByCodeQuery(code || "", {
     skip: !code,
   });
 
   const [joinRoom, { isLoading: isJoining }] = useJoinRoomMutation();
   const [error, setError] = useState<string | null>(null);
-  const [isAlreadyMember, setIsAlreadyMember] = useState(false);
-  const [existingRoomId, setExistingRoomId] = useState<string | null>(null);
 
-  // 1. Kiểm tra xem user đã là thành viên của phòng này chưa
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
   useEffect(() => {
-    if (myRooms && code) {
-      const memberRoom = myRooms.find((r) => r.code === code.trim());
-      if (memberRoom) {
-        setIsAlreadyMember(true);
-        setExistingRoomId(memberRoom._id);
+    if (!isCheckingMember && !isFetchRoomLoading) {
+      if (checkMemberData !== undefined || roomDetails !== undefined) {
+        // Có bất kỳ dữ liệu nào trả về thành công -> Đã đăng nhập
+        setIsAuthenticated(true);
+      } else if (checkMemberError || fetchRoomError) {
+        // Lỗi 401/403 -> Chưa đăng nhập
+        setIsAuthenticated(false);
       }
     }
-  }, [myRooms, code]);
+  }, [
+    isCheckingMember,
+    isFetchRoomLoading,
+    checkMemberData,
+    roomDetails,
+    checkMemberError,
+    fetchRoomError,
+  ]);
+
+  const isAlreadyMember = checkMemberData?.isMember || false;
+  // Lấy ID phòng từ roomDetails nếu đã là thành viên để phục vụ nút "Vào phòng"
+  const existingRoomId = roomDetails?._id || null;
 
   const handleConfirmJoin = async () => {
     if (!code) return;
@@ -41,11 +68,7 @@ function JoinRoomContent() {
       const room = await joinRoom({ code: code.trim() }).unwrap();
       router.replace(`/room/${room._id}`);
     } catch (err: any) {
-      setError(
-        err?.data?.message ||
-          err?.message ||
-          t("error_join_failed")
-      );
+      setError(err?.data?.message || err?.message || t("error_join_failed"));
     }
   };
 
@@ -59,25 +82,32 @@ function JoinRoomContent() {
     router.replace("/dashboard");
   };
 
-  if (isRoomsLoading || (!roomDetails && isFetchRoomLoading)) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <Loader2 className="w-12 h-12 text-brand-600 animate-spin mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-slate-900 mb-2">{t("loading_processing")}</h1>
-          <p className="text-sm text-slate-500">{t("loading_preparing")}</p>
-        </div>
-      </div>
-    );
-  }
+  // Khi deploy thì uncomment do test trình duyệt trên mobile chưa gọi BE được
+  // if (isCheckingMember || isFetchRoomLoading) {
+  //   return (
+  //     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+  //       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+  //         <Loader2 className="w-12 h-12 text-brand-600 animate-spin mx-auto mb-4" />
+  //         <h1 className="text-lg font-bold text-slate-900 mb-2">
+  //           {t("loading_processing")}
+  //         </h1>
+  //         <p className="text-sm text-slate-500">{t("loading_preparing")}</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (!code) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-slate-900 mb-2">{t("error_missing_code_title")}</h1>
-          <p className="text-sm text-slate-500 mb-6">{t("error_missing_code_desc")}</p>
+          <h1 className="text-lg font-bold text-slate-900 mb-2">
+            {t("error_missing_code_title")}
+          </h1>
+          <p className="text-sm text-slate-500 mb-6">
+            {t("error_missing_code_desc")}
+          </p>
           <button
             onClick={() => router.replace("/dashboard")}
             className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold transition-colors"
@@ -89,7 +119,8 @@ function JoinRoomContent() {
     );
   }
 
-  if (fetchRoomError) {
+  // CHỈ HIỆN MÀN HÌNH LỖI (Phòng không tồn tại) NẾU ĐÃ ĐĂNG NHẬP THÀNH CÔNG NHƯNG PHÒNG SAI
+  if (fetchRoomError && isAuthenticated === true) {
     const errData = fetchRoomError as any;
     if (
       errData.code === 403 ||
@@ -101,7 +132,9 @@ function JoinRoomContent() {
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
           <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
             <Loader2 className="w-12 h-12 text-brand-600 animate-spin mx-auto mb-4" />
-            <h1 className="text-lg font-bold text-slate-900 mb-2">Đang chuyển hướng...</h1>
+            <h1 className="text-lg font-bold text-slate-900 mb-2">
+              Đang chuyển hướng...
+            </h1>
           </div>
         </div>
       );
@@ -111,8 +144,12 @@ function JoinRoomContent() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4 animate-bounce" />
-          <h1 className="text-lg font-bold text-slate-900 mb-2">{t("error_not_exist_title")}</h1>
-          <p className="text-sm text-slate-500 mb-6">{t("error_not_exist_desc")}</p>
+          <h1 className="text-lg font-bold text-slate-900 mb-2">
+            {t("error_not_exist_title")}
+          </h1>
+          <p className="text-sm text-slate-500 mb-6">
+            {t("error_not_exist_desc")}
+          </p>
           <button
             onClick={() => router.replace("/dashboard")}
             className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold transition-colors"
@@ -136,17 +173,19 @@ function JoinRoomContent() {
         </h1>
 
         <p className="text-sm text-slate-600 mb-6">
-          {isAlreadyMember ? (
-            t.rich("already_member_confirm", {
-              name: roomDetails?.name || "",
-              strong2: (chunks) => <strong className="text-slate-950 font-bold">{chunks}</strong>,
-            })
-          ) : (
-            t.rich("join_room_confirm", {
-              name: roomDetails?.name || "",
-              strong2: (chunks) => <strong className="text-slate-950 font-bold">{chunks}</strong>,
-            })
-          )}
+          {isAlreadyMember
+            ? t.rich("already_member_confirm", {
+                name: roomDetails?.name || "",
+                strong2: (chunks) => (
+                  <strong className="text-slate-950 font-bold">{chunks}</strong>
+                ),
+              })
+            : t.rich("join_room_confirm", {
+                name: roomDetails?.name || "",
+                strong2: (chunks) => (
+                  <strong className="text-slate-950 font-bold">{chunks}</strong>
+                ),
+              })}
         </p>
 
         {error && (
@@ -156,30 +195,45 @@ function JoinRoomContent() {
           </div>
         )}
 
-        <div className="flex gap-4">
-          <button
-            onClick={handleCancelJoin}
-            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all"
-          >
-            {t("cancel_action")}
-          </button>
-          
-          {isAlreadyMember ? (
-            <button
-              onClick={handleGoToRoom}
-              className="flex-1 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold transition-all shadow-md shadow-brand-600/10"
+        <div className="flex flex-col gap-4">
+          {/* NÚT TRÊN WEB: Chờ xác định xong auth (isAuthenticated === true) mới hiện */}
+          {isAuthenticated === true && (
+            <div className="flex gap-4">
+              <button
+                onClick={handleCancelJoin}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all"
+              >
+                {t("cancel_action")}
+              </button>
+
+              {isAlreadyMember ? (
+                <button
+                  onClick={handleGoToRoom}
+                  className="flex-1 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold transition-all shadow-md shadow-brand-600/10"
+                >
+                  {t("go_to_room_action")}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConfirmJoin}
+                  disabled={isJoining}
+                  className="flex-1 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-md shadow-brand-600/10"
+                >
+                  {isJoining && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{t("confirm_join_action")}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* NÚT MỞ APP TRÊN MOBILE: Hiện khi CHƯA đăng nhập (false hoặc null) */}
+          {isAuthenticated !== true && code && (
+            <a
+              href={`intent://room/join?code=${code.trim()}#Intent;scheme=tobomeet;package=com.hng209.mobile;end;`}
+              className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-brand-600/10"
             >
-              {t("go_to_room_action")}
-            </button>
-          ) : (
-            <button
-              onClick={handleConfirmJoin}
-              disabled={isJoining}
-              className="flex-1 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-md shadow-brand-600/10"
-            >
-              {isJoining && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{t("confirm_join_action")}</span>
-            </button>
+              Mở ToboMeet App
+            </a>
           )}
         </div>
       </div>
@@ -197,7 +251,9 @@ export default function JoinRoomPage() {
           <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
               <Loader2 className="w-12 h-12 text-brand-600 animate-spin mx-auto mb-4" />
-              <h1 className="text-lg font-bold text-slate-900 mb-2">{t("loading_title")}</h1>
+              <h1 className="text-lg font-bold text-slate-900 mb-2">
+                {t("loading_title")}
+              </h1>
             </div>
           </div>
         }

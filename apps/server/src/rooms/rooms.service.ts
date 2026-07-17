@@ -514,6 +514,47 @@ export class RoomsService {
     return code;
   }
 
+  // Hưng thêm vào, không đụng phần code bên dưới
+
+  /**
+   * Kiểm tra người dùng đã là thành viên của phòng hay chưa (bằng ID phòng)
+   * Trả về: true nếu đang là thành viên hoạt động, false nếu chưa hoặc đã rời/bị xóa
+   */
+  async checkUserInRoomById(roomId: string, userId: string): Promise<boolean> {
+    const isExist = await this.roomModel.exists({
+      _id: roomId,
+      isDeleted: { $ne: true }, // Bỏ qua các phòng đã bị giải tán
+      members: {
+        $elemMatch: {
+          userId: userId,
+          isLeft: { $ne: true }, // Phải chưa tự rời đi
+          status: { $nin: ["REMOVED", "LEFT"] }, // Trạng thái không phải là đã bị xóa hoặc đã rời
+        },
+      },
+    });
+
+    return !!isExist;
+  }
+
+  /**
+   * Kiểm tra người dùng đã là thành viên của phòng hay chưa (bằng Mã phòng - Code)
+   */
+  async checkUserInRoomByCode(roomCode: string, userId: string): Promise<boolean> {
+    const isExist = await this.roomModel.exists({
+      code: roomCode.trim(),
+      isDeleted: { $ne: true },
+      members: {
+        $elemMatch: {
+          userId: userId,
+          isLeft: { $ne: true },
+          status: { $nin: ["REMOVED", "LEFT"] },
+        },
+      },
+    });
+
+    return !!isExist;
+  }
+
   /**
    * Bộ chuyển đổi: Mongoose Document -> RoomResponse chuẩn
    * Đảm bảo đồng bộ kiểu dữ liệu với frontend, tránh lộ thông tin nhạy cảm
