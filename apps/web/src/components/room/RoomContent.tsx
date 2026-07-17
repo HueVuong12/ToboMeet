@@ -31,6 +31,7 @@ import { AppDispatch } from "@/lib/redux/store";
 import PreviewModal from "./PreviewModal";
 import { useMeetingManager } from "@/hooks/useMeetingManager";
 import ReportUserModal from "./ReportUserModal";
+import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
 
 interface RoomContentProps {
   roomId: string;
@@ -47,10 +48,11 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     error: roomError,
   } = useGetRoomByIdQuery(roomId);
   const { data: membersResponse, isLoading: membersLoading } =
-    useGetRoomMembersQuery(roomId);
+    useGetRoomMembersQuery(roomId, { refetchOnMountOrArgChange: true });
   const members = membersResponse || [];
 
   const [removeMember] = useRemoveMemberMutation();
+  useRoomUpdateListener(roomId, userId);
 
   // Trạng thái Layout & Dữ liệu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -121,46 +123,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     };
   }, [currentChannel?._id, dispatch]); // Chạy lại mỗi khi đổi kênh
 
-  // Lắng nghe sự kiện bị xóa khỏi phòng realtime
-  useEffect(() => {
-    if (!roomId || !userId) return;
-
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    const joinRoomSocket = () => {
-      socket.emit("join_room", roomId);
-    };
-
-    if (socket.connected) joinRoomSocket();
-    socket.on("connect", joinRoomSocket);
-
-    // const handleRoomUpdated = (data: any) => {
-    //   if (data.type === "member_removed" && data.removedUserId === userId) {
-    //     toast.error("Bạn đã bị Chủ phòng xóa khỏi phòng.");
-    //     localStorage.removeItem(`active_meeting_${roomId}`);
-    //     window.dispatchEvent(
-    //       new CustomEvent("FORCE_CLOSE_MEETING_WINDOW", {
-    //         detail: roomId,
-    //       }),
-    //     );
-    //     setTimeout(() => {
-    //       window.location.href = "/dashboard";
-    //     }, 1500);
-    //   }
-    // };
-
-    // socket.on("room_updated", handleRoomUpdated);
-
-    return () => {
-      socket.emit("leave_room", roomId);
-      socket.off("connect", joinRoomSocket);
-      // socket.off("room_updated", handleRoomUpdated);
-    };
-  }, [roomId, userId]);
-
-  const [memberToRemove, setMemberToRemove] = useState<{ userId: string; displayName: string } | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{
+    userId: string;
+    displayName: string;
+  } | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
 
   const handleRemoveMember = async () => {
@@ -171,7 +137,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       toast.success(t("remove_member_success"));
       setMemberToRemove(null);
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || t("remove_member_error"));
+      toast.error(
+        err?.data?.message || err?.message || t("remove_member_error"),
+      );
     } finally {
       setIsRemovingMember(false);
     }
@@ -187,14 +155,18 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   if (roomError) {
     const errData = roomError as any;
-    const isLocked = errData.message?.includes("khóa") || errData.message?.includes("locked");
+    const isLocked =
+      errData.message?.includes("khóa") || errData.message?.includes("locked");
     if (errData.status === 403 && !isLocked) {
-      const msg = errData.data?.message || errData.message || "Bạn không còn là thành viên của phòng này";
+      const msg =
+        errData.data?.message ||
+        errData.message ||
+        "Bạn không còn là thành viên của phòng này";
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-white gap-3">
           <p className="text-slate-600 font-bold text-base">{msg}</p>
           <button
-            onClick={() => window.location.href = "/dashboard"}
+            onClick={() => (window.location.href = "/dashboard")}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold transition-colors"
           >
             Quay lại Trang chủ
@@ -533,7 +505,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                 onClick={() => {
                                   setMemberToReport({
                                     userId: member.userId,
-                                    displayName: member.displayName || "Người dùng",
+                                    displayName:
+                                      member.displayName || "Người dùng",
                                   });
                                   setOpenMenuId(null);
                                 }}
@@ -542,12 +515,16 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                 {t("report_user")}
                               </button>
                             )}
-                             {userId !== member.userId &&
+                            {userId !== member.userId &&
                               members.find((m) => m.userId === userId)?.role ===
                                 "owner" && (
                                 <button
                                   onClick={() => {
-                                    setMemberToRemove({ userId: member.userId, displayName: member.displayName || "Người dùng" });
+                                    setMemberToRemove({
+                                      userId: member.userId,
+                                      displayName:
+                                        member.displayName || "Người dùng",
+                                    });
                                     setOpenMenuId(null);
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-slate-100"
@@ -580,7 +557,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 flex flex-col transform transition-all scale-100 duration-300">
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">{t("remove_member_title")}</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                {t("remove_member_title")}
+              </h3>
               <button
                 disabled={isRemovingMember}
                 onClick={() => setMemberToRemove(null)}
@@ -595,7 +574,11 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               <p className="text-sm text-slate-600 leading-relaxed">
                 {t.rich("remove_member_confirm", {
                   name: memberToRemove.displayName,
-                  strong: (chunks) => <strong className="text-slate-900 font-bold">{chunks}</strong>,
+                  strong: (chunks) => (
+                    <strong className="text-slate-900 font-bold">
+                      {chunks}
+                    </strong>
+                  ),
                 })}
               </p>
             </div>

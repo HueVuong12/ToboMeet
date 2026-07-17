@@ -218,16 +218,46 @@ export class RoomsService {
       (member) => member.userId === userId && (member.isLeft === true || member.status === "LEFT"),
     );
 
+    const now = new Date();
+    let joinedAtDate = now;
+    let rejoinedAtDate: Date | undefined = undefined;
+
     if (previousMemberIndex !== -1) {
       room.members[previousMemberIndex].isLeft = false;
       room.members[previousMemberIndex].status = "ACTIVE";
       room.members[previousMemberIndex].rejoinedAt = new Date();
+
+      joinedAtDate = room.members[previousMemberIndex].joinedAt;
+      rejoinedAtDate = now;
+      
       room.markModified("members");
     } else {
       // Thêm member mới
       room.members.push({ userId, role: "member", joinedAt: new Date(), status: "ACTIVE", isLeft: false });
     }
     await room.save();
+
+    // Lấy thông tin user từ Database
+    const userInfo = await this.userModel.findOne({ supabaseId: userId });
+
+    // Format dữ liệu chuẩn theo interface RoomMemberResponse
+    const newMemberPayload: RoomMemberResponse = {
+      userId: userId,
+      role: "member",
+      // status: "ACTIVE",
+      joinedAt: joinedAtDate.toISOString(),
+      ...(rejoinedAtDate && { rejoinedAt: rejoinedAtDate.toISOString() }),
+      displayName: userInfo?.displayName || "Người dùng ẩn danh",
+      avatarUrl: userInfo?.avatarUrl || undefined,
+      email: userInfo?.email || undefined,
+    };
+
+    // Phát sự kiện qua Socket cho các client đang ở trong phòng
+    this.roomsGateway.notifyRoomUpdated(room._id.toString(), {
+      type: "member_joined", // Frontend sẽ bắt case này
+      roomId: room._id.toString(),
+      member: newMemberPayload, // Chứa object hoàn chỉnh để đưa thẳng vào RTK Query Cache
+    });
 
     return this.mapToRoomResponse(room);
   }

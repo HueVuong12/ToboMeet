@@ -28,6 +28,14 @@ export function useNotificationSocketEvents() {
                 duration: 8000,
               });
 
+              // Dọn dẹp storage và đóng cửa sổ meeting
+              localStorage.removeItem(`active_meeting_${roomId}`);
+              window.dispatchEvent(
+                new CustomEvent("FORCE_CLOSE_MEETING_WINDOW", {
+                  detail: roomId,
+                }),
+              );
+
               if (isCurrentlyInRoom) {
                 // Nếu đang trong phòng bị kick thì tự động văng ra ngoài
                 setTimeout(() => {
