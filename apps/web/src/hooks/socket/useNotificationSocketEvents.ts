@@ -15,12 +15,12 @@ export function useNotificationSocketEvents() {
       if (!notifications || notifications.length === 0) return;
 
       notifications.forEach((notif, index) => {
+        const roomId = notif.metadata?.roomId;
+        const isCurrentlyInRoom = currentPath.includes(`/room/${roomId}`);
+
         setTimeout(() => {
           switch (notif.type) {
-            case "KICKED":
-              const roomId = notif.metadata?.roomId;
-              const isCurrentlyInRoom = currentPath.includes(`/room/${roomId}`);
-
+            case "KICKED": {
               if (roomId) removeRoomFromMyList(roomId); // dọn cache rtk query
 
               toast.info("Thông báo hệ thống", {
@@ -35,16 +35,23 @@ export function useNotificationSocketEvents() {
                 }, 1500);
               }
               break;
+            }
 
-            case "ROOM_DISBANDED":
+            case "ROOM_DISBANDED": {
+              if (roomId) removeRoomFromMyList(roomId);
+
               toast.info("Phòng giải tán", {
-                description: `Trưởng nhóm đã giải tán phòng ${notif.metadata?.roomName || ""}.`,
+                description: `Trưởng nhóm đã giải tán ${notif.metadata?.roomName || ""}.`,
                 duration: 8000,
               });
-              window.dispatchEvent(
-                new CustomEvent("FORCE_CLOSE_MEETING_WINDOW"),
-              );
+
+              if (isCurrentlyInRoom) {
+                setTimeout(() => {
+                  router.push("/dashboard");
+                }, 1500);
+              }
               break;
+            }
 
             default:
               console.warn(
@@ -56,7 +63,7 @@ export function useNotificationSocketEvents() {
       });
 
       const notifIds = notifications.map((n) => n._id);
-      socket.emit("mark_notifications_read", notifIds);
+      socket.emit("mark_notifications_read", notifIds); // ack lại cho server biết đã nhận rồi
     };
 
     socket.on("receive_notifications", handleNotifications);

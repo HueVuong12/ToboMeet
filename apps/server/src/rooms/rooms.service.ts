@@ -440,12 +440,19 @@ export class RoomsService {
     }
 
     room.status = "disbanded";
+    room.isDeleted = true;
     await room.save();
 
-    // Phát tín hiệu realtime
-    this.roomsGateway.notifyRoomUpdated(roomId, {
-      type: "room_disbanded",
-      roomId,
+    // Tạo thông báo cho tất cả thành viên trong phòng (async)
+    this.eventEmitter.emit('notification.room_disbanded', {
+      userIds: room.members
+        .filter(m => m.status !== "REMOVED" && m.status !== "LEFT") // không thông báo cho người bị xoá hoặc đã rời
+        .map(m => m.userId) // chỉ lấy id
+        .filter(id => id !== userId), // loại trừ người thực hiện
+      metadata: {
+        roomId: roomId,
+        roomName: room.name,
+      },
     });
 
     return { message: "Đã giải tán phòng họp thành công" };
