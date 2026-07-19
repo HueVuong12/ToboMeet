@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useGetAdminStatsQuery } from "@/lib/redux/api/adminApi";
-import { Loader2, ArrowLeft, LayoutDashboard, Users, Menu, X, ChevronLeft, ChevronRight, Video, FolderOpen, Settings, LogOut } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutDashboard, Users, Menu, X, ChevronLeft, ChevronRight, Video, FolderOpen, Settings, LogOut, Flag } from "lucide-react";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import AdminDashboardHeader from "@/components/admin/AdminDashboardHeader";
 import AdminStatsGrid from "@/components/admin/AdminStatsGrid";
@@ -10,6 +10,7 @@ import AdminUsageChart from "@/components/admin/AdminUsageChart";
 import AdminRecentActivity from "@/components/admin/AdminRecentActivity";
 import UserManagement from "@/components/admin/UserManagement";
 import AdminRoomManagement from "@/components/admin/AdminRoomManagement";
+import ReportManagement from "@/components/admin/reports/ReportManagement";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import { logout } from "@/app/[locale]/auth/actions";
 import { useRouter } from "next/navigation";
@@ -18,7 +19,7 @@ import { useTranslations } from "next-intl";
 function AdminDashboardContent() {
   const router = useRouter();
   const t = useTranslations("admin");
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "rooms">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "rooms" | "reports">("overview");
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
 
@@ -158,6 +159,21 @@ function AdminDashboardContent() {
             <FolderOpen className="w-5 h-5 shrink-0" />
             {!isCollapsed && <span>{t("rooms_management_title")}</span>}
           </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("reports");
+              setIsMobileOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+              activeTab === "reports"
+                ? "bg-brand-50 text-brand-600"
+                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+            }`}
+          >
+            <Flag className="w-5 h-5 shrink-0" />
+            {!isCollapsed && <span>{t("reports_management_title")}</span>}
+          </button>
         </nav>
 
         {/* Sidebar Footer */}
@@ -277,11 +293,17 @@ function AdminDashboardContent() {
             <div className="mt-2">
               <UserManagement />
             </div>
-          ) : (
+          ) : activeTab === "rooms" ? (
             <div className="mt-2">
               <AdminRoomManagement />
             </div>
-          )}
+          ) : activeTab === "reports" ? (
+            <div className="mt-2">
+              <ReportManagement
+                onNavigateToUsers={() => setActiveTab("users")}
+              />
+            </div>
+          ) : null}
         </div>
       </main>
 

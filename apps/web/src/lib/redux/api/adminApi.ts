@@ -153,8 +153,189 @@ export const adminApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Room"],
     }),
+    // ─── Admin Report Endpoints ─────────────────────────────────────────────
+    getAdminReportStats: builder.query<AdminReportStats, { range?: string } | void>({
+      query: (params) => ({
+        url: "/admin/reports/stats",
+        method: "GET",
+        params: params || undefined,
+      }),
+      providesTags: ["Report"],
+    }),
+    getAdminReports: builder.query<AdminReportListResponse, AdminReportFilters>({
+      query: (params) => ({
+        url: "/admin/reports",
+        method: "GET",
+        params,
+      }),
+      providesTags: ["Report"],
+    }),
+    getAdminReportById: builder.query<AdminReportDetail, string>({
+      query: (id) => ({
+        url: `/admin/reports/${id}`,
+        method: "GET",
+      }),
+      providesTags: (_result: any, _error: any, id: string) => [{ type: "Report" as const, id }],
+    }),
+    updateReportStatus: builder.mutation<
+      AdminReportDetail,
+      { id: string; status: string; note?: string }
+    >({
+      query: ({ id, ...data }) => ({
+        url: `/admin/reports/${id}/status`,
+        method: "PATCH",
+        data,
+      }),
+      invalidatesTags: ["Report"],
+    }),
+    addReportNote: builder.mutation<
+      AdminReportDetail,
+      { id: string; content: string }
+    >({
+      query: ({ id, content }) => ({
+        url: `/admin/reports/${id}/notes`,
+        method: "POST",
+        data: { content },
+      }),
+      invalidatesTags: ["Report"],
+    }),
+    updateReportConclusion: builder.mutation<
+      AdminReportDetail,
+      { id: string; conclusion: string }
+    >({
+      query: ({ id, conclusion }) => ({
+        url: `/admin/reports/${id}/conclusion`,
+        method: "PATCH",
+        data: { conclusion },
+      }),
+      invalidatesTags: ["Report"],
+    }),
+    exportAdminReports: builder.query<AdminReportExportRow[], AdminReportFilters>({
+      query: (params) => ({
+        url: "/admin/reports/export",
+        method: "GET",
+        params,
+      }),
+    }),
   }),
 });
+
+// ─── Report Types ──────────────────────────────────────────────────────────────
+export interface AdminReportFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  reason?: string;
+  hasEvidence?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  [key: string]: string | number | undefined;
+}
+
+export interface AdminReportUserInfo {
+  supabaseId: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string;
+  status?: string;
+}
+
+export interface AdminReportRoomInfo {
+  roomId?: string;
+  roomName?: string;
+  roomCode?: string;
+  hostName?: string;
+  occurredAt?: string;
+}
+
+export interface AdminReportEvidence {
+  url: string;
+  fileName: string;
+  fileSize: number;
+  uploadedAt?: string;
+}
+
+export interface AdminNote {
+  content: string;
+  adminId: string;
+  adminEmail: string;
+  createdAt: string;
+}
+
+export interface ProcessingLogEntry {
+  action: string;
+  fromStatus?: string;
+  toStatus?: string;
+  adminId: string;
+  adminEmail: string;
+  note?: string;
+  timestamp: string;
+}
+
+export interface AdminReportListItem {
+  _id: string;
+  reporterId: string;
+  reportedUserId: string;
+  title?: string;
+  reason: string;
+  description: string;
+  status: string;
+  conclusion?: string | null;
+  roomInfo?: AdminReportRoomInfo;
+  evidences?: AdminReportEvidence[];
+  reporter?: AdminReportUserInfo | null;
+  reported?: AdminReportUserInfo | null;
+  createdAt: string;
+  resolvedAt?: string;
+  closedAt?: string;
+}
+
+export interface AdminReportDetail extends AdminReportListItem {
+  adminNotes?: AdminNote[];
+  processingLog?: ProcessingLogEntry[];
+}
+
+export interface AdminReportListResponse {
+  reports: AdminReportListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminReportStats {
+  total: number;
+  pending: number;
+  investigating: number;
+  resolved: number;
+  rejected: number;
+  closed: number;
+  today: number;
+  chartData: { date: string; count: number }[];
+  byStatus: { status: string; count: number; label: string }[];
+  byType: { type: string; count: number }[];
+}
+
+export interface AdminReportExportRow {
+  id: string;
+  title: string;
+  reason: string;
+  description: string;
+  status: string;
+  conclusion: string;
+  reporterEmail: string;
+  reporterName: string;
+  reportedEmail: string;
+  reportedName: string;
+  roomName: string;
+  hasEvidence: string;
+  createdAt: string;
+  resolvedAt: string;
+  closedAt: string;
+}
 
 export const {
   useGetAdminStatsQuery,
@@ -170,4 +351,12 @@ export const {
   useGetAdminRoomStatsQuery,
   useGetAdminRoomDetailsQuery,
   useDisbandRoomMutation,
+  // Report hooks
+  useGetAdminReportStatsQuery,
+  useGetAdminReportsQuery,
+  useGetAdminReportByIdQuery,
+  useUpdateReportStatusMutation,
+  useAddReportNoteMutation,
+  useUpdateReportConclusionMutation,
+  useLazyExportAdminReportsQuery,
 } = adminApi;
