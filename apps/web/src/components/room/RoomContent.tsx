@@ -32,6 +32,7 @@ import PreviewModal from "./PreviewModal";
 import { useMeetingManager } from "@/hooks/useMeetingManager";
 import ReportUserModal from "./ReportUserModal";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
+import NewsFeed from "./NewsFeed";
 
 interface RoomContentProps {
   roomId: string;
@@ -320,50 +321,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           </div>
         </header>
 
-        {/* Nội dung Chat / Post Feed */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6 flex flex-col gap-6">
-          {/* Placeholder Message (Giao diện giống hình ảnh cung cấp) */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-slate-200"></div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Hệ thống</p>
-                  <p className="text-xs text-slate-500">Vừa xong</p>
-                </div>
-              </div>
-            </div>
-            <p className="text-sm text-slate-700">
-              Chào mừng bạn đến với kênh{" "}
-              <span className="font-semibold">{activeChannel}</span> của phòng
-              họp {room.name}. Hãy bắt đầu thảo luận!
-            </p>
+        {/* News Feed Panel */}
+        {currentChannel ? (
+          <NewsFeed
+            roomId={roomId}
+            channelId={currentChannel._id || ""}
+            userId={userId}
+            userRole={members.find((m: any) => m.userId === userId)?.role || "member"}
+            channelName={activeChannel}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+            Vui lòng chọn một kênh để xem bảng tin.
           </div>
-        </main>
-
-        {/* Khu vực Nhập tin nhắn (Chat input) */}
-        <div className="p-4 bg-slate-50">
-          <div className="bg-white border border-slate-300 rounded-lg shadow-sm flex flex-col">
-            <input
-              type="text"
-              placeholder="Bắt đầu bài viết mới..."
-              className="w-full px-4 py-3 text-sm text-slate-800 bg-transparent focus:outline-none"
-            />
-            <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 bg-slate-50 rounded-b-lg">
-              <div className="flex gap-1 text-slate-500">
-                <button className="p-1.5 hover:bg-slate-200 rounded">
-                  <Paperclip size={18} />
-                </button>
-                <button className="p-1.5 hover:bg-slate-200 rounded">
-                  <Smile size={18} />
-                </button>
-              </div>
-              <button className="bg-brand-600 hover:bg-brand-700 text-white p-1.5 rounded-md transition-colors">
-                <Send size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ================= RIGHT SIDEBAR (THÔNG TIN KÊNH / THÀNH VIÊN) ================= */}
