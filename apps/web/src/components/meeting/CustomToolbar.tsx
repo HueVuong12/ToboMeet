@@ -94,7 +94,7 @@ export default function CustomToolbar({
 
   return (
     <footer className="h-auto min-h-20 sm:h-20 shrink-0 flex flex-wrap items-center justify-center sm:justify-between px-4 sm:px-6 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800/60 z-30 gap-4 py-2 sm:py-0">
-      {/* NÚT COPY LINK */}
+      {/* Nút copy link */}
       <div className="hidden sm:flex items-center w-50">
         <button
           onClick={handleCopyLink}
@@ -124,6 +124,7 @@ export default function CustomToolbar({
         </button>
       </div>
 
+      {/* Cụm nút chức năng */}
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={toggleCam}
@@ -185,8 +186,9 @@ export default function CustomToolbar({
           <span className="hidden sm:inline">Rời đi</span>
         </button>
       </div>
+
+      {/* Nút mở Sidebar (People/Chat) */}
       <div className="flex items-center gap-1 sm:gap-2 w-auto sm:w-50 justify-end">
-        {/* Nút mở Sidebar (People/Chat) */}
         <button
           onClick={() => onToggleSidebar("people")}
           className={`p-2.5 rounded-lg transition-colors ${

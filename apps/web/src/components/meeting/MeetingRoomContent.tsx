@@ -148,15 +148,11 @@ export default function MeetingRoomContent({
         </div>
       </header>
 
-      <main className="flex-1 flex overflow-hidden relative min-h-0 w-full p-2 md:p-3 gap-3">
-        <div className="flex-1 flex flex-col h-full min-w-0">
-          <div className="flex-1 bg-slate-950 rounded-3xl border border-slate-800/60 shadow-2xl relative overflow-hidden">
-            <CustomVideoGrid />
-          </div>
-        </div>
+      <main className="flex-1 flex overflow-hidden relative min-h-0 w-full">
+        <CustomVideoGrid />
 
         {isSidebarOpen && (
-          <aside className="z-20 flex flex-col shrink-0 bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] sm:relative sm:inset-auto sm:w-80 sm:h-full">
+          <aside className="z-20 flex flex-col shrink-0 bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 shadow-2xl absolute rounded-3xl sm:rounded-none inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] sm:relative sm:inset-auto sm:w-80 sm:h-full">
             <div className="h-14 px-5 flex items-center justify-between border-b border-slate-700/50 shrink-0">
               <h2 className="font-semibold text-sm text-slate-200 tracking-wide">
                 {sidebarTab === "chat" ? "Trò chuyện" : "Thành viên"}
