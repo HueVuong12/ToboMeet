@@ -130,10 +130,10 @@ export interface Channel {
 export interface RoomResponse {
   _id: string;
   name: string;
+  description?: string;
   type: "meeting" | "classroom";
   code: string;
   ownerId: string;
-  description?: string;
   members?: RoomMemberResponse[];
   channels: Channel[];
   createdAt: string;
@@ -164,13 +164,13 @@ export interface MeetingJoinResponse {
   channelName: string;
 }
 
-export type PacketType =
-  | "CHAT"
-  | "FILE_START"
-  | "FILE_CHUNK"
-  | "FILE_DONE"
-  | "MISSING_CHUNKS"
-  | "REACT";
+export interface ActiveMeetingResponse {
+  isOngoing: boolean;
+  meetingCode: string | null;
+  hostId: string;
+}
+
+export type PacketType = "CHAT" | "REACT";
 
 // Cấu trúc gói tin chat trong meeting (dùng chung cho Web, Mobile, Desktop)
 export interface ChatMessage {
@@ -188,13 +188,7 @@ export interface ChatMessage {
   fileName?: string;
   fileSize?: number;
   fileType?: string;
-  totalChunks?: number;
-  chunkData?: string; // Dữ liệu Base64 của 1 khối
-
-  // Dành cho FILE_CHUNK
-  chunkIndex?: number;
-  // Dành cho MISSING_CHUNKS
-  missingIndices?: number[];
+  publicUrl?: string;
 
   // Dành cho tính năng Reply
   replyToMsgId?: string;
@@ -205,4 +199,9 @@ export interface ChatMessage {
   reactions?: { [emoji: string]: string[] }; // Lưu theo dạng: { "👍": ["user_id_1", "user_id_2"] }
   targetMessageId?: string; // (Chỉ dùng cho loại gói tin REACT)
   emoji?: string; // (Chỉ dùng cho loại gói tin REACT)
+}
+
+export interface PresignedUploadResponse {
+  presignedUrl: string;
+  publicUrl: string;
 }

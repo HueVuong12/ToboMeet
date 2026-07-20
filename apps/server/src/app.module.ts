@@ -9,9 +9,13 @@ import { AdminModule } from "./admin/admin.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { ReportsModule } from "./reports/reports.module";
 import { UploadsModule } from "./uploads/uploads.module";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { CoreModule } from "./core/core.module";
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -22,6 +26,7 @@ import { UploadsModule } from "./uploads/uploads.module";
       }),
       inject: [ConfigService],
     }),
+    CoreModule,
     MeetingsModule,
     UsersModule,
     RoomsModule,
@@ -30,6 +35,8 @@ import { UploadsModule } from "./uploads/uploads.module";
     SupabaseModule,
     ReportsModule,
     UploadsModule,
+    NotificationsModule,
   ],
+  providers: [],
 })
 export class AppModule {}

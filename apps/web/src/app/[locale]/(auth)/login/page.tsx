@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { login, loginWithOAuth, type FormState } from "../../auth/actions";
-import { Video } from "lucide-react";
+import { Eye, EyeOff, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 
@@ -12,6 +12,7 @@ const initialState: FormState = { error: null, message: null };
 export default function LoginPage() {
   const t = useTranslations();
   const searchParams = useSearchParams();
+  const [showPassword, setShowPassword] = useState(false);
   const pathError = searchParams.get("error");
   const [loginState, loginAction, isLoginPending] = useActionState(
     login,
@@ -161,13 +162,23 @@ export default function LoginPage() {
               {t("login.forgot_password")}
             </Link>
           </div>
-          <input
-            name="password"
-            type="password"
-            required
-            className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
-            placeholder="••••••••"
-          />
+          <div className="relative">
+            <input
+              name="password"
+              // Thay đổi type dựa trên trạng thái showPassword
+              type={showPassword ? "text" : "password"}
+              required
+              className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
 
         <button

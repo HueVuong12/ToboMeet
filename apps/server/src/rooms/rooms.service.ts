@@ -12,17 +12,19 @@ import { User, UserDocument } from "../users/schemas/user.schema";
 import { RoomActivity, RoomActivityDocument } from "./schemas/room-activity.schema";
 import { RoomMemberResponse, RoomResponse } from "@tobomeet/shared/types";
 import { RoomMember } from "./schemas/room-member.schema";
-import { MeetingsGateway } from "../meetings/meetings.gateway";
 import { MeetingsService } from "../meetings/meetings.service";
 import { Meeting } from "../meetings/schemas/meeting.schema";
+import { RoomsGateway } from "./rooms.gateway";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class RoomsService {
   constructor(
+    private eventEmitter: EventEmitter2,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(RoomActivity.name) private activityModel: Model<RoomActivityDocument>,
-    private readonly meetingsGateway: MeetingsGateway,
+    private readonly roomsGateway: RoomsGateway,
     private readonly meetingsService: MeetingsService,
   ) {}
 
@@ -152,8 +154,6 @@ export class RoomsService {
     }
 
     // Ghi nhận hoạt động phòng
-
-    // Ghi nhận hoạt động phòng
     const ownerUser = await this.userModel.findOne({ supabaseId: ownerId });
     const targetUser = await this.userModel.findOne({ supabaseId: targetUserId });
     const details = `${ownerUser?.displayName || "Chủ phòng"} đã xóa ${targetUser?.displayName || "Thành viên"} khỏi phòng.`;
@@ -168,11 +168,17 @@ export class RoomsService {
       },
     });
 
-    // Phát tín hiệu realtime
-    if (this.meetingsGateway.server) {
-      this.meetingsGateway.server.to(`user_${targetUserId}`).emit("member_kicked_from_meeting", { roomId });
-    }
-    this.meetingsGateway.notifyRoomUpdated(roomId, {
+    // Tạo thông báo cho người bị kick (async)
+    this.eventEmitter.emit('notification.kicked', {
+      userId: targetUserId,
+      metadata: { 
+        roomId: roomId,
+        roomName: room.name,  // FE cần tên phòng để hiển thị: "Bạn bị kick khỏi phòng XYZ"
+        kickedAt: new Date().toISOString()
+      },
+    });
+
+    this.roomsGateway.notifyRoomUpdated(roomId, {
       type: "member_removed",
       removedUserId: targetUserId,
       roomId,
@@ -202,26 +208,56 @@ export class RoomsService {
     }
 
     // Nếu từng bị xóa bởi chủ phòng (status === "REMOVED"), không cho tự tham gia lại
-    const removedMember = room.members.find((m) => m.userId === userId && m.status === "REMOVED");
-    if (removedMember) {
-      throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
-    }
+    // const removedMember = room.members.find((m) => m.userId === userId && m.status === "REMOVED");
+    // if (removedMember) {
+    //   throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
+    // }
 
     // Kiểm tra xem trước đó từng là thành viên và đã rời phòng (LEFT)
     const previousMemberIndex = room.members.findIndex(
       (member) => member.userId === userId && (member.isLeft === true || member.status === "LEFT"),
     );
 
+    const now = new Date();
+    let joinedAtDate = now;
+    let rejoinedAtDate: Date | undefined = undefined;
+
     if (previousMemberIndex !== -1) {
       room.members[previousMemberIndex].isLeft = false;
       room.members[previousMemberIndex].status = "ACTIVE";
       room.members[previousMemberIndex].rejoinedAt = new Date();
+
+      joinedAtDate = room.members[previousMemberIndex].joinedAt;
+      rejoinedAtDate = now;
+      
       room.markModified("members");
     } else {
       // Thêm member mới
       room.members.push({ userId, role: "member", joinedAt: new Date(), status: "ACTIVE", isLeft: false });
     }
     await room.save();
+
+    // Lấy thông tin user từ Database
+    const userInfo = await this.userModel.findOne({ supabaseId: userId });
+
+    // Format dữ liệu chuẩn theo interface RoomMemberResponse
+    const newMemberPayload: RoomMemberResponse = {
+      userId: userId,
+      role: "member",
+      // status: "ACTIVE",
+      joinedAt: joinedAtDate.toISOString(),
+      ...(rejoinedAtDate && { rejoinedAt: rejoinedAtDate.toISOString() }),
+      displayName: userInfo?.displayName || "Người dùng ẩn danh",
+      avatarUrl: userInfo?.avatarUrl || undefined,
+      email: userInfo?.email || undefined,
+    };
+
+    // Phát sự kiện qua Socket cho các client đang ở trong phòng
+    this.roomsGateway.notifyRoomUpdated(room._id.toString(), {
+      type: "member_joined", // Frontend sẽ bắt case này
+      roomId: room._id.toString(),
+      member: newMemberPayload, // Chứa object hoàn chỉnh để đưa thẳng vào RTK Query Cache
+    });
 
     return this.mapToRoomResponse(room);
   }
@@ -353,7 +389,7 @@ export class RoomsService {
     await room.save();
 
     // Phát tín hiệu realtime
-    this.meetingsGateway.notifyRoomUpdated(room._id.toString(), {
+    this.roomsGateway.notifyRoomUpdated(room._id.toString(), {
       type: "member_added",
       addedUserId: targetUser.supabaseId,
       roomId: room._id.toString(),
@@ -412,7 +448,7 @@ export class RoomsService {
     }
 
     // Phát tín hiệu realtime
-    this.meetingsGateway.notifyRoomUpdated(roomId, {
+    this.roomsGateway.notifyRoomUpdated(roomId, {
       type: "member_left",
       leftUserId: userId,
       newOwnerId: newOwnerId || null,
@@ -434,12 +470,19 @@ export class RoomsService {
     }
 
     room.status = "disbanded";
+    room.isDeleted = true;
     await room.save();
 
-    // Phát tín hiệu realtime
-    this.meetingsGateway.notifyRoomUpdated(roomId, {
-      type: "room_disbanded",
-      roomId,
+    // Tạo thông báo cho tất cả thành viên trong phòng (async)
+    this.eventEmitter.emit('notification.room_disbanded', {
+      userIds: room.members
+        .filter(m => m.status !== "REMOVED" && m.status !== "LEFT") // không thông báo cho người bị xoá hoặc đã rời
+        .map(m => m.userId) // chỉ lấy id
+        .filter(id => id !== userId), // loại trừ người thực hiện
+      metadata: {
+        roomId: roomId,
+        roomName: room.name,
+      },
     });
 
     return { message: "Đã giải tán phòng họp thành công" };
@@ -469,6 +512,47 @@ export class RoomsService {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+  }
+
+  // Hưng thêm vào, không đụng phần code bên dưới
+
+  /**
+   * Kiểm tra người dùng đã là thành viên của phòng hay chưa (bằng ID phòng)
+   * Trả về: true nếu đang là thành viên hoạt động, false nếu chưa hoặc đã rời/bị xóa
+   */
+  async checkUserInRoomById(roomId: string, userId: string): Promise<boolean> {
+    const isExist = await this.roomModel.exists({
+      _id: roomId,
+      isDeleted: { $ne: true }, // Bỏ qua các phòng đã bị giải tán
+      members: {
+        $elemMatch: {
+          userId: userId,
+          isLeft: { $ne: true }, // Phải chưa tự rời đi
+          status: { $nin: ["REMOVED", "LEFT"] }, // Trạng thái không phải là đã bị xóa hoặc đã rời
+        },
+      },
+    });
+
+    return !!isExist;
+  }
+
+  /**
+   * Kiểm tra người dùng đã là thành viên của phòng hay chưa (bằng Mã phòng - Code)
+   */
+  async checkUserInRoomByCode(roomCode: string, userId: string): Promise<boolean> {
+    const isExist = await this.roomModel.exists({
+      code: roomCode.trim(),
+      isDeleted: { $ne: true },
+      members: {
+        $elemMatch: {
+          userId: userId,
+          isLeft: { $ne: true },
+          status: { $nin: ["REMOVED", "LEFT"] },
+        },
+      },
+    });
+
+    return !!isExist;
   }
 
   /**

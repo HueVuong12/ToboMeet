@@ -49,7 +49,9 @@ export async function middleware(request: NextRequest) {
   const currentLocale = localeMatch ? localeMatch[1] : cookieLocale || "vi";
 
   const isCallbackPage = pathWithoutLocale.startsWith("/auth/callback");
-  const isPublicPage = isAuthPage || isHomePage || isCallbackPage;
+  const isRoomJoinPage = pathWithoutLocale.startsWith("/room/join");
+  const isPublicPage =
+    isAuthPage || isHomePage || isCallbackPage || isRoomJoinPage;
 
   // Nếu vào trang admin mà không có user hoặc role không phải admin -> Giả vờ như trang không tồn tại (404)
   if (isAdminPage && role !== "admin") {

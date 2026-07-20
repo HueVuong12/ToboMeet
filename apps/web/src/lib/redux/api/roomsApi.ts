@@ -153,6 +153,30 @@ export const roomsApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
+
+    // Hưng thêm vào, không đụng phần code bên dưới
+
+    /**
+     * Kiểm tra trạng thái thành viên bằng ID phòng
+     */
+    checkMemberById: builder.query<{ isMember: boolean }, string>({
+      query: (roomId) => ({
+        url: `/rooms/${roomId}/check-member`,
+        method: "GET",
+      }),
+      // Cung cấp tag để có thể tự động gọi lại nếu danh sách phòng thay đổi
+      providesTags: (_result, _error, roomId) => [{ type: "Room", id: roomId }],
+    }),
+
+    /**
+     * Kiểm tra trạng thái thành viên bằng mã code
+     */
+    checkMemberByCode: builder.query<{ isMember: boolean }, string>({
+      query: (code) => ({
+        url: `/rooms/code/${code}/check-member`,
+        method: "GET",
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -172,4 +196,6 @@ export const {
   useInviteMemberMutation,
   useGetRoomByCodeQuery,
   useRemoveMemberMutation,
+  useCheckMemberByIdQuery,
+  useCheckMemberByCodeQuery,
 } = roomsApi;

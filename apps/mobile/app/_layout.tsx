@@ -9,10 +9,16 @@ import {
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { supabase } from "../lib/supabase";
-import { View } from "react-native";
 import LanguageSwitcher from "../components/commons/LanguageSwitcher";
 import StoreProvider from "../lib/redux/StoreProvider";
+import Toast from "react-native-toast-message";
+import { EventProvider } from "../providers/EventProvider";
+import { registerGlobals } from "@livekit/react-native";
+import { Session } from "@supabase/supabase-js";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { GlobalSocketListeners } from "../providers/GlobalSocketListeners";
 
+registerGlobals();
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -21,7 +27,7 @@ export default function RootLayout() {
   const navigationState = useRootNavigationState();
 
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [session, setSession] = useState<unknown>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   useEffect(() => {
@@ -50,7 +56,7 @@ export default function RootLayout() {
     const isResetPasswordFlow = segments.includes("forgot-password");
 
     if (session && inAuthGroup && !isResetPasswordFlow) {
-      router.replace("/home");
+      router.replace("/dashboard");
     } else if (!session && !inAuthGroup) {
       router.replace("/(auth)/login");
     }
@@ -59,19 +65,36 @@ export default function RootLayout() {
       setTimeout(() => {
         SplashScreen.hideAsync()
           .then(() => setIsSplashHidden(true))
-          .catch((err) => console.log("Splash Screen already hidden or errored:", err.message));
+          .catch((err) =>
+            console.log(
+              "Splash Screen already hidden or errored:",
+              err.message,
+            ),
+          );
       }, 100);
     }
   }, [session, isAuthReady, segments, navigationState?.key, isSplashHidden]);
 
   const showGlobalLanguageSwitcher = segments[0] === "(auth)";
+  const currentUserId = session ? session.user?.id : undefined;
+
+  if (!isAuthReady || !navigationState?.key) return null; // chặn splash screen qua trang login
 
   return (
-    <View style={{ flex: 1 }}>
-      <StoreProvider>
-        {showGlobalLanguageSwitcher && <LanguageSwitcher />}
-        <Slot />
-      </StoreProvider>
-    </View>
+    <SafeAreaProvider>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "#ffffff" }} // Đổi màu nền này cho khớp với màu chủ đạo của app bạn
+        edges={["bottom", "top"]}
+      >
+        <StoreProvider>
+          {showGlobalLanguageSwitcher && <LanguageSwitcher />}
+          <EventProvider userId={currentUserId}>
+            <GlobalSocketListeners />
+            <Slot />
+          </EventProvider>
+          <Toast />
+        </StoreProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

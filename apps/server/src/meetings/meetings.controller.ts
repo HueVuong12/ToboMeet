@@ -98,4 +98,19 @@ export class GlobalMeetingsController {
       body.displayName,
     );
   }
+
+  /**
+   * POST /api/meetings/presigned
+   * Xin presigned upload url để upload file lên chat của meeting
+   */
+  @Post("presigned")
+  @UseGuards(SupabaseGuard)
+  async getPresignedUrl(
+    @Body() body: { fileName: string; meetingCode: string },
+  ) {
+    return this.meetingsService.generatePresignedUrl(
+      body.fileName,
+      body.meetingCode,
+    );
+  }
 }

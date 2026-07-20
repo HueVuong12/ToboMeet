@@ -1,4 +1,7 @@
-import { MeetingJoinResponse } from "@tobomeet/shared/types";
+import {
+  MeetingJoinResponse,
+  PresignedUploadResponse,
+} from "@tobomeet/shared/types";
 import { baseApi } from "./baseApi";
 
 export const meetingsApi = baseApi.injectEndpoints({
@@ -13,8 +16,22 @@ export const meetingsApi = baseApi.injectEndpoints({
         data: { displayName, meetingCode },
       }),
     }),
+
+    generatePresignedUploadUrl: builder.mutation<
+      PresignedUploadResponse,
+      { fileName: string; meetingCode: string }
+    >({
+      query: (body) => ({
+        url: `/meetings/presigned`,
+        method: "POST",
+        data: body,
+      }),
+    }),
   }),
   overrideExisting: true,
 });
 
-export const { useJoinMeetingByCodeMutation } = meetingsApi;
+export const {
+  useJoinMeetingByCodeMutation,
+  useGeneratePresignedUploadUrlMutation,
+} = meetingsApi;

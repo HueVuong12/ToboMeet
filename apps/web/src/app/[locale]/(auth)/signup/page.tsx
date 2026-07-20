@@ -6,6 +6,7 @@ import Link from "next/link";
 import { FormState, loginWithOAuth, signup } from "../../auth/actions";
 import { useTranslations } from "next-intl";
 import { validatePasswordPolicy } from "@tobomeet/shared/utils";
+import { Eye, EyeOff, Video } from "lucide-react";
 
 const initialState: FormState = { error: null, message: null };
 
@@ -18,6 +19,10 @@ export default function SignupPage() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const {
     hasMinLength,
@@ -69,6 +74,32 @@ export default function SignupPage() {
 
   return (
     <div className="p-8 sm:p-10 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-gray-100">
+      {/* Logo hiển thị riêng cho màn hình Mobile */}
+      <div className="flex justify-center mb-6 lg:hidden">
+        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+          <div className="relative flex h-9 w-9 items-center justify-center">
+            {/* Nền gradient chéo */}
+            <div className="absolute inset-0 bg-linear-to-tr from-brand-600 to-indigo-500 rounded-xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
+            {/* Nền đổ bóng mờ ảo */}
+            <div className="absolute inset-0 bg-brand-500 blur opacity-40 rounded-xl group-hover:opacity-60 transition-opacity duration-300"></div>
+            {/* Icon */}
+            <div className="relative z-10 text-white">
+              <Video
+                size={18}
+                strokeWidth={2.5}
+                className="group-hover:scale-110 transition-transform duration-300"
+              />
+            </div>
+          </div>
+          <span className="text-[22px] font-black tracking-tighter text-navy">
+            Tobo
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-brand-600 to-indigo-500">
+              Meet
+            </span>
+          </span>
+        </Link>
+      </div>
+
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-[#0F172A] mb-2">
           {t("signup.sign_up")}
@@ -134,80 +165,112 @@ export default function SignupPage() {
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
             {t("signup.password")}
           </label>
-          <input
-            name="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
-            placeholder={t("signup.password_placeholder")}
-          />
-        </div>
-
-        {/* ── GIAO DIỆN DANH SÁCH ĐIỀU KIỆN MẬT KHẨU ── */}
-        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-          <p className="text-[13px] font-bold text-gray-800 mb-2">
-            {tPolicy("reset_policy_title")}
-          </p>
-          <ul className="space-y-1.5 mb-3">
-            {[
-              {
-                id: 1,
-                text: tPolicy("reset_policy_length"),
-                valid: hasMinLength,
-              },
-              { id: 2, text: tPolicy("reset_policy_letter"), valid: hasLetter },
-              { id: 3, text: tPolicy("reset_policy_upper"), valid: hasUpper },
-              { id: 4, text: tPolicy("reset_policy_lower"), valid: hasLower },
-              { id: 5, text: tPolicy("reset_policy_number"), valid: hasNumber },
-            ].map((req) => (
-              <li key={req.id} className="flex items-center gap-2 text-[13px]">
-                <div
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${req.valid ? "bg-[#0052FF]" : "bg-gray-300"}`}
-                />
-                <span
-                  className={
-                    req.valid ? "text-gray-800 font-medium" : "text-gray-500"
-                  }
-                >
-                  {req.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex items-start gap-2 text-[13px]">
-            <div
-              className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${noConsecutive ? "bg-[#0052FF]" : "bg-gray-300"}`}
+          <div className="relative">
+            <input
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type={showPassword ? "text" : "password"}
+              onFocus={() => setIsPasswordFocused(true)}
+              onBlur={() => setIsPasswordFocused(false)}
+              required
+              minLength={8}
+              className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
+              placeholder="••••••••"
             />
-            <span
-              className={
-                noConsecutive
-                  ? "text-gray-800 font-medium"
-                  : "text-gray-500 leading-relaxed"
-              }
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowPassword(!showPassword)}
             >
-              {tPolicy("reset_policy_no_consecutive_desc")}
-            </span>
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
         </div>
+
+        {isPasswordFocused && (
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+            <p className="text-[13px] font-bold text-gray-800 mb-2">
+              {tPolicy("reset_policy_title")}
+            </p>
+            <ul className="space-y-1.5 mb-3">
+              {[
+                {
+                  id: 1,
+                  text: tPolicy("reset_policy_length"),
+                  valid: hasMinLength,
+                },
+                {
+                  id: 2,
+                  text: tPolicy("reset_policy_letter"),
+                  valid: hasLetter,
+                },
+                { id: 3, text: tPolicy("reset_policy_upper"), valid: hasUpper },
+                { id: 4, text: tPolicy("reset_policy_lower"), valid: hasLower },
+                {
+                  id: 5,
+                  text: tPolicy("reset_policy_number"),
+                  valid: hasNumber,
+                },
+              ].map((req) => (
+                <li
+                  key={req.id}
+                  className="flex items-center gap-2 text-[13px]"
+                >
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${req.valid ? "bg-[#0052FF]" : "bg-gray-300"}`}
+                  />
+                  <span
+                    className={
+                      req.valid ? "text-gray-800 font-medium" : "text-gray-500"
+                    }
+                  >
+                    {req.text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex items-start gap-2 text-[13px]">
+              <div
+                className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${noConsecutive ? "bg-[#0052FF]" : "bg-gray-300"}`}
+              />
+              <span
+                className={
+                  noConsecutive
+                    ? "text-gray-800 font-medium"
+                    : "text-gray-500 leading-relaxed"
+                }
+              >
+                {tPolicy("reset_policy_no_consecutive_desc")}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
             {t("signup.confirm_password")}
           </label>
-          <input
-            name="confirmPassword"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={6}
-            className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
-            placeholder={t("signup.confirm_password_placeholder")}
-          />
+          <div className="relative">
+            <input
+              name="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              type={showConfirmPassword ? "text" : "password"}
+              required
+              minLength={8}
+              className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0052FF]/10 focus:border-[#0052FF] focus:bg-white transition-all text-gray-900"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
 
         <button

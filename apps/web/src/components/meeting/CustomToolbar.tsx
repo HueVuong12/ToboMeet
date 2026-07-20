@@ -1,3 +1,4 @@
+import { useHandRaise } from "@/hooks/useHandRaise";
 import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
 import localforage from "localforage";
 import {
@@ -13,7 +14,7 @@ import {
   VideoIcon,
   VideoOff,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 /**
@@ -30,7 +31,6 @@ export default function CustomToolbar({
   onToggleSidebar: (tab: "chat" | "people") => void;
   hasUnreadChat: boolean;
 }) {
-  // Trích xuất thêm isScreenShareEnabled từ useLocalParticipant
   const {
     isMicrophoneEnabled,
     isCameraEnabled,
@@ -39,8 +39,8 @@ export default function CustomToolbar({
   } = useLocalParticipant();
   const room = useRoomContext();
 
-  const [isHandRaised, setIsHandRaised] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
   const toggleMic = () =>
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
@@ -161,14 +161,18 @@ export default function CustomToolbar({
         </button>
 
         <button
-          onClick={() => setIsHandRaised(!isHandRaised)}
+          onClick={toggleHandRaise}
+          title={isLocalHandRaised ? "Hạ tay xuống" : "Giơ tay"}
           className={`p-3 rounded-xl transition-all shadow-md ${
-            isHandRaised
+            isLocalHandRaised
               ? "bg-amber-500/20 text-amber-500 border border-amber-500/30"
               : "bg-slate-700 hover:bg-slate-600 text-white"
           }`}
         >
-          <Hand size={20} />
+          <Hand
+            size={20}
+            className={isLocalHandRaised ? "animate-bounce" : ""}
+          />
         </button>
 
         <div className="w-px h-8 bg-slate-700 mx-1 sm:mx-2 hidden sm:block"></div>
