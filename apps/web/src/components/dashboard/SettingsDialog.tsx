@@ -5,6 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useGetSessionsQuery, useRevokeSessionMutation } from "@/lib/redux/api/usersApi";
 import { X, Globe, Check, Monitor, Smartphone, Laptop, Loader2, LogOut, ShieldAlert } from "lucide-react";
+import { useConfirm } from "@/providers/ConfirmProvider";
+import { toast } from "sonner";
 
 interface SettingsDialogProps {
   onClose: () => void;
@@ -17,6 +19,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
   const currentLocale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
+  const confirm = useConfirm();
 
   const [activeTab, setActiveTab] = useState<Tab>("language");
   const { data: sessions, isLoading: isSessionsLoading, refetch } = useGetSessionsQuery(undefined, {
@@ -29,15 +32,21 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
     router.replace(pathname, { locale: newLocale });
   };
 
-  const handleRevokeSession = async (sessionId: string) => {
-    if (confirm(t("devices.confirm_logout"))) {
-      try {
-        await revokeSession(sessionId).unwrap();
-        refetch();
-      } catch (err) {
-        alert(t("devices.logout_failed"));
-      }
-    }
+  const handleRevokeSession = (sessionId: string) => {
+    confirm({
+      title: t("title") || "Settings",
+      message: t("devices.confirm_logout"),
+      confirmText: t("devices.logout") || "Log out",
+      onConfirm: async () => {
+        try {
+          await revokeSession(sessionId).unwrap();
+          refetch();
+        } catch (err) {
+          toast.error(t("devices.logout_failed"));
+          throw err;
+        }
+      },
+    });
   };
 
   return (

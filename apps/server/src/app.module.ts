@@ -9,16 +9,15 @@ import { AdminModule } from "./admin/admin.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { ReportsModule } from "./reports/reports.module";
 import { UploadsModule } from "./uploads/uploads.module";
+import { NewsFeedModule } from "./news-feed/news-feed.module";
 import { EventEmitterModule } from "@nestjs/event-emitter";
-import { NotificationsModule } from "./notifications/notifications.module";
-import { CoreModule } from "./core/core.module";
 
 @Module({
   imports: [
-    EventEmitterModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventEmitterModule.forRoot(),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -26,7 +25,6 @@ import { CoreModule } from "./core/core.module";
       }),
       inject: [ConfigService],
     }),
-    CoreModule,
     MeetingsModule,
     UsersModule,
     RoomsModule,
@@ -35,8 +33,7 @@ import { CoreModule } from "./core/core.module";
     SupabaseModule,
     ReportsModule,
     UploadsModule,
-    NotificationsModule,
+    NewsFeedModule,
   ],
-  providers: [],
 })
 export class AppModule {}

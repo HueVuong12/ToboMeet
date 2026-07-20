@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { RoomResponse } from "@tobomeet/shared/types";
 import {
   useAddChannelMutation,
@@ -140,7 +141,7 @@ export default function Sidebar({
       }).unwrap();
       router.push("../dashboard");
     } catch (err: any) {
-      alert(err?.data?.message || err?.message || t("leave_error_fallback"));
+      toast.error(err?.data?.message || err?.message || t("leave_error_fallback"));
     }
   };
 
@@ -150,7 +151,7 @@ export default function Sidebar({
       setShowDisbandConfirm(false);
       router.push("../dashboard");
     } catch (err: any) {
-      alert(err?.data?.message || err?.message || "Không thể giải tán phòng");
+      toast.error(err?.data?.message || err?.message || "Không thể giải tán phòng");
     }
   };
 

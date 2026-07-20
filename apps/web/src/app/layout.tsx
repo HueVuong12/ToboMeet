@@ -1,7 +1,7 @@
 import StoreProvider from "@/lib/redux/StoreProvider";
 import { createClient } from "@/lib/supabase/server";
 import { EventProvider } from "@/providers/EventProvider";
-import { GlobalSocketListeners } from "@/providers/GlobalSocketListeners";
+import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import { Toaster } from "sonner";
 
 export default async function RootLayout({
@@ -18,10 +18,9 @@ export default async function RootLayout({
 
   return (
     <StoreProvider>
-      <EventProvider userId={userId}>
-        <GlobalSocketListeners />
-        {children}
-      </EventProvider>
+      <ConfirmProvider>
+        <EventProvider userId={userId}>{children}</EventProvider>
+      </ConfirmProvider>
       <Toaster theme="dark" position="bottom-right" richColors closeButton />
     </StoreProvider>
   );
