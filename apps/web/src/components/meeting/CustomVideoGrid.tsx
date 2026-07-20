@@ -114,7 +114,11 @@ export default function CustomVideoGrid() {
   return (
     <div className="relative w-full h-full flex flex-col bg-[#121212] overflow-hidden">
       {/* KHU VỰC HIỂN THỊ */}
-      <div className="flex-1 w-full h-full p-1 md:p-2 flex flex-col items-center justify-center">
+      <div
+        className={`flex-1 w-full h-full flex flex-col items-center justify-center ${
+          currentData.type === "camera" ? "p-1 md:p-2" : ""
+        }`}
+      >
         {rowChunks.map((rowTracks, rowIndex) => (
           <div
             key={`row-${rowIndex}`}
@@ -126,7 +130,9 @@ export default function CustomVideoGrid() {
               <div
                 key={`${t.participant.identity}_${t.source}`}
                 // Không fix cứng width nữa, chỉ cấp maxWidth để nó tự động "teo" lại và hút sát vào nhau
-                className="p-1 md:p-2 flex items-center justify-center h-full transition-all duration-300"
+                className={`flex items-center justify-center h-full transition-all duration-300 ${
+                  currentData.type === "camera" ? "p-1 md:p-2" : ""
+                }`}
                 style={
                   currentData.type === "camera"
                     ? { maxWidth: `${100 / cols}%` }
@@ -136,8 +142,10 @@ export default function CustomVideoGrid() {
                 <CustomTileWrapper
                   trackRef={t}
                   isMain={currentData.type === "screenshare"}
-                  className={`rounded-2xl border border-slate-700/50 shadow-xl ${
-                    currentData.type === "screenshare" ? "w-full h-full" : ""
+                  className={`w-full h-full ${
+                    currentData.type === "camera"
+                      ? "rounded-2xl border border-slate-700/50 shadow-xl"
+                      : ""
                   }`}
                   style={
                     currentData.type === "camera"

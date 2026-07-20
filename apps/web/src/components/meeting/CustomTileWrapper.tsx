@@ -2,6 +2,7 @@ import { useHandRaise } from "@/hooks/useHandRaise";
 import {
   ParticipantTile,
   TrackReferenceOrPlaceholder,
+  useIsSpeaking,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { Hand, MicOff, Monitor, ZoomIn } from "lucide-react";
@@ -26,6 +27,7 @@ export default function CustomTileWrapper({
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
   const { getHandState } = useHandRaise();
   const handState = getHandState(participant);
+  const isSpeaking = useIsSpeaking(participant);
 
   const [scale, setScale] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -82,7 +84,11 @@ export default function CustomTileWrapper({
   return (
     <div
       ref={containerRef}
-      className={`relative bg-[#1a1a1a] overflow-hidden ${className}`}
+      className={`relative bg-[#1a1a1a] overflow-hidden transition-all duration-300 ${className} ${
+        isSpeaking && !isScreenShare
+          ? "ring-2 ring-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] z-30"
+          : "border-transparent"
+      }`}
       style={{
         ...style,
         cursor:

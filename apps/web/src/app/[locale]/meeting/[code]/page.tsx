@@ -3,7 +3,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LiveKitRoom } from "@livekit/components-react";
+import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
 import { Loader2, Video, Mic, VideoOff, MicOff, LogOut } from "lucide-react";
@@ -244,6 +244,8 @@ export default function MeetingPage() {
       serverUrl={LIVEKIT_URL}
       connect={true}
       options={{
+        adaptiveStream: true,
+        dynacast: true,
         videoCaptureDefaults: {
           deviceId: parsed?.deviceId,
           resolution: {
@@ -257,6 +259,7 @@ export default function MeetingPage() {
       }}
       onDisconnected={handleDisconnect}
     >
+      <RoomAudioRenderer />
       <MeetingRoomContent
         channelName={meetingData.channelName}
         roomId={meetingData.roomId}
