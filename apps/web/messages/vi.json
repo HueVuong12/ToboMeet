@@ -821,7 +821,7 @@
       "reason_spam": "Spam",
       "reason_harassment": "Quấy rối",
       "reason_offensive_speech": "Ngôn từ xúc phạm",
-      "reason_inappropriate_content": "Chia sẻ nội dung không phù hợp",
+      "reason_inappropriate_content": "Nội dung không phù hợp",
       "reason_impersonation": "Mạo danh",
       "reason_other": "Khác",
       "recent_activities_title": "Hoạt động báo cáo gần đây",
@@ -838,7 +838,7 @@
     "comment_placeholder": "Thêm nhận xét trong lớp học...",
     "post_placeholder": "Chia sẻ điều gì với mọi người trong kênh #{channelName}...",
     "post_button": "Đăng bài",
-    "new_post_title": "Bắt đầu bài viết mới",
+    "new_post_title": "Tạo thông báo mới",
     "edit_post_title": "Chỉnh sửa bài viết",
     "saving": "Đang lưu...",
     "teacher_label": "Giáo viên",
@@ -885,6 +885,7 @@
     "success_delete_post": "Xóa bài viết thành công!",
     "failed_create_post": "Lưu bài viết thất bại.",
     "failed_delete_post": "Xóa bài viết thất bại.",
-    "failed_create_comment": "Bình luận thất bại."
+    "failed_create_comment": "Bình luận thất bại.",
+    "post_announcement_btn": "Thông báo mới"
   }
 }

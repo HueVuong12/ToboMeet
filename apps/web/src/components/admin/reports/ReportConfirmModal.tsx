@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, X, Loader2 } from "lucide-react";
 
 interface Props {
@@ -25,7 +27,37 @@ export default function ReportConfirmModal({
   onConfirm,
   onCancel,
 }: Props) {
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
+
+  // Mount state hook for safe Next.js Server Components portal mounting
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  // Esc key down listener to dismiss popup
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onCancel]);
+
+  if (!open || !mounted) return null;
 
   const btnColors = {
     danger: "bg-red-600 hover:bg-red-700 text-white",
@@ -39,13 +71,34 @@ export default function ReportConfirmModal({
     info: "bg-blue-100 text-blue-600",
   };
 
-  return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+  const modalLayout = (
+    <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 overflow-hidden">
+      {/* Animation injection for 200ms scale/fade transitions */}
+      <style>{`
+        @keyframes confirmFadeIn {
+          from { opacity: 0; backdrop-filter: blur(0px); }
+          to { opacity: 1; backdrop-filter: blur(4px); }
+        }
+        @keyframes confirmScaleUp {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .animate-confirm-backdrop {
+          animation: confirmFadeIn 200ms ease-out forwards;
+        }
+        .animate-confirm-content {
+          animation: confirmScaleUp 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
+
+      {/* Backdrop (dark overlay 50% opacity slate-900) */}
       <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-confirm-backdrop"
         onClick={onCancel}
       />
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-scale-in">
+
+      {/* Main Dialog Panel */}
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-confirm-content z-10 border border-slate-100">
         <button
           onClick={onCancel}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
@@ -84,4 +137,6 @@ export default function ReportConfirmModal({
       </div>
     </div>
   );
+
+  return createPortal(modalLayout, document.body);
 }

@@ -851,7 +851,7 @@
     "comment_placeholder": "Add class comment in room...",
     "post_placeholder": "Share something with everyone in #{channelName}...",
     "post_button": "Post",
-    "new_post_title": "Start new post",
+    "new_post_title": "Create new announcement",
     "edit_post_title": "Edit post",
     "saving": "Saving...",
     "teacher_label": "Teacher",
@@ -899,6 +899,7 @@
     "success_delete_comment": "Comment deleted successfully.",
     "failed_create_post": "Failed to save post.",
     "failed_delete_post": "Failed to delete post.",
-    "failed_create_comment": "Failed to add comment."
+    "failed_create_comment": "Failed to add comment.",
+    "post_announcement_btn": "New Announcement"
   }
 }
