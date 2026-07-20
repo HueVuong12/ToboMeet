@@ -82,17 +82,20 @@ export default function ReportUserModal({
       toast.success(t("report_success"));
       onClose();
     } catch (err: any) {
-      console.error("[ReportUserModal] Gửi báo cáo thất bại:", err);
-      // Xử lý thông báo lỗi từ server
+      console.log("[ReportUserModal] Gửi báo cáo thất bại, chi tiết đối tượng lỗi:", err);
+      
+      // Trích xuất thông điệp chi tiết từ Axios error hoặc RTK Query error
       const errMsg =
-        err?.data?.message ||
         err?.message ||
+        err?.data?.message ||
+        (typeof err === "string" ? err : "") ||
         "Đã xảy ra lỗi, vui lòng thử lại sau.";
-      toast.error(errMsg);
-      setValidationError(errMsg);
+        
+      toast.error(typeof errMsg === "object" ? JSON.stringify(errMsg) : errMsg);
+      setValidationError(typeof errMsg === "object" ? JSON.stringify(errMsg) : errMsg);
 
       // Nếu lỗi là do đã báo cáo trước đó, tự động đóng dialog sau 2 giây
-      if (errMsg.includes("đã gửi báo cáo đối với người dùng này")) {
+      if (typeof errMsg === "string" && errMsg.includes("đã gửi báo cáo đối với người dùng này")) {
         setTimeout(() => {
           onClose();
         }, 2000);

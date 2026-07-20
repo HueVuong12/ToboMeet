@@ -239,10 +239,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               </h1>
             </div>
 
-            {/* Tabs (Giả lập giao diện) */}
             <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
               <button className="px-3 py-4 border-b-2 border-brand-500 text-brand-600">
-                Bài viết
+                Bảng tin lớp học
               </button>
               <button className="px-3 py-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700">
                 Lịch sử cuộc họp

@@ -1,0 +1,2 @@
+[2026-07-20T06:22:47.799Z] Lỗi thu hồi phiên đăng nhập trên Supabase: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+[2026-07-20T08:22:31.209Z] [SMTP Config] host=smtp.gmail.com, port=587, user=ngochuevuong12@gmail.com, pass=***

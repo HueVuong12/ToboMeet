@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AdminReportStats } from "@/lib/redux/api/adminApi";
 import { useTranslations } from "next-intl";
 
@@ -29,6 +30,15 @@ function PieChart({
   emptyLabel: string;
   totalLabel: string;
 }) {
+  const [hoveredSlice, setHoveredSlice] = useState<{
+    label: string;
+    count: number;
+    percent: string;
+    color: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const total = data.reduce((s, d) => s + d.count, 0);
   if (total === 0) {
     return (
@@ -73,6 +83,17 @@ function PieChart({
 
   return (
     <div className="flex items-center gap-4 flex-wrap">
+      {/* Tooltip styles injection */}
+      <style>{`
+        @keyframes tooltipAppear {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-tooltip {
+          animation: tooltipAppear 150ms ease-out forwards;
+        }
+      `}</style>
+
       <svg width={320} height={320} viewBox="0 0 320 320" className="shrink-0">
         {slices.map((s, i) => (
           <path
@@ -82,6 +103,29 @@ function PieChart({
             opacity={0.9}
             stroke="white"
             strokeWidth={2}
+            className="transition-all duration-150 hover:opacity-100 hover:scale-[1.02] origin-center cursor-pointer"
+            onMouseEnter={() => {
+              const percent = ((s.count / total) * 100).toFixed(1) + "%";
+              setHoveredSlice({
+                label: s.label,
+                count: s.count,
+                percent,
+                color: s.color,
+                x: 0,
+                y: 0,
+              });
+            }}
+            onMouseMove={(e) => {
+              setHoveredSlice((prev) => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  x: e.clientX + 14,
+                  y: e.clientY + 14,
+                };
+              });
+            }}
+            onMouseLeave={() => setHoveredSlice(null)}
           />
         ))}
         <text x={cx} y={cy - 15} textAnchor="middle" fontSize={16} fill="#64748b" fontWeight="500">
@@ -103,6 +147,27 @@ function PieChart({
           </div>
         ))}
       </div>
+
+      {/* Floating Tooltip Component */}
+      {hoveredSlice && (
+        <div
+          className="fixed pointer-events-none bg-white border border-slate-100 rounded-xl p-3 shadow-xl z-[9999] flex flex-col gap-0.5 text-left min-w-[145px] animate-tooltip transition-all duration-75"
+          style={{
+            left: hoveredSlice.x,
+            top: hoveredSlice.y,
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: hoveredSlice.color }}
+            />
+            <span className="text-xs font-bold text-slate-800">{hoveredSlice.label}</span>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500">{hoveredSlice.count} báo cáo</span>
+          <span className="text-[11px] font-bold text-brand-600">{hoveredSlice.percent}</span>
+        </div>
+      )}
     </div>
   );
 }
