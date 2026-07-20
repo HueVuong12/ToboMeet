@@ -306,6 +306,19 @@ export interface AdminReportListResponse {
   totalPages: number;
 }
 
+export interface RecentActivity {
+  id: string;
+  timestamp: string;
+  reportId: string;
+  reason: string;
+  action: string;
+  fromStatus?: string;
+  toStatus?: string;
+  adminEmail?: string;
+  status: string;
+  note?: string;
+}
+
 export interface AdminReportStats {
   total: number;
   pending: number;
@@ -317,6 +330,7 @@ export interface AdminReportStats {
   chartData: { date: string; count: number }[];
   byStatus: { status: string; count: number; label: string }[];
   byType: { type: string; count: number }[];
+  recentActivities?: RecentActivity[];
 }
 
 export interface AdminReportExportRow {

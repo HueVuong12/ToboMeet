@@ -38,10 +38,10 @@ function PieChart({
     );
   }
 
-  const cx = 80;
-  const cy = 80;
-  const r = 68;
-  const ir = 44; // inner radius for donut
+  const cx = 160;
+  const cy = 160;
+  const r = 145;
+  const ir = 95; // inner radius for donut
 
   let startAngle = -Math.PI / 2;
   const slices = data
@@ -73,7 +73,7 @@ function PieChart({
 
   return (
     <div className="flex items-center gap-4 flex-wrap">
-      <svg width={160} height={160} viewBox="0 0 160 160" className="shrink-0">
+      <svg width={320} height={320} viewBox="0 0 320 320" className="shrink-0">
         {slices.map((s, i) => (
           <path
             key={i}
@@ -84,10 +84,10 @@ function PieChart({
             strokeWidth={2}
           />
         ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={12} fill="#64748b" fontWeight="500">
+        <text x={cx} y={cy - 15} textAnchor="middle" fontSize={16} fill="#64748b" fontWeight="500">
           {totalLabel}
         </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={20} fill="#0f172a" fontWeight="800">
+        <text x={cx} y={cy + 25} textAnchor="middle" fontSize={36} fill="#0f172a" fontWeight="800">
           {total}
         </text>
       </svg>
@@ -110,45 +110,34 @@ function PieChart({
 export default function ReportStatusPieChart({ byStatus, byType }: Props) {
   const t = useTranslations("admin.reports");
 
-  const statusLabels: Record<string, string> = {
-    PENDING: t("status_pending"),
-    INVESTIGATING: t("status_investigating"),
-    RESOLVED: t("status_resolved"),
-    REJECTED: t("status_rejected"),
-    CLOSED: t("status_closed"),
+  const reasonKeys: Record<string, string> = {
+    "Spam": "reason_spam",
+    "Quấy rối": "reason_harassment",
+    "Ngôn từ xúc phạm": "reason_offensive_speech",
+    "Chia sẻ nội dung không phù hợp": "reason_inappropriate_content",
+    "Mạo danh": "reason_impersonation",
+    "Khác": "reason_other",
   };
 
-  const statusData = byStatus.map((s) => ({
-    label: statusLabels[s.status] || s.label,
-    count: s.count,
-    color: STATUS_COLORS[s.status] || "#94a3b8",
-  }));
+  const getTranslatedReason = (reason: string) => {
+    const key = reasonKeys[reason];
+    return key ? t(key, { fallback: reason }) : reason;
+  };
 
   const typeData = byType.slice(0, 6).map((tVal, i) => ({
-    label: tVal.type,
+    label: getTranslatedReason(tVal.type),
     count: tVal.count,
     color: TYPE_COLORS[i % TYPE_COLORS.length],
   }));
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* By Status */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-800 mb-4">
-          {t("chart_by_status")}
+    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col h-[480px]">
+      <div className="shrink-0 mb-6">
+        <h3 className="text-sm font-bold text-slate-800">
+          {t("chart_by_type", { fallback: "Thống kê theo loại báo cáo" })}
         </h3>
-        <PieChart
-          data={statusData}
-          emptyLabel={t("chart_empty", { fallback: "Chưa có dữ liệu" })}
-          totalLabel={t("chart_total", { fallback: "Tổng" })}
-        />
       </div>
-
-      {/* By Type */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-800 mb-4">
-          {t("chart_by_type")}
-        </h3>
+      <div className="flex-1 flex items-center justify-center">
         <PieChart
           data={typeData}
           emptyLabel={t("chart_empty", { fallback: "Chưa có dữ liệu" })}

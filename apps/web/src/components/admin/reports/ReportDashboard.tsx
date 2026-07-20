@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useGetAdminReportStatsQuery } from "@/lib/redux/api/adminApi";
 import ReportStatsCards from "./ReportStatsCards";
 import ReportBarChart from "./ReportBarChart";
+import ReportRecentActivities from "./ReportRecentActivities";
 import ReportStatusPieChart from "./ReportStatusPieChart";
 import { ReportStatsSkeleton, ReportChartSkeleton } from "./ReportSkeletonRow";
 import { RefreshCw } from "lucide-react";
@@ -11,14 +12,6 @@ export default function ReportDashboard() {
   const t = useTranslations("admin.reports");
   const [range, setRange] = useState<string>("7d");
   const { data: stats, isLoading, refetch, isFetching } = useGetAdminReportStatsQuery({ range });
-
-  const RANGES = [
-    { value: "today", label: t("filter_today", { fallback: "Hôm nay" }) },
-    { value: "7d", label: t("filter_7_days", { fallback: "7 ngày" }) },
-    { value: "30d", label: t("filter_30_days", { fallback: "30 ngày" }) },
-    { value: "3m", label: t("filter_3_months", { fallback: "3 tháng" }) },
-    { value: "1y", label: t("filter_1_year", { fallback: "1 năm" }) },
-  ];
 
   return (
     <div className="space-y-6">
@@ -61,14 +54,15 @@ export default function ReportDashboard() {
         </div>
       ) : null}
 
-      {/* Pie Charts */}
+      {/* Bottom widgets grid (Recent activities and Report Type Pie Chart) */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ReportChartSkeleton />
           <ReportChartSkeleton />
         </div>
       ) : stats ? (
-        <div className={isFetching ? "opacity-60 transition-opacity duration-200" : "transition-opacity duration-200"}>
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${isFetching ? "opacity-60 transition-opacity duration-200" : "transition-opacity duration-200"}`}>
+          <ReportRecentActivities activities={stats.recentActivities} isLoading={isFetching} />
           <ReportStatusPieChart byStatus={stats.byStatus} byType={stats.byType} />
         </div>
       ) : null}

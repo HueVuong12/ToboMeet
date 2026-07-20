@@ -823,7 +823,10 @@
       "reason_offensive_speech": "Ngôn từ xúc phạm",
       "reason_inappropriate_content": "Chia sẻ nội dung không phù hợp",
       "reason_impersonation": "Mạo danh",
-      "reason_other": "Khác"
+      "reason_other": "Khác",
+      "recent_activities_title": "Hoạt động báo cáo gần đây",
+      "recent_activities_empty": "Chưa có hoạt động nào.",
+      "activity_status_changed_desc": "Admin chuyển trạng thái sang \"{to}\"."
     },
     "reports_management_title": "Quản lý báo cáo"
   },

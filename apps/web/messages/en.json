@@ -836,7 +836,10 @@
       "reason_offensive_speech": "Offensive Speech",
       "reason_inappropriate_content": "Inappropriate Content",
       "reason_impersonation": "Impersonation",
-      "reason_other": "Other"
+      "reason_other": "Other",
+      "recent_activities_title": "Recent report activities",
+      "recent_activities_empty": "No activities yet.",
+      "activity_status_changed_desc": "Admin changed status to \"{to}\"."
     },
     "reports_management_title": "Report Management"
   },

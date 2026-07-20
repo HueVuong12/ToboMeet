@@ -199,6 +199,94 @@ export class AdminReportsService {
       { $sort: { count: -1 } },
     ]);
 
+    let activitiesStartDate = startOfToday;
+    if (range === "7d") {
+      const d = new Date();
+      d.setDate(d.getDate() - 6);
+      d.setHours(0, 0, 0, 0);
+      activitiesStartDate = d;
+    } else if (range === "30d") {
+      const d = new Date();
+      d.setDate(d.getDate() - 29);
+      d.setHours(0, 0, 0, 0);
+      activitiesStartDate = d;
+    } else if (range === "3m") {
+      const d = new Date();
+      d.setDate(d.getDate() - 84);
+      d.setHours(0, 0, 0, 0);
+      activitiesStartDate = d;
+    } else if (range === "1y") {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 11);
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      activitiesStartDate = d;
+    }
+
+    // Query các báo cáo được tạo mới hoặc có log hoạt động trong range
+    const reportsWithActivities = await this.reportModel
+      .find({
+        $or: [
+          { createdAt: { $gte: activitiesStartDate } },
+          { "processingLog.timestamp": { $gte: activitiesStartDate } },
+        ],
+      })
+      .select("reason status createdAt processingLog")
+      .lean()
+      .exec();
+
+    const activitiesList: any[] = [];
+    try {
+      reportsWithActivities.forEach((report: any) => {
+        if (!report || !report._id) return;
+        const reportIdStr = report._id.toString();
+
+        // 1. Tạo hoạt động CREATED
+        if (report.createdAt) {
+          const createdTime = new Date(report.createdAt);
+          if (createdTime >= activitiesStartDate) {
+            activitiesList.push({
+              id: `${reportIdStr}-created`,
+              timestamp: createdTime,
+              reportId: reportIdStr,
+              reason: report.reason || "Khác",
+              action: "CREATED",
+              status: "PENDING",
+              note: "Người dùng đã gửi báo cáo mới.",
+            });
+          }
+        }
+
+        // 2. Tạo các hoạt động xử lý từ processingLog
+        if (report.processingLog && Array.isArray(report.processingLog)) {
+          report.processingLog.forEach((log: any, idx: number) => {
+            if (!log || !log.timestamp) return;
+            const logTime = new Date(log.timestamp);
+            if (logTime >= activitiesStartDate) {
+              activitiesList.push({
+                id: `${reportIdStr}-log-${idx}`,
+                timestamp: logTime,
+                reportId: reportIdStr,
+                reason: report.reason || "Khác",
+                action: log.action || "STATUS_CHANGED",
+                fromStatus: log.fromStatus,
+                toStatus: log.toStatus,
+                adminEmail: log.adminEmail || "admin@tobomeet.com",
+                status: log.toStatus || report.status || "PENDING",
+                note: log.note,
+              });
+            }
+          });
+        }
+      });
+    } catch (err) {
+      console.error("Error formatting recent report activities:", err);
+    }
+
+    const recentActivities = activitiesList
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 10);
+
     return {
       total,
       pending,
@@ -210,6 +298,7 @@ export class AdminReportsService {
       chartData,
       byStatus,
       byType: byType.map((x) => ({ type: x._id, count: x.count })),
+      recentActivities,
     };
   }
 
