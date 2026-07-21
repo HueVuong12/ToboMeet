@@ -129,42 +129,41 @@ export class UsersService {
 
   /**
    * Tra cứu vị trí (city, country) từ địa chỉ IP dùng ip-api.com (miễn phí, không cần API key).
-   * Trả về "Không xác định" nếu IP là private/localhost hoặc gọi API thất bại.
+   * Nếu IP là localhost/private (dev environment), tự động gọi API không truyền IP để lấy vị trí thực tế của đường truyền mạng.
    */
   private async getGeolocation(
     ip: string,
   ): Promise<{ city: string; country: string }> {
     const unknown = { city: "Không xác định", country: "" };
 
-    if (!ip) return unknown;
-
-    // Bỏ qua IP private/localhost
     const privatePatterns = [
       /^127\./,
       /^::1$/,
-      /^localhost$/,
+      /^localhost$/i,
       /^10\./,
       /^172\.(1[6-9]|2\d|3[01])\./,
       /^192\.168\./,
       /^::ffff:127\./,
     ];
-    if (privatePatterns.some((p) => p.test(ip))) {
-      return { city: "Localhost", country: "Dev" };
-    }
+
+    const isPrivate = !ip || privatePatterns.some((p) => p.test(ip));
+    // Nếu là IP private, không truyền IP vào endpoint để ip-api.com tự phát hiện Public IP của máy chủ/dev network
+    const targetUrl = isPrivate
+      ? `http://ip-api.com/json/?fields=status,city,country,countryCode,query`
+      : `http://ip-api.com/json/${ip}?fields=status,city,country,countryCode,query`;
+
+    const cacheKey = isPrivate ? "CURRENT_DEV_LOCATION" : ip;
 
     // Dùng cache nếu đã tra cứu IP này trước đó
-    if (this.geoCache.has(ip)) {
-      return this.geoCache.get(ip)!;
+    if (this.geoCache.has(cacheKey)) {
+      return this.geoCache.get(cacheKey)!;
     }
 
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
 
-      const res = await fetch(
-        `http://ip-api.com/json/${ip}?fields=status,city,country,countryCode`,
-        { signal: controller.signal },
-      );
+      const res = await fetch(targetUrl, { signal: controller.signal });
       clearTimeout(timeout);
 
       if (!res.ok) return unknown;
@@ -177,18 +176,19 @@ export class UsersService {
         city: data.city || "",
         country: data.country,
       };
-      // Cache kết quả (giữ tối đa 200 IP để tránh memory leak)
+
       if (this.geoCache.size >= 200) {
         const firstKey = this.geoCache.keys().next().value;
         if (firstKey) this.geoCache.delete(firstKey);
       }
-      this.geoCache.set(ip, result);
+      this.geoCache.set(cacheKey, result);
       return result;
     } catch (e) {
       this.logger.warn(`Geolocation lookup thất bại cho IP ${ip}: ${String(e)}`);
       return unknown;
     }
   }
+
 
   /**
    * Lấy danh sách phiên hoạt động của user.
