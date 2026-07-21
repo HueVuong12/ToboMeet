@@ -212,17 +212,13 @@ function DeviceListItem({
   const isCurrent = session.isCurrent;
   const relativeTime = getRelativeTime(session.updatedAt, currentLocale);
 
-  // Fallback tên thiết bị khi chạy server cũ không có deviceName
-  const displayName = session.deviceName || (session.os && session.browser ? `${session.browser} trên ${session.os}` : "Thiết bị không xác định");
+  // Ưu tiên deviceName từ backend ("Chrome trên Windows"), fallback: ghép browser + os
+  const displayName =
+    session.deviceName ||
+    (session.browser && session.os && session.os !== "Không rõ"
+      ? `${session.browser} trên ${session.os}`
+      : session.browser || t("devices.unknown"));
 
-  // Method translate
-  const getMethodName = (method: string) => {
-    if (!method) return t("devices.unknown");
-    if (method === "password") return t("devices.method_password");
-    if (method === "google") return t("devices.method_google");
-    if (method === "otp") return t("devices.method_otp");
-    return method;
-  };
 
   return (
     <div className="flex items-start gap-4 py-3.5 group select-none">
@@ -262,28 +258,30 @@ function DeviceListItem({
           )}
         </div>
 
-        {/* Subtitle 1: Sign in method & location */}
+        {/* Subtitle 1: IP address */}
         <div className={`text-xs mt-0.5 ${session.loggedOutAt ? "text-slate-400" : "text-slate-500"}`}>
-          <span>{t("devices.login_method_prefix")}{getMethodName(session.loginMethod || "password")}</span>
-          {session.location && (
-            <>
-              <span className="mx-1.5">•</span>
-              <span>{session.location}</span>
-            </>
+          {session.ip ? (
+            <span className="flex items-center gap-1">
+              <Wifi className="w-3 h-3 flex-shrink-0" />
+              {session.ip}
+            </span>
+          ) : (
+            <span>{isCurrent ? t("devices.active") : relativeTime}</span>
           )}
         </div>
 
-        {/* Subtitle 2: Timing / IP */}
+        {/* Subtitle 2: Timing */}
         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
           {session.loggedOutAt ? (
-            <span>Đã đăng xuất {getRelativeTime(session.loggedOutAt, currentLocale)}</span>
+            <span>{getRelativeTime(session.loggedOutAt, currentLocale)}</span>
           ) : (
             <>
-              <span>{isCurrent ? t("devices.active") : relativeTime}</span>
+              <Clock className="w-3 h-3 flex-shrink-0" />
+              <span>{formatDate(session.createdAt, currentLocale)}</span>
               {session.ip && (
                 <>
                   <span>•</span>
-                  <span>{session.ip}</span>
+                  <span>{isCurrent ? t("devices.active") : relativeTime}</span>
                 </>
               )}
             </>

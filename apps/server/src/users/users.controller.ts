@@ -33,8 +33,10 @@ export class UsersController {
     const userId = req.user.id;
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(" ")[1];
-    return this.usersService.getUserSessions(userId, token);
+    const userAgent = (req.headers["user-agent"] as string) || "";
+    return this.usersService.getUserSessions(userId, token, userAgent);
   }
+
 
   @UseGuards(SupabaseGuard)
   @Delete("me/sessions/:id")
