@@ -408,6 +408,8 @@
       "detail_ip": "IP address",
       "detail_os": "Operating system",
       "detail_browser": "Browser",
+      "detail_location": "Login location",
+      "location_unknown": "Unknown",
       "method_password": "Password",
       "method_google": "Google",
       "method_otp": "OTP code",

@@ -4,6 +4,10 @@ export interface UserSession {
   id: string;
   ip: string;
   location?: string;
+  /** Thành phố từ geolocation */
+  city?: string;
+  /** Quốc gia từ geolocation */
+  country?: string;
   os: string;
   browser: string;
   deviceName: string;
@@ -16,6 +20,7 @@ export interface UserSession {
   updatedAt: string;
   loggedOutAt?: string;
 }
+
 
 export interface SessionsResponse {
   currentDevice: UserSession;

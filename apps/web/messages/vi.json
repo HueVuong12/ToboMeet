@@ -395,6 +395,8 @@
       "detail_ip": "Địa chỉ IP",
       "detail_os": "Hệ điều hành",
       "detail_browser": "Trình duyệt",
+      "detail_location": "Vị trí đăng nhập",
+      "location_unknown": "Không xác định",
       "method_password": "Mật khẩu",
       "method_google": "Google",
       "method_otp": "Mã OTP",

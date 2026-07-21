@@ -34,7 +34,17 @@ export class UsersController {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(" ")[1];
     const userAgent = (req.headers["user-agent"] as string) || "";
-    return this.usersService.getUserSessions(userId, token, userAgent);
+
+    // Extract IP thực: x-forwarded-for → x-real-ip → socket remoteAddress
+    const forwarded = req.headers["x-forwarded-for"] as string;
+    const clientIp =
+      (forwarded ? forwarded.split(",")[0].trim() : null) ||
+      (req.headers["x-real-ip"] as string) ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      "";
+
+    return this.usersService.getUserSessions(userId, token, userAgent, clientIp);
   }
 
 

@@ -7,7 +7,7 @@ import { useGetSessionsQuery, useRevokeSessionMutation, UserSession } from "@/li
 import {
   X, Globe, Globe2, Check, Monitor, Smartphone, Laptop,
   Loader2, LogOut, ShieldAlert, MoreVertical,
-  Clock, Wifi, Shield, ArrowRight
+  Clock, Wifi, Shield, ArrowRight, MapPin
 } from "lucide-react";
 import { useConfirm } from "@/providers/ConfirmProvider";
 import { toast } from "sonner";
@@ -168,6 +168,16 @@ function DevicePopover({
               label={t("devices.detail_ip")}
               value={session.ip || t("devices.unknown")}
             />
+            {/* Vị trí địa lý từ geolocation */}
+            <DetailRow
+              label={t("devices.detail_location")}
+              value={
+                session.city && session.country
+                  ? `${session.city}, ${session.country}`
+                  : session.country
+                  || t("devices.location_unknown")
+              }
+            />
           </div>
 
           {/* Logout button — only for non-current */}
@@ -258,9 +268,14 @@ function DeviceListItem({
           )}
         </div>
 
-        {/* Subtitle 1: IP address */}
+        {/* Subtitle 1: Vị trí địa lý (city, country) */}
         <div className={`text-xs mt-0.5 ${session.loggedOutAt ? "text-slate-400" : "text-slate-500"}`}>
-          {session.ip ? (
+          {session.city || session.country ? (
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3 h-3 flex-shrink-0" />
+              {[session.city, session.country].filter(Boolean).join(", ")}
+            </span>
+          ) : session.ip ? (
             <span className="flex items-center gap-1">
               <Wifi className="w-3 h-3 flex-shrink-0" />
               {session.ip}
@@ -270,7 +285,7 @@ function DeviceListItem({
           )}
         </div>
 
-        {/* Subtitle 2: Timing */}
+        {/* Subtitle 2: Thời gian đăng nhập */}
         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
           {session.loggedOutAt ? (
             <span>{getRelativeTime(session.loggedOutAt, currentLocale)}</span>
@@ -278,7 +293,7 @@ function DeviceListItem({
             <>
               <Clock className="w-3 h-3 flex-shrink-0" />
               <span>{formatDate(session.createdAt, currentLocale)}</span>
-              {session.ip && (
+              {(session.city || session.ip) && (
                 <>
                   <span>•</span>
                   <span>{isCurrent ? t("devices.active") : relativeTime}</span>

@@ -19,13 +19,19 @@ interface SupabaseSession {
 
 interface MappedSession {
   id: string;
+  /** Địa chỉ IP của phiên đăng nhập */
   ip: string;
+  /** Tên thiết bị thân thiện, ví dụ "Chrome trên Windows" */
   deviceName: string;
   os: string;
   browser: string;
   isMobile: boolean;
   isDesktop: boolean;
   isCurrent: boolean;
+  /** Thành phố (từ geolocation) */
+  city: string;
+  /** Quốc gia (từ geolocation) */
+  country: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,12 +43,24 @@ export interface SessionsResult {
   totalLoggedOut: number;
 }
 
+/** Kết quả từ ip-api.com */
+interface IpApiResponse {
+  status: "success" | "fail";
+  city?: string;
+  country?: string;
+  countryCode?: string;
+  message?: string;
+}
+
 @Injectable()
 export class UsersService {
   private supabaseAdmin;
   private supabaseUrl: string;
   private supabaseServiceKey: string;
   private readonly logger = new Logger(UsersService.name);
+
+  /** Cache geolocation để tránh gọi API quá nhiều lần cho cùng 1 IP */
+  private readonly geoCache = new Map<string, { city: string; country: string }>();
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -79,7 +97,6 @@ export class UsersService {
     });
 
     if (user) {
-      // Đồng bộ supabaseId nếu đăng nhập bằng OAuth mới
       let hasChanges = false;
       if (user.supabaseId !== userId) {
         user.supabaseId = userId;
@@ -111,16 +128,80 @@ export class UsersService {
   }
 
   /**
+   * Tra cứu vị trí (city, country) từ địa chỉ IP dùng ip-api.com (miễn phí, không cần API key).
+   * Trả về "Không xác định" nếu IP là private/localhost hoặc gọi API thất bại.
+   */
+  private async getGeolocation(
+    ip: string,
+  ): Promise<{ city: string; country: string }> {
+    const unknown = { city: "Không xác định", country: "" };
+
+    if (!ip) return unknown;
+
+    // Bỏ qua IP private/localhost
+    const privatePatterns = [
+      /^127\./,
+      /^::1$/,
+      /^localhost$/,
+      /^10\./,
+      /^172\.(1[6-9]|2\d|3[01])\./,
+      /^192\.168\./,
+      /^::ffff:127\./,
+    ];
+    if (privatePatterns.some((p) => p.test(ip))) {
+      return { city: "Localhost", country: "Dev" };
+    }
+
+    // Dùng cache nếu đã tra cứu IP này trước đó
+    if (this.geoCache.has(ip)) {
+      return this.geoCache.get(ip)!;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
+      const res = await fetch(
+        `http://ip-api.com/json/${ip}?fields=status,city,country,countryCode`,
+        { signal: controller.signal },
+      );
+      clearTimeout(timeout);
+
+      if (!res.ok) return unknown;
+
+      const data = (await res.json()) as IpApiResponse;
+
+      if (data.status !== "success" || !data.country) return unknown;
+
+      const result = {
+        city: data.city || "",
+        country: data.country,
+      };
+      // Cache kết quả (giữ tối đa 200 IP để tránh memory leak)
+      if (this.geoCache.size >= 200) {
+        const firstKey = this.geoCache.keys().next().value;
+        if (firstKey) this.geoCache.delete(firstKey);
+      }
+      this.geoCache.set(ip, result);
+      return result;
+    } catch (e) {
+      this.logger.warn(`Geolocation lookup thất bại cho IP ${ip}: ${String(e)}`);
+      return unknown;
+    }
+  }
+
+  /**
    * Lấy danh sách phiên hoạt động của user.
    * Gọi trực tiếp Supabase Auth REST API vì SDK không có listUserSessions.
-   * Fallback: nếu API không trả về sessions, tạo 1 session từ JWT + User-Agent hiện tại.
+   * Fallback: nếu API không trả về sessions, tạo 1 session từ JWT + User-Agent + IP hiện tại.
    */
   async getUserSessions(
     userId: string,
     currentToken: string,
     userAgent: string = "",
+    clientIp: string = "",
   ): Promise<SessionsResult> {
-    // Bước 1: Giải mã JWT để lấy session_id và thời gian đăng nhập
+    // Bước 1: Giải mã JWT lấy session_id và thời gian
     let currentSessionId = "";
     let tokenCreatedAt = new Date().toISOString();
     let tokenUpdatedAt = new Date().toISOString();
@@ -136,9 +217,6 @@ export class UsersService {
         tokenCreatedAt = new Date(
           (payload.iat as number) * 1000,
         ).toISOString();
-      }
-      if (payload.exp) {
-        // Dùng iat làm updatedAt (thời điểm token được cấp)
         tokenUpdatedAt = tokenCreatedAt;
       }
     } catch (e) {
@@ -175,62 +253,93 @@ export class UsersService {
       this.logger.warn("Không thể gọi Supabase sessions API: " + String(e));
     }
 
-    // Bước 3: Nếu có sessions từ API, map và đánh dấu isCurrent
+    // Bước 3: Nếu có sessions từ API, map + geolocation song song
     if (sessions.length > 0) {
-      const mapped: MappedSession[] = sessions.map((s) => {
+      const mappedRaw = sessions.map((s) => {
         const uaInfo = this.parseUserAgent(s.user_agent || userAgent);
+        const isCurrent =
+          currentSessionId !== "" && s.id === currentSessionId;
         return {
           id: s.id,
-          ip: s.ip || "",
-          deviceName: uaInfo.deviceName,
-          os: uaInfo.os,
-          browser: uaInfo.browser,
-          isMobile: uaInfo.isMobile,
-          isDesktop: uaInfo.isDesktop,
-          isCurrent:
-            currentSessionId !== "" && s.id === currentSessionId,
+          ip: s.ip || (isCurrent ? clientIp : ""),
+          uaInfo,
+          isCurrent,
           createdAt: s.created_at,
           updatedAt: s.updated_at,
         };
       });
 
-      // Fallback: nếu không session nào isCurrent, lấy session mới nhất
-      const hasCurrent = mapped.some((s) => s.isCurrent);
-      if (!hasCurrent && mapped.length > 0) {
-        const newestIdx = mapped.reduce(
+      // Fallback isCurrent: lấy session mới nhất
+      const hasCurrent = mappedRaw.some((s) => s.isCurrent);
+      if (!hasCurrent && mappedRaw.length > 0) {
+        const newestIdx = mappedRaw.reduce(
           (bestIdx, s, idx) =>
-            new Date(s.updatedAt) > new Date(mapped[bestIdx].updatedAt)
+            new Date(s.updatedAt) > new Date(mappedRaw[bestIdx].updatedAt)
               ? idx
               : bestIdx,
           0,
         );
-        // Cập nhật deviceName của current session với UA từ request thực tế
         const currentUaInfo = this.parseUserAgent(userAgent);
-        mapped[newestIdx] = {
-          ...mapped[newestIdx],
+        mappedRaw[newestIdx] = {
+          ...mappedRaw[newestIdx],
           isCurrent: true,
-          deviceName: currentUaInfo.deviceName || mapped[newestIdx].deviceName,
-          os: currentUaInfo.os !== "Không rõ" ? currentUaInfo.os : mapped[newestIdx].os,
-          browser: currentUaInfo.browser !== "Trình duyệt Web" ? currentUaInfo.browser : mapped[newestIdx].browser,
+          ip: mappedRaw[newestIdx].ip || clientIp,
+          uaInfo: {
+            ...mappedRaw[newestIdx].uaInfo,
+            deviceName:
+              currentUaInfo.deviceName || mappedRaw[newestIdx].uaInfo.deviceName,
+            browser:
+              currentUaInfo.browser !== "Trình duyệt Web"
+                ? currentUaInfo.browser
+                : mappedRaw[newestIdx].uaInfo.browser,
+            os:
+              currentUaInfo.os !== "Không rõ"
+                ? currentUaInfo.os
+                : mappedRaw[newestIdx].uaInfo.os,
+          },
         };
       }
+
+      // Gọi geolocation song song cho tất cả sessions có IP
+      const geoResults = await Promise.all(
+        mappedRaw.map((s) => this.getGeolocation(s.ip)),
+      );
+
+      const mapped: MappedSession[] = mappedRaw.map((s, i) => ({
+        id: s.id,
+        ip: s.ip,
+        deviceName: s.uaInfo.deviceName,
+        os: s.uaInfo.os,
+        browser: s.uaInfo.browser,
+        isMobile: s.uaInfo.isMobile,
+        isDesktop: s.uaInfo.isDesktop,
+        isCurrent: s.isCurrent,
+        city: geoResults[i].city,
+        country: geoResults[i].country,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      }));
 
       const currentDevice = mapped.find((s) => s.isCurrent) ?? null;
       const otherDevices = mapped.filter((s) => !s.isCurrent);
       return { currentDevice, otherDevices, recentlyLoggedOut: [], totalLoggedOut: 0 };
     }
 
-    // Bước 4: Fallback hoàn toàn — tạo 1 session duy nhất từ JWT + User-Agent request
+    // Bước 4: Fallback hoàn toàn — 1 session từ JWT + User-Agent + IP request
     const uaInfo = this.parseUserAgent(userAgent);
+    const geo = await this.getGeolocation(clientIp);
+
     const fallbackSession: MappedSession = {
       id: currentSessionId || "current",
-      ip: "",
+      ip: clientIp,
       deviceName: uaInfo.deviceName,
       os: uaInfo.os,
       browser: uaInfo.browser,
       isMobile: uaInfo.isMobile,
       isDesktop: uaInfo.isDesktop,
       isCurrent: true,
+      city: geo.city,
+      country: geo.country,
       createdAt: tokenCreatedAt,
       updatedAt: tokenUpdatedAt,
     };
@@ -247,7 +356,6 @@ export class UsersService {
    * Đăng xuất/hủy bỏ một phiên hoạt động qua Supabase Admin REST API
    */
   async revokeSession(userId: string, sessionId: string) {
-    // Thử dùng SDK method destroySession (có thể không tồn tại)
     try {
       if (typeof this.supabaseAdmin.auth.admin.destroySession === "function") {
         const { error } = await this.supabaseAdmin.auth.admin.destroySession(sessionId);
@@ -259,7 +367,6 @@ export class UsersService {
       // SDK method không tồn tại, dùng REST API
     }
 
-    // Fallback: Gọi REST API trực tiếp
     const res = await fetch(
       `${this.supabaseUrl}/auth/v1/admin/users/${userId}/sessions/${sessionId}`,
       {
@@ -293,7 +400,7 @@ export class UsersService {
   }
 
   /**
-   * Parse User-Agent để xác định OS, Browser, Device Type và tên thiết bị.
+   * Parse User-Agent → { deviceName, os, browser, isMobile, isDesktop }
    * deviceName: "Chrome trên Windows", "Safari trên iPhone", v.v.
    */
   private parseUserAgent(ua: string) {
@@ -331,19 +438,15 @@ export class UsersService {
       os = "Windows";
     } else if (uaLower.includes("macintosh") || uaLower.includes("mac os x")) {
       os = "macOS";
-    } else if (uaLower.includes("linux")) {
-      // Phân biệt Ubuntu và Linux chung
-      if (uaLower.includes("ubuntu")) {
-        os = "Ubuntu";
-      } else {
-        os = "Linux";
-      }
     } else if (uaLower.includes("cros")) {
       os = "Chrome OS";
+    } else if (uaLower.includes("ubuntu")) {
+      os = "Ubuntu";
+    } else if (uaLower.includes("linux")) {
+      os = "Linux";
     }
 
-    // ── Detect Browser/App ────────────────────────────────────────────────────
-    // Thứ tự quan trọng: Edge → Chrome → Safari → Firefox → Opera
+    // ── Detect Browser (thứ tự quan trọng: Edge trước Chrome) ─────────────────
     if (uaLower.includes("electron") || uaLower.includes("tobomeetdesktop")) {
       browser = "ToboMeet Desktop";
       isDesktop = true;
@@ -358,14 +461,10 @@ export class UsersService {
     } else if (uaLower.includes("fxios") || uaLower.includes("firefox")) {
       browser = "Firefox";
     } else if (uaLower.includes("crios")) {
-      // Chrome on iOS
       browser = "Chrome";
       isMobile = true;
       isDesktop = false;
-    } else if (
-      uaLower.includes("chrome") ||
-      uaLower.includes("chromium")
-    ) {
+    } else if (uaLower.includes("chrome") || uaLower.includes("chromium")) {
       browser = "Chrome";
     } else if (
       uaLower.includes("safari") &&
