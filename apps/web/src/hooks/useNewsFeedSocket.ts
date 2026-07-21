@@ -57,6 +57,7 @@ export function useNewsFeedSocket(roomId: string, channelId: string) {
           }
         })
       );
+      dispatch(newsFeedApi.util.invalidateTags([{ type: "Post", id: data.postId }]));
     });
 
     // Lắng nghe tạo bình luận mới

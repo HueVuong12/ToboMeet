@@ -1,11 +1,32 @@
 import { ApiResponse } from "@tobomeet/shared/types";
 import axios, { AxiosError } from "axios";
+import { createClient } from "@/lib/supabase/client";
 
 export const axiosInstance = axios.create({
   baseURL: "/api",
 });
 
 let isLoggingOut = false;
+
+export async function doClientLogout() {
+  if (isLoggingOut) return;
+  isLoggingOut = true;
+
+  try {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
+
+    const locale = window.location.pathname.split("/")[1] || "vi";
+    window.location.href = `/api/auth/logout?locale=${locale}`;
+  }
+}
 
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -24,21 +45,13 @@ axiosInstance.interceptors.response.use(
   (error: AxiosError) => {
     const response = error.response?.data as ApiResponse<unknown>;
 
-    // Nếu tài khoản bị khóa
+    // Nếu tài khoản bị khóa hoặc phiên bị thu hồi từ xa (401 / 403)
     if (
-      error.response?.status === 403 &&
-      response?.code === 4031 && // ACCOUNT_LOCKED
+      (error.response?.status === 401 ||
+        (error.response?.status === 403 && response?.code === 4031)) &&
       !isLoggingOut
     ) {
-      isLoggingOut = true;
-
-      // locale hiện tại
-      const locale = window.location.pathname.split("/")[1] || "vi";
-
-      // Chuyển sang API logout của Next.js
-      window.location.href = `/api/auth/logout?locale=${locale}`;
-
-      // Không reject nữa vì đang redirect
+      doClientLogout();
       return new Promise(() => {});
     }
 

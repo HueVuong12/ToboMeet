@@ -3,47 +3,78 @@
 
 import { useEffect, createContext, useContext, useRef } from "react";
 import { socket } from "@/lib/socket";
+import { createClient } from "@/lib/supabase/client";
 
 const EventContext = createContext<any>(null);
 
-// KHÔNG ĐƯỢC SỬA FILE NÀY, NẾU CÓ THÊM THÌ TẠO HOOK MỚI TRONG hooks/socket
 export function EventProvider({
-  userId,
+  userId: initialUserId,
   children,
 }: {
   userId?: string;
   children: React.ReactNode;
 }) {
-  // Chặn React Strict Mode chạy 2 lần
   const hasJoinedRef = useRef(false);
 
   useEffect(() => {
-    if (!userId) return;
+    let activeUserId = initialUserId;
 
-    const handleConnect = () => {
-      socket.emit("join_user_room", userId);
-      hasJoinedRef.current = true; // Đánh dấu là đã join trong phiên này
+    const setupSocket = async () => {
+      if (!activeUserId) {
+        try {
+          const supabase = createClient();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          activeUserId = session?.user?.id;
+        } catch {}
+      }
+
+      if (!activeUserId) return;
+
+      const handleConnect = () => {
+        if (activeUserId) {
+          socket.emit("join_user_room", activeUserId);
+          hasJoinedRef.current = true;
+        }
+      };
+
+      const handleDisconnect = () => {
+        hasJoinedRef.current = false;
+      };
+
+      if (socket.connected && !hasJoinedRef.current) {
+        handleConnect();
+      } else if (!socket.connected) {
+        socket.connect();
+      }
+
+      socket.on("connect", handleConnect);
+      socket.on("disconnect", handleDisconnect);
     };
 
-    // Reset cờ khi người dùng THỰC SỰ bị rớt mạng
-    const handleDisconnect = () => {
-      hasJoinedRef.current = false;
-    };
+    setupSocket();
 
-    if (socket.connected && !hasJoinedRef.current) {
-      handleConnect();
-    } else if (!socket.connected) {
-      socket.connect();
-    }
-
-    socket.on("connect", handleConnect);
-    socket.on("disconnect", handleDisconnect);
+    // Lắng nghe sự kiện Auth state change để tự động join room khi đăng nhập
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        activeUserId = session.user.id;
+        if (socket.connected) {
+          socket.emit("join_user_room", activeUserId);
+          hasJoinedRef.current = true;
+        } else {
+          socket.connect();
+        }
+      }
+    });
 
     return () => {
-      socket.off("connect", handleConnect);
-      socket.off("disconnect", handleDisconnect);
+      subscription.unsubscribe();
     };
-  }, [userId]);
+  }, [initialUserId]);
 
   return <EventContext.Provider value={{}}>{children}</EventContext.Provider>;
 }

@@ -37,6 +37,13 @@ import { AppDispatch } from "../../lib/redux/store";
 import PreviewModal from "../../components/meeting/PreviewModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomUpdateListener } from "../../hooks/socket/useRoomUpdateListener";
+import {
+  useGetPostsQuery,
+  PostDto,
+  newsFeedApi,
+} from "../../lib/redux/features/newsFeed/newsFeedApi";
+import PostItem from "../../components/newsFeed/PostItem";
+import CreatePostModal from "../../components/newsFeed/CreatePostModal";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -84,6 +91,19 @@ export default function RoomDetailScreen() {
   const [showRightDrawer, setShowRightDrawer] = useState(false);
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
   const [messageText, setMessageText] = useState("");
+
+  // News Feed state
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [editingPost, setEditingPost] = useState<PostDto | null>(null);
+
+  const {
+    data: posts = [],
+    isLoading: isLoadingPosts,
+    refetch: refetchPosts,
+  } = useGetPostsQuery(
+    { roomId: id || "", channelId: activeChannelId || "" },
+    { skip: !id || !activeChannelId }
+  );
 
   const isOwner = room && profile && room.ownerId === profile.supabaseId;
   // const hasNavigatedAway = React.useRef(false);
@@ -134,12 +154,32 @@ export default function RoomDetailScreen() {
       );
     };
 
+    const handleNewsFeedUpdated = () => {
+      refetchPosts();
+    };
+
     socket.on("meeting_status_changed", handleStatusChanged);
+    socket.on("post_created", handleNewsFeedUpdated);
+    socket.on("post_updated", handleNewsFeedUpdated);
+    socket.on("post_deleted", handleNewsFeedUpdated);
+    socket.on("post_reaction_updated", handleNewsFeedUpdated);
+    socket.on("comment_created", handleNewsFeedUpdated);
+    socket.on("comment_updated", handleNewsFeedUpdated);
+    socket.on("comment_deleted", handleNewsFeedUpdated);
+    socket.on("comment_reaction_updated", handleNewsFeedUpdated);
 
     return () => {
       socket.emit("leave_channel", activeChannelId);
       socket.off("connect", joinChannel);
       socket.off("meeting_status_changed", handleStatusChanged);
+      socket.off("post_created", handleNewsFeedUpdated);
+      socket.off("post_updated", handleNewsFeedUpdated);
+      socket.off("post_deleted", handleNewsFeedUpdated);
+      socket.off("post_reaction_updated", handleNewsFeedUpdated);
+      socket.off("comment_created", handleNewsFeedUpdated);
+      socket.off("comment_updated", handleNewsFeedUpdated);
+      socket.off("comment_deleted", handleNewsFeedUpdated);
+      socket.off("comment_reaction_updated", handleNewsFeedUpdated);
     };
   }, [activeChannelId, id, dispatch]);
 
@@ -435,67 +475,84 @@ export default function RoomDetailScreen() {
         </View>
       </View>
 
-      {/* Main Chat/Conversation View */}
-      <View className="flex-1 bg-white relative">
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
-          {/* System Welcome Message */}
-          <View className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4 flex-row items-start gap-3">
-            <View className="w-10 h-10 rounded-full bg-slate-200 justify-center items-center">
-              <Feather name="info" size={18} color="#64748B" />
-            </View>
-            <View className="flex-1">
-              <View className="flex-row items-center justify-between">
-                <Text className="font-bold text-slate-800 text-base">
-                  Hệ thống
-                </Text>
-                <Text className="text-sm text-slate-400">Vừa xong</Text>
-              </View>
-              <Text className="text-base text-slate-600 mt-1 leading-relaxed">
-                Chào mừng bạn đến với kênh{" "}
-                <Text className="font-bold">
-                  {activeChannel ? activeChannel.name : "General"}
-                </Text>{" "}
-                của phòng họp <Text className="font-bold">{room.name}</Text>.
-                Hãy bắt đầu thảo luận!
-              </Text>
-            </View>
+      {/* Main News Feed / Posts View */}
+      <View className="flex-1 bg-slate-50 relative">
+        {isLoadingPosts ? (
+          <View className="flex-1 justify-center items-center">
+            <ActivityIndicator size="large" color="#0052FF" />
           </View>
-        </ScrollView>
-
-        {/* Bottom Message Input Bar */}
-        <View className="p-4 border-t border-slate-100 bg-white">
-          <View className="bg-slate-50 border border-slate-100 rounded-2xl p-3">
-            <TextInput
-              value={messageText}
-              onChangeText={setMessageText}
-              placeholder="Bắt đầu bài viết mới..."
-              placeholderTextColor="#94A3B8"
-              multiline
-              className="text-base text-slate-800 min-h-[40px] text-left"
-              style={{ textAlignVertical: "top" }}
-            />
-            {/* Input Toolbar */}
-            <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-slate-200/50">
-              <View className="flex-row items-center gap-3">
-                <TouchableOpacity className="p-1">
-                  <Feather name="paperclip" size={18} color="#64748B" />
-                </TouchableOpacity>
-                <TouchableOpacity className="p-1">
-                  <Feather name="smile" size={18} color="#64748B" />
-                </TouchableOpacity>
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            {/* System Welcome Message - Chỉ hiển thị khi chưa có bài viết nào */}
+            {posts.length === 0 && (
+              <View className="bg-white border border-slate-100 rounded-2xl p-4 mb-4 flex-row items-start gap-3 shadow-sm">
+                <View className="w-10 h-10 rounded-full bg-blue-50 justify-center items-center">
+                  <Feather name="info" size={18} color="#0052FF" />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="font-bold text-slate-800 text-base">
+                      Hệ thống
+                    </Text>
+                    <Text className="text-xs text-slate-400">Vừa xong</Text>
+                  </View>
+                  <Text className="text-sm text-slate-600 mt-1 leading-relaxed">
+                    Chào mừng bạn đến với kênh{" "}
+                    <Text className="font-bold text-slate-800">
+                      {activeChannel ? activeChannel.name : "General"}
+                    </Text>{" "}
+                    của phòng họp <Text className="font-bold text-slate-800">{room.name}</Text>.
+                    Hãy tạo bài viết đầu tiên để thảo luận!
+                  </Text>
+                </View>
               </View>
-              <TouchableOpacity className="w-9 h-9 rounded-full bg-[#0052FF] justify-center items-center active:opacity-90">
-                <Feather
-                  name="send"
-                  size={16}
-                  color="#ffffff"
-                  style={{ marginLeft: 2 }}
-                />
+            )}
+
+            {/* Nút Thông báo mới (Đặt trên đầu Bảng tin giống Web) */}
+            <View className="mb-4 flex-row justify-start">
+              <TouchableOpacity
+                onPress={() => {
+                  setEditingPost(null);
+                  setShowCreatePostModal(true);
+                }}
+                className="flex-row items-center gap-2 h-[42px] px-5 bg-[#0052FF] active:bg-blue-700 rounded-full shadow-sm"
+              >
+                <Feather name="edit-3" size={16} color="#ffffff" />
+                <Text className="text-white font-bold text-sm">
+                  Thông báo mới
+                </Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+
+            {/* Posts List */}
+            {posts.map((post) => (
+              <PostItem
+                key={post._id}
+                post={post}
+                currentUserId={profile?.supabaseId}
+                onEditPost={(p) => {
+                  setEditingPost(p);
+                  setShowCreatePostModal(true);
+                }}
+              />
+            ))}
+          </ScrollView>
+        )}
       </View>
+
+      {/* Create / Edit Post Modal */}
+      {id && activeChannelId && (
+        <CreatePostModal
+          visible={showCreatePostModal}
+          roomId={id}
+          channelId={activeChannelId}
+          editPost={editingPost}
+          onClose={() => {
+            setShowCreatePostModal(false);
+            setEditingPost(null);
+          }}
+        />
+      )}
 
       {/* LEFT DRAWER (Channels Sidebar Overlay) */}
       {showLeftDrawer && (

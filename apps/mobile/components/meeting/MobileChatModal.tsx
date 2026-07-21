@@ -13,11 +13,17 @@ import {
   Linking,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import {
-  useRoomContext,
-  useLocalParticipant,
-  useParticipants,
-} from "@livekit/react-native";
+let useRoomContext: any = () => null;
+let useLocalParticipant: any = () => ({ localParticipant: null });
+let useParticipants: any = () => [];
+try {
+  const livekit = require("@livekit/react-native");
+  useRoomContext = livekit.useRoomContext;
+  useLocalParticipant = livekit.useLocalParticipant;
+  useParticipants = livekit.useParticipants;
+} catch (e) {
+  console.warn("LiveKit hooks not available in Expo Go");
+}
 import { RoomEvent } from "livekit-client";
 
 import * as ImagePicker from "expo-image-picker";

@@ -381,7 +381,7 @@
     },
     "devices": {
       "header": "Device Management",
-      "desc": "Manage all devices logged into your account. You can view login information and sign out devices you no longer use.",
+      "desc": "Manage all devices logged into your account.",
       "loading": "Loading device list...",
       "empty": "No other devices are signed in.",
       "empty_title": "No other devices",

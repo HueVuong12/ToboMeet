@@ -42,6 +42,16 @@ interface PostCardProps {
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "👏", "🎉"];
 
+const REACTION_LABELS: Record<string, string> = {
+  "👍": "Thích",
+  "❤️": "Yêu thích",
+  "😂": "Haha",
+  "😮": "Wow",
+  "😢": "Buồn",
+  "👏": "Vỗ tay",
+  "🎉": "Chúc mừng",
+};
+
 export default function PostCard({ post, userId, userRole, onEdit }: PostCardProps) {
   const t = useTranslations("news_feed");
   const confirm = useConfirm();
@@ -94,7 +104,12 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
 
   const handleToggleReaction = async (emoji: string) => {
     try {
-      await togglePostReaction({ postId: post._id, type: emoji }).unwrap();
+      await togglePostReaction({
+        postId: post._id,
+        type: emoji,
+        roomId: post.roomId,
+        channelId: post.channelId,
+      }).unwrap();
     } catch (err) {
       console.error("Reaction failed:", err);
     }
@@ -154,12 +169,15 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHr = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHr / 24);
 
-    if (diffSec < 60) return t("just_now");
-    if (diffMin < 60) return t("minutes_ago", { count: diffMin });
-    if (diffHr < 24) return t("hours_ago", { count: diffHr });
-    return t("days_ago", { count: diffDay });
+    if (diffMs < 0 || diffSec < 60) return "Vừa xong";
+    if (diffMin < 60) return `${diffMin} phút trước`;
+    if (diffHr < 24) return `${diffHr} giờ trước`;
+
+    // Quá 24h thì hiển thị ngày giờ đầy đủ
+    const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const dateFormatted = date.toLocaleDateString("vi-VN");
+    return `${time} ${dateFormatted}`;
   };
 
   // Attachments Filter
@@ -443,27 +461,37 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
       <div className="border-t border-b border-slate-100 py-2.5 flex items-center justify-start gap-2 bg-white">
         {/* Reaction Hover Tray & Reaction Count */}
         <div className="flex items-center gap-1.5 relative group">
-          <div className="flex items-center gap-1 cursor-pointer py-1.5 px-3 hover:bg-slate-50 rounded-xl transition-colors text-slate-500">
+          <button
+            type="button"
+            onClick={() => handleToggleReaction(userReaction ? userReaction : "👍")}
+            className={`flex items-center gap-1.5 cursor-pointer py-1.5 px-3 hover:bg-slate-50 rounded-xl transition-colors ${
+              userReaction ? "text-brand-600 font-bold" : "text-slate-500 font-semibold"
+            }`}
+          >
             {userReaction ? (
-              <span className="text-base mr-1">{userReaction}</span>
+              <span className="text-base">{userReaction}</span>
             ) : (
               <ThumbsUp size={16} />
             )}
-            <span className="text-xs font-semibold">{t("like")}</span>
-          </div>
+            <span className="text-xs">
+              {userReaction ? REACTION_LABELS[userReaction] || "Đã thích" : t("like")}
+            </span>
+          </button>
 
-          {/* Emoji Popover Tray */}
-          <div className="absolute bottom-full left-0 mb-1 hidden group-hover:flex items-center gap-1.5 bg-white border border-slate-200 rounded-full shadow-xl px-2.5 py-1.5 z-20 animate-fade-in">
-            {EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleToggleReaction(emoji)}
-                className="text-lg hover:scale-125 transition-transform"
-              >
-                {emoji}
-              </button>
-            ))}
+          {/* Emoji Popover Tray (Có padding-bottom làm cầu nối hover liên tục) */}
+          <div className="absolute bottom-full left-0 pb-2 hidden group-hover:flex z-20 animate-fade-in">
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-full shadow-xl px-2.5 py-1.5">
+              {EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleToggleReaction(emoji)}
+                  className="text-lg hover:scale-125 transition-transform"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Total Reaction Badge counts */}

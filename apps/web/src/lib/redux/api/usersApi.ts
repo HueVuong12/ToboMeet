@@ -8,6 +8,11 @@ export interface UserSession {
   city?: string;
   /** Quốc gia từ geolocation */
   country?: string;
+  /** Nhà mạng ISP từ geolocation */
+  isp?: string;
+  /** IP thật thu nhận được (hoặc null nếu không có) */
+  ipAddress?: string | null;
+  isGps?: boolean;
   os: string;
   browser: string;
   deviceName: string;
@@ -47,6 +52,23 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ["UserSessions"],
     }),
 
+    revokeOtherSessions: builder.mutation<{ success: boolean; message: string }, void>({
+      query: () => ({
+        url: "/users/me/sessions/others",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["UserSessions"],
+    }),
+
+    updateCurrentSessionLocation: builder.mutation<void, { city: string; country: string }>({
+      query: (data) => ({
+        url: "/users/me/sessions/current/location",
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: ["UserSessions"],
+    }),
+
     searchUsers: builder.query<any[], string>({
       query: (query) => ({
         url: "/users/search",
@@ -61,6 +83,8 @@ export const usersApi = baseApi.injectEndpoints({
 export const {
   useGetSessionsQuery,
   useRevokeSessionMutation,
+  useRevokeOtherSessionsMutation,
+  useUpdateCurrentSessionLocationMutation,
   useSearchUsersQuery,
   useLazySearchUsersQuery,
 } = usersApi;

@@ -12,12 +12,31 @@ import { Feather } from "@expo/vector-icons";
 import {
   useGetSessionsQuery,
   useRevokeSessionMutation,
+  useRevokeOtherSessionsMutation,
 } from "../../lib/redux/features/users/usersApi";
 import { supabase } from "../../lib/supabase";
 import { router } from "expo-router";
 import { toast } from "../../lib/toast";
 
 type Tab = "language" | "devices";
+
+function formatLocation(city?: string, country?: string, isp?: string): string {
+  const INVALID = ["không xác định", "unknown", ""];
+  const safeCity =
+    city && !INVALID.includes(city.trim().toLowerCase()) ? city.trim() : "";
+  const safeCountry =
+    country && !INVALID.includes(country.trim().toLowerCase())
+      ? country.trim()
+      : "";
+  const safeIsp =
+    isp && !INVALID.includes(isp.trim().toLowerCase()) ? isp.trim() : "";
+
+  if (safeCity && safeCountry) return `${safeCity}, ${safeCountry}`;
+  if (safeIsp && safeCountry) return `${safeIsp}, ${safeCountry}`;
+  if (safeCountry) return safeCountry;
+  if (safeIsp) return safeIsp;
+  return "Không xác định";
+}
 
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
@@ -30,7 +49,9 @@ export default function SettingsScreen() {
   } = useGetSessionsQuery(undefined, {
     skip: activeTab !== "devices",
   });
-  const [revokeSession, { isLoading: isRevoking }] = useRevokeSessionMutation();
+  const [revokeSession, { isLoading: isRevokingSingle }] = useRevokeSessionMutation();
+  const [revokeOtherSessions, { isLoading: isRevokingOthers }] = useRevokeOtherSessionsMutation();
+  const isRevoking = isRevokingSingle || isRevokingOthers;
 
   const handleLanguageChange = async (newLocale: "vi" | "en") => {
     if (newLocale === i18n.language) return;
@@ -53,6 +74,29 @@ export default function SettingsScreen() {
             } catch (err) {
               console.error(err);
               toast.error("settings.devices.logout_failed");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRevokeAll = () => {
+    Alert.alert(
+      t("settings.devices.header"),
+      "Bạn có chắc muốn đăng xuất tất cả các thiết bị khác?",
+      [
+        { text: t("settings.cancel"), style: "cancel" },
+        {
+          text: "Đăng xuất",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await revokeOtherSessions().unwrap();
+              refetch();
+            } catch (err) {
+              console.error(err);
+              toast.error("Đăng xuất thiết bị khác thất bại.");
             }
           },
         },
@@ -254,7 +298,7 @@ export default function SettingsScreen() {
                       <View className="flex-1 min-w-0">
                         <View className="flex-row items-center gap-2 flex-wrap">
                           <Text className="font-bold text-slate-800 text-sm truncate">
-                            {session.os} • {session.browser}
+                            {`${(session.browser || "Browser").replace(/\s+/g, "")}-${(session.os || "OS").replace(/\s+/g, "")}`}
                           </Text>
                           {session.isCurrent && (
                             <View className="px-2 py-0.5 rounded-full bg-green-50 border border-green-200">
@@ -265,10 +309,11 @@ export default function SettingsScreen() {
                           )}
                         </View>
                         <Text className="text-[10px] text-slate-400 font-semibold mt-1">
-                          IP: {session.ip} •{" "}
-                          {session.isCurrent
-                            ? t("settings.devices.active")
-                            : `${t("settings.devices.logged_in_at")}${new Date(session.createdAt).toLocaleDateString()}`}
+                          📍 {formatLocation(session.city, session.country, session.isp) !== "Không xác định"
+                            ? formatLocation(session.city, session.country, session.isp)
+                            : session.ipAddress
+                            ? `IP: ${session.ipAddress}`
+                            : "Không xác định"}
                         </Text>
                       </View>
                     </View>

@@ -368,7 +368,7 @@
     },
     "devices": {
       "header": "Quản lý thiết bị",
-      "desc": "Quản lý tất cả các thiết bị đang đăng nhập vào tài khoản của bạn. Bạn có thể xem thông tin đăng nhập và đăng xuất các thiết bị không còn sử dụng.",
+      "desc": "Quản lý tất cả các thiết bị đang đăng nhập vào tài khoản của bạn.",
       "loading": "Đang tải danh sách thiết bị...",
       "empty": "Không có thiết bị nào khác đang đăng nhập.",
       "empty_title": "Không có thiết bị nào khác",

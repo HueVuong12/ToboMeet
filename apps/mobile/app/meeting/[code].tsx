@@ -5,8 +5,13 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MeetingPayload, MeetingStore } from "../../lib/meetingStore";
 
-// LIVEKIT COMPONENTS
-import { LiveKitRoom } from "@livekit/react-native";
+// LIVEKIT COMPONENTS (Safely loaded for Expo Go)
+let LiveKitRoom: any = View;
+try {
+  LiveKitRoom = require("@livekit/react-native").LiveKitRoom;
+} catch (e) {
+  console.warn("LiveKitRoom native component not available in Expo Go");
+}
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import MobileToolbar from "../../components/meeting/MobileToolbar";
 import AsyncStorage from "@react-native-async-storage/async-storage";

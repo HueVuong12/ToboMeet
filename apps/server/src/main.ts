@@ -25,7 +25,7 @@ async function bootstrap() {
   app.setGlobalPrefix("api");
 
   // Tin tưởng proxy (Nginx, Vercel...) để đọc đúng IP từ x-forwarded-for
-  app.getHttpAdapter().getInstance().set("trust proxy", 1);
+  app.getHttpAdapter().getInstance().set("trust proxy", true);
 
   // Serve static uploaded files
   app.use("/api/uploads", express.static(path.join(__dirname, "..", "uploads")));

@@ -1,4 +1,4 @@
-import { baseApi } from "./baseApi";
+import { baseApi } from "../../api/baseApi";
 
 export interface AttachmentDto {
   url: string;
@@ -70,6 +70,13 @@ export const newsFeedApi = baseApi.injectEndpoints({
         method: "GET",
         params: { roomId, channelId },
       }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ _id }) => ({ type: "Post" as const, id: _id })),
+              { type: "Post", id: "LIST" },
+            ]
+          : [{ type: "Post", id: "LIST" }],
     }),
     createPost: builder.mutation<
       PostDto,
@@ -80,6 +87,7 @@ export const newsFeedApi = baseApi.injectEndpoints({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: [{ type: "Post", id: "LIST" }],
     }),
     updatePost: builder.mutation<
       PostDto,
@@ -90,38 +98,25 @@ export const newsFeedApi = baseApi.injectEndpoints({
         method: "PATCH",
         data: body,
       }),
+      invalidatesTags: (result, error, { postId }) => [{ type: "Post", id: postId }],
     }),
     deletePost: builder.mutation<{ success: boolean }, string>({
       query: (postId) => ({
         url: `/news-feed/posts/${postId}`,
         method: "DELETE",
       }),
+      invalidatesTags: [{ type: "Post", id: "LIST" }],
     }),
     togglePostReaction: builder.mutation<
       { reactionStats: ReactionStatDto[]; userReaction: string | null },
-      { postId: string; type: string; roomId?: string; channelId?: string }
+      { postId: string; type: string }
     >({
       query: ({ postId, type }) => ({
         url: `/news-feed/posts/${postId}/reactions`,
         method: "POST",
         data: { type },
       }),
-      async onQueryStarted({ postId, type, roomId, channelId }, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          if (roomId && channelId) {
-            dispatch(
-              newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
-                const post = draft.find((p) => p._id === postId);
-                if (post) {
-                  post.userReaction = data.userReaction;
-                  post.reactionStats = data.reactionStats;
-                }
-              })
-            );
-          }
-        } catch {}
-      },
+      invalidatesTags: (result, error, { postId }) => [{ type: "Post", id: postId }],
     }),
     getPostReactions: builder.query<PostReactionUserDto[], string>({
       query: (postId) => ({
@@ -129,7 +124,10 @@ export const newsFeedApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
-    getSignedUploadUrl: builder.mutation<{ signedUrl: string; url: string; fileName: string }, { fileName: string }>({
+    getSignedUploadUrl: builder.mutation<
+      { signedUrl: string; url: string; fileName: string },
+      { fileName: string }
+    >({
       query: (body) => ({
         url: "/news-feed/posts/signed-url",
         method: "POST",
@@ -141,6 +139,9 @@ export const newsFeedApi = baseApi.injectEndpoints({
         url: `/news-feed/posts/${postId}/comments`,
         method: "GET",
       }),
+      providesTags: (result, error, postId) => [
+        { type: "Comment" as const, id: `POST_${postId}` },
+      ],
     }),
     createComment: builder.mutation<
       CommentDto,
@@ -151,26 +152,39 @@ export const newsFeedApi = baseApi.injectEndpoints({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: (result, error, { postId }) => [
+        { type: "Comment", id: `POST_${postId}` },
+        { type: "Post", id: postId },
+      ],
     }),
-    updateComment: builder.mutation<CommentDto, { commentId: string; content: string }>({
+    updateComment: builder.mutation<CommentDto, { commentId: string; postId: string; content: string }>({
       query: ({ commentId, content }) => ({
         url: `/news-feed/comments/${commentId}`,
         method: "PATCH",
         data: { content },
       }),
+      invalidatesTags: (result, error, { postId }) => [{ type: "Comment", id: `POST_${postId}` }],
     }),
-    deleteComment: builder.mutation<{ success: boolean }, string>({
-      query: (commentId) => ({
+    deleteComment: builder.mutation<{ success: boolean }, { commentId: string; postId: string }>({
+      query: ({ commentId }) => ({
         url: `/news-feed/comments/${commentId}`,
         method: "DELETE",
       }),
+      invalidatesTags: (result, error, { postId }) => [
+        { type: "Comment", id: `POST_${postId}` },
+        { type: "Post", id: postId },
+      ],
     }),
-    toggleCommentReaction: builder.mutation<ReactionDto[], { commentId: string; type: string }>({
+    toggleCommentReaction: builder.mutation<
+      ReactionDto[],
+      { commentId: string; postId: string; type: string }
+    >({
       query: ({ commentId, type }) => ({
         url: `/news-feed/comments/${commentId}/reactions`,
         method: "POST",
         data: { type },
       }),
+      invalidatesTags: (result, error, { postId }) => [{ type: "Comment", id: `POST_${postId}` }],
     }),
   }),
   overrideExisting: true,

@@ -2,8 +2,16 @@ import React, { useState } from "react";
 import { View, TouchableOpacity, Alert } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
-// LIVEKIT COMPONENTS
-import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
+// LIVEKIT COMPONENTS (Safely loaded for Expo Go)
+let useRoomContext: any = () => null;
+let useLocalParticipant: any = () => ({ localParticipant: null, isMicrophoneEnabled: false, isCameraEnabled: false });
+try {
+  const livekit = require("@livekit/react-native");
+  useRoomContext = livekit.useRoomContext;
+  useLocalParticipant = livekit.useLocalParticipant;
+} catch (e) {
+  console.warn("LiveKit hooks not available in Expo Go");
+}
 import { toast } from "../../lib/toast";
 import { useHandRaise } from "../../hooks/useHandRaise";
 

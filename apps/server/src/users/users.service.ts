@@ -1,13 +1,19 @@
 import {
   Injectable,
   BadRequestException,
+  UnauthorizedException,
   Logger,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { User, UserDocument } from "./schemas/user.schema";
+import { DeviceSession, DeviceSessionDocument } from "./schemas/device-session.schema";
 import { Model } from "mongoose";
 import { ConfigService } from "@nestjs/config";
 import { createClient } from "@supabase/supabase-js";
+import { AppGateway } from "../core/gateways/app.gateway";
+import { createHash } from "crypto";
 
 interface SupabaseSession {
   id: string;
@@ -33,6 +39,11 @@ interface MappedSession {
   city: string;
   /** Quốc gia (từ geolocation) */
   country: string;
+  /** Nhà mạng ISP (từ geolocation) */
+  isp?: string;
+  /** IP thật thu nhận được (hoặc null nếu không có hoặc private IP ở prod) */
+  ipAddress?: string | null;
+  isGps?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,8 +60,11 @@ export interface SessionsResult {
 interface IpApiResponse {
   status: "success" | "fail";
   city?: string;
+  regionName?: string;
   country?: string;
   countryCode?: string;
+  isp?: string;
+  org?: string;
   query?: string; // IP công cộng trả về từ API
   message?: string;
 }
@@ -63,11 +77,81 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   /** Cache geolocation để tránh gọi API quá nhiều lần cho cùng 1 IP */
-  private readonly geoCache = new Map<string, { city: string; country: string; publicIp: string }>();
+  private readonly geoCache = new Map<string, { city: string; country: string; isp: string; publicIp: string }>();
+
+  /** Kiểm tra IP private/loopback — dùng chung cho getGeolocation và display IP */
+  private readonly privateIpPatterns = [
+    /^127\./,
+    /^::1$/,
+    /^localhost$/i,
+    /^10\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./,
+    /^::ffff:127\./,
+    /^::ffff:10\./,
+    /^::ffff:192\.168\./,
+    /^fd[0-9a-f]{2}:/i,
+  ];
+
+  private isPrivateIp(ip: string): boolean {
+    if (!ip) return true;
+    return this.privateIpPatterns.some((p) => p.test(ip));
+  }
+
+  private getRealIpAddress(ip: string): string | null {
+    if (!ip || ip === "UNKNOWN") return null;
+    let clean = ip.trim();
+    if (clean.startsWith("::ffff:")) {
+      clean = clean.substring(7);
+    }
+    if (clean === "::1" || clean === "localhost") {
+      clean = "127.0.0.1";
+    }
+    if (this.isPrivateIp(clean)) {
+      // Cho phép 127.0.0.1 ở dev, nhưng chặn ở production
+      if (process.env.NODE_ENV === "production") {
+        return null;
+      }
+      return clean;
+    }
+    return clean;
+  }
+
+  public extractSessionId(token: string, userAgent: string = ""): string {
+    if (!token) return "";
+    try {
+      const payloadBase64 = token.split(".")[1];
+      if (!payloadBase64) return "";
+      const payload = JSON.parse(
+        Buffer.from(payloadBase64, "base64").toString(),
+      ) as Record<string, any>;
+
+      const sid =
+        (payload.session_id as string) ||
+        (payload.sid as string) ||
+        (payload.jti as string) ||
+        "";
+
+      if (sid) return sid;
+
+      const sub = payload.sub as string;
+      const cleanUa = (userAgent || "").trim().toLowerCase();
+      if (sub && cleanUa) {
+        return createHash("sha256").update(`${sub}-${cleanUa}`).digest("hex");
+      }
+      return sub || "";
+    } catch {
+      return "";
+    }
+  }
+
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(DeviceSession.name) private sessionModel: Model<DeviceSessionDocument>,
     private configService: ConfigService,
+    @Inject(forwardRef(() => AppGateway))
+    private readonly appGateway: AppGateway,
   ) {
     this.supabaseUrl = this.configService.get<string>("SUPABASE_URL");
     this.supabaseServiceKey = this.configService.get<string>(
@@ -131,34 +215,27 @@ export class UsersService {
   }
 
   /**
-   * Tra cứu vị trí (city, country, publicIp) từ địa chỉ IP dùng ip-api.com.
-   * Nếu IP là localhost/private (dev environment), tự động gọi API không truyền IP để lấy vị trí & IP WAN thực tế.
+   * Tra cứu vị trí (city, country, isp, publicIp) từ địa chỉ IP dùng ip-api.com.
+   * Khi ip là địa chỉ private/localhost (dev mode), gọi ip-api.com/json không truyền IP để lấy WAN public IP.
    */
   private async getGeolocation(
     ip: string,
-  ): Promise<{ city: string; country: string; publicIp: string }> {
-    const unknown = { city: "Không xác định", country: "", publicIp: ip };
+  ): Promise<{ city: string; country: string; isp: string; publicIp: string }> {
+    const unknown = { city: "", country: "Không xác định", isp: "", publicIp: ip };
 
-    const privatePatterns = [
-      /^127\./,
-      /^::1$/,
-      /^localhost$/i,
-      /^10\./,
-      /^172\.(1[6-9]|2\d|3[01])\./,
-      /^192\.168\./,
-      /^::ffff:127\./,
-    ];
+    if (!ip || ip === "UNKNOWN") return unknown;
 
-    const isPrivate = !ip || privatePatterns.some((p) => p.test(ip));
-    const targetUrl = isPrivate
-      ? `http://ip-api.com/json/?fields=status,city,country,countryCode,query`
-      : `http://ip-api.com/json/${ip}?fields=status,city,country,countryCode,query`;
-
-    const cacheKey = isPrivate ? "CURRENT_DEV_LOCATION" : ip;
+    const isPrivate = this.isPrivateIp(ip);
+    const cacheKey = isPrivate ? "LOCAL_WAN" : ip;
 
     if (this.geoCache.has(cacheKey)) {
       return this.geoCache.get(cacheKey)!;
     }
+
+    // Khi IP là private/localhost (dev mode), tra cứu không truyền IP để lấy WAN public IP hiện tại
+    const targetUrl = isPrivate
+      ? `http://ip-api.com/json/?fields=status,message,city,regionName,country,countryCode,isp,org,query`
+      : `http://ip-api.com/json/${ip}?fields=status,message,city,regionName,country,countryCode,isp,org,query`;
 
     try {
       const controller = new AbortController();
@@ -171,11 +248,22 @@ export class UsersService {
 
       const data = (await res.json()) as IpApiResponse;
 
-      if (data.status !== "success" || !data.country) return unknown;
+      if (data.status !== "success") {
+        this.logger.warn(`ip-api.com trả về status "${data.status}" (${data.message ?? ""}) cho IP ${ip}`);
+        return unknown;
+      }
+      if (!data.country) return unknown;
+
+      // Ưu tiên regionName (Tỉnh/Thành phố như Đà Nẵng, Kon Tum, Hà Nội...) 
+      // trước khi fallback sang city (Huyện/Thị xã nhỏ như Đắk Glei)
+      const rawCity = (data.regionName || data.city || "").trim();
+      const safeCity = rawCity.length > 0 ? rawCity : "";
+      const rawIsp = (data.isp || data.org || "").trim();
 
       const result = {
-        city: data.city || "",
-        country: data.country,
+        city: safeCity,
+        country: data.country.trim(),
+        isp: rawIsp,
         publicIp: data.query || ip,
       };
 
@@ -193,10 +281,69 @@ export class UsersService {
 
 
 
+  async registerOrUpdateSession(
+    userId: string,
+    currentToken: string,
+    userAgent: string,
+    clientIp: string,
+  ): Promise<void> {
+    if (!currentToken || !userId) return;
+    try {
+      const sessionId = this.extractSessionId(currentToken, userAgent);
+      if (!sessionId) return;
+
+      // 1. Kiểm tra xem phiên này đã bị thu hồi từ xa hay chưa
+      const existing = await this.sessionModel.findOne({ sessionId, userId }).lean();
+      if (existing?.isRevoked) {
+        throw new UnauthorizedException("Phiên đăng nhập đã bị thu hồi từ xa.");
+      }
+
+      const uaInfo = this.parseUserAgent(userAgent);
+      const cleanIp = this.getRealIpAddress(clientIp) || "127.0.0.1";
+      const geo = await this.getGeolocation(cleanIp);
+
+      const amr: Array<{ method: string }> = Array.isArray(payload.amr) ? payload.amr : [];
+      const provider: string = (payload.app_metadata?.provider || "").toLowerCase();
+      let loginMethod = "password";
+
+      if (provider === "google" || amr.some((a) => a.method === "oauth")) {
+        loginMethod = "google";
+      } else {
+        loginMethod = "password";
+      }
+
+      const ipAddress = this.getRealIpAddress(clientIp);
+
+      const sessionData = {
+        sessionId,
+        userId,
+        ip: cleanIp,
+        ipAddress,
+        userAgent,
+        deviceName: uaInfo.deviceName,
+        os: uaInfo.os,
+        browser: uaInfo.browser,
+        city: geo.city || "",
+        country: geo.country || "Không xác định",
+        isp: geo.isp || "",
+        loginMethod,
+        isMobile: uaInfo.isMobile,
+        isDesktop: uaInfo.isDesktop,
+        updatedAt: new Date(),
+      };
+
+      await this.sessionModel.findOneAndUpdate(
+        { sessionId },
+        { $set: sessionData, $setOnInsert: { createdAt: new Date(), isGps: false } },
+        { upsert: true, new: true },
+      );
+    } catch (e) {
+      this.logger.error("Lỗi khi ghi nhận/cập nhật DeviceSession: " + String(e));
+    }
+  }
+
   /**
-   * Lấy danh sách phiên hoạt động của user.
-   * Gọi trực tiếp Supabase Auth REST API vì SDK không có listUserSessions.
-   * Fallback: nếu API không trả về sessions, tạo 1 session từ JWT + User-Agent + IP hiện tại.
+   * Lấy danh sách phiên hoạt động của user từ MongoDB.
    */
   async getUserSessions(
     userId: string,
@@ -204,181 +351,75 @@ export class UsersService {
     userAgent: string = "",
     clientIp: string = "",
   ): Promise<SessionsResult> {
-    // Bước 1: Giải mã JWT lấy session_id, thời gian và phương thức đăng nhập
-    let currentSessionId = "";
-    let tokenCreatedAt = new Date().toISOString();
-    let tokenUpdatedAt = new Date().toISOString();
-    let loginMethod = "password";
+    const currentSessionId = this.extractSessionId(currentToken, userAgent);
 
-    try {
-      const payloadBase64 = currentToken.split(".")[1];
-      const payload = JSON.parse(
-        Buffer.from(payloadBase64, "base64").toString(),
-      ) as Record<string, any>;
-      currentSessionId =
-        (payload.session_id as string) || (payload.sid as string) || "";
-      if (payload.iat) {
-        tokenCreatedAt = new Date(
-          (payload.iat as number) * 1000,
-        ).toISOString();
-        tokenUpdatedAt = tokenCreatedAt;
-      }
-
-      // Trích xuất loginMethod từ app_metadata.provider hoặc amr
-      const provider = payload.app_metadata?.provider;
-      const amr = payload.amr;
-      if (provider === "google" || (Array.isArray(amr) && amr.some((a: any) => a.method === "oauth"))) {
-        loginMethod = "google";
-      } else if (provider === "email" || (Array.isArray(amr) && amr.some((a: any) => a.method === "password"))) {
-        loginMethod = "password";
-      } else if (provider) {
-        loginMethod = provider;
-      }
-    } catch (e) {
-      this.logger.warn("Không thể giải mã JWT token: " + String(e));
+    // Tự động đồng bộ/cập nhật session hiện tại vào MongoDB
+    if (currentSessionId) {
+      await this.registerOrUpdateSession(userId, currentToken, userAgent, clientIp);
     }
 
-    // Bước 2: Thử gọi Supabase Auth REST API để lấy tất cả sessions
-    let sessions: SupabaseSession[] = [];
     try {
-      const res = await fetch(
-        `${this.supabaseUrl}/auth/v1/admin/users/${userId}/sessions`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.supabaseServiceKey}`,
-            apikey: this.supabaseServiceKey,
-          },
-        },
-      );
-      if (res.ok) {
-        const body = (await res.json()) as
-          | { sessions?: SupabaseSession[] }
-          | SupabaseSession[];
-        if (Array.isArray(body)) {
-          sessions = body;
-        } else if (body && Array.isArray(body.sessions)) {
-          sessions = body.sessions;
-        }
-      } else {
-        this.logger.warn(
-          `Supabase sessions API trả về ${res.status}. Dùng fallback.`,
-        );
-      }
-    } catch (e) {
-      this.logger.warn("Không thể gọi Supabase sessions API: " + String(e));
-    }
+      const dbSessions = await this.sessionModel
+        .find({ userId, isRevoked: { $ne: true } })
+        .sort({ updatedAt: -1 })
+        .lean()
+        .exec();
 
-    // Bước 3: Nếu có sessions từ API, map + geolocation song song
-    if (sessions.length > 0) {
-      const mappedRaw = sessions.map((s) => {
-        const uaInfo = this.parseUserAgent(s.user_agent || userAgent);
-        const isCurrent =
-          currentSessionId !== "" && s.id === currentSessionId;
+      const mapped: MappedSession[] = dbSessions.map((s) => {
+        const isCurrent = s.sessionId === currentSessionId;
         return {
-          id: s.id,
-          ip: s.ip || (isCurrent ? clientIp : ""),
-          uaInfo,
+          id: s.sessionId,
+          ip: s.ip === "127.0.0.1" && process.env.NODE_ENV === "production" ? "Không rõ" : s.ip || "Không rõ",
+          ipAddress: s.ipAddress || null,
+          deviceName: s.deviceName,
+          os: s.os,
+          browser: s.browser,
+          loginMethod: s.loginMethod || "password",
+          isMobile: !!s.isMobile,
+          isDesktop: !!s.isDesktop,
           isCurrent,
-          createdAt: s.created_at,
-          updatedAt: s.updated_at,
-        };
-      });
-
-      // Fallback isCurrent: lấy session mới nhất
-      const hasCurrent = mappedRaw.some((s) => s.isCurrent);
-      if (!hasCurrent && mappedRaw.length > 0) {
-        const newestIdx = mappedRaw.reduce(
-          (bestIdx, s, idx) =>
-            new Date(s.updatedAt) > new Date(mappedRaw[bestIdx].updatedAt)
-              ? idx
-              : bestIdx,
-          0,
-        );
-        const currentUaInfo = this.parseUserAgent(userAgent);
-        mappedRaw[newestIdx] = {
-          ...mappedRaw[newestIdx],
-          isCurrent: true,
-          ip: mappedRaw[newestIdx].ip || clientIp,
-          uaInfo: {
-            ...mappedRaw[newestIdx].uaInfo,
-            deviceName:
-              currentUaInfo.deviceName || mappedRaw[newestIdx].uaInfo.deviceName,
-            browser:
-              currentUaInfo.browser !== "Trình duyệt Web"
-                ? currentUaInfo.browser
-                : mappedRaw[newestIdx].uaInfo.browser,
-            os:
-              currentUaInfo.os !== "Không rõ"
-                ? currentUaInfo.os
-                : mappedRaw[newestIdx].uaInfo.os,
-          },
-        };
-      }
-
-      // Gọi geolocation song song cho tất cả sessions có IP
-      const geoResults = await Promise.all(
-        mappedRaw.map((s) => this.getGeolocation(s.ip)),
-      );
-
-      const mapped: MappedSession[] = mappedRaw.map((s, i) => {
-        const geo = geoResults[i];
-        return {
-          id: s.id,
-          ip: s.ip || "Không rõ",
-          deviceName: s.uaInfo.deviceName,
-          os: s.uaInfo.os,
-          browser: s.uaInfo.browser,
-          loginMethod: s.isCurrent ? loginMethod : "password",
-          isMobile: s.uaInfo.isMobile,
-          isDesktop: s.uaInfo.isDesktop,
-          isCurrent: s.isCurrent,
-          city: geo.city,
-          country: geo.country,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
+          isGps: !!s.isGps,
+          city: s.city || "",
+          country: s.country || "Không xác định",
+          isp: s.isp || "",
+          createdAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
+          updatedAt: s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString(),
         };
       });
 
       const currentDevice = mapped.find((s) => s.isCurrent) ?? null;
       const otherDevices = mapped.filter((s) => !s.isCurrent);
       return { currentDevice, otherDevices, recentlyLoggedOut: [], totalLoggedOut: 0 };
+    } catch (err) {
+      this.logger.error("Lỗi khi đọc sessions từ MongoDB: " + String(err));
+      return { currentDevice: null, otherDevices: [], recentlyLoggedOut: [], totalLoggedOut: 0 };
     }
-
-    // Bước 4: Fallback hoàn toàn — 1 session từ JWT + User-Agent + IP request
-    const uaInfo = this.parseUserAgent(userAgent);
-    const geo = await this.getGeolocation(clientIp);
-
-    const fallbackSession: MappedSession = {
-      id: currentSessionId || "current",
-      ip: clientIp || "Không rõ",
-      deviceName: uaInfo.deviceName,
-      os: uaInfo.os,
-      browser: uaInfo.browser,
-      loginMethod: loginMethod,
-      isMobile: uaInfo.isMobile,
-      isDesktop: uaInfo.isDesktop,
-      isCurrent: true,
-      city: geo.city,
-      country: geo.country,
-      createdAt: tokenCreatedAt,
-      updatedAt: tokenUpdatedAt,
-    };
-
-
-
-
-    return {
-      currentDevice: fallbackSession,
-      otherDevices: [],
-      recentlyLoggedOut: [],
-      totalLoggedOut: 0,
-    };
   }
 
   /**
-   * Đăng xuất/hủy bỏ một phiên hoạt động qua Supabase Admin REST API
+   * Đăng xuất/hủy bỏ một phiên hoạt động qua Supabase Admin REST API và xóa khỏi MongoDB
    */
   async revokeSession(userId: string, sessionId: string) {
+    // 1. Đánh dấu session bị thu hồi trong MongoDB
+    try {
+      await this.sessionModel.updateOne(
+        { sessionId, userId },
+        { $set: { isRevoked: true, revokedAt: new Date() } }
+      ).exec();
+    } catch (err) {
+      this.logger.error("Lỗi khi đánh dấu thu hồi DeviceSession khỏi MongoDB: " + String(err));
+    }
+
+    // 2. Bắn tin nhắn Realtime WebSocket đăng xuất tức thì cho client
+    try {
+      if (this.appGateway?.server) {
+        this.appGateway.server.to(`user_${userId}`).emit("session_revoked", { sessionId });
+      }
+    } catch (err) {
+      this.logger.error("Lỗi khi bắn WebSocket session_revoked: " + String(err));
+    }
+
+    // 2. Thu hồi/đăng xuất phiên trên Supabase
     try {
       if (typeof this.supabaseAdmin.auth.admin.destroySession === "function") {
         const { error } = await this.supabaseAdmin.auth.admin.destroySession(sessionId);
@@ -402,12 +443,81 @@ export class UsersService {
     );
 
     if (!res.ok && res.status !== 404) {
-      throw new BadRequestException(
-        `Không thể đăng xuất thiết bị này (HTTP ${res.status})`,
-      );
+      this.logger.warn(`Không thể xóa session trên Supabase (HTTP ${res.status}), nhưng đã xóa khỏi DB local.`);
     }
 
     return { success: true, message: "Đã đăng xuất thiết bị thành công" };
+  }
+
+  /**
+   * Đăng xuất/hủy bỏ tất cả các phiên đăng nhập khác của user ngoại trừ phiên hiện tại
+   */
+  async revokeOtherSessions(userId: string, currentToken: string, userAgent: string = "") {
+    if (!currentToken || !userId) {
+      throw new BadRequestException("Token hoặc User ID không hợp lệ.");
+    }
+
+    const currentSessionId = this.extractSessionId(currentToken, userAgent);
+
+    if (!currentSessionId) {
+      throw new BadRequestException("Không xác định được phiên làm việc hiện tại.");
+    }
+
+    // 1. Tìm tất cả các session ID khác đang hoạt động
+    const otherSessions = await this.sessionModel
+      .find({
+        userId,
+        sessionId: { $ne: currentSessionId },
+        isRevoked: { $ne: true },
+      })
+      .select("sessionId")
+      .lean();
+
+    const revokedSessionIds = otherSessions.map((s) => s.sessionId);
+
+    // 2. Cập nhật isRevoked = true trong MongoDB
+    await this.sessionModel.updateMany(
+      { userId, sessionId: { $ne: currentSessionId } },
+      { $set: { isRevoked: true, revokedAt: new Date() } },
+    );
+
+    // 3. Phát WebSocket event session_revoked tới room của user
+    try {
+      if (this.appGateway?.server && revokedSessionIds.length > 0) {
+        this.appGateway.server.to(`user_${userId}`).emit("session_revoked", {
+          revokedSessionIds,
+        });
+      }
+    } catch (err) {
+      this.logger.error("Lỗi khi bắn WebSocket session_revoked: " + String(err));
+    }
+
+    return {
+      success: true,
+      message: "Đã đăng xuất tất cả thiết bị khác thành công",
+      revokedCount: revokedSessionIds.length,
+    };
+  }
+
+  async updateCurrentSessionLocation(
+    userId: string,
+    currentToken: string,
+    userAgent: string,
+    city: string,
+    country: string,
+  ): Promise<void> {
+    if (!currentToken || !userId) return;
+    try {
+      const sessionId = this.extractSessionId(currentToken, userAgent);
+      if (!sessionId) return;
+
+      await this.sessionModel.updateOne(
+        { sessionId, userId },
+        { $set: { city, country, isGps: true } }
+      );
+    } catch (e) {
+      this.logger.error("Lỗi khi cập nhật vị trí GPS cho session: " + String(e));
+    }
   }
 
   async searchUsers(query: string): Promise<User[]> {
@@ -497,16 +607,14 @@ export class UsersService {
       browser = "Safari";
     }
 
-    // ── Tạo deviceName thân thiện ──────────────────────────────────────────────
+    // ── Tạo deviceName dạng Chrome-Windows ──
+    const cleanBrowser = browser.replace(/\s+/g, "");
+    const cleanOs = os.replace(/\s+/g, "");
     let deviceName: string;
-    if (browser === "ToboMeet Desktop") {
-      deviceName = "ToboMeet Desktop";
-    } else if (browser === "ToboMeet Mobile") {
-      deviceName = "ToboMeet Mobile";
-    } else if (os !== "Không rõ") {
-      deviceName = `${browser} trên ${os}`;
+    if (cleanOs.toLowerCase() !== "khôngrõ") {
+      deviceName = `${cleanBrowser}-${cleanOs}`;
     } else {
-      deviceName = browser;
+      deviceName = cleanBrowser;
     }
 
     return { deviceName, os, browser, isMobile, isDesktop };
