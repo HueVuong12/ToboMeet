@@ -56,6 +56,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Tài khoản của bạn đã bị khóa",
     statusCode: 403,
   },
+  INVALID_PERMISSION: {
+    code: 4032,
+    message: "Bạn không đủ quyền thực hiện chức năng này",
+    statusCode: 403,
+  },
   INVALID_TOKEN: {
     code: 4011,
     message: "Token không hợp lệ hoặc đã hết hạn",

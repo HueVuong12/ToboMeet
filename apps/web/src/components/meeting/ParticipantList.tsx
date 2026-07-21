@@ -122,7 +122,7 @@ export default function ParticipantList({
   return (
     <div className="flex flex-col h-full">
       {/* Hiển thị tổng số người */}
-      <div className="flex items-center justify-between mb-4 px-1">
+      <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Đang tham gia
         </span>

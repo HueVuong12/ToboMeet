@@ -2,13 +2,14 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { ROLES_KEY, MemberRole } from "../decorators/roles.decorator";
 import { Room, RoomDocument } from "../../rooms/schemas/room.schema";
+import { AppException } from "../exceptions/app.exception";
+import { ErrorCode } from "@tobomeet/shared/types";
 
 @Injectable()
 export class RoomRoleGuard implements CanActivate {
@@ -18,7 +19,7 @@ export class RoomRoleGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 1. Lấy danh sách role được phép từ metadata
+    // Lấy danh sách role được phép từ metadata
     const requiredRoles = this.reflector.getAllAndOverride<MemberRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
@@ -36,11 +37,9 @@ export class RoomRoleGuard implements CanActivate {
 
     const member = room.members.find((m) => m.userId === userId);
 
-    // 2. Kiểm tra xem role của user có nằm trong danh sách requiredRoles không
+    // Kiểm tra xem role của user có nằm trong danh sách requiredRoles không
     if (!member || !requiredRoles.includes(member.role as MemberRole)) {
-      throw new ForbiddenException(
-        "Bạn không đủ quyền thực hiện hành động này",
-      );
+      throw new AppException(ErrorCode.INVALID_PERMISSION);
     }
 
     return true;

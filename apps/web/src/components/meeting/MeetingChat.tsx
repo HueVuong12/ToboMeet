@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   useLocalParticipant,
   useParticipants,
+  useRoomInfo,
 } from "@livekit/components-react";
 import {
   Send,
@@ -15,26 +16,35 @@ import {
   ChevronDown,
   Reply,
   Info,
+  Unlock,
 } from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { toast } from "sonner";
-import { useGeneratePresignedUploadUrlMutation } from "@/lib/redux/api/meetingsApi";
+import {
+  useGeneratePresignedUploadUrlMutation,
+} from "@/lib/redux/api/meetingsApi";
+import { useChatStatus } from "@/hooks/useChatStatus";
 
 interface MeetingChatProps {
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   meetingCode: string;
+  roomId: string;
+  channelId: string;
 }
 
 export default function MeetingChat({
   setMessages,
   messages,
   meetingCode,
+  roomId,
+  channelId,
 }: MeetingChatProps) {
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants();
 
   const [generatePresignedUrl] = useGeneratePresignedUploadUrlMutation();
+  const { canChat } = useChatStatus({ roomId, channelId, meetingCode });
 
   const [inputValue, setInputValue] = useState("");
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -347,7 +357,7 @@ export default function MeetingChat({
           document.body,
         )}
 
-      {/* MODAL PHÓNG TO ẢNH VÀ VIDEO */}
+      {/* Modal phóng to ảnh và video */}
       {previewMedia &&
         typeof document !== "undefined" &&
         createPortal(
@@ -399,6 +409,7 @@ export default function MeetingChat({
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
+        disabled={!canChat}
       />
 
       <div className="flex-1 pt-4 overflow-y-auto pr-2 space-y-4 mb-4 custom-scrollbar">
@@ -588,7 +599,17 @@ export default function MeetingChat({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="shrink-0 flex flex-col gap-2">
+      <div className="shrink-0 flex flex-col gap-2 relative">
+        {/* LỚP PHỦ LÀM MỜ KHI CHAT BỊ KHÓA */}
+        {!canChat && (
+          <div className="absolute inset-0 z-10 bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl pointer-events-none border border-slate-800">
+            <div className="bg-slate-800/90 text-slate-300 px-4 py-2 rounded-lg flex items-center gap-2 text-xs shadow-lg border border-slate-700/50">
+              <Lock size={14} className="text-red-400" />
+              Chủ phòng đã khóa chat
+            </div>
+          </div>
+        )}
+
         {/* BANNER HIỂN THỊ ĐANG TRẢ LỜI AI ĐÓ */}
         {replyingTo && (
           <div className="bg-slate-800/80 px-3 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center border border-slate-700 backdrop-blur-sm">
@@ -613,6 +634,7 @@ export default function MeetingChat({
         <div className="relative">
           <select
             value={selectedTarget}
+            disabled={!canChat}
             onChange={(e) => setSelectedTarget(e.target.value)}
             className="w-full appearance-none bg-slate-800 text-slate-200 text-xs pl-3 pr-8 py-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors"
           >
@@ -643,12 +665,13 @@ export default function MeetingChat({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Nhập tin nhắn..."
+            disabled={!canChat}
+            placeholder={canChat ? "Nhập tin nhắn..." : "Chat đang bị khóa"}
             className="flex-1 bg-transparent text-sm text-slate-200 px-2 py-2 focus:outline-none min-w-0"
           />
           <button
             type="submit"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || !canChat}
             className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 disabled:bg-slate-700 ml-1 transition-colors"
           >
             <Send size={16} />

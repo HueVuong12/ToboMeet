@@ -10,12 +10,19 @@ import {
   Body,
   Delete,
   Get,
+  Put,
 } from "@nestjs/common";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { RoomRoleGuard } from "../core/guards/room-role.guard";
 import { Roles } from "../core/decorators/roles.decorator";
 import { JoinMeetingDto } from "./dtos/join-meeting.dto";
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+  };
+}
 
 @Controller("rooms/:id/channels/:channelId/meetings")
 export class MeetingsController {
@@ -32,7 +39,7 @@ export class MeetingsController {
     @Param("id") roomId: string,
     @Param("channelId") channelId: string,
     @Body() body: JoinMeetingDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
     return this.meetingsService.joinOrCreateMeeting(
@@ -42,6 +49,17 @@ export class MeetingsController {
       body.displayName,
       body.forceSwitch,
     );
+  }
+
+  @Put(":code/chat-status")
+  @Roles("owner", "admin")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async toggleChat(
+    @Param("code") meetingCode: string,
+    @Body() body: { isChatEnabled: boolean },
+  ) {
+    await this.meetingsService.toggleRoomChat(meetingCode, body.isChatEnabled);
   }
 
   /**
@@ -88,7 +106,7 @@ export class GlobalMeetingsController {
   @UseGuards(SupabaseGuard)
   async joinMeetingByCode(
     @Body() body: { meetingCode: string; displayName?: string },
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
 

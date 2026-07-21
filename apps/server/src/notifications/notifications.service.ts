@@ -68,4 +68,26 @@ export class NotificationsService {
       console.error(error);
     }
   }
+
+  // Thông báo cho người bị xoá khỏi cuộc họp
+  @OnEvent("notification.participant_removed", { async: true })
+  async handleParticipantRemoved(payload: {
+    userId: string;
+    metadata: Record<string, unknown>;
+  }) {
+    const newNotif = {
+      userId: payload.userId,
+      type: "PARTICIPANT_REMOVED",
+      metadata: payload.metadata,
+    };
+
+    // Không lưu thông báo này
+
+    this.appGateway.server
+      .to(`user_${payload.userId}`)
+      .emit("receive_notifications", [newNotif]);
+  }
+  catch(error) {
+    console.error(error);
+  }
 }

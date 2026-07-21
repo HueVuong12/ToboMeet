@@ -164,9 +164,11 @@ export default function MeetingRoomContent({
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 p-2 overflow-y-auto">
               {sidebarTab === "chat" ? (
                 <MeetingChat
+                  roomId={roomId}
+                  channelId={channelId}
                   messages={messages}
                   setMessages={setMessages}
                   meetingCode={meetingCode}
@@ -237,6 +239,8 @@ export default function MeetingRoomContent({
 
         <CustomToolbar
           meetingCode={meetingCode || ""}
+          roomId={roomId}
+          channelId={channelId}
           hasUnreadChat={hasUnreadChat}
           activeTab={isSidebarOpen ? sidebarTab : null}
           onToggleSidebar={(tab) => {

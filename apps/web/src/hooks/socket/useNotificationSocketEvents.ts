@@ -61,6 +61,12 @@ export function useNotificationSocketEvents() {
               break;
             }
 
+            case "PARTICIPANT_REMOVED": {
+              const meetingCode = notif.metadata?.meetingCode;
+              toast.error(`Bạn đã bị xoá khỏi cuộc họp ${meetingCode}.`);
+              break;
+            }
+
             default:
               console.warn(
                 "Chưa hỗ trợ hiển thị loại thông báo này:",

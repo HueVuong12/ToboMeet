@@ -1,3 +1,4 @@
+import { useChatStatus } from "@/hooks/useChatStatus";
 import { useHandRaise } from "@/hooks/useHandRaise";
 import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
 import localforage from "localforage";
@@ -5,11 +6,14 @@ import {
   Check,
   Copy,
   Hand,
+  Lock,
   MessageSquare,
   Mic,
   MicOff,
   MonitorUp,
+  MoreVertical,
   PhoneOff,
+  Unlock,
   Users,
   VideoIcon,
   VideoOff,
@@ -22,6 +26,8 @@ import { toast } from "sonner";
  */
 export default function CustomToolbar({
   meetingCode,
+  roomId,
+  channelId,
   activeTab,
   onToggleSidebar,
   hasUnreadChat,
@@ -29,6 +35,8 @@ export default function CustomToolbar({
   meetingCode: string;
   activeTab: "chat" | "people" | null;
   onToggleSidebar: (tab: "chat" | "people") => void;
+  roomId: string;
+  channelId: string;
   hasUnreadChat: boolean;
 }) {
   const {
@@ -40,11 +48,19 @@ export default function CustomToolbar({
   const room = useRoomContext();
 
   const [isCopied, setIsCopied] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); // State cho menu admin
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
   const toggleMic = () =>
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   const toggleCam = () => localParticipant.setCameraEnabled(!isCameraEnabled);
+
+  // Dùng Hook quản lý Chat
+  const { isHost, isChatEnabled, handleToggleChat } = useChatStatus({
+    roomId,
+    channelId,
+    meetingCode,
+  });
 
   // Hàm bật/tắt chia sẻ màn hình (bọc trong try-catch phòng trường hợp user ấn Hủy cấp quyền)
   const toggleScreenShare = async () => {
@@ -175,6 +191,57 @@ export default function CustomToolbar({
             className={isLocalHandRaised ? "animate-bounce" : ""}
           />
         </button>
+
+        {/* Menu cho admin */}
+        {isHost && (
+          <div className="relative">
+            <button
+              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              className="p-3 rounded-xl transition-all shadow-md bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-600/30"
+              title="Tùy chọn quản trị"
+            >
+              <MoreVertical size={20} />
+            </button>
+
+            {isMoreMenuOpen && (
+              <>
+                {/* Lớp mờ để đóng menu khi click ra ngoài */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsMoreMenuOpen(false)}
+                ></div>
+
+                {/* Menu Dropdown */}
+                <div className="absolute bottom-full mb-1 right-0 z-50 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/50 mb-1">
+                    Công cụ Quản trị
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleToggleChat();
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2.5 transition-colors ${
+                      isChatEnabled
+                        ? "text-red-400 hover:bg-red-500/15 hover:text-red-300"
+                        : "text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300"
+                    }`}
+                  >
+                    {isChatEnabled ? (
+                      <>
+                        <Lock size={16} /> Khóa Chat
+                      </>
+                    ) : (
+                      <>
+                        <Unlock size={16} /> Mở Chat
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="w-px h-8 bg-slate-700 mx-1 sm:mx-2 hidden sm:block"></div>
 

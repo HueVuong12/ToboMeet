@@ -4,7 +4,6 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
-  ForbiddenException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -170,14 +169,14 @@ export class MeetingsService {
     const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
-    if (
-      !userInRoom ||
-      userInRoom.isLeft === true ||
-      userInRoom.status === "REMOVED" ||
-      userInRoom.status === "LEFT"
-    ) {
-      throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
-    }
+    // if (
+    //   !userInRoom ||
+    //   userInRoom.isLeft === true ||
+    //   userInRoom.status === "REMOVED" ||
+    //   userInRoom.status === "LEFT"
+    // ) {
+    //   throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
+    // }
     const userRole = userInRoom.role;
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
@@ -308,7 +307,7 @@ export class MeetingsService {
   }
 
   /**
-   * Đuổi người dùng ra khỏi cuộc họp (Kick)
+   * Xoá người dùng ra khỏi cuộc họp
    */
   async removeParticipant(meetingCode: string, participantIdentity: string) {
     if (!this.livekitRoomService) {
@@ -321,6 +320,13 @@ export class MeetingsService {
         meetingCode,
         participantIdentity,
       );
+
+      this.eventEmitter.emit("notification.participant_removed", {
+        userId: participantIdentity, // Gửi thông báo cho người bị xoá
+        metadata: {
+          meetingCode: meetingCode,
+        },
+      });
     } catch (error) {
       console.error("Lỗi khi kick:", error);
       throw new BadRequestException(
@@ -365,6 +371,27 @@ export class MeetingsService {
     } catch (error) {
       // Bỏ qua lỗi nếu phòng đã không còn tồn tại trên LiveKit
       console.log(`Phòng ${meetingCode} có thể đã được dọn dẹp.`, error);
+    }
+  }
+
+  /**
+   * Bật tắt chat trong cuộc họp
+   */
+  async toggleRoomChat(meetingCode: string, isChatEnabled: boolean) {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    try {
+      const metadataString = JSON.stringify({ isChatEnabled });
+
+      await this.livekitRoomService.updateRoomMetadata(
+        meetingCode,
+        metadataString,
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái chat:", error);
+      throw new BadRequestException("Không thể cập nhật trạng thái chat");
     }
   }
 
