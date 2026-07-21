@@ -229,6 +229,16 @@ function DeviceListItem({
       ? `${session.browser} trên ${session.os}`
       : session.browser || t("devices.unknown"));
 
+  // Dịch loginMethod sang tên thân thiện
+  const getMethodName = (method: string) => {
+    if (!method) return t("devices.method_password");
+    const m = method.toLowerCase();
+    if (m === "google") return t("devices.method_google");
+    if (m === "password" || m === "email") return t("devices.method_password");
+    if (m === "otp") return t("devices.method_otp");
+    // Capitalize first letter cho các method khác (github, apple, microsoft...)
+    return method.charAt(0).toUpperCase() + method.slice(1);
+  };
 
   return (
     <div className="flex items-start gap-4 py-3.5 group select-none">
@@ -285,21 +295,12 @@ function DeviceListItem({
           )}
         </div>
 
-        {/* Subtitle 2: Thời gian đăng nhập */}
-        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+        {/* Subtitle 2: Phương thức đăng nhập */}
+        <div className={`text-[11px] mt-0.5 ${session.loggedOutAt ? "text-slate-400" : "text-slate-400"}`}>
           {session.loggedOutAt ? (
             <span>{getRelativeTime(session.loggedOutAt, currentLocale)}</span>
           ) : (
-            <>
-              <Clock className="w-3 h-3 flex-shrink-0" />
-              <span>{formatDate(session.createdAt, currentLocale)}</span>
-              {(session.city || session.ip) && (
-                <>
-                  <span>•</span>
-                  <span>{isCurrent ? t("devices.active") : relativeTime}</span>
-                </>
-              )}
-            </>
+            <span>{t("devices.login_method_prefix")}{getMethodName(session.loginMethod || "password")}</span>
           )}
         </div>
       </div>

@@ -25,6 +25,7 @@ interface MappedSession {
   deviceName: string;
   os: string;
   browser: string;
+  loginMethod: string;
   isMobile: boolean;
   isDesktop: boolean;
   isCurrent: boolean;
@@ -35,6 +36,7 @@ interface MappedSession {
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface SessionsResult {
   currentDevice: MappedSession | null;
@@ -49,6 +51,7 @@ interface IpApiResponse {
   city?: string;
   country?: string;
   countryCode?: string;
+  query?: string; // IP công cộng trả về từ API
   message?: string;
 }
 
@@ -60,7 +63,7 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   /** Cache geolocation để tránh gọi API quá nhiều lần cho cùng 1 IP */
-  private readonly geoCache = new Map<string, { city: string; country: string }>();
+  private readonly geoCache = new Map<string, { city: string; country: string; publicIp: string }>();
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -128,13 +131,13 @@ export class UsersService {
   }
 
   /**
-   * Tra cứu vị trí (city, country) từ địa chỉ IP dùng ip-api.com (miễn phí, không cần API key).
-   * Nếu IP là localhost/private (dev environment), tự động gọi API không truyền IP để lấy vị trí thực tế của đường truyền mạng.
+   * Tra cứu vị trí (city, country, publicIp) từ địa chỉ IP dùng ip-api.com.
+   * Nếu IP là localhost/private (dev environment), tự động gọi API không truyền IP để lấy vị trí & IP WAN thực tế.
    */
   private async getGeolocation(
     ip: string,
-  ): Promise<{ city: string; country: string }> {
-    const unknown = { city: "Không xác định", country: "" };
+  ): Promise<{ city: string; country: string; publicIp: string }> {
+    const unknown = { city: "Không xác định", country: "", publicIp: ip };
 
     const privatePatterns = [
       /^127\./,
@@ -147,21 +150,19 @@ export class UsersService {
     ];
 
     const isPrivate = !ip || privatePatterns.some((p) => p.test(ip));
-    // Nếu là IP private, không truyền IP vào endpoint để ip-api.com tự phát hiện Public IP của máy chủ/dev network
     const targetUrl = isPrivate
       ? `http://ip-api.com/json/?fields=status,city,country,countryCode,query`
       : `http://ip-api.com/json/${ip}?fields=status,city,country,countryCode,query`;
 
     const cacheKey = isPrivate ? "CURRENT_DEV_LOCATION" : ip;
 
-    // Dùng cache nếu đã tra cứu IP này trước đó
     if (this.geoCache.has(cacheKey)) {
       return this.geoCache.get(cacheKey)!;
     }
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+      const timeout = setTimeout(() => controller.abort(), 3000);
 
       const res = await fetch(targetUrl, { signal: controller.signal });
       clearTimeout(timeout);
@@ -175,6 +176,7 @@ export class UsersService {
       const result = {
         city: data.city || "",
         country: data.country,
+        publicIp: data.query || ip,
       };
 
       if (this.geoCache.size >= 200) {
@@ -190,6 +192,7 @@ export class UsersService {
   }
 
 
+
   /**
    * Lấy danh sách phiên hoạt động của user.
    * Gọi trực tiếp Supabase Auth REST API vì SDK không có listUserSessions.
@@ -201,16 +204,17 @@ export class UsersService {
     userAgent: string = "",
     clientIp: string = "",
   ): Promise<SessionsResult> {
-    // Bước 1: Giải mã JWT lấy session_id và thời gian
+    // Bước 1: Giải mã JWT lấy session_id, thời gian và phương thức đăng nhập
     let currentSessionId = "";
     let tokenCreatedAt = new Date().toISOString();
     let tokenUpdatedAt = new Date().toISOString();
+    let loginMethod = "password";
 
     try {
       const payloadBase64 = currentToken.split(".")[1];
       const payload = JSON.parse(
         Buffer.from(payloadBase64, "base64").toString(),
-      ) as Record<string, unknown>;
+      ) as Record<string, any>;
       currentSessionId =
         (payload.session_id as string) || (payload.sid as string) || "";
       if (payload.iat) {
@@ -218,6 +222,17 @@ export class UsersService {
           (payload.iat as number) * 1000,
         ).toISOString();
         tokenUpdatedAt = tokenCreatedAt;
+      }
+
+      // Trích xuất loginMethod từ app_metadata.provider hoặc amr
+      const provider = payload.app_metadata?.provider;
+      const amr = payload.amr;
+      if (provider === "google" || (Array.isArray(amr) && amr.some((a: any) => a.method === "oauth"))) {
+        loginMethod = "google";
+      } else if (provider === "email" || (Array.isArray(amr) && amr.some((a: any) => a.method === "password"))) {
+        loginMethod = "password";
+      } else if (provider) {
+        loginMethod = provider;
       }
     } catch (e) {
       this.logger.warn("Không thể giải mã JWT token: " + String(e));
@@ -305,20 +320,24 @@ export class UsersService {
         mappedRaw.map((s) => this.getGeolocation(s.ip)),
       );
 
-      const mapped: MappedSession[] = mappedRaw.map((s, i) => ({
-        id: s.id,
-        ip: s.ip,
-        deviceName: s.uaInfo.deviceName,
-        os: s.uaInfo.os,
-        browser: s.uaInfo.browser,
-        isMobile: s.uaInfo.isMobile,
-        isDesktop: s.uaInfo.isDesktop,
-        isCurrent: s.isCurrent,
-        city: geoResults[i].city,
-        country: geoResults[i].country,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-      }));
+      const mapped: MappedSession[] = mappedRaw.map((s, i) => {
+        const geo = geoResults[i];
+        return {
+          id: s.id,
+          ip: s.ip || "Không rõ",
+          deviceName: s.uaInfo.deviceName,
+          os: s.uaInfo.os,
+          browser: s.uaInfo.browser,
+          loginMethod: s.isCurrent ? loginMethod : "password",
+          isMobile: s.uaInfo.isMobile,
+          isDesktop: s.uaInfo.isDesktop,
+          isCurrent: s.isCurrent,
+          city: geo.city,
+          country: geo.country,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+        };
+      });
 
       const currentDevice = mapped.find((s) => s.isCurrent) ?? null;
       const otherDevices = mapped.filter((s) => !s.isCurrent);
@@ -331,10 +350,11 @@ export class UsersService {
 
     const fallbackSession: MappedSession = {
       id: currentSessionId || "current",
-      ip: clientIp,
+      ip: clientIp || "Không rõ",
       deviceName: uaInfo.deviceName,
       os: uaInfo.os,
       browser: uaInfo.browser,
+      loginMethod: loginMethod,
       isMobile: uaInfo.isMobile,
       isDesktop: uaInfo.isDesktop,
       isCurrent: true,
@@ -343,6 +363,9 @@ export class UsersService {
       createdAt: tokenCreatedAt,
       updatedAt: tokenUpdatedAt,
     };
+
+
+
 
     return {
       currentDevice: fallbackSession,
