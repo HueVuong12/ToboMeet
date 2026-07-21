@@ -208,6 +208,7 @@ export class MeetingsService {
       meetingCode: meeting.meetingCode,
       status: meeting.status,
       isHost: meeting.hostId === userId,
+      displayName: finalDisplayName,
 
       roomId: roomId.toString(),
       channelId: channelId.toString(),

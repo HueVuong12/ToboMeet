@@ -158,6 +158,7 @@ export interface MeetingJoinResponse {
   meetingCode: string;
   status: string;
   isHost: boolean;
+  displayName: string;
 
   roomId: string;
   channelId: string;

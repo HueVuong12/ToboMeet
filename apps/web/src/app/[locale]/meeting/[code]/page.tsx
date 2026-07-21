@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
@@ -17,7 +17,6 @@ export default function MeetingPage() {
 
   const meetingCode = params.code as string;
 
-  // Thiết bị
   const [camOn, setCamOn] = useState(searchParams.get("cam") !== "false");
   const [micOn, setMicOn] = useState(searchParams.get("mic") === "true");
   const [displayName, setDisplayName] = useState("");
@@ -39,54 +38,38 @@ export default function MeetingPage() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const [status, setStatus] = useState<
-    "LOOKING_FOR_TOKEN" | "IN_LOBBY" | "JOINED"
+    "LOOKING_FOR_TOKEN" | "IN_LOBBY" | "JOINED" | "RECONNECTING"
   >("LOOKING_FOR_TOKEN");
   const [joinMeetingByCodeApi, { isLoading: isJoining }] =
     useJoinMeetingByCodeMutation();
 
-  // Logic tìm token hoặc vào phòng chờ (Lobby)
+  const isUnloadingRef = useRef(false);
+
+  // Lắng nghe sự kiện F5 hoặc tắt Tab của trình duyệt
   useEffect(() => {
-    if (!meetingCode) return;
-    const bc = new BroadcastChannel(`token_channel_${meetingCode}`);
-
-    bc.onmessage = (event) => {
-      if (event.data?.type === "TOKEN_PAYLOAD") {
-        setMeetingData({
-          token: event.data.token,
-          roomId: event.data.roomId,
-          channelId: event.data.channelId,
-          channelName: event.data.channelName,
-        });
-        setStatus("JOINED");
-        bc.close();
-      }
+    const handleBeforeUnload = () => {
+      isUnloadingRef.current = true;
     };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
-    // Báo hiệu xin Token
-    bc.postMessage("TAB_B_READY");
-
-    // Timeout 1.5 giây -> Người dùng vào từ link chia sẻ
-    const timeout = setTimeout(() => {
-      if (status === "LOOKING_FOR_TOKEN") {
-        setStatus("IN_LOBBY");
-        bc.close();
-      }
-    }, 1500);
-
-    return () => {
-      bc.close();
-      clearTimeout(timeout);
-    };
-  }, [meetingCode, status]);
-
-  // Tham gia bằng link, dùng cho cả khách bên ngoài hoặc người trong phòng
-  const handleJoinFromLink = async () => {
+  const handleJoinByCode = useCallback(async () => {
     if (!meetingCode) return;
     try {
+      // Lấy tên từ state, nếu trống (do F5) thì lấy từ sessionStorage
+      const savedName = sessionStorage.getItem(`meeting_name_${meetingCode}`);
+      const finalName = displayName || savedName || undefined;
+
       const response = await joinMeetingByCodeApi({
         meetingCode,
-        displayName: displayName || undefined,
+        displayName: finalName,
       }).unwrap();
+
+      sessionStorage.setItem(`is_joined_${meetingCode}`, "true");
+      if (finalName) {
+        sessionStorage.setItem(`meeting_name_${meetingCode}`, finalName);
+      }
 
       setMeetingData({
         token: response.token,
@@ -102,20 +85,73 @@ export default function MeetingPage() {
 
       setStatus("JOINED");
     } catch (error: any) {
-      // Code 4013: Đang có thiết bị khác trong cuộc họp
+      // Nếu xin Token thất bại (ví dụ: phòng đã khóa/kết thúc), xóa cờ và văng ra Lobby
+      sessionStorage.removeItem(`is_joined_${meetingCode}`);
+
       if (error?.code === 4013) {
         toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.");
-        // Không cần hỏi chuyển thiết bị
       } else {
-        toast.error("Không thể tham gia cuộc họp lúc này.");
+        toast.error("Không thể kết nối lại cuộc họp. Vui lòng thử lại.");
+        setStatus("IN_LOBBY");
       }
     }
-  };
+  }, [meetingCode, displayName, joinMeetingByCodeApi]);
+
+  // Kiểm tra Session hoặc xin Token qua BroadcastChannel
+  useEffect(() => {
+    if (!meetingCode || status !== "LOOKING_FOR_TOKEN") return;
+
+    // Nếu trước đó đã join nhưng bị refresh trang
+    const isJoined = sessionStorage.getItem(`is_joined_${meetingCode}`);
+
+    if (isJoined) {
+      setStatus("RECONNECTING");
+      handleJoinByCode();
+      return;
+    }
+
+    // BROADCAST CHANNEL (Mở tab mới từ hệ thống)
+    const bc = new BroadcastChannel(`token_channel_${meetingCode}`);
+
+    bc.onmessage = (event) => {
+      if (event.data?.type === "TOKEN_PAYLOAD") {
+        // Lưu cờ vào session để đánh dấu tab này đã join
+        sessionStorage.setItem(`is_joined_${meetingCode}`, "true");
+
+        setMeetingData({
+          token: event.data.token,
+          roomId: event.data.roomId,
+          channelId: event.data.channelId,
+          channelName: event.data.channelName,
+        });
+        setStatus("JOINED");
+        bc.close();
+      }
+    };
+
+    // Báo hiệu xin Token
+    bc.postMessage("TAB_B_READY");
+
+    // Timeout 1.5 giây -> Nếu không có tín hiệu thì ra Lobby
+    const timeout = setTimeout(() => {
+      if (status === "LOOKING_FOR_TOKEN") {
+        setStatus("IN_LOBBY");
+        bc.close();
+      }
+    }, 1500);
+
+    return () => {
+      bc.close();
+      clearTimeout(timeout);
+    };
+  }, [meetingCode, status, handleJoinByCode]);
 
   const handleDisconnect = () => {
-    setIsDisconnecting(true);
     if (meetingData)
       localStorage.removeItem(`active_meeting_${meetingData.roomId}`);
+
+    if (isUnloadingRef.current) return;
+    setIsDisconnecting(true);
 
     setTimeout(() => {
       window.close();
@@ -131,15 +167,39 @@ export default function MeetingPage() {
     }, 1000);
   };
 
+  if (status === "RECONNECTING") {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-950 text-white space-y-6">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute inset-0 bg-brand-500 rounded-full blur-2xl opacity-20 animate-pulse"></div>
+          <div className="w-20 h-20 bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl flex items-center justify-center z-10 relative overflow-hidden">
+            <div className="absolute inset-0 bg-linear-to-tr from-brand-500/10 to-transparent"></div>
+            <Loader2
+              className="text-brand-400 animate-spin"
+              size={36}
+              strokeWidth={1.5}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-200">
+            Đang kết nối lại...
+          </h2>
+          <p className="text-slate-400 text-sm flex items-center gap-2">
+            Vui lòng đợi trong giây lát
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (status === "LOOKING_FOR_TOKEN") {
     return (
       <div className="flex flex-col h-screen items-center justify-center bg-slate-950 text-white space-y-6">
         <div className="relative flex items-center justify-center">
-          {/* Hiệu ứng ánh sáng tỏa ra phía sau */}
           <div className="absolute inset-0 bg-brand-500 rounded-full blur-2xl opacity-20 animate-pulse"></div>
-          {/* Icon Video nằm giữa */}
           <div className="w-20 h-20 bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl flex items-center justify-center z-10 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-tr from-brand-500/10 to-transparent"></div>
+            <div className="absolute inset-0 bg-linear-to-tr from-brand-500/10 to-transparent"></div>
             <Video
               className="text-brand-400 animate-pulse"
               size={36}
@@ -177,7 +237,6 @@ export default function MeetingPage() {
     );
   }
 
-  // PHÒNG CHỜ (LOBBY)
   if (status === "IN_LOBBY") {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-900 text-white font-sans p-4">
@@ -219,7 +278,7 @@ export default function MeetingPage() {
           </div>
 
           <button
-            onClick={handleJoinFromLink}
+            onClick={handleJoinByCode}
             disabled={isJoining}
             className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
           >
@@ -240,7 +299,7 @@ export default function MeetingPage() {
     <LiveKitRoom
       video={camOn}
       audio={micOn}
-      token={meetingData.token} // Lấy token từ RAM (State)
+      token={meetingData.token}
       serverUrl={LIVEKIT_URL}
       connect={true}
       options={{
