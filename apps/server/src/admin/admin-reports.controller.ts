@@ -149,4 +149,47 @@ export class AdminReportsController {
       req.user.email,
     );
   }
+
+  // ─── Room Reports Endpoints ───────────────────────────────────────────────────
+  @Get("rooms/list")
+  async getRoomReports(
+    @Req() req: any,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("status") status?: string,
+    @Query("search") search?: string,
+  ) {
+    this.checkAdmin(req);
+    return this.adminReportsService.getRoomReportsList({
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 10,
+      status,
+      search,
+    });
+  }
+
+  @Get("rooms/:id")
+  async getRoomReportById(@Req() req: any, @Param("id") id: string) {
+    this.checkAdmin(req);
+    return this.adminReportsService.getRoomReportDetails(id);
+  }
+
+  @Patch("rooms/:id/status")
+  async updateRoomReportStatus(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body("status") status: string,
+    @Body("actionResult") actionResult?: "none" | "blocked" | "disbanded" | "warning",
+    @Body("note") note?: string,
+  ) {
+    this.checkAdmin(req);
+    if (!status) throw new BadRequestException("Trạng thái là bắt buộc");
+    return this.adminReportsService.updateRoomReportStatus(id, {
+      status: status as any,
+      actionResult,
+      note,
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+    });
+  }
 }

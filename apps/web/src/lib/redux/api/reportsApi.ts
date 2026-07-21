@@ -11,6 +11,9 @@ export interface CreateReportDto {
   reason: string;
   description?: string;
   createdAt: string;
+  roomId?: string;
+  roomName?: string;
+  roomCode?: string;
   evidences?: EvidenceDto[];
 }
 

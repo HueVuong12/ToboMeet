@@ -13,6 +13,9 @@ interface ReportUserModalProps {
   onClose: () => void;
   reportedUserId: string;
   reportedUserName: string;
+  roomId?: string;
+  roomName?: string;
+  roomCode?: string;
 }
 
 export default function ReportUserModal({
@@ -20,6 +23,9 @@ export default function ReportUserModal({
   onClose,
   reportedUserId,
   reportedUserName,
+  roomId,
+  roomName,
+  roomCode,
 }: ReportUserModalProps) {
   const t = useTranslations("room");
   const [createReport, { isLoading }] = useCreateReportMutation();
@@ -76,6 +82,9 @@ export default function ReportUserModal({
         reason,
         description: description.trim(),
         evidences,
+        roomId,
+        roomName,
+        roomCode,
         createdAt: new Date().toISOString(),
       }).unwrap();
 

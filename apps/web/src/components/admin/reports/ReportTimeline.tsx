@@ -70,6 +70,13 @@ export default function ReportTimeline({ log, createdAt }: Props) {
     };
 
     let translated = note;
+
+    // Dịch các câu mặc định khi cập nhật báo cáo phòng
+    if (translated === "Cập nhật trạng thái báo cáo phòng họp.") {
+      translated = t("room_report_status_updated", { fallback: "Cập nhật trạng thái báo cáo phòng họp." });
+    } else if (translated === "Report submitted") {
+      translated = t("timeline_created", { fallback: "Báo cáo được gửi" });
+    }
     
     // Thay thế tiền tố "Kết luận:" hoặc "Conclusion:" bằng nhãn i18n động
     const prefixText = t("conclusion_prefix", { fallback: "Kết luận" });
@@ -93,7 +100,7 @@ export default function ReportTimeline({ log, createdAt }: Props) {
     <div className="space-y-3">
       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
         <Clock className="w-4 h-4 text-slate-400" />
-        {t("detail_timeline")}
+        {t("detail_timeline", { fallback: "Nhật ký xử lý" })}
       </h3>
 
       <div className="relative pl-6">
@@ -124,7 +131,7 @@ export default function ReportTimeline({ log, createdAt }: Props) {
                   <div className="flex items-center justify-between flex-wrap gap-1 mb-1">
                     <span className="text-xs font-bold text-slate-800">
                       {isFirst
-                        ? "Tạo báo cáo"
+                        ? t("timeline_action_created", { fallback: "Tạo báo cáo" })
                         : entry.action === "STATUS_CHANGED" && "fromStatus" in entry
                         ? `${STATUS_LABELS[(entry as ProcessingLogEntry).fromStatus || ""] || (entry as ProcessingLogEntry).fromStatus} → ${STATUS_LABELS[(entry as ProcessingLogEntry).toStatus || ""] || (entry as ProcessingLogEntry).toStatus}`
                         : config.label}
@@ -143,6 +150,7 @@ export default function ReportTimeline({ log, createdAt }: Props) {
               </div>
             );
           })}
+
         </div>
       </div>
     </div>

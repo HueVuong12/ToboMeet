@@ -12,6 +12,7 @@ import { Meeting, MeetingSchema } from "../meetings/schemas/meeting.schema";
 import { RoomReport, RoomReportSchema } from "../rooms/schemas/room-report.schema";
 import { RoomActivity, RoomActivitySchema } from "../rooms/schemas/room-activity.schema";
 import { Report, ReportSchema } from "../reports/schemas/report.schema";
+import { ReportsModule } from "../reports/reports.module";
 import { MeetingsModule } from "../meetings/meetings.module";
 import { SupabaseModule } from "../supabase/supabase.module";
 
@@ -27,6 +28,7 @@ import { SupabaseModule } from "../supabase/supabase.module";
     ]),
     forwardRef(() => MeetingsModule),
     SupabaseModule,
+    ReportsModule,
   ],
   controllers: [AdminController, AdminRoomsController, AdminReportsController],
   providers: [AdminService, AdminRoomsService, AdminReportsService],

@@ -18,6 +18,12 @@ const STATUS_CONFIG: Record<
     text: "text-blue-700",
     dot: "bg-blue-500",
   },
+  REVIEWING: {
+    labelKey: "status_investigating",
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    dot: "bg-blue-500",
+  },
   RESOLVED: {
     labelKey: "status_resolved",
     bg: "bg-emerald-50",
@@ -53,7 +59,16 @@ export default function ReportStatusBadge({ status, size = "md" }: Props) {
     dot: "bg-slate-400",
   };
 
-  const label = config.labelKey ? t(config.labelKey) : status;
+  const labelMap: Record<string, string> = {
+    PENDING: "Chờ xử lý",
+    INVESTIGATING: "Đang xem xét",
+    REVIEWING: "Đang xem xét",
+    RESOLVED: "Đã xử lý",
+    REJECTED: "Đã từ chối",
+    CLOSED: "Đã đóng",
+  };
+
+  const label = config.labelKey ? t(config.labelKey, { fallback: labelMap[status] || status }) : (labelMap[status] || status);
   const px = size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs";
 
   return (

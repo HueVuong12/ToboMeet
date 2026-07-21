@@ -74,15 +74,25 @@ export default function ReportRecentActivities({ activities, isLoading = false }
   const reasonKeys: Record<string, string> = {
     "Spam": "reason_spam",
     "Quấy rối": "reason_harassment",
+    "Lừa đảo": "reason_fraud",
     "Ngôn từ xúc phạm": "reason_offensive_speech",
     "Chia sẻ nội dung không phù hợp": "reason_inappropriate_content",
+    "Nội dung không phù hợp": "reason_inappropriate_content",
     "Mạo danh": "reason_impersonation",
     "Khác": "reason_other",
   };
 
   const getTranslatedReason = (reason: string) => {
-    const key = reasonKeys[reason];
-    return key ? t(key, { fallback: reason }) : reason;
+    const isRoom = reason.startsWith("[Phòng]") || reason.startsWith("[Room]");
+    const cleanReason = reason.replace(/^\[(Phòng|Room)\]\s*/, "").trim();
+    const key = reasonKeys[cleanReason];
+    const translatedReason = key ? t(key, { fallback: cleanReason }) : cleanReason;
+    
+    if (isRoom) {
+      const roomTag = t("tab_room_reports", { fallback: "Báo cáo phòng" });
+      return `[${roomTag}] ${translatedReason}`;
+    }
+    return translatedReason;
   };
 
   const getActivityNote = (activity: RecentActivity) => {
@@ -116,12 +126,13 @@ export default function ReportRecentActivities({ activities, isLoading = false }
       const toText = getStatusConfig(activity.toStatus || "").statusText;
       return t("activity_status_changed_desc", { 
         to: toText, 
-        fallback: `Admin chuyển trạng thái sang "${toText}".` 
+        fallback: `Admin đã chuyển trạng thái sang "${toText}".` 
       });
     }
 
     return translated || t("timeline_action_note", { fallback: "Admin đã cập nhật báo cáo." });
   };
+
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col h-[480px]">

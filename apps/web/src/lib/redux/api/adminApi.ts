@@ -217,6 +217,41 @@ export const adminApi = baseApi.injectEndpoints({
         params,
       }),
     }),
+    // ─── Admin Room Report Endpoints ─────────────────────────────────────────
+    getAdminRoomReports: builder.query<
+      { reports: any[]; total: number; page: number; totalPages: number },
+      { page?: number; limit?: number; status?: string; search?: string }
+    >({
+      query: (params) => ({
+        url: "/admin/reports/rooms/list",
+        method: "GET",
+        params,
+      }),
+      providesTags: ["Report"],
+    }),
+    getAdminRoomReportById: builder.query<any, string>({
+      query: (id) => ({
+        url: `/admin/reports/rooms/${id}`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, id) => [{ type: "Report" as const, id }],
+    }),
+    updateRoomReportStatus: builder.mutation<
+      any,
+      {
+        id: string;
+        status: string;
+        actionResult?: "none" | "blocked" | "disbanded" | "warning";
+        note?: string;
+      }
+    >({
+      query: ({ id, ...data }) => ({
+        url: `/admin/reports/rooms/${id}/status`,
+        method: "PATCH",
+        data,
+      }),
+      invalidatesTags: ["Report"],
+    }),
   }),
 });
 
@@ -373,4 +408,8 @@ export const {
   useAddReportNoteMutation,
   useUpdateReportConclusionMutation,
   useLazyExportAdminReportsQuery,
+  // Room reports
+  useGetAdminRoomReportsQuery,
+  useGetAdminRoomReportByIdQuery,
+  useUpdateRoomReportStatusMutation,
 } = adminApi;

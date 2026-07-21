@@ -9,6 +9,10 @@ import { Model } from "mongoose";
 import { Report, ReportDocument } from "../reports/schemas/report.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 
+import { ReportsService } from "../reports/reports.service";
+
+import { RoomReport, RoomReportDocument } from "../rooms/schemas/room-report.schema";
+
 // ─── Valid status transitions ──────────────────────────────────────────────────
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   PENDING: ["INVESTIGATING", "REJECTED"],
@@ -23,8 +27,11 @@ export class AdminReportsService {
   constructor(
     @InjectModel(Report.name)
     private readonly reportModel: Model<ReportDocument>,
+    @InjectModel(RoomReport.name)
+    private readonly roomReportModel: Model<RoomReportDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly reportsService: ReportsService,
   ) {}
 
   // ─── Dashboard Statistics ─────────────────────────────────────────────────────
@@ -224,16 +231,28 @@ export class AdminReportsService {
     }
 
     // Query các báo cáo được tạo mới hoặc có log hoạt động trong range
-    const reportsWithActivities = await this.reportModel
-      .find({
-        $or: [
-          { createdAt: { $gte: activitiesStartDate } },
-          { "processingLog.timestamp": { $gte: activitiesStartDate } },
-        ],
-      })
-      .select("reason status createdAt processingLog")
-      .lean()
-      .exec();
+    const [reportsWithActivities, roomReportsWithActivities] = await Promise.all([
+      this.reportModel
+        .find({
+          $or: [
+            { createdAt: { $gte: activitiesStartDate } },
+            { "processingLog.timestamp": { $gte: activitiesStartDate } },
+          ],
+        })
+        .select("reason status createdAt processingLog")
+        .lean()
+        .exec(),
+      this.roomReportModel
+        .find({
+          $or: [
+            { createdAt: { $gte: activitiesStartDate } },
+            { "processingLog.timestamp": { $gte: activitiesStartDate } },
+          ],
+        })
+        .select("reason status createdAt processingLog roomName")
+        .lean()
+        .exec()
+    ]);
 
     const activitiesList: any[] = [];
     try {
@@ -268,6 +287,48 @@ export class AdminReportsService {
                 timestamp: logTime,
                 reportId: reportIdStr,
                 reason: report.reason || "Khác",
+                action: log.action || "STATUS_CHANGED",
+                fromStatus: log.fromStatus,
+                toStatus: log.toStatus,
+                adminEmail: log.adminEmail || "admin@tobomeet.com",
+                status: log.toStatus || report.status || "PENDING",
+                note: log.note,
+              });
+            }
+          });
+        }
+      });
+
+      // 3. Xử lý Room Reports activities
+      roomReportsWithActivities.forEach((report: any) => {
+        if (!report || !report._id) return;
+        const reportIdStr = report._id.toString();
+
+        if (report.createdAt) {
+          const createdTime = new Date(report.createdAt);
+          if (createdTime >= activitiesStartDate) {
+            activitiesList.push({
+              id: `${reportIdStr}-created`,
+              timestamp: createdTime,
+              reportId: reportIdStr,
+              reason: `[Phòng] ${report.reason || "Khác"}`,
+              action: "CREATED",
+              status: "PENDING",
+              note: `Thành viên đã báo cáo vi phạm phòng "${report.roomName || ""}".`,
+            });
+          }
+        }
+
+        if (report.processingLog && Array.isArray(report.processingLog)) {
+          report.processingLog.forEach((log: any, idx: number) => {
+            if (!log || !log.timestamp) return;
+            const logTime = new Date(log.timestamp);
+            if (logTime >= activitiesStartDate) {
+              activitiesList.push({
+                id: `${reportIdStr}-log-${idx}`,
+                timestamp: logTime,
+                reportId: reportIdStr,
+                reason: `[Phòng] ${report.reason || "Khác"}`,
                 action: log.action || "STATUS_CHANGED",
                 fromStatus: log.fromStatus,
                 toStatus: log.toStatus,
@@ -596,5 +657,39 @@ export class AdminReportsService {
       reporter: userMap.get(r.reporterId) || null,
       reported: userMap.get(r.reportedUserId) || null,
     }));
+  }
+
+  // ─── Room Reports Helpers ──────────────────────────────────────────────────────
+  async getRoomReportsList(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }) {
+    // Import động / tiêm động ReportsService để tránh vòng lặp circular dependency hoặc inject thông qua Module.
+    // Vì AdminModule đã được thiết lập import ReportsModule, ta có thể dùng trực tiếp MongooseModel hoặc inject ReportsService.
+    // Ở đây ta inject trực tiếp ReportsService bằng cách khai báo thêm trong constructor.
+    return this.reportsService.getRoomReports(
+      { status: params.status, search: params.search },
+      params.page,
+      params.limit,
+    );
+  }
+
+  async getRoomReportDetails(id: string) {
+    return this.reportsService.getRoomReportById(id);
+  }
+
+  async updateRoomReportStatus(
+    id: string,
+    dto: {
+      status: "PENDING" | "REVIEWING" | "RESOLVED" | "REJECTED";
+      actionResult?: "none" | "blocked" | "disbanded" | "warning";
+      note?: string;
+      adminId?: string;
+      adminEmail?: string;
+    },
+  ) {
+    return this.reportsService.updateRoomReportStatus(id, dto);
   }
 }

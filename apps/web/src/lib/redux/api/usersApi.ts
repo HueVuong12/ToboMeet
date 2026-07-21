@@ -3,18 +3,30 @@ import { baseApi } from "./baseApi";
 export interface UserSession {
   id: string;
   ip: string;
+  location?: string;
   os: string;
   browser: string;
+  deviceName: string;
+  loginMethod: string;
   isMobile: boolean;
   isDesktop: boolean;
   isCurrent: boolean;
+  isFamiliar: boolean;
   createdAt: string;
   updatedAt: string;
+  loggedOutAt?: string;
+}
+
+export interface SessionsResponse {
+  currentDevice: UserSession;
+  otherDevices: UserSession[];
+  recentlyLoggedOut: UserSession[];
+  totalLoggedOut: number;
 }
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getSessions: builder.query<UserSession[], void>({
+    getSessions: builder.query<SessionsResponse, void>({
       query: () => ({
         url: "/users/me/sessions",
         method: "GET",

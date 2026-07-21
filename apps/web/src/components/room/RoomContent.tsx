@@ -587,6 +587,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           onClose={() => setMemberToReport(null)}
           reportedUserId={memberToReport.userId}
           reportedUserName={memberToReport.displayName}
+          roomId={room._id}
+          roomName={room.name}
+          roomCode={room.code}
         />
       )}
     </div>

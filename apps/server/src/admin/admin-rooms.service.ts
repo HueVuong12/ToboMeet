@@ -228,7 +228,7 @@ export class AdminRoomsService {
         id: rep._id,
         reporterName: reporter?.displayName || "Người dùng ẩn danh",
         reason: rep.reason,
-        details: rep.details,
+        details: (rep as any).description || "",
         status: rep.status,
         createdAt: (rep as unknown as { createdAt: Date }).createdAt,
       };

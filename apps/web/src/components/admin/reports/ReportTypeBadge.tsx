@@ -30,8 +30,10 @@ export default function ReportTypeBadge({ reason, size = "md" }: Props) {
   const reasonKeys: Record<string, string> = {
     "Spam": "reason_spam",
     "Quấy rối": "reason_harassment",
+    "Lừa đảo": "reason_fraud",
     "Ngôn từ xúc phạm": "reason_offensive_speech",
     "Chia sẻ nội dung không phù hợp": "reason_inappropriate_content",
+    "Nội dung không phù hợp": "reason_inappropriate_content",
     "Mạo danh": "reason_impersonation",
     "Khác": "reason_other",
   };

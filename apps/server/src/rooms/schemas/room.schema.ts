@@ -28,7 +28,7 @@ export class Room {
   @Prop({ type: Boolean, default: false })
   isDeleted?: boolean;
 
-  @Prop({ type: String, enum: ["active", "ended", "disbanded"], default: "active" })
+  @Prop({ type: String, enum: ["active", "ended", "disbanded", "blocked"], default: "active" })
   status?: string;
 }
 

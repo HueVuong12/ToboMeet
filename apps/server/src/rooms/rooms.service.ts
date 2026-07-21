@@ -70,7 +70,7 @@ export class RoomsService {
           },
         },
         isDeleted: { $ne: true },
-        status: { $ne: "disbanded" },
+        status: { $nin: ["disbanded", "blocked"] },
       })
       .sort({ updatedAt: -1 })
       .exec();
@@ -279,6 +279,10 @@ export class RoomsService {
     const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) {
       throw new NotFoundException("Phòng không tồn tại");
+    }
+
+    if (room.status === "blocked") {
+      throw new ForbiddenException("Phòng họp này đang bị tạm khóa do vi phạm quy định cộng đồng.");
     }
 
     const member = room.members.find((m) => m.userId === userId);

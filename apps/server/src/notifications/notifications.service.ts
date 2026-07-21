@@ -68,4 +68,70 @@ export class NotificationsService {
       console.error(error);
     }
   }
+
+  // Thông báo khi phòng bị báo cáo (Gửi cho chủ phòng)
+  @OnEvent("notification.room_reported", { async: true })
+  async handleRoomReported(payload: {
+    userId: string;
+    metadata: Record<string, unknown>;
+  }) {
+    try {
+      const newNotif = await this.notificationModel.create({
+        userId: payload.userId,
+        type: "ROOM_REPORTED",
+        metadata: payload.metadata,
+        isRead: false,
+      });
+
+      this.appGateway.server
+        .to(`user_${payload.userId}`)
+        .emit("receive_notifications", [newNotif]);
+    } catch (error) {
+      console.error("Lỗi khi tạo thông báo ROOM_REPORTED:", error);
+    }
+  }
+
+  // Thông báo kết quả báo cáo (Gửi cho người báo cáo)
+  @OnEvent("notification.report_resolved", { async: true })
+  async handleReportResolved(payload: {
+    userId: string;
+    metadata: Record<string, unknown>;
+  }) {
+    try {
+      const newNotif = await this.notificationModel.create({
+        userId: payload.userId,
+        type: "REPORT_RESOLVED",
+        metadata: payload.metadata,
+        isRead: false,
+      });
+
+      this.appGateway.server
+        .to(`user_${payload.userId}`)
+        .emit("receive_notifications", [newNotif]);
+    } catch (error) {
+      console.error("Lỗi khi tạo thông báo REPORT_RESOLVED:", error);
+    }
+  }
+
+  // Thông báo khi phòng bị khoá (Gửi cho chủ phòng)
+  @OnEvent("notification.room_blocked", { async: true })
+  async handleRoomBlocked(payload: {
+    userId: string;
+    metadata: Record<string, unknown>;
+  }) {
+    try {
+      const newNotif = await this.notificationModel.create({
+        userId: payload.userId,
+        type: "ROOM_BLOCKED",
+        metadata: payload.metadata,
+        isRead: false,
+      });
+
+      this.appGateway.server
+        .to(`user_${payload.userId}`)
+        .emit("receive_notifications", [newNotif]);
+    } catch (error) {
+      console.error("Lỗi khi tạo thông báo ROOM_BLOCKED:", error);
+    }
+  }
 }
