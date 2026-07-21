@@ -373,58 +373,13 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
   };
 
   // ── Normalize API response ──
-  const normalizedSessions = (() => {
-    if (!sessions) {
-      return {
-        currentDevice: null,
-        otherDevices: [] as UserSession[],
-        recentlyLoggedOut: [] as UserSession[],
-        totalLoggedOut: 0,
-      };
-    }
-
-    if ("currentDevice" in sessions && "otherDevices" in sessions) {
-      return {
-        currentDevice: sessions.currentDevice ?? null,
-        otherDevices: sessions.otherDevices ?? [],
-        recentlyLoggedOut: sessions.recentlyLoggedOut ?? [],
-        totalLoggedOut: sessions.totalLoggedOut ?? 0,
-      };
-    }
-
-    // Fallback: Response cũ dạng flat array
-    const flatSessions = sessions as unknown as UserSession[];
-    if (Array.isArray(flatSessions) && flatSessions.length > 0) {
-      const found = flatSessions.find((s) => s.isCurrent) ?? null;
-      if (found) {
-        return {
-          currentDevice: found,
-          otherDevices: flatSessions.filter((s) => !s.isCurrent),
-          recentlyLoggedOut: [] as UserSession[],
-          totalLoggedOut: 0,
-        };
-      }
-      const [first, ...rest] = flatSessions;
-      return {
-        currentDevice: { ...first, isCurrent: true },
-        otherDevices: rest,
-        recentlyLoggedOut: [] as UserSession[],
-        totalLoggedOut: 0,
-      };
-    }
-
-    return {
-      currentDevice: null,
-      otherDevices: [] as UserSession[],
-      recentlyLoggedOut: [] as UserSession[],
-      totalLoggedOut: 0,
-    };
-  })();
-
-  const currentSession = normalizedSessions.currentDevice;
-  const otherSessions = normalizedSessions.otherDevices;
-  const recentlyLoggedOut = normalizedSessions.recentlyLoggedOut;
+  // Backend đã trả về đúng format SessionsResponse { currentDevice, otherDevices, ... }
+  // Chỉ cần đọc thẳng, không cần xử lý fallback phức tạp.
+  const currentSession = sessions?.currentDevice ?? null;
+  const otherSessions = sessions?.otherDevices ?? [];
+  const recentlyLoggedOut = sessions?.recentlyLoggedOut ?? [];
   const hasOthers = otherSessions.length > 0;
+
 
   // Giới hạn hiển thị lịch sử đã đăng xuất (mặc định 5 mục trừ khi click show all)
   const displayedLoggedOut = showAllLoggedOut 
@@ -621,8 +576,12 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
                           t={t}
                         />
                       ) : (
-                        <SkeletonCard />
+                        <div className="py-3 text-xs text-slate-400 flex items-center gap-2">
+                          <Shield className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{t("devices.unknown")}</span>
+                        </div>
                       )}
+
                     </div>
 
                     {/* Section 2: Other Devices */}

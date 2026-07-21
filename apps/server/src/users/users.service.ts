@@ -16,6 +16,25 @@ interface SupabaseSession {
   updated_at: string;
 }
 
+interface MappedSession {
+  id: string;
+  ip: string;
+  os: string;
+  browser: string;
+  isMobile: boolean;
+  isDesktop: boolean;
+  isCurrent: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionsResult {
+  currentDevice: MappedSession | null;
+  otherDevices: MappedSession[];
+  recentlyLoggedOut: MappedSession[];
+  totalLoggedOut: number;
+}
+
 @Injectable()
 export class UsersService {
   private supabaseAdmin;
@@ -83,17 +102,22 @@ export class UsersService {
   }
 
   /**
-   * Lấy danh sách phiên hoạt động của user từ Supabase
+   * Lấy danh sách phiên hoạt động của user từ Supabase.
+   * Trả về format SessionsResponse: { currentDevice, otherDevices, recentlyLoggedOut, totalLoggedOut }
    */
-  async getUserSessions(userId: string, currentToken: string) {
+  async getUserSessions(
+    userId: string,
+    currentToken: string,
+  ): Promise<SessionsResult> {
     // Giải mã JWT để lấy session_id hiện tại
     let currentSessionId = "";
     try {
       const payloadBase64 = currentToken.split(".")[1];
       const payload = JSON.parse(
         Buffer.from(payloadBase64, "base64").toString(),
-      );
-      currentSessionId = payload.session_id || payload.sid;
+      ) as Record<string, string>;
+      // Supabase có thể dùng session_id hoặc sid tuỳ phiên bản
+      currentSessionId = payload.session_id || payload.sid || "";
     } catch (e) {
       console.error("Lỗi giải mã token lấy session ID:", e);
     }
@@ -105,20 +129,48 @@ export class UsersService {
       throw new BadRequestException("Không thể lấy danh sách thiết bị");
     }
 
-    return data.sessions.map((session: SupabaseSession) => {
-      const uaInfo = this.parseUserAgent(session.user_agent);
-      return {
-        id: session.id,
-        ip: session.ip || "Không rõ",
-        os: uaInfo.os,
-        browser: uaInfo.browser,
-        isMobile: uaInfo.isMobile,
-        isDesktop: uaInfo.isDesktop,
-        isCurrent: session.id === currentSessionId,
-        createdAt: session.created_at,
-        updatedAt: session.updated_at,
-      };
-    });
+    // Map tất cả sessions, đánh dấu isCurrent theo session_id
+    const mapped: MappedSession[] = data.sessions.map(
+      (session: SupabaseSession) => {
+        const uaInfo = this.parseUserAgent(session.user_agent);
+        return {
+          id: session.id,
+          ip: session.ip || "Không rõ",
+          os: uaInfo.os,
+          browser: uaInfo.browser,
+          isMobile: uaInfo.isMobile,
+          isDesktop: uaInfo.isDesktop,
+          isCurrent:
+            currentSessionId !== "" && session.id === currentSessionId,
+          createdAt: session.created_at,
+          updatedAt: session.updated_at,
+        };
+      },
+    );
+
+    // Fallback: nếu không session nào được đánh dấu isCurrent (session_id parse fail),
+    // lấy session có updated_at gần nhất làm current device.
+    const hasCurrent = mapped.some((s) => s.isCurrent);
+    if (!hasCurrent && mapped.length > 0) {
+      const newestIdx = mapped.reduce(
+        (bestIdx, s, idx) =>
+          new Date(s.updatedAt) > new Date(mapped[bestIdx].updatedAt)
+            ? idx
+            : bestIdx,
+        0,
+      );
+      mapped[newestIdx] = { ...mapped[newestIdx], isCurrent: true };
+    }
+
+    const currentDevice = mapped.find((s) => s.isCurrent) ?? null;
+    const otherDevices = mapped.filter((s) => !s.isCurrent);
+
+    return {
+      currentDevice,
+      otherDevices,
+      recentlyLoggedOut: [],
+      totalLoggedOut: 0,
+    };
   }
 
   /**
