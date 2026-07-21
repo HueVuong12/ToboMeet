@@ -416,7 +416,15 @@
     }
   },
   "room": {
+    "class_feed": "Class feed",
+    "meeting_history": "Meeting history",
+    "btn_meeting": "Meeting",
+    "btn_in_meeting": "In meeting",
+    "btn_join": "Join",
+    "start_now": "Start meeting now",
+    "schedule_meeting": "Schedule a meeting",
     "general": "General",
+
     "channels": "Channels",
     "back_to_dashboard": "Back to Dashboard",
     "create_channel": "Create Channel",

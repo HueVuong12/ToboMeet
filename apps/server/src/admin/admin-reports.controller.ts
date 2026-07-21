@@ -14,13 +14,21 @@ import {
 import { AdminReportsService } from "./admin-reports.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 
+interface AdminRequest {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
+
 @Controller("admin/reports")
 @UseGuards(SupabaseGuard)
 export class AdminReportsController {
   constructor(private readonly adminReportsService: AdminReportsService) {}
 
   // ─── Guard helper ──────────────────────────────────────────────────────────────
-  private checkAdmin(req: any) {
+  private checkAdmin(req: AdminRequest) {
     if (req.user?.role !== "admin") {
       throw new ForbiddenException(
         "Bạn không có quyền truy cập chức năng này.",
@@ -30,7 +38,7 @@ export class AdminReportsController {
 
   // ─── Dashboard Stats ───────────────────────────────────────────────────────────
   @Get("stats")
-  async getStats(@Req() req: any, @Query("range") range?: string) {
+  async getStats(@Req() req: AdminRequest, @Query("range") range?: string) {
     this.checkAdmin(req);
     return this.adminReportsService.getReportStats(range);
   }
@@ -38,7 +46,7 @@ export class AdminReportsController {
   // ─── Export ────────────────────────────────────────────────────────────────────
   @Get("export")
   async exportReports(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Query("status") status?: string,
     @Query("reason") reason?: string,
     @Query("startDate") startDate?: string,
@@ -58,7 +66,7 @@ export class AdminReportsController {
   // ─── List Reports ──────────────────────────────────────────────────────────────
   @Get()
   async getReports(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
     @Query("status") status?: string,
@@ -87,7 +95,7 @@ export class AdminReportsController {
 
   // ─── Get Single Report ─────────────────────────────────────────────────────────
   @Get(":id")
-  async getReportById(@Req() req: any, @Param("id") id: string) {
+  async getReportById(@Req() req: AdminRequest, @Param("id") id: string) {
     this.checkAdmin(req);
     return this.adminReportsService.getReportById(id);
   }
@@ -95,7 +103,7 @@ export class AdminReportsController {
   // ─── Update Status ─────────────────────────────────────────────────────────────
   @Patch(":id/status")
   async updateStatus(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param("id") id: string,
     @Body("status") status: string,
     @Body("note") note?: string,
@@ -115,7 +123,7 @@ export class AdminReportsController {
   // ─── Add Admin Note ────────────────────────────────────────────────────────────
   @Post(":id/notes")
   async addNote(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param("id") id: string,
     @Body("content") content: string,
   ) {
@@ -135,7 +143,7 @@ export class AdminReportsController {
   // ─── Update Conclusion ─────────────────────────────────────────────────────────
   @Patch(":id/conclusion")
   async updateConclusion(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param("id") id: string,
     @Body("conclusion") conclusion: string,
   ) {
@@ -153,7 +161,7 @@ export class AdminReportsController {
   // ─── Room Reports Endpoints ───────────────────────────────────────────────────
   @Get("rooms/list")
   async getRoomReports(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
     @Query("status") status?: string,
@@ -169,23 +177,23 @@ export class AdminReportsController {
   }
 
   @Get("rooms/:id")
-  async getRoomReportById(@Req() req: any, @Param("id") id: string) {
+  async getRoomReportById(@Req() req: AdminRequest, @Param("id") id: string) {
     this.checkAdmin(req);
     return this.adminReportsService.getRoomReportDetails(id);
   }
 
   @Patch("rooms/:id/status")
   async updateRoomReportStatus(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param("id") id: string,
-    @Body("status") status: string,
+    @Body("status") status: "PENDING" | "REVIEWING" | "RESOLVED" | "REJECTED",
     @Body("actionResult") actionResult?: "none" | "blocked" | "disbanded" | "warning",
     @Body("note") note?: string,
   ) {
     this.checkAdmin(req);
     if (!status) throw new BadRequestException("Trạng thái là bắt buộc");
     return this.adminReportsService.updateRoomReportStatus(id, {
-      status: status as any,
+      status,
       actionResult,
       note,
       adminId: req.user.id,

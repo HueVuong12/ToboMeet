@@ -2,8 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
-} from "@nestjs/common";
+} 
+from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Report, ReportDocument } from "../reports/schemas/report.schema";
@@ -21,6 +21,55 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   REJECTED: [],
   CLOSED: [],
 };
+
+export interface RecentActivityRecord {
+  id: string;
+  timestamp: Date;
+  reportId: string;
+  reason: string;
+  action: string;
+  status: string;
+  note?: string;
+  fromStatus?: string;
+  toStatus?: string;
+  adminEmail?: string;
+}
+
+export interface ReportActivityDoc {
+  _id: unknown;
+  reason?: string;
+  status?: string;
+  createdAt?: string | Date;
+  roomName?: string;
+  processingLog?: Array<{
+    timestamp?: string | Date;
+    action?: string;
+    fromStatus?: string;
+    toStatus?: string;
+    adminEmail?: string;
+    note?: string;
+  }>;
+}
+
+export interface EnrichedReportDoc {
+  _id: unknown;
+  title?: string;
+  reason?: string;
+  description?: string;
+  status?: string;
+  conclusion?: string;
+  reporterId?: string;
+  reportedUserId?: string;
+  evidences?: unknown[];
+  createdAt?: string | Date;
+  resolvedAt?: string | Date;
+  closedAt?: string | Date;
+  reporter?: { displayName?: string; email?: string } | null;
+  reported?: { displayName?: string; email?: string } | null;
+  roomInfo?: { roomName?: string; roomCode?: string } | null;
+}
+
+
 
 @Injectable()
 export class AdminReportsService {
@@ -60,7 +109,8 @@ export class AdminReportsService {
         .exec(),
     ]);
 
-    let chartData: { date: string; count: number }[] = [];
+    const chartData: { date: string; count: number }[] = [];
+
     const timezone = "+07:00";
 
     if (range === "today") {
@@ -254,11 +304,12 @@ export class AdminReportsService {
         .exec()
     ]);
 
-    const activitiesList: any[] = [];
+    const activitiesList: RecentActivityRecord[] = [];
+
     try {
-      reportsWithActivities.forEach((report: any) => {
+      reportsWithActivities.forEach((report: ReportActivityDoc) => {
         if (!report || !report._id) return;
-        const reportIdStr = report._id.toString();
+        const reportIdStr = String(report._id);
 
         // 1. Tạo hoạt động CREATED
         if (report.createdAt) {
@@ -278,7 +329,7 @@ export class AdminReportsService {
 
         // 2. Tạo các hoạt động xử lý từ processingLog
         if (report.processingLog && Array.isArray(report.processingLog)) {
-          report.processingLog.forEach((log: any, idx: number) => {
+          report.processingLog.forEach((log, idx: number) => {
             if (!log || !log.timestamp) return;
             const logTime = new Date(log.timestamp);
             if (logTime >= activitiesStartDate) {
@@ -300,9 +351,9 @@ export class AdminReportsService {
       });
 
       // 3. Xử lý Room Reports activities
-      roomReportsWithActivities.forEach((report: any) => {
+      roomReportsWithActivities.forEach((report: ReportActivityDoc) => {
         if (!report || !report._id) return;
-        const reportIdStr = report._id.toString();
+        const reportIdStr = String(report._id);
 
         if (report.createdAt) {
           const createdTime = new Date(report.createdAt);
@@ -320,7 +371,7 @@ export class AdminReportsService {
         }
 
         if (report.processingLog && Array.isArray(report.processingLog)) {
-          report.processingLog.forEach((log: any, idx: number) => {
+          report.processingLog.forEach((log, idx: number) => {
             if (!log || !log.timestamp) return;
             const logTime = new Date(log.timestamp);
             if (logTime >= activitiesStartDate) {
@@ -340,6 +391,7 @@ export class AdminReportsService {
           });
         }
       });
+
     } catch (err) {
       console.error("Error formatting recent report activities:", err);
     }
@@ -347,6 +399,7 @@ export class AdminReportsService {
     const recentActivities = activitiesList
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 10);
+
 
     return {
       total,
@@ -389,7 +442,7 @@ export class AdminReportsService {
       sortOrder = "desc",
     } = params;
 
-    const filter: Record<string, any> = {};
+    const filter: Record<string, unknown> = {};
 
     if (status) filter.status = status;
     if (reason) filter.reason = reason;
@@ -402,11 +455,11 @@ export class AdminReportsService {
 
     if (startDate || endDate) {
       filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (startDate) (filter.createdAt as Record<string, unknown>).$gte = new Date(startDate);
       if (endDate) {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
+        (filter.createdAt as Record<string, unknown>).$lte = end;
       }
     }
 
@@ -425,25 +478,26 @@ export class AdminReportsService {
     ]);
 
     // Enrich with user info from MongoDB users collection
-    const enriched = await this.enrichReportsWithUsers(reports);
+    const enriched: EnrichedReportDoc[] = await this.enrichReportsWithUsers(reports as unknown as Record<string, unknown>[]);
 
     // Apply search filter (after enrichment, on name/email/id)
     let filtered = enriched;
     if (search && search.trim()) {
       const q = search.trim().toLowerCase();
-      filtered = enriched.filter((r) => {
+      filtered = enriched.filter((r: EnrichedReportDoc) => {
         return (
           String(r._id).toLowerCase().includes(q) ||
-          r.reporter?.displayName?.toLowerCase().includes(q) ||
-          r.reporter?.email?.toLowerCase().includes(q) ||
-          r.reported?.displayName?.toLowerCase().includes(q) ||
-          r.reported?.email?.toLowerCase().includes(q) ||
-          r.roomInfo?.roomName?.toLowerCase().includes(q) ||
-          r.roomInfo?.roomCode?.toLowerCase().includes(q) ||
-          r.reason?.toLowerCase().includes(q)
+          (r.reporter?.displayName?.toLowerCase().includes(q) ?? false) ||
+          (r.reporter?.email?.toLowerCase().includes(q) ?? false) ||
+          (r.reported?.displayName?.toLowerCase().includes(q) ?? false) ||
+          (r.reported?.email?.toLowerCase().includes(q) ?? false) ||
+          (r.roomInfo?.roomName?.toLowerCase().includes(q) ?? false) ||
+          (r.roomInfo?.roomCode?.toLowerCase().includes(q) ?? false) ||
+          (r.reason?.toLowerCase().includes(q) ?? false)
         );
       });
     }
+
 
     return {
       reports: filtered,
@@ -459,9 +513,10 @@ export class AdminReportsService {
     const report = await this.reportModel.findById(id).lean().exec();
     if (!report) throw new NotFoundException("Không tìm thấy báo cáo");
 
-    const [enriched] = await this.enrichReportsWithUsers([report]);
+    const [enriched] = await this.enrichReportsWithUsers([report as unknown as Record<string, unknown>]);
     return enriched;
   }
+
 
   // ─── Update Status ────────────────────────────────────────────────────────────
   async updateReportStatus(
@@ -483,7 +538,7 @@ export class AdminReportsService {
       );
     }
 
-    const logEntry: any = {
+    const logEntry: Record<string, unknown> = {
       action: "STATUS_CHANGED",
       fromStatus: currentStatus,
       toStatus: newStatus,
@@ -493,7 +548,7 @@ export class AdminReportsService {
       timestamp: new Date(),
     };
 
-    const update: any = {
+    const update: Record<string, unknown> = {
       status: newStatus,
       $push: { processingLog: logEntry },
     };
@@ -592,16 +647,16 @@ export class AdminReportsService {
     endDate?: string;
     format?: string;
   }) {
-    const filter: Record<string, any> = {};
+    const filter: Record<string, unknown> = {};
     if (params.status) filter.status = params.status;
     if (params.reason) filter.reason = params.reason;
     if (params.startDate || params.endDate) {
       filter.createdAt = {};
-      if (params.startDate) filter.createdAt.$gte = new Date(params.startDate);
+      if (params.startDate) (filter.createdAt as Record<string, unknown>).$gte = new Date(params.startDate);
       if (params.endDate) {
         const end = new Date(params.endDate);
         end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
+        (filter.createdAt as Record<string, unknown>).$lte = end;
       }
     }
 
@@ -612,18 +667,19 @@ export class AdminReportsService {
       .lean()
       .exec();
 
-    const enriched = await this.enrichReportsWithUsers(reports);
 
-    return enriched.map((r) => ({
+    const enriched: EnrichedReportDoc[] = await this.enrichReportsWithUsers(reports as unknown as Record<string, unknown>[]);
+
+    return enriched.map((r: EnrichedReportDoc) => ({
       id: String(r._id),
-      title: r.title || r.reason,
-      reason: r.reason,
-      description: r.description,
-      status: r.status,
+      title: r.title || r.reason || "",
+      reason: r.reason || "",
+      description: r.description || "",
+      status: r.status || "",
       conclusion: r.conclusion || "",
-      reporterEmail: r.reporter?.email || r.reporterId,
+      reporterEmail: r.reporter?.email || r.reporterId || "",
       reporterName: r.reporter?.displayName || "",
-      reportedEmail: r.reported?.email || r.reportedUserId,
+      reportedEmail: r.reported?.email || r.reportedUserId || "",
       reportedName: r.reported?.displayName || "",
       roomName: r.roomInfo?.roomName || "",
       hasEvidence: (r.evidences?.length || 0) > 0 ? "Có" : "Không",
@@ -638,11 +694,12 @@ export class AdminReportsService {
   }
 
   // ─── Helper: Enrich reports with user data ────────────────────────────────────
-  private async enrichReportsWithUsers(reports: any[]) {
+  private async enrichReportsWithUsers(reports: Record<string, unknown>[]): Promise<EnrichedReportDoc[]> {
+
     if (!reports.length) return [];
 
-    const reporterIds = [...new Set(reports.map((r) => r.reporterId))];
-    const reportedIds = [...new Set(reports.map((r) => r.reportedUserId))];
+    const reporterIds = [...new Set(reports.map((r) => r.reporterId as string))];
+    const reportedIds = [...new Set(reports.map((r) => r.reportedUserId as string))];
     const allIds = [...new Set([...reporterIds, ...reportedIds])];
 
     const users = await this.userModel
@@ -653,11 +710,14 @@ export class AdminReportsService {
     const userMap = new Map(users.map((u) => [u.supabaseId, u]));
 
     return reports.map((r) => ({
-      ...r,
-      reporter: userMap.get(r.reporterId) || null,
-      reported: userMap.get(r.reportedUserId) || null,
+      ...(r as unknown as EnrichedReportDoc),
+      reporter: userMap.get(r.reporterId as string) || null,
+      reported: userMap.get(r.reportedUserId as string) || null,
     }));
+
   }
+
+
 
   // ─── Room Reports Helpers ──────────────────────────────────────────────────────
   async getRoomReportsList(params: {

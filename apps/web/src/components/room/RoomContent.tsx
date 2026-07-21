@@ -241,10 +241,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
             <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
               <button className="px-3 py-4 border-b-2 border-brand-500 text-brand-600">
-                Bảng tin lớp học
+                {t("class_feed")}
               </button>
               <button className="px-3 py-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700">
-                Lịch sử cuộc họp
+                {t("meeting_history")}
               </button>
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                   // TRẠNG THÁI 1: ĐANG HỌP TRÊN CHÍNH MÁY NÀY
                   <button className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium border border-emerald-300 cursor-default">
                     <Video size={16} />
-                    <span>Đang họp</span>
+                    <span>{t("btn_in_meeting")}</span>
                   </button>
                 ) : (
                   // TRẠNG THÁI 2: ĐANG HỌP Ở MÁY KHÁC (HOẶC CHƯA VÀO) -> Nút Chuyển thiết bị
@@ -266,7 +266,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                     className="flex items-center gap-2 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-amber-500/20"
                   >
                     <Video size={16} />
-                    <span>Tham gia</span>
+                    <span>{t("btn_join")}</span>
                   </button>
                 )
               ) : (
@@ -277,7 +277,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                     className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium transition-colors"
                   >
                     <Video size={16} />
-                    <span>Cuộc họp</span>
+                    <span>{t("btn_meeting")}</span>
                     <ChevronDown size={14} />
                   </button>
 
@@ -295,10 +295,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                         >
-                          <Video size={16} /> Bắt đầu họp ngay
+                          <Video size={16} /> {t("start_now")}
                         </button>
                         <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                          <Calendar size={16} /> Lên lịch cuộc họp
+                          <Calendar size={16} /> {t("schedule_meeting")}
                         </button>
                       </div>
                     </>
@@ -306,6 +306,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                 </>
               )}
             </div>
+
 
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
