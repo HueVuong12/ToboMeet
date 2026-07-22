@@ -17,6 +17,22 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    toggleMeetingChat: builder.mutation<
+      void,
+      {
+        roomId: string;
+        channelId: string;
+        meetingCode: string;
+        isChatEnabled: boolean;
+      }
+    >({
+      query: ({ roomId, channelId, meetingCode, isChatEnabled }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${meetingCode}/chat-status`,
+        method: "PUT",
+        data: { isChatEnabled },
+      }),
+    }),
+
     generatePresignedUploadUrl: builder.mutation<
       PresignedUploadResponse,
       { fileName: string; meetingCode: string }
@@ -33,5 +49,6 @@ export const meetingsApi = baseApi.injectEndpoints({
 
 export const {
   useJoinMeetingByCodeMutation,
+  useToggleMeetingChatMutation,
   useGeneratePresignedUploadUrlMutation,
 } = meetingsApi;

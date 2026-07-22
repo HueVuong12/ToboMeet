@@ -28,21 +28,28 @@ import { toast } from "../../lib/toast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useGeneratePresignedUploadUrlMutation } from "../../lib/redux/features/meetings/meetingsApi";
 import { KeyboardAvoidingView } from "react-native";
+import { useChatStatus } from "../../hooks/useChatStatus";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😡", "🎉"];
 
 export default function MobileChatModal({
   visible,
   onClose,
+  roomId,
+  channelId,
   meetingCode,
 }: {
   visible: boolean;
   onClose: () => void;
+  roomId: string;
+  channelId: string;
   meetingCode: string;
 }) {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants(); // danh sách thành viên
+
+  const { canChat } = useChatStatus({ roomId, channelId, meetingCode });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -492,56 +499,70 @@ export default function MobileChatModal({
             </View>
           )}
 
-          {/* Khung nhập liệu & Nút gửi */}
-          <View
-            className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center gap-2 shrink-0"
-            style={{ paddingBottom: Math.max(insets.bottom, 12) }}
-          >
-            {isProcessing ? (
-              <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
-                <ActivityIndicator size="small" color="#10b981" />
-                <Text className="text-emerald-400 font-medium ml-2 text-sm">
-                  Đang tải file lên...
+          {/* Giao diện khoá chat dựa trên quyền */}
+          {!canChat ? (
+            <View
+              className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center justify-center gap-2 shrink-0"
+              style={{ paddingBottom: Math.max(insets.bottom, 12), height: 75 }}
+            >
+              <View className="bg-red-500/10 px-4 py-2.5 rounded-xl flex-row items-center gap-2 border border-red-500/20">
+                <Feather name="lock" size={16} color="#f87171" />
+                <Text className="text-slate-300 text-sm font-medium">
+                  Chủ phòng đã khóa chat
                 </Text>
               </View>
-            ) : (
-              <>
-                <TouchableOpacity
-                  onPress={handlePickImage}
-                  className="p-2.5 rounded-full bg-slate-800"
-                >
-                  <Feather name="image" size={20} color="#3b82f6" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handlePickDocument}
-                  className="p-2.5 rounded-full bg-slate-800"
-                >
-                  <Feather name="paperclip" size={20} color="#10b981" />
-                </TouchableOpacity>
-
-                <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
-                  <TextInput
-                    value={inputValue}
-                    onChangeText={setInputValue}
-                    placeholder="Nhập tin nhắn..."
-                    placeholderTextColor="#64748b"
-                    className="flex-1 py-3 text-white text-base"
-                  />
-                  <TouchableOpacity
-                    onPress={handleSendText}
-                    disabled={!inputValue.trim()}
-                  >
-                    <Feather
-                      name="send"
-                      size={20}
-                      color={inputValue.trim() ? "#3b82f6" : "#475569"}
-                    />
-                  </TouchableOpacity>
+            </View>
+          ) : (
+            <View
+              className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center gap-2 shrink-0"
+              style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+            >
+              {isProcessing ? (
+                <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
+                  <ActivityIndicator size="small" color="#10b981" />
+                  <Text className="text-emerald-400 font-medium ml-2 text-sm">
+                    Đang tải file lên...
+                  </Text>
                 </View>
-              </>
-            )}
-          </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    onPress={handlePickImage}
+                    className="p-2.5 rounded-full bg-slate-800"
+                  >
+                    <Feather name="image" size={20} color="#3b82f6" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handlePickDocument}
+                    className="p-2.5 rounded-full bg-slate-800"
+                  >
+                    <Feather name="paperclip" size={20} color="#10b981" />
+                  </TouchableOpacity>
+
+                  <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
+                    <TextInput
+                      value={inputValue}
+                      onChangeText={setInputValue}
+                      placeholder="Nhập tin nhắn..."
+                      placeholderTextColor="#64748b"
+                      className="flex-1 py-3 text-white text-base"
+                    />
+                    <TouchableOpacity
+                      onPress={handleSendText}
+                      disabled={!inputValue.trim()}
+                    >
+                      <Feather
+                        name="send"
+                        size={20}
+                        color={inputValue.trim() ? "#3b82f6" : "#475569"}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
 

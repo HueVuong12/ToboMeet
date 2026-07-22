@@ -383,7 +383,7 @@ export default function MembersModal({
                     <View
                       style={{
                         position: "absolute",
-                        right: 40,
+                        right: 20,
                         top: 35,
                         backgroundColor: "#0f172a",
                         borderRadius: 12,

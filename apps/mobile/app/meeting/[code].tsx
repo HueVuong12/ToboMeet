@@ -116,6 +116,9 @@ export default function MobileMeetingScreen() {
         </View>
 
         <MobileToolbar
+          meetingCode={code}
+          roomId={meetingData.roomId}
+          channelId={meetingData.channelId}
           initialFacingMode={roomOptions.videoCaptureDefaults.facingMode}
           onOpenMembers={() => setShowMembersModal(true)}
           onOpenChat={() => setShowChatModal(true)}
@@ -131,6 +134,8 @@ export default function MobileMeetingScreen() {
 
         <MobileChatModal
           meetingCode={code}
+          roomId={meetingData.roomId}
+          channelId={meetingData.channelId}
           visible={showChatModal}
           onClose={() => setShowChatModal(false)}
         />
