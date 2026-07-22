@@ -188,6 +188,7 @@ export interface ChatMessage {
   timestamp: number;
   isPrivate: boolean;
   targetName?: string; // Tên người nhận (để hiển thị UI cho người gửi)
+  targetIdentity?: string;
 
   // Dành cho FILE_START & FILE_DONE
   fileId?: string;

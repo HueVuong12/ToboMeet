@@ -173,23 +173,6 @@ export default function MobileToolbar({
             />
           </TouchableOpacity>
 
-          {/* NÚT QUẢN TRỊ VIÊN (3 CHẤM) */}
-          {isHost && (
-            <TouchableOpacity
-              onPress={() => setShowAdminMenu(true)}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                backgroundColor: "#4f46e5",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <Feather name="more-vertical" size={18} color="white" />
-            </TouchableOpacity>
-          )}
-
           {/* Nút Rời đi */}
           <TouchableOpacity
             onPress={() => {
@@ -244,6 +227,23 @@ export default function MobileToolbar({
           >
             <Feather name="message-square" size={18} color="white" />
           </TouchableOpacity>
+
+          {/* NÚT QUẢN TRỊ VIÊN (3 CHẤM) */}
+          {isHost && (
+            <TouchableOpacity
+              onPress={() => setShowAdminMenu(true)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                backgroundColor: "#1e293b",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Feather name="more-vertical" size={18} color="white" />
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </View>
 

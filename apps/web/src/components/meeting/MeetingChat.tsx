@@ -53,7 +53,7 @@ export default function MeetingChat({
     setPreviewMedia,
     reactionDetails,
     setReactionDetails,
-    messagesEndRef,
+    scrollContainerRef,
     fileInputRef,
     QUICK_EMOJIS,
     handleSendMessage,
@@ -193,7 +193,10 @@ export default function MeetingChat({
         disabled={!canChat}
       />
 
-      <div className="flex-1 pt-4 overflow-y-auto pr-2 space-y-4 mb-4 custom-scrollbar">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 pt-4 overflow-y-auto pr-2 space-y-4 mb-4 custom-scrollbar"
+      >
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-slate-500 text-sm">
             Chưa có tin nhắn nào. Bắt đầu trò chuyện!
@@ -201,6 +204,24 @@ export default function MeetingChat({
         ) : (
           messages.map((msg) => {
             const isMe = msg.senderIdentity === localParticipant?.identity;
+            const { displayName: realtimeSenderName } = getParticipantDetails(
+              msg.senderIdentity,
+              msg.senderName,
+            );
+
+            let realtimeReplySenderName = msg.replyToSender;
+            if (msg.replyToMsgId) {
+              const originalMsg = messages.find(
+                (m) => m.id === msg.replyToMsgId,
+              );
+              if (originalMsg) {
+                realtimeReplySenderName = getParticipantDetails(
+                  originalMsg.senderIdentity,
+                  msg.replyToSender,
+                ).displayName;
+              }
+            }
+
             return (
               <div
                 key={msg.id}
@@ -208,7 +229,7 @@ export default function MeetingChat({
               >
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-xs font-semibold text-slate-300">
-                    {isMe ? "Bạn" : msg.senderName}
+                    {realtimeSenderName}
                   </span>
                   <span className="text-[10px] text-slate-500">
                     {new Date(msg.timestamp).toLocaleTimeString([], {
@@ -251,7 +272,7 @@ export default function MeetingChat({
                       className={`text-[11px] mt-0.5 px-2 py-1 mb-0.5 rounded border-l-2 ${isMe ? "border-emerald-300 bg-emerald-700/30 text-emerald-100" : "border-brand-400 bg-slate-800 text-slate-300"} w-full max-w-xs opacity-80 cursor-pointer line-clamp-2`}
                     >
                       <span className="font-semibold block">
-                        {msg.replyToSender}
+                        {realtimeReplySenderName}
                       </span>
                       {msg.replyToContent}
                     </div>
@@ -368,7 +389,14 @@ export default function MeetingChat({
                     <Lock size={10} />
                     <span>
                       {isMe
-                        ? `Gửi riêng cho ${msg.targetName}`
+                        ? `Gửi riêng cho ${
+                            msg.targetIdentity
+                              ? getParticipantDetails(
+                                  msg.targetIdentity,
+                                  msg.targetName,
+                                ).displayName
+                              : msg.targetName // Fallback an toàn nếu tin nhắn cũ chưa có targetIdentity
+                          }`
                         : "Gửi riêng cho bạn"}
                     </span>
                   </div>
@@ -377,7 +405,6 @@ export default function MeetingChat({
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="shrink-0 flex flex-col gap-2 relative">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Modal,
   View,
@@ -11,26 +11,12 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import {
-  useRoomContext,
-  useLocalParticipant,
-  useParticipants,
-} from "@livekit/react-native";
-import { RoomEvent } from "livekit-client";
-
-import * as ImagePicker from "expo-image-picker";
-import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system/legacy";
-import { ChatMessage } from "@tobomeet/shared/types";
-import { toast } from "../../lib/toast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useGeneratePresignedUploadUrlMutation } from "../../lib/redux/features/meetings/meetingsApi";
-import { KeyboardAvoidingView } from "react-native";
 import { useChatStatus } from "../../hooks/useChatStatus";
-
-const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😡", "🎉"];
+import { useChatManager } from "../../hooks/useChatManager";
 
 export default function MobileChatModal({
   visible,
@@ -45,282 +31,39 @@ export default function MobileChatModal({
   channelId: string;
   meetingCode: string;
 }) {
-  const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
-  const participants = useParticipants(); // danh sách thành viên
-
-  const { canChat } = useChatStatus({ roomId, channelId, meetingCode });
-
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputValue, setInputValue] = useState("");
   const insets = useSafeAreaInsets();
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [generatePresignedUrl] = useGeneratePresignedUploadUrlMutation();
-  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  // Hook Quyền Chat
+  const { canChat } = useChatStatus({ roomId, channelId, meetingCode });
 
-  // State cho Reply & Reaction
-  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-  const [reactionDetails, setReactionDetails] = useState<{
-    [emoji: string]: string[];
-  } | null>(null);
-  const [activeMessage, setActiveMessage] = useState<ChatMessage | null>(null); // Lưu tin nhắn đang được nhấn giữ
-  const [previewMedia, setPreviewMedia] = useState<{
-    url: string;
-    name: string;
-  } | null>(null); // Xem ảnh full màn hình
+  // Hook Logic Chat (Nhắn tin riêng, Reply, React, Files...)
+  const {
+    localParticipant,
+    otherParticipants,
+    messages,
+    inputValue,
+    setInputValue,
+    isProcessing,
+    replyingTo,
+    setReplyingTo,
+    reactionDetails,
+    setReactionDetails,
+    activeMessage,
+    setActiveMessage,
+    previewMedia,
+    setPreviewMedia,
+    selectedTarget,
+    setSelectedTarget,
+    QUICK_EMOJIS,
+    handleSendText,
+    handleReact,
+    handlePickImage,
+    handlePickDocument,
+    getParticipantDetails,
+  } = useChatManager({ meetingCode });
 
-  // LOGIC NHẬN TIN NHẮN
-  useEffect(() => {
-    if (!room) return;
-
-    const handleDataReceived = async (payload: Uint8Array) => {
-      const decoder = new TextDecoder();
-      const jsonString = decoder.decode(payload);
-
-      try {
-        const data = JSON.parse(jsonString) as ChatMessage;
-
-        if (data.type === "CHAT") {
-          data.reactions = data.reactions || {};
-          setMessages((prev) => [...prev, data]);
-        }
-        // Xử lý khi có người thả cảm xúc
-        else if (data.type === "REACT" && data.targetMessageId && data.emoji) {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === data.targetMessageId) {
-                const newReactions = { ...(msg.reactions || {}) };
-                const usersWhoReacted = newReactions[data.emoji!] || [];
-
-                if (!usersWhoReacted.includes(data.senderIdentity)) {
-                  newReactions[data.emoji!] = [
-                    ...usersWhoReacted,
-                    data.senderIdentity,
-                  ];
-                } else {
-                  newReactions[data.emoji!] = usersWhoReacted.filter(
-                    (id) => id !== data.senderIdentity,
-                  );
-                }
-                return { ...msg, reactions: newReactions };
-              }
-              return msg;
-            }),
-          );
-        }
-      } catch (error) {
-        console.log("Lỗi parse tin nhắn:", error);
-      }
-    };
-
-    room.on(RoomEvent.DataReceived, handleDataReceived);
-    return () => {
-      room.off(RoomEvent.DataReceived, handleDataReceived);
-    };
-  }, [room]);
-
-  // LẤY INFO NGƯỜI DÙNG (Cho Reaction Summary)
-  const getParticipantDetails = (id: string) => {
-    let name = "Người dùng ẩn danh";
-    let avatarUrl = "";
-
-    const p =
-      id === localParticipant?.identity
-        ? localParticipant
-        : participants.find((x) => x.identity === id);
-    if (p) {
-      name = p.name || name;
-      try {
-        if (p.metadata) {
-          const meta = JSON.parse(p.metadata);
-          avatarUrl = meta.avatar || meta.avatarUrl || meta.picture || "";
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    const displayName = id === localParticipant?.identity ? "Bạn" : name;
-    const initial = name.charAt(0).toUpperCase();
-    return { displayName, initial, avatarUrl };
-  };
-
-  // THẢ CẢM XÚC
-  const handleReact = async (targetMessageId: string, emoji: string) => {
-    if (!localParticipant) return;
-
-    const reactMsg: ChatMessage = {
-      id: Math.random().toString(36).substring(2, 9),
-      type: "REACT",
-      senderIdentity: localParticipant.identity,
-      senderName: localParticipant.name || "Bạn",
-      timestamp: Date.now(),
-      isPrivate: false,
-      targetMessageId,
-      emoji,
-    };
-
-    const encoder = new TextEncoder();
-    try {
-      await localParticipant.publishData(
-        encoder.encode(JSON.stringify(reactMsg)),
-        { reliable: true },
-      );
-
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.id === targetMessageId) {
-            const newReactions = { ...(msg.reactions || {}) };
-            const users = newReactions[emoji] || [];
-            if (!users.includes(localParticipant.identity)) {
-              newReactions[emoji] = [...users, localParticipant.identity];
-            } else {
-              newReactions[emoji] = users.filter(
-                (id) => id !== localParticipant.identity,
-              );
-            }
-            return { ...msg, reactions: newReactions };
-          }
-          return msg;
-        }),
-      );
-    } catch (error) {
-      console.error(error);
-    }
-
-    // Đóng menu sau khi thả tim
-    setActiveMessage(null);
-  };
-
-  // LOGIC GỬI TEXT (Bổ sung Reply)
-  const handleSendText = async () => {
-    if (!inputValue.trim() || !localParticipant) return;
-
-    const newMessage: ChatMessage = {
-      id: Math.random().toString(36).substring(2, 9),
-      type: "CHAT",
-      senderIdentity: localParticipant.identity,
-      senderName: localParticipant.name || "Bạn",
-      content: inputValue.trim(),
-      timestamp: Date.now(),
-      isPrivate: false,
-      reactions: {},
-      ...(replyingTo && {
-        replyToMsgId: replyingTo.id,
-        replyToSender: replyingTo.senderName,
-        replyToContent:
-          replyingTo.content ||
-          (replyingTo.fileName
-            ? `[Tệp] ${replyingTo.fileName}`
-            : "[Ảnh/Video]"),
-      }),
-    };
-
-    const encoder = new TextEncoder();
-    await localParticipant.publishData(
-      encoder.encode(JSON.stringify(newMessage)),
-      { reliable: true },
-    );
-
-    setMessages((prev) => [...prev, newMessage]);
-    setInputValue("");
-    setReplyingTo(null); // Gửi xong thì xóa cờ reply
-  };
-
-  // XỬ LÝ GỬI FILE/ẢNH QUA SUPABASE S3
-  const processAndSendFile = async (
-    uri: string,
-    name: string,
-    type: string,
-    size: number,
-  ) => {
-    if (size > MAX_FILE_SIZE) {
-      toast.error("Chỉ hỗ trợ file dưới 50MB!");
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const { presignedUrl, publicUrl } = await generatePresignedUrl({
-        fileName: name,
-        meetingCode: meetingCode,
-      }).unwrap();
-
-      const uploadResult = await FileSystem.uploadAsync(presignedUrl, uri, {
-        httpMethod: "PUT",
-        headers: { "Content-Type": type || "application/octet-stream" },
-      });
-
-      if (uploadResult.status !== 200)
-        throw new Error("Lỗi khi đẩy file lên cloud");
-
-      const fileMsg: ChatMessage = {
-        id: Math.random().toString(36).substring(2, 9),
-        type: "CHAT",
-        senderIdentity: localParticipant.identity,
-        senderName: localParticipant.name || "Bạn",
-        timestamp: Date.now(),
-        isPrivate: false,
-        fileName: name,
-        fileType: type,
-        publicUrl: publicUrl,
-        reactions: {},
-        ...(replyingTo && {
-          replyToMsgId: replyingTo.id,
-          replyToSender: replyingTo.senderName,
-          replyToContent:
-            replyingTo.content || `[Tệp] ${replyingTo.fileName || name}`,
-        }),
-      };
-
-      const encoder = new TextEncoder();
-      await localParticipant.publishData(
-        encoder.encode(JSON.stringify(fileMsg)),
-        { reliable: true },
-      );
-
-      setMessages((prev) => [...prev, fileMsg]);
-      setReplyingTo(null);
-    } catch (error) {
-      console.error(error);
-      toast.error("Không thể tải file lên.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // CHỌN ẢNH / FILE
-  const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      processAndSendFile(
-        asset.uri,
-        asset.fileName || `image_${Date.now()}.jpg`,
-        asset.mimeType || "image/jpeg",
-        asset.fileSize || 0,
-      );
-    }
-  };
-
-  const handlePickDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*",
-      copyToCacheDirectory: true,
-    });
-    if (!result.canceled) {
-      const doc = result.assets[0];
-      processAndSendFile(
-        doc.uri,
-        doc.name,
-        doc.mimeType || "application/octet-stream",
-        doc.size || 0,
-      );
-    }
-  };
+  // State cục bộ mở Modal chọn người nhận
+  const [showTargetSelector, setShowTargetSelector] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -335,7 +78,7 @@ export default function MobileChatModal({
         behavior={Platform.OS === "ios" ? "padding" : "padding"}
       >
         <View className="bg-slate-900 flex-1 mt-24 rounded-t-3xl overflow-hidden border-t border-slate-700 flex-col">
-          {/* Header */}
+          {/* HEADER */}
           <View className="flex-row justify-between items-center p-4 border-b border-slate-800 shrink-0">
             <Text className="text-white font-bold text-lg">
               Trò chuyện trong phòng
@@ -348,25 +91,44 @@ export default function MobileChatModal({
             </TouchableOpacity>
           </View>
 
-          {/* Danh sách tin nhắn */}
+          {/* DANH SÁCH TIN NHẮN */}
           <FlatList
             style={{ flex: 1 }}
             data={messages}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ padding: 16, gap: 12 }}
             renderItem={({ item }) => {
-              const isMe = item.senderIdentity === localParticipant.identity;
+              const isMe = item.senderIdentity === localParticipant?.identity;
+              const { displayName: realtimeSenderName } = getParticipantDetails(
+                item.senderIdentity,
+                item.senderName,
+              );
+
+              let realtimeReplySenderName = item.replyToSender;
+              if (item.replyToMsgId) {
+                const originalMsg = messages.find(
+                  (m) => m.id === item.replyToMsgId,
+                );
+                if (originalMsg) {
+                  realtimeReplySenderName = getParticipantDetails(
+                    originalMsg.senderIdentity,
+                    item.replyToSender,
+                  ).displayName;
+                }
+              }
+
               return (
                 <View
                   className={`flex max-w-[85%] ${isMe ? "self-end" : "self-start"}`}
                 >
-                  <Text
-                    className={`text-xs mb-1 text-slate-400 ${isMe ? "text-right" : "text-left"}`}
+                  <View
+                    className={`flex-row items-center mb-1 ${isMe ? "justify-end" : "justify-start"}`}
                   >
-                    {isMe ? "Bạn" : item.senderName}
-                  </Text>
+                    <Text className="text-xs text-slate-400">
+                      {realtimeSenderName}
+                    </Text>
+                  </View>
 
-                  {/* CHẠM ĐỂ XEM/TẢI FILE, NHẤN GIỮ ĐỂ THẢ TIM */}
                   <TouchableOpacity
                     activeOpacity={0.8}
                     delayLongPress={250}
@@ -374,18 +136,16 @@ export default function MobileChatModal({
                     onPress={() => {
                       if (item.publicUrl) {
                         if (item.fileType?.startsWith("image/")) {
-                          // Xem ảnh full màn hình
                           setPreviewMedia({
                             url: item.publicUrl,
                             name: item.fileName || "image",
                           });
                         } else {
-                          // Bắn link ra trình duyệt ngoài để điện thoại tự động tải file về
                           Linking.openURL(item.publicUrl);
                         }
                       }
                     }}
-                    className="relative"
+                    className={`relative ${isMe ? "self-end" : "self-start"}`}
                   >
                     {item.replyToMsgId && (
                       <View
@@ -394,7 +154,7 @@ export default function MobileChatModal({
                         <Text
                           className={`font-semibold text-xs ${isMe ? "text-emerald-100" : "text-slate-300"}`}
                         >
-                          {item.replyToSender}
+                          {realtimeReplySenderName}
                         </Text>
                         <Text
                           className={`text-[11px] ${isMe ? "text-emerald-100" : "text-slate-300"}`}
@@ -404,7 +164,6 @@ export default function MobileChatModal({
                         </Text>
                       </View>
                     )}
-
                     {item.fileType?.startsWith("image/") ? (
                       <Image
                         source={{ uri: item.publicUrl }}
@@ -412,7 +171,6 @@ export default function MobileChatModal({
                         resizeMode="cover"
                       />
                     ) : item.fileName ? (
-                      // Đã fix lỗi tên file, thêm ellipsizeMode="middle" và set width an toàn
                       <View className="flex-row items-center gap-3 bg-slate-800 p-3 rounded-xl border border-slate-700 min-w-[160px] max-w-[240px]">
                         <View className="bg-slate-700 p-2 rounded-lg shrink-0">
                           <Feather name="download" size={16} color="#3b82f6" />
@@ -436,7 +194,28 @@ export default function MobileChatModal({
                     )}
                   </TouchableOpacity>
 
-                  {/* KHỐI HIỂN THỊ REACTION BÊN DƯỚI TIN NHẮN */}
+                  {/* Nhãn gửi riêng */}
+                  {item.isPrivate && (
+                    <View
+                      className={`flex-row items-center gap-1 mt-1 opacity-80 ${isMe ? "justify-end" : "justify-start"}`}
+                    >
+                      <Feather name="lock" size={10} color="#f59e0b" />
+                      <Text className="text-[10px] text-amber-500">
+                        {isMe
+                          ? `Gửi riêng cho ${
+                              item.targetIdentity
+                                ? getParticipantDetails(
+                                    item.targetIdentity,
+                                    item.targetName,
+                                  ).displayName
+                                : item.targetName // Fallback an toàn nếu tin nhắn cũ chưa có targetIdentity
+                            }`
+                          : "Gửi riêng cho bạn"}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Reaction */}
                   {item.reactions &&
                     Object.values(item.reactions).some(
                       (users) => users.length > 0,
@@ -476,7 +255,7 @@ export default function MobileChatModal({
             }}
           />
 
-          {/* BANNER HIỂN THỊ ĐANG TRẢ LỜI AI ĐÓ NẰM TRÊN INPUT */}
+          {/* BANNER REPLY */}
           {replyingTo && (
             <View className="bg-slate-800 px-4 py-2 flex-row justify-between items-center border-t border-slate-700">
               <View className="flex-1 mr-2">
@@ -499,7 +278,7 @@ export default function MobileChatModal({
             </View>
           )}
 
-          {/* Giao diện khoá chat dựa trên quyền */}
+          {/* KHU VỰC NHẬP LIỆU */}
           {!canChat ? (
             <View
               className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center justify-center gap-2 shrink-0"
@@ -514,59 +293,179 @@ export default function MobileChatModal({
             </View>
           ) : (
             <View
-              className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center gap-2 shrink-0"
+              className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-col gap-2 shrink-0"
               style={{ paddingBottom: Math.max(insets.bottom, 12) }}
             >
-              {isProcessing ? (
-                <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
-                  <ActivityIndicator size="small" color="#10b981" />
-                  <Text className="text-emerald-400 font-medium ml-2 text-sm">
-                    Đang tải file lên...
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    onPress={handlePickImage}
-                    className="p-2.5 rounded-full bg-slate-800"
-                  >
-                    <Feather name="image" size={20} color="#3b82f6" />
-                  </TouchableOpacity>
+              {/* DROPDOWN CHỌN NGƯỜI NHẬN */}
+              <TouchableOpacity
+                onPress={() => setShowTargetSelector(true)}
+                className="self-start px-3 py-1.5 bg-slate-800 rounded-lg flex-row items-center border border-slate-700 mb-1"
+              >
+                <Text className="text-slate-300 text-xs font-medium mr-1.5">
+                  Gửi:{" "}
+                  {selectedTarget === "all"
+                    ? "Mọi người"
+                    : otherParticipants.find(
+                        (p) => p.identity === selectedTarget,
+                      )?.name || "Ẩn danh"}
+                </Text>
+                <Feather name="chevron-down" size={14} color="#94a3b8" />
+              </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={handlePickDocument}
-                    className="p-2.5 rounded-full bg-slate-800"
-                  >
-                    <Feather name="paperclip" size={20} color="#10b981" />
-                  </TouchableOpacity>
-
-                  <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
-                    <TextInput
-                      value={inputValue}
-                      onChangeText={setInputValue}
-                      placeholder="Nhập tin nhắn..."
-                      placeholderTextColor="#64748b"
-                      className="flex-1 py-3 text-white text-base"
-                    />
-                    <TouchableOpacity
-                      onPress={handleSendText}
-                      disabled={!inputValue.trim()}
-                    >
-                      <Feather
-                        name="send"
-                        size={20}
-                        color={inputValue.trim() ? "#3b82f6" : "#475569"}
-                      />
-                    </TouchableOpacity>
+              <View className="flex-row items-center gap-2">
+                {isProcessing ? (
+                  <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
+                    <ActivityIndicator size="small" color="#10b981" />
+                    <Text className="text-emerald-400 font-medium ml-2 text-sm">
+                      Đang tải file lên...
+                    </Text>
                   </View>
-                </>
-              )}
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={handlePickImage}
+                      className="p-2.5 rounded-full bg-slate-800"
+                    >
+                      <Feather name="image" size={20} color="#3b82f6" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handlePickDocument}
+                      className="p-2.5 rounded-full bg-slate-800"
+                    >
+                      <Feather name="paperclip" size={20} color="#10b981" />
+                    </TouchableOpacity>
+                    <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
+                      <TextInput
+                        value={inputValue}
+                        onChangeText={setInputValue}
+                        placeholder="Nhập tin nhắn..."
+                        placeholderTextColor="#64748b"
+                        className="flex-1 py-3 text-white text-base"
+                      />
+                      <TouchableOpacity
+                        onPress={handleSendText}
+                        disabled={!inputValue.trim()}
+                      >
+                        <Feather
+                          name="send"
+                          size={20}
+                          color={inputValue.trim() ? "#3b82f6" : "#475569"}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
           )}
         </View>
       </KeyboardAvoidingView>
 
-      {/* MENU ACTION (Mở khi nhấn giữ tin nhắn) */}
+      {/* MODAL CHỌN NGƯỜI NHẬN (BOTTOM SHEET) */}
+      <Modal visible={showTargetSelector} transparent animationType="fade">
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.6)",
+            justifyContent: "flex-end",
+            paddingBottom: Math.max(insets.bottom, 12),
+          }}
+          onPress={() => setShowTargetSelector(false)}
+        >
+          <View
+            style={{
+              backgroundColor: "#1e293b",
+              padding: 20,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: "50%",
+            }}
+          >
+            <Text
+              style={{
+                color: "#94a3b8",
+                fontSize: 14,
+                fontWeight: "bold",
+                marginBottom: 16,
+                textTransform: "uppercase",
+              }}
+            >
+              Chọn người nhận
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedTarget("all");
+                  setShowTargetSelector(false);
+                }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 14,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#334155",
+                }}
+              >
+                <Feather
+                  name="users"
+                  size={18}
+                  color={selectedTarget === "all" ? "#3b82f6" : "#94a3b8"}
+                />
+                <Text
+                  style={{
+                    color: selectedTarget === "all" ? "#3b82f6" : "#e2e8f0",
+                    marginLeft: 12,
+                    fontSize: 16,
+                    fontWeight: selectedTarget === "all" ? "600" : "normal",
+                  }}
+                >
+                  Mọi người trong phòng
+                </Text>
+              </TouchableOpacity>
+
+              {otherParticipants.map((p) => (
+                <TouchableOpacity
+                  key={p.identity}
+                  onPress={() => {
+                    setSelectedTarget(p.identity);
+                    setShowTargetSelector(false);
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 14,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#334155",
+                  }}
+                >
+                  <Feather
+                    name="lock"
+                    size={16}
+                    color={
+                      selectedTarget === p.identity ? "#f59e0b" : "#94a3b8"
+                    }
+                  />
+                  <Text
+                    style={{
+                      color:
+                        selectedTarget === p.identity ? "#f59e0b" : "#e2e8f0",
+                      marginLeft: 12,
+                      fontSize: 16,
+                      fontWeight:
+                        selectedTarget === p.identity ? "600" : "normal",
+                    }}
+                  >
+                    Chỉ gửi cho: {p.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* MODAL ACTION & REACTION & MEDIA (Giữ nguyên như trước) */}
       <Modal visible={!!activeMessage} transparent animationType="fade">
         <TouchableOpacity
           activeOpacity={1}
@@ -577,7 +476,6 @@ export default function MobileChatModal({
             className="bg-slate-800 w-full rounded-2xl border border-slate-700 p-4"
             onStartShouldSetResponder={() => true}
           >
-            {/* Hàng Emoji */}
             <View className="flex-row justify-between mb-4 border-b border-slate-700 pb-4">
               {QUICK_EMOJIS.map((emj) => (
                 <TouchableOpacity
@@ -591,8 +489,6 @@ export default function MobileChatModal({
                 </TouchableOpacity>
               ))}
             </View>
-
-            {/* Nút Reply */}
             <TouchableOpacity
               className="flex-row items-center py-2"
               onPress={() => {
@@ -609,7 +505,6 @@ export default function MobileChatModal({
         </TouchableOpacity>
       </Modal>
 
-      {/* XEM CHI TIẾT AI ĐÃ THẢ CẢM XÚC (Reaction Summary) */}
       <Modal visible={!!reactionDetails} transparent animationType="fade">
         <TouchableOpacity
           activeOpacity={1}
@@ -626,7 +521,6 @@ export default function MobileChatModal({
                 <Feather name="x" size={20} color="#94a3b8" />
               </TouchableOpacity>
             </View>
-
             <ScrollView className="p-4" showsVerticalScrollIndicator={false}>
               {reactionDetails &&
                 Object.entries(reactionDetails).map(([emoji, users]) => {
@@ -639,7 +533,6 @@ export default function MobileChatModal({
                           {users.length} người
                         </Text>
                       </View>
-
                       {users.map((userId) => {
                         const { displayName, initial, avatarUrl } =
                           getParticipantDetails(userId);
@@ -674,18 +567,14 @@ export default function MobileChatModal({
         </TouchableOpacity>
       </Modal>
 
-      {/* XEM ẢNH FULL MÀN HÌNH */}
       <Modal visible={!!previewMedia} transparent animationType="fade">
         <View className="flex-1 bg-black/95 justify-center items-center">
-          {/* Nút Đóng */}
           <TouchableOpacity
             className="absolute top-12 right-4 p-3 z-50 bg-slate-800/50 rounded-full"
             onPress={() => setPreviewMedia(null)}
           >
             <Feather name="x" size={24} color="white" />
           </TouchableOpacity>
-
-          {/* Khung chứa ẢNH */}
           {previewMedia && (
             <Image
               source={{ uri: previewMedia.url }}
@@ -693,8 +582,6 @@ export default function MobileChatModal({
               resizeMode="contain"
             />
           )}
-
-          {/* Nút Mở ra trình duyệt để lưu về điện thoại */}
           <TouchableOpacity
             className="absolute bottom-14 flex-row items-center bg-slate-800/80 px-5 py-3 rounded-full border border-slate-600"
             onPress={() => previewMedia && Linking.openURL(previewMedia.url)}

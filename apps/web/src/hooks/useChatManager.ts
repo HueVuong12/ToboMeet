@@ -35,8 +35,30 @@ export function useChatManager({
     [emoji: string]: string[];
   } | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const participantCache = useRef<
+    Record<string, { name: string; avatarUrl: string }>
+  >({});
+
+  useEffect(() => {
+    participants.forEach((p) => {
+      let avatarUrl = "";
+      try {
+        if (p.metadata) {
+          const meta = JSON.parse(p.metadata);
+          avatarUrl = meta.avatar || meta.avatarUrl || meta.picture || "";
+        }
+      } catch (e) {}
+
+      // Luôn ghi đè thông tin mới nhất vào Cache
+      participantCache.current[p.identity] = {
+        name: p.name || "Ẩn danh",
+        avatarUrl,
+      };
+    });
+  }, [participants]);
 
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
   const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😡", "🎉"];
@@ -47,7 +69,25 @@ export function useChatManager({
 
   // Tự động cuộn xuống cuối khi có tin nhắn mới
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Khoảng cách (pixel) tính từ dưới lên để coi như là đang "ở cuối"
+    // Nếu họ lướt lên khoảng 100px so với đáy, ta sẽ không tự cuộn nữa.
+    const threshold = 100;
+
+    // Kiểm tra xem vị trí cuộn hiện tại + chiều cao nhìn thấy có GẦN BẰNG tổng chiều cao không
+    const isAtBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <=
+      threshold;
+
+    if (isAtBottom) {
+      // Chỉ cuộn mượt khi họ đang ở gần đáy
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages]);
 
   // Xử lý gửi tin nhắn Text
@@ -81,6 +121,7 @@ export function useChatManager({
       timestamp: Date.now(),
       isPrivate,
       targetName,
+      targetIdentity: isPrivate ? selectedTarget : undefined,
       reactions: {},
       ...(replyingTo && {
         replyToMsgId: replyingTo.id,
@@ -149,6 +190,7 @@ export function useChatManager({
         targetName: isPrivate
           ? participants.find((p) => p.identity === selectedTarget)?.name
           : undefined,
+        targetIdentity: isPrivate ? selectedTarget : undefined,
         fileName: file.name,
         fileType: file.type,
         publicUrl: publicUrl,
@@ -219,23 +261,31 @@ export function useChatManager({
   };
 
   // Lấy chi tiết thông tin người dùng
-  const getParticipantDetails = (id: string) => {
-    let name = "Người dùng ẩn danh";
+  const getParticipantDetails = (id: string, fallbackName?: string) => {
+    let name = fallbackName || "Người dùng ẩn danh";
     let avatarUrl = "";
 
-    const p =
+    // A. ƯU TIÊN 1: Lấy Real-time (Đảm bảo cập nhật tức thì khi đổi tên vì participants kích hoạt render)
+    const realtimeP =
       id === localParticipant?.identity
         ? localParticipant
         : participants.find((x) => x.identity === id);
 
-    if (p) {
-      name = p.name || name;
+    if (realtimeP) {
+      name = realtimeP.name || name;
       try {
-        if (p.metadata) {
-          const meta = JSON.parse(p.metadata);
+        if (realtimeP.metadata) {
+          const meta = JSON.parse(realtimeP.metadata);
           avatarUrl = meta.avatar || meta.avatarUrl || meta.picture || "";
         }
       } catch (e) {}
+    } else {
+      // B. ƯU TIÊN 2: Nếu người dùng đã rời phòng, lấy dữ liệu từ Cache
+      const cachedInfo = participantCache.current[id];
+      if (cachedInfo) {
+        name = cachedInfo.name || name;
+        avatarUrl = cachedInfo.avatarUrl || "";
+      }
     }
 
     const displayName = id === localParticipant?.identity ? "Bạn" : name;
@@ -257,7 +307,7 @@ export function useChatManager({
     setPreviewMedia,
     reactionDetails,
     setReactionDetails,
-    messagesEndRef,
+    scrollContainerRef,
     fileInputRef,
     QUICK_EMOJIS,
     handleSendMessage,

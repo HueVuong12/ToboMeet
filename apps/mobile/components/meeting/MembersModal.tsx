@@ -166,7 +166,7 @@ export default function MembersModal({
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 20,
+              marginBottom: 15,
               paddingBottom: 16,
               borderBottomWidth: 1,
               borderBottomColor: "rgba(255,255,255,0.05)",
@@ -185,7 +185,7 @@ export default function MembersModal({
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 16,
+              marginBottom: 5,
             }}
           >
             <Text
