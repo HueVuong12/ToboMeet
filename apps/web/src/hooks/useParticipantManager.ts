@@ -4,8 +4,11 @@ import {
   useParticipants,
   useLocalParticipant,
 } from "@livekit/components-react";
-import { useRemoveParticipantMutation } from "@/lib/redux/api/roomsApi";
 import { useHandRaise } from "@/hooks/useHandRaise";
+import {
+  useMuteParticipantMutation,
+  useRemoveParticipantMutation,
+} from "@/lib/redux/api/meetingsApi";
 
 export function useParticipantManager({
   roomId,
@@ -20,6 +23,7 @@ export function useParticipantManager({
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
   const [removeParticipant] = useRemoveParticipantMutation();
+  const [muteParticipantApi] = useMuteParticipantMutation();
 
   // State quản lý việc kick và đổi tên
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
@@ -96,6 +100,30 @@ export function useParticipantManager({
     );
   };
 
+  // Tắt Mic/Cam của thành viên khác
+  const handleMute = async (
+    identity: string,
+    name: string,
+    trackType: "audio" | "video",
+  ) => {
+    const typeLabel = trackType === "audio" ? "Mic" : "Camera";
+
+    toast.promise(
+      muteParticipantApi({
+        roomId: roomId!,
+        channelId: channelId!,
+        code: meetingCode!,
+        identity,
+        trackType,
+      }).unwrap(),
+      {
+        loading: `Đang tắt ${typeLabel} của ${name}...`,
+        success: `Đã tắt ${typeLabel} của ${name}`,
+        error: `Không thể tắt ${typeLabel} lúc này`,
+      },
+    );
+  };
+
   // Hàm xử lý đổi tên
   const handleRenameSubmit = async () => {
     if (!renameState || !renameState.newName.trim()) return;
@@ -116,6 +144,7 @@ export function useParticipantManager({
     renameState,
     setRenameState,
     handleRemove,
+    handleMute,
     handleRenameSubmit,
     getHandState,
   };

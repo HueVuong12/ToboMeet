@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   roomsApi,
-  useGetActiveMeetingQuery,
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
   useRemoveMemberMutation,
@@ -32,6 +31,7 @@ import PreviewModal from "./PreviewModal";
 import { useMeetingManager } from "@/hooks/useMeetingManager";
 import ReportUserModal from "./ReportUserModal";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
+import { meetingsApi, useGetActiveMeetingQuery } from "@/lib/redux/api/meetingsApi";
 
 interface RoomContentProps {
   roomId: string;
@@ -103,7 +103,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
     const handleStatusChanged = (data: any) => {
       dispatch(
-        roomsApi.util.updateQueryData(
+        meetingsApi.util.updateQueryData(
           "getActiveMeeting",
           { roomId, channelId },
           (draft) => {

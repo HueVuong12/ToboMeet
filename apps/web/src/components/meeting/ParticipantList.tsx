@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Shield,
   UserMinus,
+  VideoOff,
 } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -26,7 +27,7 @@ export default function ParticipantList({
   meetingCode: string | null;
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  
+
   const {
     localParticipant,
     displayParticipants,
@@ -35,6 +36,7 @@ export default function ParticipantList({
     renameState,
     setRenameState,
     handleRemove,
+    handleMute,
     handleRenameSubmit,
     getHandState,
   } = useParticipantManager({ roomId, channelId, meetingCode });
@@ -181,8 +183,45 @@ export default function ParticipantList({
                         {/* CHỈ HIỆN KICK NẾU MÌNH LÀ ADMIN VÀ NGƯỜI BỊ KICK KHÔNG PHẢI LÀ MÌNH */}
                         {isLocalAdmin && !isMe && (
                           <>
+                            {/* Nếu mic của họ đang MỞ thì mới hiện nút TẮT MIC */}
+                            {p.isMicrophoneEnabled && (
+                              <button
+                                onClick={() => {
+                                  handleMute(
+                                    p.identity,
+                                    p.name || "Thành viên",
+                                    "audio",
+                                  );
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                              >
+                                <MicOff size={15} /> Tắt Mic
+                              </button>
+                            )}
+
+                            {/* Nếu camera của họ đang MỞ thì mới hiện nút TẮT CAMERA */}
+                            {p.isCameraEnabled && (
+                              <button
+                                onClick={() => {
+                                  handleMute(
+                                    p.identity,
+                                    p.name || "Thành viên",
+                                    "video",
+                                  );
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                              >
+                                <VideoOff size={15} /> Tắt Camera
+                              </button>
+                            )}
+
                             <button
-                              onClick={() => handleRemove(p.identity)}
+                              onClick={() => {
+                                handleRemove(p.identity);
+                                setOpenMenuId(null);
+                              }}
                               className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/15 hover:text-red-300 flex items-center gap-2.5 transition-colors"
                             >
                               <UserMinus size={15} /> Đuổi khỏi phòng

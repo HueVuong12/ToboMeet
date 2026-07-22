@@ -2,13 +2,10 @@ import { useState, useEffect } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  useJoinMeetingMutation,
-  useGetActiveMeetingQuery,
-} from "../lib/redux/features/rooms/roomsApi";
 import { socket } from "../lib/socket";
 import { toast } from "../lib/toast";
 import { MeetingStore } from "../lib/meetingStore";
+import { useGetActiveMeetingQuery, useJoinMeetingMutation } from "../lib/redux/features/meetings/meetingsApi";
 
 interface UseMeetingManagerProps {
   roomId: string;

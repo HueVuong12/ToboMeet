@@ -1,6 +1,4 @@
 import {
-  ActiveMeetingResponse,
-  MeetingJoinResponse,
   RoomMemberResponse,
   RoomResponse,
 } from "@tobomeet/shared/types";
@@ -111,42 +109,6 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: (result, error, roomId) => [{ type: "Room", id: roomId }],
     }),
 
-    getActiveMeeting: builder.query<
-      ActiveMeetingResponse,
-      { roomId: string; channelId: string }
-    >({
-      query: ({ roomId, channelId }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/active`,
-        method: "GET",
-      }),
-    }),
-
-    joinMeeting: builder.mutation<
-      MeetingJoinResponse,
-      {
-        roomId: string;
-        channelId: string;
-        displayName?: string;
-        forceSwitch?: boolean;
-      }
-    >({
-      query: ({ roomId, channelId, displayName, forceSwitch }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
-        method: "POST",
-        data: { displayName, forceSwitch },
-      }),
-    }),
-
-    removeParticipant: builder.mutation<
-      void,
-      { roomId: string; channelId: string; code: string; identity: string }
-    >({
-      query: ({ roomId, channelId, code, identity }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}`,
-        method: "DELETE",
-      }),
-    }),
-
     getRoomByCode: builder.query<
       { _id: string; name: string; type: string; code: string },
       string
@@ -186,8 +148,6 @@ export const roomsApi = baseApi.injectEndpoints({
 });
 
 export const {
-  useGetActiveMeetingQuery,
-  useJoinMeetingMutation,
   useGetMyRoomsQuery,
   useGetRoomByIdQuery,
   useCreateRoomMutation,
@@ -195,7 +155,6 @@ export const {
   useAddChannelMutation,
   useAddMemberByEmailOrIdMutation,
   useLeaveRoomMutation,
-  useRemoveParticipantMutation,
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
   useRemoveMemberMutation,

@@ -8,17 +8,9 @@ import {
   FlatList,
   ActivityIndicator,
   TextInput,
-  Alert,
 } from "react-native";
-import {
-  useLocalParticipant,
-  useParticipants,
-} from "@livekit/components-react";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { toast } from "../../lib/toast";
-import { useRemoveParticipantMutation } from "../../lib/redux/features/rooms/roomsApi";
-import { useHandRaise } from "../../hooks/useHandRaise";
-import { Participant } from "livekit-client";
+import { useParticipantManager } from "../../hooks/useParticipantManager";
 
 // COMPONENT: DANH SÁCH THÀNH VIÊN (BOTTOM SHEET)
 export default function MembersModal({
@@ -34,100 +26,19 @@ export default function MembersModal({
   channelId: string;
   meetingCode: string;
 }) {
-  const participants = useParticipants();
-  const { localParticipant } = useLocalParticipant();
-  const { getHandState } = useHandRaise();
-
   const [openActionId, setOpenActionId] = useState<string | null>(null);
-  const [kickedUsers, setKickedUsers] = useState<string[]>([]);
-  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
-  const [renameState, setRenameState] = useState<{
-    isOpen: boolean;
-    newName: string;
-  } | null>(null);
-
-  const [removeParticipant] = useRemoveParticipantMutation();
-
-  // Kiểm tra quyền của bản thân (Admin/Owner)
-  let localRole = "member";
-  try {
-    if (localParticipant.metadata) {
-      localRole = JSON.parse(localParticipant.metadata).role || "member";
-    }
-  } catch (e) {
-    console.error(e);
-  }
-  const isLocalAdmin = localRole === "owner" || localRole === "admin";
-
-  // Lọc những người bị kick và sắp xếp thứ tự giơ tay
-  const displayParticipants = participants
-    .filter((p) => !kickedUsers.includes(p.identity))
-    .sort((a, b) => {
-      const stateA = getHandState(a);
-      const stateB = getHandState(b);
-
-      if (stateA.isRaised && stateB.isRaised) {
-        return parseInt(stateA.raisedAt) - parseInt(stateB.raisedAt);
-      }
-      if (stateA.isRaised) return -1;
-      if (stateB.isRaised) return 1;
-      return 0;
-    });
-
-  // Hàm xử lý Kick
-  const handleRemove = (participant: Participant) => {
-    Alert.alert(
-      "Xác nhận",
-      `Bạn có chắc chắn muốn đuổi ${participant.name} khỏi cuộc họp?`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Đuổi",
-          style: "destructive",
-          onPress: async () => {
-            setOpenActionId(null);
-            setKickingUserId(participant.identity);
-            try {
-              await removeParticipant({
-                roomId,
-                channelId,
-                code: meetingCode,
-                identity: participant.identity,
-              }).unwrap();
-              // Đưa vào danh sách ẩn ngay lập tức
-              setKickedUsers((prev) => [...prev, participant.identity]);
-
-              setTimeout(() => {
-                setKickedUsers((prev) =>
-                  prev.filter((id) => id !== participant.identity),
-                );
-              }, 3000);
-            } catch (error) {
-              Alert.alert(
-                "Lỗi",
-                "Không thể thực hiện thao tác đuổi khỏi phòng!",
-              );
-              console.error(error);
-            } finally {
-              setKickingUserId(null);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // Hàm xử lý Đổi tên
-  const handleRenameSubmit = async () => {
-    if (!renameState || !renameState.newName.trim()) return;
-    try {
-      await localParticipant.setName(renameState.newName.trim());
-      setRenameState(null);
-    } catch (error) {
-      console.error(error);
-      toast.error("Không thể đổi tên lúc này!");
-    }
-  };
+  const {
+    localParticipant,
+    displayParticipants,
+    isLocalAdmin,
+    kickingUserId,
+    renameState,
+    setRenameState,
+    handleRemove,
+    handleRenameSubmit,
+    handleMute,
+    getHandState,
+  } = useParticipantManager({ roomId, channelId, meetingCode });
 
   return (
     <Modal
@@ -383,17 +294,17 @@ export default function MembersModal({
                     <View
                       style={{
                         position: "absolute",
-                        right: 20,
-                        top: 35,
+                        right: 30,
+                        top: 40,
                         backgroundColor: "#0f172a",
                         borderRadius: 12,
                         padding: 4,
                         borderWidth: 1,
                         borderColor: "rgba(255,255,255,0.1)",
-                        zIndex: 10,
+                        zIndex: 999,
                       }}
                     >
-                      {/* Nút Đổi Tên (Chỉ hiện nếu là mình) */}
+                      {/* Nút Đổi Tên */}
                       {isMe && (
                         <TouchableOpacity
                           onPress={() => {
@@ -403,24 +314,115 @@ export default function MembersModal({
                             });
                             setOpenActionId(null);
                           }}
-                          style={{ paddingVertical: 10, paddingHorizontal: 16 }}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            gap: 10,
+                          }}
                         >
+                          <Feather name="edit-2" size={16} color="white" />
                           <Text style={{ color: "white", fontSize: 14 }}>
                             Đổi tên
                           </Text>
                         </TouchableOpacity>
                       )}
 
-                      {/* Nút Đuổi (Chỉ hiện nếu là Admin và không phải đang tự bấm vào mình) */}
+                      {/* Các Nút Admin */}
                       {isLocalAdmin && !isMe && (
-                        <TouchableOpacity
-                          onPress={() => handleRemove(p)}
-                          style={{ paddingVertical: 10, paddingHorizontal: 16 }}
-                        >
-                          <Text style={{ color: "#ef4444", fontSize: 14 }}>
-                            Đuổi khỏi phòng
-                          </Text>
-                        </TouchableOpacity>
+                        <>
+                          {/* Nút Tắt Mic */}
+                          {p.isMicrophoneEnabled && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                handleMute(
+                                  p.identity,
+                                  p.name || "Thành viên",
+                                  "audio",
+                                );
+                                setOpenActionId(null);
+                              }}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingVertical: 12,
+                                paddingHorizontal: 16,
+                                gap: 10,
+                              }}
+                            >
+                              <Feather name="mic-off" size={16} color="white" />
+                              <Text style={{ color: "white", fontSize: 14 }}>
+                                Tắt Mic
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {/* Nút Tắt Cam */}
+                          {p.isCameraEnabled && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                handleMute(
+                                  p.identity,
+                                  p.name || "Thành viên",
+                                  "video",
+                                );
+                                setOpenActionId(null);
+                              }}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingVertical: 12,
+                                paddingHorizontal: 16,
+                                gap: 10,
+                              }}
+                            >
+                              <Feather
+                                name="video-off"
+                                size={16}
+                                color="white"
+                              />
+                              <Text style={{ color: "white", fontSize: 14 }}>
+                                Tắt Camera
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {/* Phân cách UI */}
+                          {(p.isMicrophoneEnabled || p.isCameraEnabled) && (
+                            <View
+                              style={{
+                                height: 1,
+                                backgroundColor: "rgba(255,255,255,0.1)",
+                                marginHorizontal: 8,
+                              }}
+                            />
+                          )}
+
+                          {/* Nút Đuổi */}
+                          <TouchableOpacity
+                            onPress={() => {
+                              handleRemove(p);
+                              setOpenActionId(null);
+                            }}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              paddingVertical: 12,
+                              paddingHorizontal: 16,
+                              gap: 10,
+                            }}
+                          >
+                            <Feather
+                              name="user-minus"
+                              size={16}
+                              color="#ef4444"
+                            />
+                            <Text style={{ color: "#ef4444", fontSize: 14 }}>
+                              Đuổi khỏi phòng
+                            </Text>
+                          </TouchableOpacity>
+                        </>
                       )}
                     </View>
                   )}

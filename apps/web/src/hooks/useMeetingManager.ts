@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { useJoinMeetingMutation } from "@/lib/redux/api/roomsApi";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
+import { useJoinMeetingMutation } from "@/lib/redux/api/meetingsApi";
 
 interface UseMeetingManagerProps {
   roomId: string;

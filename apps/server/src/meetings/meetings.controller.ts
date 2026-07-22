@@ -24,6 +24,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+// Sử dụng khi cần check quyền trong phòng (RoomRoleGuard), bắt buộc phải đem theo roomId và channelId
 @Controller("rooms/:id/channels/:channelId/meetings")
 export class MeetingsController {
   constructor(private readonly meetingsService: MeetingsService) {}
@@ -92,9 +93,29 @@ export class MeetingsController {
       participantIdentity,
     );
   }
+
+  /**
+   * PUT /api/rooms/:id/channels/:channelId/meetings/:code/participants/:identity/mute
+   * Tắt Mic / Camera của người dùng (Chỉ Admin/Owner)
+   */
+  @Put(":code/participants/:identity/mute")
+  @Roles("owner", "admin")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async muteParticipant(
+    @Param("code") meetingCode: string,
+    @Param("identity") participantIdentity: string,
+    @Body() body: { trackType: 'audio' | 'video' }
+  ) {
+    await this.meetingsService.muteParticipantTrack(
+      meetingCode,
+      participantIdentity,
+      body.trackType,
+    );
+  }
 }
 
-@Controller("meetings") // Public meeting API
+@Controller("meetings") // Public meeting API, không cần check quyền
 export class GlobalMeetingsController {
   constructor(private readonly meetingsService: MeetingsService) {}
 

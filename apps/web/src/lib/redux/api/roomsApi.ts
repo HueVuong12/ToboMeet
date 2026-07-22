@@ -52,42 +52,6 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: "Room", id }],
     }),
 
-    joinMeeting: builder.mutation<
-      MeetingJoinResponse,
-      {
-        roomId: string;
-        channelId: string;
-        displayName?: string;
-        forceSwitch?: boolean;
-      }
-    >({
-      query: ({ roomId, channelId, displayName, forceSwitch }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
-        method: "POST",
-        data: { displayName, forceSwitch },
-      }),
-    }),
-
-    removeParticipant: builder.mutation<
-      void,
-      { roomId: string; channelId: string; code: string; identity: string }
-    >({
-      query: ({ roomId, channelId, code, identity }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}`,
-        method: "DELETE",
-      }),
-    }),
-
-    getActiveMeeting: builder.query<
-      { isOngoing: boolean; meetingCode: string | null },
-      { roomId: string; channelId: string }
-    >({
-      query: ({ roomId, channelId }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/active`,
-        method: "GET",
-      }),
-    }),
-
     addChannel: builder.mutation<
       RoomResponse,
       { roomId: string; name: string }
@@ -183,14 +147,11 @@ export const roomsApi = baseApi.injectEndpoints({
 
 export const {
   useGetMyRoomsQuery,
-  useGetActiveMeetingQuery,
   useCreateRoomMutation,
   useJoinRoomMutation,
   useGetRoomByIdQuery,
   useAddChannelMutation,
   useGetRoomMembersQuery,
-  useJoinMeetingMutation,
-  useRemoveParticipantMutation,
   useLeaveRoomMutation,
   useDisbandRoomMutation,
   useInviteMemberMutation,

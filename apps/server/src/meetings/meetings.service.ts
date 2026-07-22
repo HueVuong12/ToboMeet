@@ -9,7 +9,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
-import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient, TrackType } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import {
   RoomActivity,
@@ -392,6 +392,28 @@ export class MeetingsService {
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái chat:", error);
       throw new BadRequestException("Không thể cập nhật trạng thái chat");
+    }
+  }
+
+  /**
+   * Tắt Mic hoặc Camera của người dùng
+   */
+  async muteParticipantTrack(meetingCode: string, participantIdentity: string, trackType: 'audio' | 'video') {
+    if (!this.livekitRoomService) return;
+    try {
+      // 1. Lấy thông tin người dùng từ LiveKit
+      const participant = await this.livekitRoomService.getParticipant(meetingCode, participantIdentity);
+      const targetTrackType = trackType === 'audio' ? TrackType.AUDIO : TrackType.VIDEO;
+
+      // 2. Tìm track (luồng dữ liệu) tương ứng đang được phát
+      const track = participant.tracks.find(t => t.type === targetTrackType);
+      if (track) {
+        // 3. Ép tắt track đó
+        await this.livekitRoomService.mutePublishedTrack(meetingCode, participantIdentity, track.sid, true);
+      }
+    } catch (error) {
+      console.error(`Lỗi khi tắt ${trackType}:`, error);
+      throw new BadRequestException("Không thể thao tác trên người dùng này");
     }
   }
 
