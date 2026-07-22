@@ -154,6 +154,9 @@ export default function MeetingPage() {
     setIsDisconnecting(true);
 
     setTimeout(() => {
+      sessionStorage.removeItem(`is_joined_${meetingCode}`);
+      sessionStorage.removeItem(`meeting_name_${meetingCode}`);
+
       window.close();
 
       // Fallback chuyển hướng nếu window.close() bị chặn

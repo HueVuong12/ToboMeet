@@ -1,10 +1,4 @@
-import { useHandRaise } from "@/hooks/useHandRaise";
-import { useRemoveParticipantMutation } from "@/lib/redux/api/roomsApi";
-import {
-  useLocalParticipant,
-  useParticipants,
-  useRoomContext,
-} from "@livekit/components-react";
+import { useParticipantManager } from "@/hooks/useParticipantManager";
 import {
   Crown,
   Edit2,
@@ -16,9 +10,8 @@ import {
   Shield,
   UserMinus,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { toast } from "sonner";
 
 /**
  * COMPONENT: Danh sách người tham gia
@@ -32,92 +25,19 @@ export default function ParticipantList({
   channelId: string | null;
   meetingCode: string | null;
 }) {
-  const room = useRoomContext();
-  const participants = useParticipants();
-  const { localParticipant } = useLocalParticipant();
-
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
-  const [renameState, setRenameState] = useState<{
-    isOpen: boolean;
-    newName: string;
-  } | null>(null);
-  // State lưu danh sách những người đã bị kick thành công để giấu đi ngay lập tức
-  const [kickedUsers, setKickedUsers] = useState<string[]>([]);
-
-  const [removeParticipant] = useRemoveParticipantMutation();
-
-  const { getHandState } = useHandRaise();
-
-  // Lọc bỏ những người đã bị kick và SẮP XẾP DANH SÁCH GIƠ TAY
-  const displayParticipants = participants
-    .filter((p) => !kickedUsers.includes(p.identity))
-    .sort((a, b) => {
-      const stateA = getHandState(a);
-      const stateB = getHandState(b);
-
-      if (stateA.isRaised && stateB.isRaised) {
-        return parseInt(stateA.raisedAt) - parseInt(stateB.raisedAt);
-      }
-      if (stateA.isRaised) return -1;
-      if (stateB.isRaised) return 1;
-      return 0;
-    });
-
-  let localRole = "member";
-  try {
-    if (localParticipant.metadata) {
-      localRole = JSON.parse(localParticipant.metadata).role || "member";
-    }
-  } catch (error) {}
-  const isLocalAdmin = localRole === "owner" || localRole === "admin";
-
-  const handleRemove = async (identity: string) => {
-    const participant = participants.find((p) => p.identity === identity);
-    if (!participant) return;
-
-    if (
-      !confirm(`Bạn có chắc chắn muốn đuổi ${participant.name} khỏi cuộc họp?`)
-    )
-      return;
-
-    setOpenMenuId(null);
-    setKickingUserId(identity);
-
-    try {
-      if (!roomId || !channelId || !meetingCode) {
-        alert("Thiếu thông tin cần thiết để thực hiện thao tác!");
-        return;
-      }
-
-      await removeParticipant({
-        roomId: roomId,
-        channelId: channelId,
-        code: meetingCode,
-        identity: identity,
-      }).unwrap();
-
-      setKickedUsers((prev) => [...prev, identity]);
-    } catch (error) {
-      console.error(error);
-      toast.error("Không thể thực hiện thao tác đuổi khỏi phòng!");
-    } finally {
-      setKickingUserId(null);
-    }
-  };
-
-  // Xử lý đổi tên người dùng
-  const handleRenameSubmit = async () => {
-    if (!renameState || !renameState.newName.trim()) return;
-    try {
-      // Bắn lệnh cập nhật tên lên LiveKit, nó sẽ tự đồng bộ cho mọi người
-      await localParticipant.setName(renameState.newName.trim());
-      setRenameState(null);
-    } catch (error) {
-      console.error(error);
-      toast.error("Không thể đổi tên lúc này!");
-    }
-  };
+  
+  const {
+    localParticipant,
+    displayParticipants,
+    isLocalAdmin,
+    kickingUserId,
+    renameState,
+    setRenameState,
+    handleRemove,
+    handleRenameSubmit,
+    getHandState,
+  } = useParticipantManager({ roomId, channelId, meetingCode });
 
   return (
     <div className="flex flex-col h-full">
@@ -243,23 +163,24 @@ export default function ParticipantList({
                         onClick={() => setOpenMenuId(null)}
                       ></div>
                       <div className="absolute right-4 top-6 z-50 w-44 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
-                        <button
-                          onClick={() => {
-                            setRenameState({
-                              isOpen: true,
-                              newName: p.name || "",
-                            });
-                            setOpenMenuId(null);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
-                        >
-                          <Edit2 size={15} /> Đổi tên
-                        </button>
+                        {isMe && (
+                          <button
+                            onClick={() => {
+                              setRenameState({
+                                isOpen: true,
+                                newName: p.name || "",
+                              });
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                          >
+                            <Edit2 size={15} /> Đổi tên
+                          </button>
+                        )}
 
                         {/* CHỈ HIỆN KICK NẾU MÌNH LÀ ADMIN VÀ NGƯỜI BỊ KICK KHÔNG PHẢI LÀ MÌNH */}
                         {isLocalAdmin && !isMe && (
                           <>
-                            <div className="h-px bg-slate-700 my-1"></div>
                             <button
                               onClick={() => handleRemove(p.identity)}
                               className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/15 hover:text-red-300 flex items-center gap-2.5 transition-colors"
