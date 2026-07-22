@@ -21,6 +21,7 @@ import {
   CommentDto,
 } from "../../lib/redux/features/newsFeed/newsFeedApi";
 import { REACTION_ICONS } from "./ReactionPicker";
+import { renderFormattedText } from "../../utils/markdownParser";
 
 interface CommentSectionModalProps {
   visible: boolean;
@@ -81,21 +82,21 @@ export default function CommentSectionModal({
         setCommentText("");
       }
     } catch (err) {
-      Alert.alert("Lỗi", "Không thể gửi nhận xét. Vui lòng thử lại.");
+      Alert.alert(t("room.error"), t("news_feed.send_comment_error"));
     }
   };
 
   const handleDelete = (commentId: string) => {
-    Alert.alert("Xác nhận xóa", "Bạn có chắc chắn muốn xóa nhận xét này?", [
-      { text: "Hủy", style: "cancel" },
+    Alert.alert(t("news_feed.confirm_delete_title"), t("news_feed.confirm_delete_comment"), [
+      { text: t("news_feed.cancel"), style: "cancel" },
       {
-        text: "Xóa",
+        text: t("news_feed.delete"),
         style: "destructive",
         onPress: async () => {
           try {
             await deleteComment({ commentId, postId }).unwrap();
           } catch (err) {
-            Alert.alert("Lỗi", "Không thể xóa nhận xét.");
+            Alert.alert(t("room.error"), t("news_feed.delete_comment_error"));
           }
         },
       },
@@ -179,7 +180,7 @@ export default function CommentSectionModal({
                             </Text>
                           </View>
                           <Text className="text-sm text-slate-700 mt-1 leading-relaxed">
-                            {comment.content}
+                            {renderFormattedText(comment.content)}
                           </Text>
                         </View>
 

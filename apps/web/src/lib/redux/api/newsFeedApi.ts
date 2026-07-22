@@ -70,6 +70,13 @@ export const newsFeedApi = baseApi.injectEndpoints({
         method: "GET",
         params: { roomId, channelId },
       }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ _id }) => ({ type: "Post" as const, id: _id })),
+              { type: "Post", id: "LIST" },
+            ]
+          : [{ type: "Post", id: "LIST" }],
     }),
     createPost: builder.mutation<
       PostDto,
@@ -107,6 +114,45 @@ export const newsFeedApi = baseApi.injectEndpoints({
         data: { type },
       }),
       async onQueryStarted({ postId, type, roomId, channelId }, { dispatch, queryFulfilled }) {
+        let patchResult: any;
+        if (roomId && channelId) {
+          patchResult = dispatch(
+            newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
+              const post = draft.find((p) => p._id === postId);
+              if (post) {
+                const oldUserReaction = post.userReaction;
+                const newUserReaction = oldUserReaction === type ? null : type;
+
+                post.userReaction = newUserReaction;
+                post.reactionStats = post.reactionStats || [];
+
+                if (oldUserReaction) {
+                  const oldIndex = post.reactionStats.findIndex(
+                    (s) => s.reaction === oldUserReaction,
+                  );
+                  if (oldIndex > -1) {
+                    post.reactionStats[oldIndex].count -= 1;
+                    if (post.reactionStats[oldIndex].count <= 0) {
+                      post.reactionStats.splice(oldIndex, 1);
+                    }
+                  }
+                }
+
+                if (newUserReaction) {
+                  const newIndex = post.reactionStats.findIndex(
+                    (s) => s.reaction === newUserReaction,
+                  );
+                  if (newIndex > -1) {
+                    post.reactionStats[newIndex].count += 1;
+                  } else {
+                    post.reactionStats.push({ reaction: newUserReaction, count: 1 });
+                  }
+                }
+              }
+            })
+          );
+        }
+
         try {
           const { data } = await queryFulfilled;
           if (roomId && channelId) {
@@ -120,7 +166,9 @@ export const newsFeedApi = baseApi.injectEndpoints({
               })
             );
           }
-        } catch {}
+        } catch {
+          if (patchResult) patchResult.undo();
+        }
       },
     }),
     getPostReactions: builder.query<PostReactionUserDto[], string>({

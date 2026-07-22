@@ -109,14 +109,73 @@ export const newsFeedApi = baseApi.injectEndpoints({
     }),
     togglePostReaction: builder.mutation<
       { reactionStats: ReactionStatDto[]; userReaction: string | null },
-      { postId: string; type: string }
+      { postId: string; type: string; roomId?: string; channelId?: string }
     >({
       query: ({ postId, type }) => ({
         url: `/news-feed/posts/${postId}/reactions`,
         method: "POST",
         data: { type },
       }),
-      invalidatesTags: (result, error, { postId }) => [{ type: "Post", id: postId }],
+      async onQueryStarted({ postId, type, roomId, channelId }, { dispatch, queryFulfilled }) {
+        let patchResult: any;
+        if (roomId && channelId) {
+          patchResult = dispatch(
+            newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
+              const post = draft.find((p) => p._id === postId);
+              if (post) {
+                const oldUserReaction = post.userReaction;
+                const newUserReaction = oldUserReaction === type ? null : type;
+
+                // 1. Cập nhật userReaction
+                post.userReaction = newUserReaction;
+
+                // 2. Cập nhật reactionStats
+                post.reactionStats = post.reactionStats || [];
+
+                if (oldUserReaction) {
+                  const oldIndex = post.reactionStats.findIndex(
+                    (s) => s.reaction === oldUserReaction,
+                  );
+                  if (oldIndex > -1) {
+                    post.reactionStats[oldIndex].count -= 1;
+                    if (post.reactionStats[oldIndex].count <= 0) {
+                      post.reactionStats.splice(oldIndex, 1);
+                    }
+                  }
+                }
+
+                if (newUserReaction) {
+                  const newIndex = post.reactionStats.findIndex(
+                    (s) => s.reaction === newUserReaction,
+                  );
+                  if (newIndex > -1) {
+                    post.reactionStats[newIndex].count += 1;
+                  } else {
+                    post.reactionStats.push({ reaction: newUserReaction, count: 1 });
+                  }
+                }
+              }
+            })
+          );
+        }
+
+        try {
+          const { data } = await queryFulfilled;
+          if (roomId && channelId) {
+            dispatch(
+              newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
+                const post = draft.find((p) => p._id === postId);
+                if (post) {
+                  post.userReaction = data.userReaction;
+                  post.reactionStats = data.reactionStats;
+                }
+              })
+            );
+          }
+        } catch {
+          if (patchResult) patchResult.undo();
+        }
+      },
     }),
     getPostReactions: builder.query<PostReactionUserDto[], string>({
       query: (postId) => ({

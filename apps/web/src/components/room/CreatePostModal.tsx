@@ -112,6 +112,26 @@ export default function CreatePostModal({
     }, 0);
   };
 
+  const insertNumberedList = () => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart || content.length;
+    const textBefore = content.substring(0, start);
+    const lines = textBefore.split("\n");
+    let lastNum = 0;
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const match = lines[i].match(/^\s*(\d+)\.\s/);
+      if (match) {
+        lastNum = parseInt(match[1], 10);
+        break;
+      }
+    }
+
+    const nextNum = lastNum + 1;
+    const prefix = textBefore.endsWith("\n") || textBefore.length === 0 ? "" : "\n";
+    insertText(`${prefix}${nextNum}. `);
+  };
+
   // Handle Mention Trigger
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -525,7 +545,7 @@ export default function CreatePostModal({
               </button>
               <button
                 type="button"
-                onClick={() => insertText("\n1. ")}
+                onClick={insertNumberedList}
                 title={t("ordered_list")}
                 className="p-1.5 hover:bg-white hover:shadow-sm text-slate-600 rounded"
               >

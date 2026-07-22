@@ -323,6 +323,8 @@ export class NewsFeedService {
 
     this.meetingsGateway.server.to(`room_${post.roomId}`).emit("post_reaction_updated", {
       postId,
+      userId,
+      userReaction,
       reactionStats,
     });
 

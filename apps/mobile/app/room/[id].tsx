@@ -275,8 +275,8 @@ export default function RoomDetailScreen() {
     const shareLink = `${WEB_URL}/room/join?code=${room.code}`;
     Clipboard.setString(shareLink);
     Alert.alert(
-      "Đã sao chép liên kết",
-      "Liên kết phòng họp đã được sao chép vào bộ nhớ tạm.",
+      t("room.link_copied"),
+      t("room.link_copied_desc"),
     );
   };
 
@@ -291,7 +291,7 @@ export default function RoomDetailScreen() {
       (m: { userId: string }) => m.userId === targetUser.supabaseId,
     );
     if (isAlreadyMember) {
-      Alert.alert("Thông báo", "Thành viên đã có trong phòng.");
+      Alert.alert(t("room.notice"), t("room.already_member"));
       return;
     }
 
@@ -301,8 +301,8 @@ export default function RoomDetailScreen() {
         targetUserId: targetUser.supabaseId,
       }).unwrap();
       Alert.alert(
-        "Thành công",
-        `Đã thêm ${targetUser.displayName || "thành viên"} vào phòng.`,
+        t("room.success"),
+        t("room.member_added_success", { name: targetUser.displayName || t("room.member") }),
       );
       setSearchQuery("");
       setShowInviteModal(false);
@@ -316,8 +316,8 @@ export default function RoomDetailScreen() {
       const errMsg =
         errorResponse.data?.message ||
         errorResponse.message ||
-        "Không thể thêm thành viên. Vui lòng thử lại.";
-      Alert.alert("Thông báo", errMsg);
+        t("room.add_member_error");
+      Alert.alert(t("room.error"), errMsg);
     }
   };
 
@@ -432,14 +432,13 @@ export default function RoomDetailScreen() {
               <View className="bg-emerald-100 border border-emerald-300 px-4 py-2.5 rounded-xl flex-row items-center gap-2">
                 <Feather name="video" size={16} color="#059669" />
                 <Text className="text-emerald-700 font-bold text-sm">
-                  Đang họp
+                  {t("room.ongoing")}
                 </Text>
               </View>
             ) : (
               <TouchableOpacity
                 onPress={() => setShowPreviewModal(true)}
                 disabled={isJoining}
-                // className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90 shadow-sm"
                 className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
               >
                 {isJoining ? (
@@ -447,7 +446,7 @@ export default function RoomDetailScreen() {
                 ) : (
                   <Feather name="video" size={16} color="#ffffff" />
                 )}
-                <Text className="text-white font-bold text-sm">Tham gia</Text>
+                <Text className="text-white font-bold text-sm">{t("room.join")}</Text>
               </TouchableOpacity>
             )
           ) : (
@@ -461,7 +460,7 @@ export default function RoomDetailScreen() {
               ) : (
                 <Feather name="video" size={16} color="#ffffff" />
               )}
-              <Text className="text-white font-bold text-sm">Bắt đầu họp</Text>
+              <Text className="text-white font-bold text-sm">{t("room.start_meeting")}</Text>
             </TouchableOpacity>
           )}
 
@@ -519,7 +518,7 @@ export default function RoomDetailScreen() {
               >
                 <Feather name="edit-3" size={16} color="#ffffff" />
                 <Text className="text-white font-bold text-sm">
-                  Thông báo mới
+                  {t("news_feed.new_post_button")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -626,7 +625,7 @@ export default function RoomDetailScreen() {
                     color="#94A3B8"
                   />
                   <Text className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                    Kênh
+                    {t("room.channels")}
                   </Text>
                 </TouchableOpacity>
                 {isOwner && (
@@ -678,7 +677,7 @@ export default function RoomDetailScreen() {
             {/* Drawer Footer - Room Code */}
             <View className="p-4 pb-8 border-t border-slate-100 bg-slate-50">
               <Text className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
-                MÃ PHÒNG
+                {t("room.room_code")}
               </Text>
               <View className="bg-white border border-slate-200 rounded-2xl p-2.5 flex-row items-center justify-between shadow-sm">
                 <View className="flex-row items-center pl-2">
@@ -695,7 +694,7 @@ export default function RoomDetailScreen() {
                 >
                   <Feather name="copy" size={14} color="#64748B" />
                   <Text className="text-xs text-[#64748B] font-bold">
-                    Sao chép
+                    {t("room.copy_code")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -719,7 +718,7 @@ export default function RoomDetailScreen() {
             {/* Drawer Header */}
             <View className="px-5 py-4 border-b border-slate-100 flex-row justify-between items-center">
               <Text className="font-bold text-slate-900 text-lg">
-                Trong kênh này
+                {t("room.in_this_channel")}
               </Text>
               <TouchableOpacity
                 onPress={() => setShowRightDrawer(false)}
@@ -734,11 +733,11 @@ export default function RoomDetailScreen() {
               <View className="mb-6">
                 <View className="flex-row justify-between items-center mb-3">
                   <Text className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                    MỌI NGƯỜI ({membersList?.length || 0})
+                    {t("room.everyone")} ({membersList?.length || 0})
                   </Text>
                   <TouchableOpacity>
                     <Text className="text-sm text-[#0052FF] font-bold">
-                      Xem tất cả
+                      {t("room.see_all")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -770,7 +769,7 @@ export default function RoomDetailScreen() {
                           {m.displayName}{" "}
                           {m.userId === profile?.supabaseId && (
                             <Text className="text-slate-400 font-normal text-xs">
-                              (Bạn)
+                              {t("room.you")}
                             </Text>
                           )}
                         </Text>
@@ -779,12 +778,12 @@ export default function RoomDetailScreen() {
                             <>
                               <Feather name="award" size={12} color="#D97706" />
                               <Text className="text-xs text-[#D97706] font-bold">
-                                CHỦ PHÒNG
+                                {t("room.owner")}
                               </Text>
                             </>
                           ) : (
                             <Text className="text-xs text-slate-400 font-medium">
-                              Thành viên
+                              {t("room.member")}
                             </Text>
                           )}
                         </View>
@@ -797,7 +796,7 @@ export default function RoomDetailScreen() {
               {/* Description Section */}
               <View className="border-t border-slate-100 pt-5">
                 <Text className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Mô tả phòng
+                  {t("room.description")}
                 </Text>
                 <Text className="text-base text-slate-500 leading-relaxed">
                   {room.description ||
@@ -836,7 +835,7 @@ export default function RoomDetailScreen() {
             <View className="items-center mb-4">
               <View className="w-12 h-1.5 bg-slate-200 rounded-full" />
               <Text className="font-bold text-slate-800 text-lg mt-3">
-                Thao tác phòng
+                {t("room.room_actions")}
               </Text>
             </View>
 
@@ -850,7 +849,7 @@ export default function RoomDetailScreen() {
             >
               <Feather name="user-plus" size={18} color="#475569" />
               <Text className="text-slate-700 text-base font-semibold">
-                Thêm thành viên
+                {t("room.add_member")}
               </Text>
             </TouchableOpacity>
 
@@ -864,7 +863,7 @@ export default function RoomDetailScreen() {
             >
               <Feather name="copy" size={18} color="#475569" />
               <Text className="text-slate-700 text-base font-semibold">
-                Sao chép liên kết
+                {t("room.copy_link")}
               </Text>
             </TouchableOpacity>
 
@@ -878,12 +877,12 @@ export default function RoomDetailScreen() {
                 } else {
                   // Thành viên thường hoặc phòng chỉ có 1 mình chủ phòng -> rời thẳng
                   Alert.alert(
-                    "Xác nhận",
-                    "Bạn có chắc chắn muốn rời phòng này?",
+                    t("room.confirm_title"),
+                    t("room.confirm_leave"),
                     [
-                      { text: "Hủy", style: "cancel" },
+                      { text: t("room.cancel"), style: "cancel" },
                       {
-                        text: "Rời phòng",
+                        text: t("room.leave_room"),
                         style: "destructive",
                         onPress: () => handleLeaveRoom(),
                       },
@@ -895,7 +894,7 @@ export default function RoomDetailScreen() {
             >
               <Feather name="log-out" size={18} color="#EF4444" />
               <Text className="text-red-500 text-base font-semibold">
-                Rời phòng
+                {t("room.leave_room")}
               </Text>
             </TouchableOpacity>
 
@@ -905,12 +904,12 @@ export default function RoomDetailScreen() {
                 onPress={() => {
                   setShowGroupActionsModal(false);
                   Alert.alert(
-                    "Giải tán phòng",
-                    "Phòng họp sẽ bị giải tán hoàn toàn. Tất cả thành viên sẽ bị ngắt kết nối. Bạn có chắc chắn muốn giải tán phòng họp này?",
+                    t("room.confirm_disband_title"),
+                    t("room.confirm_disband"),
                     [
-                      { text: "Hủy", style: "cancel" },
+                      { text: t("room.cancel"), style: "cancel" },
                       {
-                        text: "Giải tán phòng",
+                        text: t("room.disband_room"),
                         style: "destructive",
                         onPress: handleDisbandRoom,
                       },
@@ -921,7 +920,7 @@ export default function RoomDetailScreen() {
               >
                 <Feather name="trash-2" size={18} color="#EF4444" />
                 <Text className="text-red-500 text-base font-semibold">
-                  Giải tán phòng
+                  {t("room.disband_room")}
                 </Text>
               </TouchableOpacity>
             )}
@@ -948,7 +947,7 @@ export default function RoomDetailScreen() {
             {/* Header */}
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-lg font-bold text-slate-900">
-                Thêm thành viên
+                {t("room.add_member")}
               </Text>
               <TouchableOpacity
                 onPress={() => setShowInviteModal(false)}
@@ -969,7 +968,7 @@ export default function RoomDetailScreen() {
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Tìm kiếm theo Tên hoặc Email..."
+                placeholder={t("room.search_member_placeholder")}
                 placeholderTextColor="#94A3B8"
                 className="flex-1 text-sm text-slate-900 py-1"
               />
@@ -1025,7 +1024,7 @@ export default function RoomDetailScreen() {
                 <View className="flex-1 justify-center items-center py-8">
                   <Feather name="users" size={32} color="#CBD5E1" />
                   <Text className="text-slate-400 text-xs mt-2">
-                    Không tìm thấy người dùng
+                    {t("room.user_not_found")}
                   </Text>
                 </View>
               ) : null}
@@ -1053,7 +1052,7 @@ export default function RoomDetailScreen() {
             {/* Header */}
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-lg font-bold text-slate-900">
-                Chọn người kế nhiệm
+                {t("room.select_successor")}
               </Text>
               <TouchableOpacity
                 onPress={() => setShowHandoverModal(false)}
@@ -1072,8 +1071,7 @@ export default function RoomDetailScreen() {
                 style={{ marginTop: 2 }}
               />
               <Text className="text-amber-800 text-xs flex-1 leading-relaxed">
-                Bạn là Chủ phòng. Hãy bàn giao quyền chủ phòng cho một thành
-                viên khác bên dưới trước khi rời đi.
+                {t("room.handover_warning")}
               </Text>
             </View>
 
@@ -1090,12 +1088,12 @@ export default function RoomDetailScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       Alert.alert(
-                        "Xác nhận bàn giao",
-                        `Bàn giao quyền chủ phòng cho ${item.displayName} và rời phòng?`,
+                        t("room.confirm_handover_title"),
+                        t("room.confirm_handover_message", { name: item.displayName }),
                         [
-                          { text: "Hủy", style: "cancel" },
+                          { text: t("room.cancel"), style: "cancel" },
                           {
-                            text: "Bàn giao & Rời đi",
+                            text: t("room.handover_and_leave"),
                             style: "destructive",
                             onPress: () => handleLeaveRoom(item.userId),
                           },

@@ -18,6 +18,7 @@ import { REACTION_ICONS } from "./ReactionPicker";
 import ReactionPicker from "./ReactionPicker";
 import CommentSectionModal from "./CommentSectionModal";
 import PostReactionsModal from "./PostReactionsModal";
+import { renderFormattedText } from "../../utils/markdownParser";
 
 interface PostItemProps {
   post: PostDto;
@@ -63,16 +64,17 @@ export default function PostItem({
 
   const handleDelete = () => {
     setShowMenuModal(false);
-    Alert.alert("Xác nhận xóa", "Bạn có chắc chắn muốn xóa bài viết này?", [
-      { text: "Hủy", style: "cancel" },
+    Alert.alert(t("news_feed.confirm_delete_title"), t("news_feed.confirm_delete_post"), [
+      { text: t("news_feed.cancel"), style: "cancel" },
       {
-        text: "Xóa bài viết",
+        text: t("news_feed.delete_post"),
         style: "destructive",
         onPress: async () => {
           try {
             await deletePost(post._id).unwrap();
           } catch (err) {
-            Alert.alert("Lỗi", "Không thể xóa bài viết.");
+            console.log("Delete post error:", err);
+            Alert.alert(t("room.error"), t("news_feed.delete_post_error"));
           }
         },
       },
@@ -81,7 +83,12 @@ export default function PostItem({
 
   const handleSelectReaction = async (type: string) => {
     try {
-      await toggleReaction({ postId: post._id, type }).unwrap();
+      await toggleReaction({
+        postId: post._id,
+        type,
+        roomId: post.roomId,
+        channelId: post.channelId,
+      }).unwrap();
     } catch (err) {
       console.log("Reaction error:", err);
     }
@@ -133,7 +140,7 @@ export default function PostItem({
 
       {/* Content */}
       <Text className="text-base text-slate-700 leading-relaxed mb-3">
-        {post.content}
+        {renderFormattedText(post.content)}
       </Text>
 
       {/* Attachments */}
@@ -170,7 +177,7 @@ export default function PostItem({
       )}
 
       {/* Stats Bar */}
-      {(totalReactionsCount > 0 || post.commentsCount > 0) && (
+      {totalReactionsCount > 0 && (
         <View className="flex-row items-center justify-between py-2 border-t border-b border-slate-100 my-2">
           {/* Reaction stats */}
           <TouchableOpacity
@@ -186,15 +193,7 @@ export default function PostItem({
               {totalReactionsCount}
             </Text>
           </TouchableOpacity>
-
-          {/* Comments stat */}
-          {post.commentsCount > 0 && (
-            <TouchableOpacity onPress={() => setShowCommentsModal(true)}>
-              <Text className="text-xs text-slate-500 font-medium">
-                {t("news_feed.add_comment_with_count", { count: post.commentsCount })}
-              </Text>
-            </TouchableOpacity>
-          )}
+          
         </View>
       )}
 

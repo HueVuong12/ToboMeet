@@ -12,7 +12,7 @@ import {
   Alert,
   Image,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -31,6 +31,8 @@ interface CreatePostModalProps {
   onClose: () => void;
 }
 
+const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "👏", "🎉", "🔥", "🚀", "💡", "💯"];
+
 export default function CreatePostModal({
   visible,
   roomId,
@@ -44,6 +46,11 @@ export default function CreatePostModal({
     editPost?.attachments || []
   );
   const [isUploading, setIsUploading] = useState(false);
+  const [selection, setSelection] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: 0,
+  });
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const [createPost, { isLoading: isCreating }] = useCreatePostMutation();
   const [updatePost, { isLoading: isUpdating }] = useUpdatePostMutation();
@@ -57,7 +64,50 @@ export default function CreatePostModal({
       setContent("");
       setAttachments([]);
     }
+    setShowEmojiPicker(false);
+    setSelection({ start: 0, end: 0 });
   }, [editPost, visible]);
+
+  const insertFormatting = (before: string, after: string = "") => {
+    const { start, end } = selection;
+    const textBefore = content.substring(0, start);
+    const selectedText = content.substring(start, end);
+    const textAfter = content.substring(end);
+
+    const newContent = textBefore + before + selectedText + after + textAfter;
+    setContent(newContent);
+    setShowEmojiPicker(false);
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const { start, end } = selection;
+    const textBefore = content.substring(0, start);
+    const textAfter = content.substring(end);
+
+    const newContent = textBefore + emoji + textAfter;
+    setContent(newContent);
+    const newPos = start + emoji.length;
+    setSelection({ start: newPos, end: newPos });
+  };
+
+  const insertNumberedList = () => {
+    const { start } = selection;
+    const textBefore = content.substring(0, start);
+    const lines = textBefore.split("\n");
+    let lastNum = 0;
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const match = lines[i].match(/^\s*(\d+)\.\s/);
+      if (match) {
+        lastNum = parseInt(match[1], 10);
+        break;
+      }
+    }
+
+    const nextNum = lastNum + 1;
+    const prefix = textBefore.endsWith("\n") || textBefore.length === 0 ? "" : "\n";
+    insertFormatting(`${prefix}${nextNum}. `);
+  };
 
   const handlePickImage = async () => {
     try {
@@ -143,7 +193,8 @@ export default function CreatePostModal({
       }
       onClose();
     } catch (err) {
-      Alert.alert("Lỗi", "Tác vụ thất bại. Vui lòng thử lại.");
+      console.log("Submit post error:", err);
+      Alert.alert(t("room.error"), t("news_feed.submit_post_error"));
     }
   };
 
@@ -189,6 +240,7 @@ export default function CreatePostModal({
             <TextInput
               value={content}
               onChangeText={setContent}
+              onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
               placeholder={t("news_feed.post_placeholder")}
               placeholderTextColor="#94A3B8"
               multiline
@@ -233,25 +285,67 @@ export default function CreatePostModal({
             )}
           </ScrollView>
 
+          {/* Emoji Popover Tray */}
+          {showEmojiPicker && (
+            <View className="bg-slate-50 border-t border-slate-200 px-4 py-2 flex-row flex-wrap gap-2 justify-center">
+              {EMOJIS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => insertEmoji(emoji)}
+                  className="p-1.5 active:bg-slate-200 rounded-lg"
+                >
+                  <Text className="text-xl">{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {/* Footer Toolbar - Matched with Web layout */}
           <View className="p-4 border-t border-slate-100 bg-white flex-row items-center justify-between flex-wrap gap-2">
             {/* Formatting Toolbar */}
-            <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 gap-3">
-              <TouchableOpacity className="p-1">
-                <Text className="font-bold text-slate-600 text-sm">B</Text>
+            <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl p-1 gap-1">
+              <TouchableOpacity
+                onPress={() => insertFormatting("**", "**")}
+                className="w-8 h-8 rounded-lg justify-center items-center active:bg-slate-200"
+              >
+                <Feather name="bold" size={15} color="#475569" />
               </TouchableOpacity>
-              <TouchableOpacity className="p-1">
-                <Text className="italic font-bold text-slate-600 text-sm">I</Text>
+              <TouchableOpacity
+                onPress={() => insertFormatting("*", "*")}
+                className="w-8 h-8 rounded-lg justify-center items-center active:bg-slate-200"
+              >
+                <Feather name="italic" size={15} color="#475569" />
               </TouchableOpacity>
-              <TouchableOpacity className="p-1">
-                <Text className="underline font-bold text-slate-600 text-sm">U</Text>
+              <TouchableOpacity
+                onPress={() => insertFormatting("<u>", "</u>")}
+                className="w-8 h-8 rounded-lg justify-center items-center active:bg-slate-200"
+              >
+                <Feather name="underline" size={15} color="#475569" />
               </TouchableOpacity>
-              <View className="w-[1px] h-4 bg-slate-200" />
-              <TouchableOpacity className="p-1">
-                <Feather name="list" size={16} color="#64748B" />
+              <View className="w-[1px] h-4 bg-slate-200 mx-0.5" />
+              <TouchableOpacity
+                onPress={() => insertFormatting("\n- ")}
+                className="w-8 h-8 rounded-lg justify-center items-center active:bg-slate-200"
+              >
+                <Feather name="list" size={16} color="#475569" />
               </TouchableOpacity>
-              <TouchableOpacity className="p-1">
-                <Feather name="smile" size={16} color="#64748B" />
+              <TouchableOpacity
+                onPress={insertNumberedList}
+                className="w-8 h-8 rounded-lg justify-center items-center active:bg-slate-200"
+              >
+                <MaterialIcons name="format-list-numbered" size={18} color="#475569" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`w-8 h-8 rounded-lg justify-center items-center active:bg-slate-200 ${
+                  showEmojiPicker ? "bg-blue-100" : ""
+                }`}
+              >
+                <Feather
+                  name="smile"
+                  size={16}
+                  color={showEmojiPicker ? "#0052FF" : "#475569"}
+                />
               </TouchableOpacity>
             </View>
 

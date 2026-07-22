@@ -302,6 +302,18 @@ export class UsersService {
       const cleanIp = this.getRealIpAddress(clientIp) || "127.0.0.1";
       const geo = await this.getGeolocation(cleanIp);
 
+      let payload: Record<string, any> = {};
+      try {
+        const payloadBase64 = currentToken.split(".")[1];
+        if (payloadBase64) {
+          payload = JSON.parse(
+            Buffer.from(payloadBase64, "base64").toString(),
+          ) as Record<string, any>;
+        }
+      } catch {
+        // ignore payload parsing failure
+      }
+
       const amr: Array<{ method: string }> = Array.isArray(payload.amr) ? payload.amr : [];
       const provider: string = (payload.app_metadata?.provider || "").toLowerCase();
       let loginMethod = "password";

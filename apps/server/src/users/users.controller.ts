@@ -104,7 +104,7 @@ export class UsersController {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(" ")[1];
     const userAgent = (req.headers["user-agent"] as string) || "";
-    const safeBody = body || {};
+    const safeBody: Partial<{ city: string; country: string }> = body || {};
     if (token) {
       await this.usersService.updateCurrentSessionLocation(
         userId,

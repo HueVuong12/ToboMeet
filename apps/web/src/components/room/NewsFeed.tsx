@@ -34,7 +34,7 @@ export default function NewsFeed({
   const t = useTranslations("news_feed");
 
   // Kích hoạt socket realtime lắng nghe sự thay đổi của kênh bảng tin này
-  useNewsFeedSocket(roomId, channelId);
+  useNewsFeedSocket(roomId, channelId, userId);
 
   const {
     data: posts = [],

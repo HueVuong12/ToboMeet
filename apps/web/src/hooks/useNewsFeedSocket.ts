@@ -4,7 +4,7 @@ import { socket } from "@/lib/socket";
 import { newsFeedApi, PostDto, CommentDto } from "@/lib/redux/api/newsFeedApi";
 import { AppDispatch } from "@/lib/redux/store";
 
-export function useNewsFeedSocket(roomId: string, channelId: string) {
+export function useNewsFeedSocket(roomId: string, channelId: string, currentUserId?: string) {
   const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
@@ -48,17 +48,28 @@ export function useNewsFeedSocket(roomId: string, channelId: string) {
     });
 
     // Lắng nghe cập nhật reaction của bài viết
-    socket.on("post_reaction_updated", (data: { postId: string; reactionStats: any[] }) => {
-      dispatch(
-        newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
-          const index = draft.findIndex((p) => p._id === data.postId);
-          if (index !== -1) {
-            draft[index].reactionStats = data.reactionStats;
-          }
-        })
-      );
-      dispatch(newsFeedApi.util.invalidateTags([{ type: "Post", id: data.postId }]));
-    });
+    socket.on(
+      "post_reaction_updated",
+      (data: {
+        postId: string;
+        reactionStats: any[];
+        userId?: string;
+        userReaction?: string | null;
+      }) => {
+        dispatch(
+          newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
+            const index = draft.findIndex((p) => p._id === data.postId);
+            if (index !== -1) {
+              draft[index].reactionStats = data.reactionStats;
+              if (currentUserId && data.userId === currentUserId) {
+                draft[index].userReaction = data.userReaction ?? null;
+              }
+            }
+          })
+        );
+        dispatch(newsFeedApi.util.invalidateTags([{ type: "Post", id: data.postId }]));
+      }
+    );
 
     // Lắng nghe tạo bình luận mới
     socket.on("comment_created", (newComment: CommentDto) => {

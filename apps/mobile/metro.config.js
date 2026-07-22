@@ -1,6 +1,10 @@
-const { getDefaultConfig } = require("expo/metro-config");
-const { withNativeWind } = require("nativewind/metro");
-const path = require("path");
+import { getDefaultConfig } from "expo/metro-config";
+import { withNativeWind } from "nativewind/metro";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 1. Xác định đường dẫn gốc
 const projectRoot = __dirname;
@@ -23,4 +27,4 @@ config.resolver.nodeModulesPaths = [
 config.resolver.disableHierarchicalLookup = true;
 
 // 3. XUẤT CẤU HÌNH ĐÃ KẾT HỢP NATIVEWIND
-module.exports = withNativeWind(config, { input: "./global.css" });
+export default withNativeWind(config, { input: "./global.css" });
