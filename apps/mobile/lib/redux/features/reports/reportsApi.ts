@@ -17,7 +17,7 @@ export const reportsApi = baseApi.injectEndpoints({
       query: (body) => ({
         url: "/reports",
         method: "POST",
-        body,
+        data: body,
       }),
     }),
     createRoomReport: builder.mutation<
@@ -32,7 +32,7 @@ export const reportsApi = baseApi.injectEndpoints({
       query: (body) => ({
         url: "/reports/room",
         method: "POST",
-        body,
+        data: body,
       }),
     }),
     getReportSignedUrl: builder.mutation<
@@ -42,7 +42,7 @@ export const reportsApi = baseApi.injectEndpoints({
       query: (body) => ({
         url: "/uploads/report-evidence/signed-url",
         method: "POST",
-        body,
+        data: body,
       }),
     }),
   }),

@@ -226,7 +226,7 @@
     "evidence_tap_to_select": "Chạm để chọn ảnh từ thư viện",
     "evidence_format_hint": "Hỗ trợ định dạng JPG, JPEG, PNG, WEBP. Tối đa 5 ảnh, dung lượng dưới 10MB mỗi ảnh.",
     "evidence_max_reached": "Đã đạt giới hạn tối đa 5 ảnh minh chứng.",
-    "you_were_removed": "Bạn đã bị Chủ phòng xóa khỏi phòng họp.",
+    "you_were_removed": "Bạn đã bị xóa khỏi {{roomName}}.",
     "member_removed_success": "Đã xóa {{name}} khỏi phòng họp.",
     "role_teacher": "Giáo viên",
     "role_assistant": "Ban cán sự",

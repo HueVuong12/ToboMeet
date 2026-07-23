@@ -98,7 +98,7 @@ export default function ReportRoomModal({
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsMultipleSelection: true,
       selectionLimit: 5 - evidences.length,
       quality: 0.8,

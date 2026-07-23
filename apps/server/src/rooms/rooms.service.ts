@@ -216,6 +216,7 @@ export class RoomsService {
       type: "member_removed",
       removedUserId: targetUserId,
       roomId,
+      roomName: room.name,
     });
 
     return { message: "Đã xóa thành viên" };

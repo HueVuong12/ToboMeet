@@ -37,7 +37,13 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
           // Xóa thành viên khỏi danh sách hiển thị
           removeMemberFromRoomCache(data.roomId, data.removedUserId);
           if (data.removedUserId === userId) {
-            Alert.alert("Thông báo", "Bạn đã bị Chủ phòng xóa khỏi phòng họp.");
+            const title = t("common.notification", { defaultValue: "Thông báo" });
+            const roomName = data.roomName || data.room?.name || "phòng họp";
+            const message = t("room.you_were_removed", {
+              roomName,
+              defaultValue: `Bạn đã bị xóa khỏi ${roomName}.`,
+            });
+            Alert.alert(title, message);
             router.replace("/dashboard");
           }
           break;

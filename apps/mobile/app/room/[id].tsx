@@ -44,7 +44,6 @@ import { useRoomUpdateListener } from "../../hooks/socket/useRoomUpdateListener"
 import {
   useGetPostsQuery,
   PostDto,
-  newsFeedApi,
 } from "../../lib/redux/features/newsFeed/newsFeedApi";
 import PostItem from "../../components/newsFeed/PostItem";
 import CreatePostModal from "../../components/newsFeed/CreatePostModal";
@@ -117,7 +116,6 @@ export default function RoomDetailScreen() {
   const [showRightDrawer, setShowRightDrawer] = useState(false);
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
   const [showReportRoomModal, setShowReportRoomModal] = useState(false);
-  const [messageText, setMessageText] = useState("");
 
   // News Feed state
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
@@ -321,9 +319,13 @@ export default function RoomDetailScreen() {
   }) => {
     if (!room) return;
 
-    // 1. Kiểm tra trùng lặp tại client để hiển thị phản hồi ngay lập tức
+    // 1. Kiểm tra trùng lặp tại client để hiển thị phản hồi ngay lập tức (chỉ tính thành viên đang active)
     const isAlreadyMember = room.members?.some(
-      (m: { userId: string }) => m.userId === targetUser.supabaseId,
+      (m: { userId: string; isLeft?: boolean; status?: string }) =>
+        m.userId === targetUser.supabaseId &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
     );
     if (isAlreadyMember) {
       Alert.alert(t("room.notice"), t("room.already_member"));
@@ -1388,8 +1390,9 @@ export default function RoomDetailScreen() {
                                 })
                               );
                               refetchMembers();
-                            } catch (err: any) {
-                              Alert.alert("Lỗi", err?.data?.message || "Không thể bổ nhiệm");
+                            } catch (err: unknown) {
+                              const errorResponse = err as { data?: { message?: string } };
+                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể bổ nhiệm");
                             }
                           }
                         }}
@@ -1423,8 +1426,9 @@ export default function RoomDetailScreen() {
                                 })
                               );
                               refetchMembers();
-                            } catch (err: any) {
-                              Alert.alert("Lỗi", err?.data?.message || "Không thể thu hồi");
+                            } catch (err: unknown) {
+                              const errorResponse = err as { data?: { message?: string } };
+                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể thu hồi");
                             }
                           }
                         }}
@@ -1462,14 +1466,15 @@ export default function RoomDetailScreen() {
                                 style: "destructive",
                                 onPress: async () => {
                                   try {
-                                    const res = await transferRoomOwnershipMutation({
+                                    await transferRoomOwnershipMutation({
                                       roomId: room._id,
                                       newOwnerId: target.userId,
                                     }).unwrap();
                                     refetchMembers();
                                     refetch();
-                                  } catch (err: any) {
-                                    Alert.alert("Lỗi", err?.data?.message || "Không thể chuyển quyền");
+                                  } catch (err: unknown) {
+                                    const errorResponse = err as { data?: { message?: string } };
+                                    Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể chuyển quyền");
                                   }
                                 },
                               },
@@ -1512,8 +1517,9 @@ export default function RoomDetailScreen() {
                                 })
                               );
                               refetchMembers();
-                            } catch (err: any) {
-                              Alert.alert("Lỗi", err?.data?.message || "Không thể bổ nhiệm");
+                            } catch (err: unknown) {
+                              const errorResponse = err as { data?: { message?: string } };
+                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể bổ nhiệm");
                             }
                           }
                         }}
@@ -1547,8 +1553,9 @@ export default function RoomDetailScreen() {
                                 })
                               );
                               refetchMembers();
-                            } catch (err: any) {
-                              Alert.alert("Lỗi", err?.data?.message || "Không thể thu hồi");
+                            } catch (err: unknown) {
+                              const errorResponse = err as { data?: { message?: string } };
+                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể thu hồi");
                             }
                           }
                         }}
@@ -1586,14 +1593,15 @@ export default function RoomDetailScreen() {
                                 style: "destructive",
                                 onPress: async () => {
                                   try {
-                                    const res = await transferRoomOwnershipMutation({
+                                    await transferRoomOwnershipMutation({
                                       roomId: room._id,
                                       newOwnerId: target.userId,
                                     }).unwrap();
                                     refetchMembers();
                                     refetch();
-                                  } catch (err: any) {
-                                    Alert.alert("Lỗi", err?.data?.message || "Không thể chuyển quyền");
+                                  } catch (err: unknown) {
+                                    const errorResponse = err as { data?: { message?: string } };
+                                    Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể chuyển quyền");
                                   }
                                 },
                               },

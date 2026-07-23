@@ -228,7 +228,7 @@
     "evidence_tap_to_select": "Tap to select images from gallery",
     "evidence_format_hint": "Supports JPG, JPEG, PNG, WEBP. Max 5 images, under 10MB each.",
     "evidence_max_reached": "Maximum 5 evidence images allowed.",
-    "you_were_removed": "You have been removed from the room by the Owner.",
+    "you_were_removed": "You have been removed from {{roomName}}.",
     "member_removed_success": "Removed {{name}} from the room.",
     "role_teacher": "Teacher",
     "role_assistant": "Assistant",
