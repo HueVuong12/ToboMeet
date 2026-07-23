@@ -1392,7 +1392,7 @@ export default function RoomDetailScreen() {
                               refetchMembers();
                             } catch (err: unknown) {
                               const errorResponse = err as { data?: { message?: string } };
-                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể bổ nhiệm");
+                              Alert.alert("Lỗi", errorResponse?.data?.message || "Đã đạt số lượng tối đa 3 Ban cán sự");
                             }
                           }
                         }}
@@ -1519,7 +1519,7 @@ export default function RoomDetailScreen() {
                               refetchMembers();
                             } catch (err: unknown) {
                               const errorResponse = err as { data?: { message?: string } };
-                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể bổ nhiệm");
+                              Alert.alert("Lỗi", errorResponse?.data?.message || "Đã đạt số lượng tối đa 3 Phó nhóm");
                             }
                           }
                         }}

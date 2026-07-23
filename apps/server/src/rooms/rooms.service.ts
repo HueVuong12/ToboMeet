@@ -286,7 +286,7 @@ export class RoomsService {
         (m) => (m.role === "assistant" || m.role === "admin") && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
       ).length;
       if (assistantCount >= 3) {
-        throw new BadRequestException("Đã đạt số lượng Ban cán sự tối đa (3).");
+        throw new BadRequestException("Đã đạt số lượng tối đa 3 Ban cán sự");
       }
     }
 
@@ -295,7 +295,7 @@ export class RoomsService {
         (m) => (m.role === "vice_leader" || m.role === "admin") && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
       ).length;
       if (viceLeaderCount >= 3) {
-        throw new BadRequestException("Đã đạt số lượng Phó nhóm tối đa (3).");
+        throw new BadRequestException("Đã đạt số lượng tối đa 3 Phó nhóm");
       }
     }
 

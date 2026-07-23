@@ -23,7 +23,7 @@ import {
 interface EvidenceItem {
   url: string;
   fileName: string;
-  fileType: string;
+  fileSize?: number;
 }
 
 interface ReportUserModalProps {
@@ -51,7 +51,7 @@ const REASON_TRANSLATIONS: Record<string, string> = {
   "Ngôn từ xúc phạm": "room.reason_inappropriate_language",
   "Chia sẻ nội dung không phù hợp": "room.reason_inappropriate_content",
   "Mạo danh": "room.reason_impersonation",
-  "Khác": "room.reason_other",
+  Khác: "room.reason_other",
 };
 
 export default function ReportUserModal({
@@ -83,61 +83,77 @@ export default function ReportUserModal({
     }
   }, [visible]);
 
-  if (!visible) return null;
-
   const handlePickImage = async () => {
-    try {
-      let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
-      if (!permission.granted && permission.canAskAgain) {
-        permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      }
-      if (!permission.granted) {
-        Alert.alert(t("room.notice"), t("room.permission_denied", "Permission to access photo library was denied."));
-        return;
-      }
+    if (evidences.length >= 5) {
+      Alert.alert(
+        t("common.notice", { defaultValue: "Thông báo" }),
+        t("room.evidence_max_reached", { defaultValue: "Đã đạt giới hạn tối đa 5 ảnh minh chứng." }),
+      );
+      return;
+    }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
-      });
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        t("common.error", { defaultValue: "Lỗi" }),
+        "Cần cấp quyền truy cập thư viện ảnh để tải minh chứng.",
+      );
+      return;
+    }
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setIsUploading(true);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      selectionLimit: 5 - evidences.length,
+      quality: 0.8,
+    });
 
-        const fileName = asset.fileName || `evidence_${Date.now()}.jpg`;
-        const mimeType = asset.mimeType || "image/jpeg";
-        const { signedUrl, url } = await getReportSignedUrl({ fileName, mimeType }).unwrap();
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setIsUploading(true);
+      try {
+        const newEvidences: EvidenceItem[] = [...evidences];
 
-        const fileRes = await fetch(asset.uri);
-        const blob = await fileRes.blob();
+        for (const asset of result.assets) {
+          if (newEvidences.length >= 5) break;
 
-        const uploadRes = await fetch(signedUrl, {
-          method: "PUT",
-          body: blob,
-          headers: {
-            "Content-Type": mimeType,
-          },
-        });
+          const fileName =
+            asset.fileName || `evidence_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+          const mimeType = asset.mimeType || "image/jpeg";
+          const fileSize = asset.fileSize || 1024 * 1024;
 
-        if (uploadRes.ok) {
-          setEvidences((prev) => [
-            ...prev,
-            {
-              url,
-              fileName,
-              fileType: "image",
+          const signedRes = await getReportSignedUrl({
+            fileName,
+            mimeType,
+          }).unwrap();
+
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+
+          await fetch(signedRes.signedUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": mimeType,
             },
-          ]);
-        } else {
-          Alert.alert(t("room.error"), t("room.upload_failed", "Failed to upload image. Please try again."));
+            body: blob,
+          });
+
+          newEvidences.push({
+            url: signedRes.url,
+            fileName: signedRes.fileName || fileName,
+            fileSize,
+          });
         }
+
+        setEvidences(newEvidences);
+      } catch (err: unknown) {
+        console.error("[ReportUserModal] Error uploading evidence:", err);
+        Alert.alert(
+          t("common.error", { defaultValue: "Lỗi" }),
+          "Tải lên minh chứng thất bại. Vui lòng thử lại.",
+        );
+      } finally {
+        setIsUploading(false);
       }
-    } catch (err) {
-      console.log("Evidence upload error:", err);
-      Alert.alert(t("room.error"), t("room.upload_failed", "Failed to upload image. Please try again."));
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -153,8 +169,12 @@ export default function ReportUserModal({
       return;
     }
 
-    if (reason === "Khác" && !description.trim()) {
-      setValidationError(t("room.report_error_description_required"));
+    if (reason === "Khác" && (!description.trim() || description.trim().length < 10)) {
+      setValidationError(
+        t("room.report_error_description_required", {
+          defaultValue: "Vui lòng nhập mô tả chi tiết khi chọn lý do 'Khác'.",
+        }),
+      );
       return;
     }
 
@@ -163,79 +183,74 @@ export default function ReportUserModal({
         reportedUserId,
         reason,
         description: description.trim(),
-        evidences,
+        evidences: evidences.map((e) => ({
+          url: e.url,
+          fileName: e.fileName,
+          fileSize: e.fileSize || 0,
+        })),
         roomId,
         roomName,
         roomCode,
       }).unwrap();
 
-      Alert.alert(t("room.success"), t("room.report_success"));
+      Alert.alert(
+        t("common.success", { defaultValue: "Thành công" }),
+        t("room.report_success", { defaultValue: "Gửi báo cáo thành công." }),
+      );
       onClose();
-    } catch (err: any) {
-      const msg = err?.data?.message || t("room.report_error_failed");
-      Alert.alert(t("room.error"), msg);
+    } catch (err: unknown) {
+      const errorResponse = err as { data?: { message?: string }; message?: string };
+      const msg = errorResponse?.data?.message || errorResponse?.message || t("room.report_error_failed");
+      setValidationError(msg);
     }
   };
 
-  const isSubmitDisabled = isLoading || isUploading;
+  const isSubmitDisabled =
+    isLoading ||
+    isUploading ||
+    !reason ||
+    (reason === "Khác" && description.trim().length < 10);
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 bg-black/60 justify-center items-center p-4">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => !isSubmitDisabled && onClose()}
-          className="absolute inset-0"
-        />
-
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 justify-end bg-black/60">
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl z-10 border border-slate-100 max-h-[85%]"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="w-full bg-white rounded-t-3xl overflow-hidden max-h-[90%]"
         >
           {/* Header */}
-          <View className="px-6 py-4 border-b border-slate-100 flex-row justify-between items-center bg-white">
-            <View className="flex-row items-center gap-2">
-              <Feather name="flag" size={18} color="#EF4444" />
-              <Text className="font-bold text-slate-900 text-lg">
-                {t("room.report_user")}
+          <View className="flex-row items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+            <View className="flex-1 pr-4">
+              <Text className="text-xl font-bold text-slate-900">
+                {t("room.report_user_title", { defaultValue: "Báo cáo người dùng" })}
+              </Text>
+              <Text className="text-xs text-slate-500 mt-1 font-medium" numberOfLines={1}>
+                {t("room.reported_user", { defaultValue: "Người dùng" })}:{" "}
+                <Text className="font-semibold text-slate-800">{reportedUserName}</Text>
               </Text>
             </View>
+
             <TouchableOpacity
               onPress={onClose}
-              disabled={isSubmitDisabled}
-              className="p-1.5 rounded-full hover:bg-slate-100"
+              disabled={isLoading || isUploading}
+              className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center"
             >
               <Feather name="x" size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
 
-          {/* Body */}
-          <ScrollView contentContainerStyle={{ padding: 20 }}>
-            {/* Reported User Info */}
-            <View className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 mb-4 flex-row items-center gap-3">
-              <View className="w-9 h-9 rounded-full bg-red-100 justify-center items-center">
-                <Text className="font-bold text-red-600 text-sm">
-                  {reportedUserName?.charAt(0).toUpperCase() || "U"}
-                </Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-xs text-slate-400 font-medium">
-                  {t("room.reporting_user")}
-                </Text>
-                <Text className="text-sm font-bold text-slate-800">
-                  {reportedUserName}
-                </Text>
-              </View>
-            </View>
+          <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+            {/* Guide message */}
+            <Text className="text-sm text-slate-500 leading-relaxed mb-5">
+              {t("room.report_user_desc", {
+                defaultValue:
+                  "Vui lòng chọn lý do vi phạm của người dùng này. Ý kiến đóng góp của bạn giúp đội ngũ phát triển xây dựng một môi trường ToboMeet lành mạnh.",
+              })}
+            </Text>
 
-            {/* Validation Error Banner */}
+            {/* Validation Error Alert */}
             {validationError && (
-              <View className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex-row items-center gap-2">
+              <View className="mb-4 p-3 bg-red-50 rounded-xl border border-red-100 flex-row items-center gap-2">
                 <Feather name="alert-circle" size={16} color="#EF4444" />
                 <Text className="text-xs text-red-600 font-medium flex-1">
                   {validationError}
@@ -243,67 +258,56 @@ export default function ReportUserModal({
               </View>
             )}
 
-            {/* Reasons List */}
-            <Text className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">
-              {t("room.select_report_reason")} <Text className="text-red-500">*</Text>
+            {/* Reason Options */}
+            <Text className="text-sm font-bold text-slate-700 mb-3">
+              {t("room.select_report_reason", { defaultValue: "Chọn lý do báo cáo" })} *
             </Text>
-            <View className="gap-2 mb-4">
+            <View className="flex-row flex-wrap gap-2 mb-5">
               {REASONS.map((r) => {
                 const isSelected = reason === r;
+                const i18nKey = REASON_TRANSLATIONS[r];
+                const label = i18nKey ? t(i18nKey, { defaultValue: r }) : r;
+
                 return (
                   <TouchableOpacity
                     key={r}
                     onPress={() => setReason(r)}
-                    className={`flex-row items-center justify-between p-3.5 rounded-xl border ${
+                    className={`px-4 py-2.5 rounded-full border ${
                       isSelected
-                        ? "bg-red-50/70 border-red-400"
-                        : "bg-white border-slate-200"
+                        ? "bg-blue-50 border-[#0052FF]"
+                        : "bg-slate-50 border-slate-200"
                     }`}
                   >
                     <Text
-                      className={`text-sm font-medium ${
-                        isSelected ? "text-red-700 font-bold" : "text-slate-700"
+                      className={`text-xs font-semibold ${
+                        isSelected ? "text-[#0052FF]" : "text-slate-600"
                       }`}
                     >
-                      {t(REASON_TRANSLATIONS[r] || r)}
+                      {label}
                     </Text>
-                    <View
-                      className={`w-5 h-5 rounded-full border justify-center items-center ${
-                        isSelected
-                          ? "border-red-600 bg-red-600"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      {isSelected && (
-                        <View className="w-2 h-2 rounded-full bg-white" />
-                      )}
-                    </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Description Textarea */}
-            <Text className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              {t("room.report_description_label")}{" "}
-              {reason === "Khác" && <Text className="text-red-500">*</Text>}
+            {/* Detailed Description */}
+            <Text className="text-sm font-bold text-slate-700 mb-2">
+              {t("room.report_description_label", { defaultValue: "Mô tả chi tiết" })}
+              {reason === "Khác" && " *"}
             </Text>
             <TextInput
+              multiline
+              numberOfLines={4}
               value={description}
               onChangeText={setDescription}
-              placeholder={t("room.report_description_placeholder")}
+              placeholder={t("room.report_description_placeholder", {
+                defaultValue: "Cung cấp chi tiết sự cố...",
+              })}
               placeholderTextColor="#94A3B8"
-              multiline
-              className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 min-h-[80px] mb-4"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm text-slate-800 mb-5 min-h-[100px]"
               style={{ textAlignVertical: "top" }}
             />
 
-            {/* Evidence Upload Section - Web Matching Design */}
-            <Text className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              {t("room.evidence_title_optional")}
-            </Text>
-
-            {/* Blue Dashed Drag/Tap Container */}
             {evidences.length < 5 && (
               <TouchableOpacity
                 onPress={handlePickImage}

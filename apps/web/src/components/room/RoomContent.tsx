@@ -546,7 +546,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                                      })
                                                    );
                                                  } catch (err: any) {
-                                                   toast.error(err?.data?.message || "Không thể thay đổi vai trò");
+                                                   toast.error(
+                                                     err?.data?.message || "Đã đạt số lượng tối đa 3 Ban cán sự"
+                                                   );
                                                  }
                                                }}
                                                className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -623,7 +625,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                                      })
                                                    );
                                                  } catch (err: any) {
-                                                   toast.error(err?.data?.message || "Không thể thay đổi vai trò");
+                                                   toast.error(
+                                                     err?.data?.message || "Đã đạt số lượng tối đa 3 Phó nhóm"
+                                                   );
                                                  }
                                                }}
                                                className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
