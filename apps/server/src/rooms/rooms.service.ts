@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
+  Logger,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -16,9 +18,12 @@ import { MeetingsService } from "../meetings/meetings.service";
 import { Meeting } from "../meetings/schemas/meeting.schema";
 import { RoomsGateway } from "./rooms.gateway";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { getDisplayRole, normalizeRole } from "./helpers/room-role.helper";
 
 @Injectable()
-export class RoomsService {
+export class RoomsService implements OnModuleInit {
+  private readonly logger = new Logger(RoomsService.name);
+
   constructor(
     private eventEmitter: EventEmitter2,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
@@ -29,19 +34,57 @@ export class RoomsService {
   ) {}
 
   /**
+   * Tự động chạy Migration cập nhật toàn bộ Role cũ trong MongoDB về 3 role chuẩn: owner, vice, member
+   */
+  async onModuleInit() {
+    try {
+      const roomsWithLegacyRoles = await this.roomModel.find({
+        "members.role": { $in: ["teacher", "assistant", "student", "leader", "vice_leader", "admin"] },
+      });
+
+      if (roomsWithLegacyRoles.length === 0) {
+        this.logger.log("MongoDB RoomMember roles đã ở trạng thái chuẩn hóa (owner, vice, member). Không cần migration.");
+        return;
+      }
+
+      let updatedMembersCount = 0;
+      for (const room of roomsWithLegacyRoles) {
+        let isModified = false;
+        for (const member of room.members) {
+          const newRole = normalizeRole(member.role);
+          if (member.role !== newRole) {
+            member.role = newRole;
+            isModified = true;
+            updatedMembersCount++;
+          }
+        }
+        if (isModified) {
+          room.markModified("members");
+          await room.save();
+        }
+      }
+
+      this.logger.log(
+        `Migration thành công! Đã cập nhật ${updatedMembersCount} bản ghi thành viên trong ${roomsWithLegacyRoles.length} phòng họp/lớp học về 3 role chuẩn: owner, vice, member.`
+      );
+    } catch (err) {
+      this.logger.error("Lỗi khi chạy Migration RoomMember roles:", err);
+    }
+  }
+
+  /**
    * Tạo phòng mới — auto-gen code, thêm owner vào members, tạo channel "General"
    */
   async createRoom(userId: string, dto: CreateRoomDto): Promise<RoomResponse> {
     const code = this.generateRoomCode();
-    const initialRole = dto.type === "classroom" ? "teacher" : "leader";
 
     const room = await this.roomModel.create({
       name: dto.name,
       type: dto.type,
       code,
       ownerId: userId,
-      // Đẩy object user đầu tiên vào với quyền owner/teacher/leader
-      members: [{ userId, role: initialRole, joinedAt: new Date() }],
+      // Đẩy object user đầu tiên vào với quyền owner
+      members: [{ userId, role: "owner", joinedAt: new Date() }],
       channels: [{ name: "General" }],
     });
 
@@ -95,10 +138,18 @@ export class RoomsService {
       .find({ supabaseId: { $in: memberUserIds } })
       .exec();
 
-    // Định nghĩa thứ tự ưu tiên vai trò
-    const rolePriorityMap: Record<string, number> = room.type === "classroom" 
-      ? { teacher: 1, owner: 1, assistant: 2, admin: 2, student: 3, member: 3 }
-      : { leader: 1, owner: 1, vice_leader: 2, admin: 2, member: 3, student: 3 };
+    // Định nghĩa thứ tự ưu tiên vai trò: owner (1) -> vice (2) -> member (3)
+    const rolePriorityMap: Record<string, number> = {
+      owner: 1,
+      teacher: 1,
+      leader: 1,
+      vice: 2,
+      vice_leader: 2,
+      assistant: 2,
+      admin: 2,
+      member: 3,
+      student: 3,
+    };
 
     // Sắp xếp thành viên theo thứ tự ưu tiên
     activeMembers.sort((a, b) => {
@@ -109,10 +160,12 @@ export class RoomsService {
 
     const data: RoomMemberResponse[] = activeMembers.map((member) => {
       const userInfo = users.find((u) => u.supabaseId === member.userId);
+      const normalized = normalizeRole(member.role);
 
       return {
         userId: member.userId,
-        role: member.role,
+        role: normalized,
+        displayRole: getDisplayRole(normalized, room.type),
         status: member.status as "ACTIVE" | "REMOVED" | "LEFT" | undefined,
         joinedAt: member.joinedAt.toISOString(), // Ép ngày thành string
         removedAt: member.removedAt?.toISOString(),
@@ -141,8 +194,9 @@ export class RoomsService {
       throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
     }
 
-    const isHighRole = ["owner", "teacher", "leader"].includes(operatorMember.role);
-    const isSubRole = ["assistant", "vice_leader", "admin"].includes(operatorMember.role);
+    const opRole = normalizeRole(operatorMember.role);
+    const isHighRole = opRole === "owner";
+    const isSubRole = opRole === "vice";
 
     if (!isHighRole && !isSubRole) {
       throw new ForbiddenException("Bạn không có quyền xóa thành viên khỏi phòng");
@@ -153,12 +207,18 @@ export class RoomsService {
       throw new NotFoundException("Thành viên không tồn tại trong phòng");
     }
 
-    if (["owner", "teacher", "leader"].includes(targetMember.role)) {
-      throw new BadRequestException("Không thể xóa Giáo viên / Trưởng nhóm khỏi phòng");
+    const targetRole = normalizeRole(targetMember.role);
+    if (targetRole === "owner") {
+      throw new BadRequestException(
+        room.type === "classroom"
+          ? "Không thể xóa Giảng viên khỏi phòng"
+          : "Không thể xóa Trưởng nhóm khỏi phòng"
+      );
     }
 
-    if (isSubRole && ["assistant", "vice_leader", "admin"].includes(targetMember.role)) {
-      throw new ForbiddenException("Ban cán sự / Phó nhóm không thể xóa thành viên cùng cấp");
+    if (isSubRole && targetRole === "vice") {
+      const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+      throw new ForbiddenException(`${subTitle} không thể xóa thành viên cùng cấp`);
     }
 
     // Đánh dấu là đã rời/bị xóa
@@ -228,7 +288,7 @@ export class RoomsService {
   async updateMemberRole(
     roomId: string,
     targetUserId: string,
-    newRole: string,
+    rawNewRole: string,
     operatorId: string,
   ) {
     const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
@@ -241,21 +301,15 @@ export class RoomsService {
       throw new ForbiddenException("Bạn không phải thành viên của phòng này");
     }
 
-    // 1. Kiểm tra quyền thao tác của Operator
-    if (room.type === "classroom") {
-      if (operatorMember.role !== "teacher" && operatorMember.role !== "owner") {
-        throw new ForbiddenException("Chỉ Giáo viên mới có quyền thay đổi vai trò thành viên");
-      }
-      if (!["assistant", "student"].includes(newRole)) {
-        throw new BadRequestException("Vai trò không hợp lệ cho Phòng học");
-      }
-    } else {
-      if (operatorMember.role !== "leader" && operatorMember.role !== "owner") {
-        throw new ForbiddenException("Chỉ Trưởng nhóm mới có quyền thay đổi vai trò thành viên");
-      }
-      if (!["vice_leader", "member"].includes(newRole)) {
-        throw new BadRequestException("Vai trò không hợp lệ cho Phòng họp");
-      }
+    const opRole = normalizeRole(operatorMember.role);
+    if (opRole !== "owner") {
+      const ownerTitle = room.type === "classroom" ? "Giảng viên" : "Trưởng nhóm";
+      throw new ForbiddenException(`Chỉ ${ownerTitle} mới có quyền thay đổi vai trò thành viên`);
+    }
+
+    const newRole = normalizeRole(rawNewRole);
+    if (!["vice", "member"].includes(newRole)) {
+      throw new BadRequestException("Vai trò không hợp lệ");
     }
 
     // 2. Tìm thành viên bị thay đổi
@@ -273,33 +327,24 @@ export class RoomsService {
       throw new BadRequestException("Bạn không thể tự thay đổi vai trò của chính mình");
     }
 
-    // Không được đổi vai trò của Teacher / Leader qua API này (phải dùng chuyển quyền)
-    if (["teacher", "leader", "owner"].includes(targetMember.role)) {
-      throw new BadRequestException("Không thể thay đổi vai trò của Chủ phòng / Giáo viên / Trưởng nhóm bằng chức năng này");
+    const oldRole = normalizeRole(targetMember.role);
+    if (oldRole === "owner") {
+      const ownerTitle = room.type === "classroom" ? "Giảng viên" : "Trưởng nhóm";
+      throw new BadRequestException(`Không thể thay đổi vai trò của ${ownerTitle} bằng chức năng này`);
     }
 
-    const oldRole = targetMember.role;
-
-    // 3. Kiểm tra giới hạn số lượng (Tối đa 3 Ban cán sự / 3 Phó nhóm)
-    if (room.type === "classroom" && newRole === "assistant" && oldRole !== "assistant") {
-      const assistantCount = room.members.filter(
-        (m) => (m.role === "assistant" || m.role === "admin") && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
+    // 3. Kiểm tra giới hạn số lượng (Tối đa 3 Phó nhóm / Ban cán sự)
+    if (newRole === "vice" && oldRole !== "vice") {
+      const viceCount = room.members.filter(
+        (m) => normalizeRole(m.role) === "vice" && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
       ).length;
-      if (assistantCount >= 3) {
-        throw new BadRequestException("Đã đạt số lượng tối đa 3 Ban cán sự");
+      if (viceCount >= 3) {
+        const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+        throw new BadRequestException(`Đã đạt số lượng tối đa 3 ${subTitle}`);
       }
     }
 
-    if (room.type === "meeting" && newRole === "vice_leader" && oldRole !== "vice_leader") {
-      const viceLeaderCount = room.members.filter(
-        (m) => (m.role === "vice_leader" || m.role === "admin") && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
-      ).length;
-      if (viceLeaderCount >= 3) {
-        throw new BadRequestException("Đã đạt số lượng tối đa 3 Phó nhóm");
-      }
-    }
-
-    // Cập nhật vai trò
+    // Cập nhật vai trò trong DB
     room.members[targetIdx].role = newRole;
     room.markModified("members");
     await room.save();
@@ -309,20 +354,13 @@ export class RoomsService {
     const targetUser = await this.userModel.findOne({ supabaseId: targetUserId });
     const opName = operatorUser?.displayName || "Người dùng";
     const tarName = targetUser?.displayName || "Thành viên";
+    const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
 
     let message = "";
-    if (room.type === "classroom") {
-      if (newRole === "assistant") {
-        message = `${opName} đã bổ nhiệm ${tarName} làm Ban cán sự.`;
-      } else {
-        message = `${opName} đã thu hồi quyền Ban cán sự của ${tarName}.`;
-      }
+    if (newRole === "vice") {
+      message = `${opName} đã bổ nhiệm ${tarName} làm ${subTitle}.`;
     } else {
-      if (newRole === "vice_leader") {
-        message = `${opName} đã bổ nhiệm ${tarName} làm Phó nhóm.`;
-      } else {
-        message = `${opName} đã thu hồi quyền Phó nhóm của ${tarName}.`;
-      }
+      message = `${opName} đã thu hồi quyền ${subTitle} của ${tarName}.`;
     }
 
     await this.activityModel.create({
@@ -347,9 +385,10 @@ export class RoomsService {
       roomId,
       targetUserId,
       newRole,
+      displayRole: getDisplayRole(newRole, room.type),
     });
 
-    return { message, role: newRole };
+    return { message, role: newRole, displayRole: getDisplayRole(newRole, room.type) };
   }
 
   /**
@@ -366,15 +405,10 @@ export class RoomsService {
       throw new ForbiddenException("Bạn không phải thành viên của phòng này");
     }
 
-    // Kiểm tra operator phải là owner/teacher/leader
-    if (room.type === "classroom") {
-      if (operatorMember.role !== "teacher" && operatorMember.role !== "owner") {
-        throw new ForbiddenException("Chỉ Giáo viên hiện tại mới được phép chuyển quyền Giáo viên");
-      }
-    } else {
-      if (operatorMember.role !== "leader" && operatorMember.role !== "owner") {
-        throw new ForbiddenException("Chỉ Trưởng nhóm hiện tại mới được phép chuyển quyền Trưởng nhóm");
-      }
+    const opRole = normalizeRole(operatorMember.role);
+    if (opRole !== "owner") {
+      const ownerTitle = room.type === "classroom" ? "Giảng viên" : "Trưởng nhóm";
+      throw new ForbiddenException(`Chỉ ${ownerTitle} hiện tại mới được phép chuyển quyền ${ownerTitle}`);
     }
 
     if (operatorId === newOwnerId) {
@@ -390,15 +424,13 @@ export class RoomsService {
 
     const operatorIdx = room.members.findIndex((m) => m.userId === operatorId);
 
-    // Chuyển quyền: Owner/Teacher cũ hạ xuống Student/Member, Người mới thành Teacher/Leader
-    const oldOwnerRole = operatorMember.role;
-    const newOwnerTargetRole = room.type === "classroom" ? "teacher" : "leader";
-    const oldOwnerTargetRole = room.type === "classroom" ? "student" : "member";
+    // Chuyển quyền: Owner cũ hạ xuống Member, Người mới thành Owner
+    const oldOwnerRole = normalizeRole(operatorMember.role);
 
     room.ownerId = newOwnerId;
-    room.members[newOwnerIdx].role = newOwnerTargetRole;
+    room.members[newOwnerIdx].role = "owner";
     if (operatorIdx !== -1) {
-      room.members[operatorIdx].role = oldOwnerTargetRole;
+      room.members[operatorIdx].role = "member";
     }
 
     room.markModified("members");
@@ -410,7 +442,7 @@ export class RoomsService {
     const opName = operatorUser?.displayName || "Người dùng";
     const newOwnerName = newOwnerUser?.displayName || "Thành viên";
 
-    const titleRoleName = room.type === "classroom" ? "Giáo viên" : "Trưởng nhóm";
+    const titleRoleName = room.type === "classroom" ? "Giảng viên" : "Trưởng nhóm";
     const message = `${opName} đã chuyển quyền ${titleRoleName} cho ${newOwnerName}.`;
 
     await this.activityModel.create({
@@ -423,7 +455,7 @@ export class RoomsService {
         targetUserId: newOwnerId,
         targetUserName: newOwnerName,
         oldRole: oldOwnerRole,
-        newRole: newOwnerTargetRole,
+        newRole: "owner",
         details: message,
         roomType: room.type,
       },
@@ -839,11 +871,15 @@ export class RoomsService {
       // Ánh xạ members cơ bản (chỉ lấy những thành viên đang hoạt động)
       members: plainRoom.members
         ?.filter((m: RoomMember) => m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT")
-        .map((m: RoomMember) => ({
-          userId: m.userId,
-          role: m.role,
-          joinedAt: m.joinedAt.toISOString(),
-        })),
+        .map((m: RoomMember) => {
+          const normalized = normalizeRole(m.role);
+          return {
+            userId: m.userId,
+            role: normalized,
+            displayRole: getDisplayRole(normalized, plainRoom.type),
+            joinedAt: m.joinedAt.toISOString(),
+          };
+        }),
       createdAt: plainRoom.createdAt.toISOString(),
       updatedAt: plainRoom.updatedAt.toISOString(),
     };

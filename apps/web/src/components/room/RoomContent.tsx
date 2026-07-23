@@ -519,189 +519,97 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                     {t("report_user")}
                                   </button>
 
-                                   {/* ROLE MANAGEMENT OPTIONS FOR TEACHER / LEADER */}
-                                   {isCurrentUserOwner && (
-                                     <>
-                                       <div className="h-[1px] bg-slate-100 my-1" />
+                                  {/* THAO TÁC QUẢN LÝ DÀNH CHO OWNER */}
+                                  {isCurrentUserOwner && (
+                                    <>
+                                      {/* Bổ nhiệm vice */}
+                                      {member.role === "member" && (
+                                        <button
+                                          onClick={async () => {
+                                            setOpenMenuId(null);
+                                            try {
+                                              const res = await updateMemberRole({
+                                                roomId,
+                                                memberId: member.userId,
+                                                role: "vice",
+                                              }).unwrap();
+                                              const subTitle = room?.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+                                              toast.success(res.message || `Đã bổ nhiệm ${subTitle}`);
+                                            } catch (err: any) {
+                                              const subTitle = room?.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+                                              toast.error(err?.data?.message || `Đã đạt số lượng tối đa 3 ${subTitle}`);
+                                            }
+                                          }}
+                                          className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                        >
+                                          <UserCheck className="w-3.5 h-3.5" />
+                                          {room?.type === "classroom"
+                                            ? t("appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })
+                                            : t("appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
+                                        </button>
+                                      )}
 
-                                       {/* CLASSROOM SPECIFIC OPTIONS */}
-                                       {room?.type === "classroom" && (
-                                         <>
-                                           {/* Bổ nhiệm / Thu hồi Ban cán sự */}
-                                           {member.role === "student" && (
-                                             <button
-                                               onClick={async () => {
-                                                 setOpenMenuId(null);
-                                                 try {
-                                                   const res = await updateMemberRole({
-                                                     roomId,
-                                                     memberId: member.userId,
-                                                     role: "assistant",
-                                                   }).unwrap();
-                                                   toast.success(
-                                                     t("toast_appoint_assistant", {
-                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
-                                                       target: member.displayName || "",
-                                                       defaultValue: res.message,
-                                                     })
-                                                   );
-                                                 } catch (err: any) {
-                                                   toast.error(
-                                                     err?.data?.message || "Đã đạt số lượng tối đa 3 Ban cán sự"
-                                                   );
-                                                 }
-                                               }}
-                                               className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                                             >
-                                               <UserCheck className="w-3.5 h-3.5" />
-                                               {t("appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })}
-                                             </button>
-                                           )}
+                                      {/* Thu hồi vice */}
+                                      {member.role === "vice" && (
+                                        <button
+                                          onClick={async () => {
+                                            setOpenMenuId(null);
+                                            try {
+                                              const res = await updateMemberRole({
+                                                roomId,
+                                                memberId: member.userId,
+                                                role: "member",
+                                              }).unwrap();
+                                              const subTitle = room?.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+                                              toast.success(res.message || `Đã thu hồi quyền ${subTitle}`);
+                                            } catch (err: any) {
+                                              toast.error(err?.data?.message || "Không thể thu hồi quyền");
+                                            }
+                                          }}
+                                          className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                        >
+                                          <UserCheck className="w-3.5 h-3.5" />
+                                          {room?.type === "classroom"
+                                            ? t("revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })
+                                            : t("revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
+                                        </button>
+                                      )}
 
-                                           {member.role === "assistant" && (
-                                             <button
-                                               onClick={async () => {
-                                                 setOpenMenuId(null);
-                                                 try {
-                                                   const res = await updateMemberRole({
-                                                     roomId,
-                                                     memberId: member.userId,
-                                                     role: "student",
-                                                   }).unwrap();
-                                                   toast.success(
-                                                     t("toast_revoke_assistant", {
-                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
-                                                       target: member.displayName || "",
-                                                       defaultValue: res.message,
-                                                     })
-                                                   );
-                                                 } catch (err: any) {
-                                                   toast.error(err?.data?.message || "Không thể thu hồi quyền");
-                                                 }
-                                               }}
-                                               className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
-                                             >
-                                               <UserCheck className="w-3.5 h-3.5" />
-                                               {t("revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })}
-                                             </button>
-                                           )}
+                                      {/* Chuyển quyền Chủ phòng / Giảng viên / Trưởng nhóm */}
+                                      <button
+                                        onClick={() => {
+                                          setMemberToTransfer({
+                                            userId: member.userId,
+                                            displayName: member.displayName || "Thành viên",
+                                          });
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
+                                      >
+                                        <ShieldCheck className="w-3.5 h-3.5" />
+                                        {room?.type === "classroom"
+                                          ? t("appoint_teacher", { defaultValue: "Bổ nhiệm Giảng viên" })
+                                          : t("appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
+                                      </button>
+                                    </>
+                                  )}
 
-                                           {/* Chuyển quyền Giáo viên */}
-                                           <button
-                                             onClick={() => {
-                                               setMemberToTransfer({
-                                                 userId: member.userId,
-                                                 displayName: member.displayName || "Thành viên",
-                                               });
-                                               setOpenMenuId(null);
-                                             }}
-                                             className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
-                                           >
-                                             <ShieldCheck className="w-3.5 h-3.5" />
-                                             {t("appoint_teacher", { defaultValue: "Bổ nhiệm Giáo viên" })}
-                                           </button>
-                                         </>
-                                       )}
-
-                                       {/* MEETING ROOM SPECIFIC OPTIONS */}
-                                       {room?.type !== "classroom" && (
-                                         <>
-                                           {/* Bổ nhiệm / Thu hồi Phó nhóm */}
-                                           {member.role === "member" && (
-                                             <button
-                                               onClick={async () => {
-                                                 setOpenMenuId(null);
-                                                 try {
-                                                   const res = await updateMemberRole({
-                                                     roomId,
-                                                     memberId: member.userId,
-                                                     role: "vice_leader",
-                                                   }).unwrap();
-                                                   toast.success(
-                                                     t("toast_appoint_vice_leader", {
-                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
-                                                       target: member.displayName || "",
-                                                       defaultValue: res.message,
-                                                     })
-                                                   );
-                                                 } catch (err: any) {
-                                                   toast.error(
-                                                     err?.data?.message || "Đã đạt số lượng tối đa 3 Phó nhóm"
-                                                   );
-                                                 }
-                                               }}
-                                               className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                                             >
-                                               <UserCheck className="w-3.5 h-3.5" />
-                                               {t("appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
-                                             </button>
-                                           )}
-
-                                           {member.role === "vice_leader" && (
-                                             <button
-                                               onClick={async () => {
-                                                 setOpenMenuId(null);
-                                                 try {
-                                                   const res = await updateMemberRole({
-                                                     roomId,
-                                                     memberId: member.userId,
-                                                     role: "member",
-                                                   }).unwrap();
-                                                   toast.success(
-                                                     t("toast_revoke_vice_leader", {
-                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
-                                                       target: member.displayName || "",
-                                                       defaultValue: res.message,
-                                                     })
-                                                   );
-                                                 } catch (err: any) {
-                                                   toast.error(err?.data?.message || "Không thể thu hồi quyền");
-                                                 }
-                                               }}
-                                               className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
-                                             >
-                                               <UserCheck className="w-3.5 h-3.5" />
-                                               {t("revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
-                                             </button>
-                                           )}
-
-                                           {/* Chuyển quyền Trưởng nhóm */}
-                                           <button
-                                             onClick={() => {
-                                               setMemberToTransfer({
-                                                 userId: member.userId,
-                                                 displayName: member.displayName || "Thành viên",
-                                               });
-                                               setOpenMenuId(null);
-                                             }}
-                                             className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
-                                           >
-                                             <ShieldCheck className="w-3.5 h-3.5" />
-                                             {t("appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
-                                           </button>
-                                         </>
-                                       )}
-                                     </>
-                                   )}
-
-                                   {/* Xóa khỏi phòng (Dành cho Giáo viên / Trưởng nhóm HOẶC Ban cán sự / Phó nhóm với Học viên / Thành viên) */}
-                                   {(isCurrentUserOwner ||
-                                     ((currentUserRole === "assistant" || currentUserRole === "vice_leader") &&
-                                       (member.role === "student" || member.role === "member"))) && (
-                                     <button
-                                       onClick={() => {
-                                         setMemberToRemove({
-                                           userId: member.userId,
-                                           displayName: member.displayName || "Người dùng",
-                                         });
-                                         setOpenMenuId(null);
-                                       }}
-                                       className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 border-t border-slate-100 flex items-center gap-2"
-                                     >
-                                       <UserX className="w-3.5 h-3.5" />
-                                       {t("remove_from_room")}
-                                     </button>
-                                   )}
+                                  {/* Xóa khỏi phòng (Dành cho owner HOẶC vice đối với member) */}
+                                  {(isCurrentUserOwner || (currentUserRole === "vice" && member.role === "member")) && (
+                                    <button
+                                      onClick={() => {
+                                        setMemberToRemove({
+                                          userId: member.userId,
+                                          displayName: member.displayName || "Người dùng",
+                                        });
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 border-t border-slate-100 flex items-center gap-2"
+                                    >
+                                      <UserX className="w-3.5 h-3.5" />
+                                      {t("remove_from_room")}
+                                    </button>
+                                  )}
                                 </div>
                               </>
                             )}

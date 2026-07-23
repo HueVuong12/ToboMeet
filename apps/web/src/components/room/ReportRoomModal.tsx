@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import EvidenceUpload from "./EvidenceUpload";
 
 interface ReportRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
-  roomId: string;
+  roomId?: string;
   roomName: string;
   onSubmitReport: (data: {
     reason: string;
@@ -23,7 +22,6 @@ interface ReportRoomModalProps {
 export default function ReportRoomModal({
   isOpen,
   onClose,
-  roomId,
   roomName,
   onSubmitReport,
   isSubmitting = false,
@@ -68,12 +66,12 @@ export default function ReportRoomModal({
     setValidationError(null);
 
     if (!reason) {
-      setValidationError("Vui lòng chọn một lý do vi phạm.");
+      setValidationError(t("report_room_reason_required", { defaultValue: "Vui lòng chọn một lý do vi phạm." }));
       return;
     }
 
-    if (reason === "Khác" && (!description.trim() || description.trim().length < 10)) {
-      setValidationError("Vui lòng nhập lý do chi tiết (từ 10 đến 500 ký tự).");
+    if ((reason === "Khác" || reason === "Other") && (!description.trim() || description.trim().length < 10)) {
+      setValidationError(t("report_room_desc_required", { defaultValue: "Vui lòng nhập lý do chi tiết (từ 10 đến 500 ký tự)." }));
       return;
     }
 
@@ -84,20 +82,21 @@ export default function ReportRoomModal({
         attachments,
       });
       onClose();
-    } catch (err: any) {
-      const errMsg = err?.data?.message || err?.message || "Gửi báo cáo thất bại. Vui lòng thử lại.";
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      const errMsg = errorObj?.data?.message || errorObj?.message || t("report_room_error_failed", { defaultValue: "Gửi báo cáo thất bại. Vui lòng thử lại." });
       setValidationError(errMsg);
     }
   };
 
   const reasons = [
-    { key: "Quấy rối", label: "Quấy rối" },
-    { key: "Spam", label: "Spam" },
-    { key: "Nội dung phản cảm", label: "Nội dung phản cảm" },
-    { key: "Lừa đảo", label: "Lừa đảo" },
-    { key: "Chia sẻ thông tin sai sự thật", label: "Thông tin sai sự thật" },
-    { key: "Vi phạm bản quyền", label: "Vi phạm bản quyền" },
-    { key: "Khác", label: "Khác" },
+    { key: "Quấy rối", label: t("report_reason_harassment", { defaultValue: "Quấy rối" }) },
+    { key: "Spam", label: t("report_reason_spam", { defaultValue: "Spam" }) },
+    { key: "Nội dung phản cảm", label: t("reason_inappropriate_content_room", { defaultValue: "Nội dung phản cảm" }) },
+    { key: "Lừa đảo", label: t("reason_scam", { defaultValue: "Lừa đảo" }) },
+    { key: "Chia sẻ thông tin sai sự thật", label: t("reason_fake_info", { defaultValue: "Thông tin sai sự thật" }) },
+    { key: "Vi phạm bản quyền", label: t("reason_copyright", { defaultValue: "Vi phạm bản quyền" }) },
+    { key: "Khác", label: t("report_reason_other", { defaultValue: "Khác" }) },
   ];
 
   return createPortal(
@@ -115,10 +114,10 @@ export default function ReportRoomModal({
         <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              Báo cáo phòng họp
+              {t("report_room_modal_title", { defaultValue: "Báo cáo phòng họp" })}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Phòng: <span className="font-semibold text-slate-700">{roomName}</span>
+              Room: <span className="font-semibold text-slate-700">{roomName}</span>
             </p>
           </div>
           <button
@@ -132,14 +131,17 @@ export default function ReportRoomModal({
 
         {/* Description */}
         <p className="text-sm text-slate-500 leading-relaxed mb-4">
-          Vui lòng chọn lý do vi phạm của phòng họp này. Ý kiến đóng góp của bạn giúp đội ngũ phát triển xây dựng một môi trường ToboMeet lành mạnh.
+          {t("report_room_modal_desc", {
+            defaultValue:
+              "Vui lòng chọn lý do vi phạm của phòng họp này. Ý kiến đóng góp của bạn giúp đội ngũ phát triển xây dựng một môi trường ToboMeet lành mạnh.",
+          })}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Reasons */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Lý do báo cáo <span className="text-red-500">*</span>
+              {t("report_room_reason_label", { defaultValue: "Lý do báo cáo" })} <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-2">
               {reasons.map((r) => (
@@ -172,10 +174,11 @@ export default function ReportRoomModal({
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label className="block text-sm font-semibold text-slate-700">
-                Chi tiết vi phạm {reason === "Khác" && <span className="text-red-500">*</span>}
+                {t("report_description_label", { defaultValue: "Chi tiết vi phạm" })}{" "}
+                {(reason === "Khác" || reason === "Other") && <span className="text-red-500">*</span>}
               </label>
               <span className="text-[11px] text-slate-400">
-                {description.length}/500 ký tự
+                {description.length}/500
               </span>
             </div>
             <textarea
@@ -186,7 +189,9 @@ export default function ReportRoomModal({
                   setValidationError(null);
                 }
               }}
-              placeholder="Vui lòng cung cấp thêm thông tin chi tiết về hành vi vi phạm..."
+              placeholder={t("report_description_placeholder", {
+                defaultValue: "Vui lòng cung cấp thêm thông tin chi tiết về hành vi vi phạm...",
+              })}
               rows={3}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-sm placeholder-slate-400 resize-none"
             />
@@ -213,7 +218,7 @@ export default function ReportRoomModal({
               onClick={onClose}
               className="flex-1 px-4 py-3 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
             >
-              Hủy bỏ
+              {t("cancel", { defaultValue: "Hủy bỏ" })}
             </button>
             <button
               type="submit"
@@ -223,7 +228,7 @@ export default function ReportRoomModal({
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                "Gửi báo cáo"
+                t("report_submit", { defaultValue: "Gửi báo cáo" })
               )}
             </button>
           </div>

@@ -1,0 +1,39 @@
+export type RoomRole = "owner" | "vice" | "member";
+export type RoomType = "classroom" | "meeting" | string;
+
+export function getDisplayRole(role: string, roomType: string): string {
+  // Normalize legacy roles if present in old data
+  let normalizedRole = role;
+  if (["teacher", "leader"].includes(role)) normalizedRole = "owner";
+  else if (["assistant", "vice_leader", "admin"].includes(role)) normalizedRole = "vice";
+  else if (["student"].includes(role)) normalizedRole = "member";
+
+  if (roomType === "classroom") {
+    switch (normalizedRole) {
+      case "owner":
+        return "Giảng viên";
+      case "vice":
+        return "Ban cán sự";
+      case "member":
+      default:
+        return "Học viên";
+    }
+  } else {
+    // Default to meeting room format
+    switch (normalizedRole) {
+      case "owner":
+        return "Trưởng nhóm";
+      case "vice":
+        return "Phó nhóm";
+      case "member":
+      default:
+        return "Thành viên";
+    }
+  }
+}
+
+export function normalizeRole(role: string): "owner" | "vice" | "member" {
+  if (["teacher", "leader", "owner"].includes(role)) return "owner";
+  if (["assistant", "vice_leader", "admin", "vice"].includes(role)) return "vice";
+  return "member";
+}

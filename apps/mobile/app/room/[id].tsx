@@ -1365,137 +1365,10 @@ export default function RoomDetailScreen() {
             {/* Role Management Options & Removal Options */}
             {selectedMemberForMenu?.userId !== profile?.supabaseId && (
               <>
-                {/* CLASSROOM SPECIFIC OPTIONS */}
-                {room?.type === "classroom" && isOwner && (
+                {/* ROLE MANAGEMENT OPTIONS FOR OWNER */}
+                {isOwner && (
                   <>
-                    {/* Bổ nhiệm / Thu hồi Ban cán sự */}
-                    {selectedMemberForMenu?.role === "student" && (
-                      <TouchableOpacity
-                        onPress={async () => {
-                          const target = selectedMemberForMenu;
-                          setSelectedMemberForMenu(null);
-                          if (target && room) {
-                            try {
-                              const res = await updateMemberRoleMutation({
-                                roomId: room._id,
-                                memberId: target.userId,
-                                role: "assistant",
-                              }).unwrap();
-                              const actorName = profile?.displayName || "";
-                              toast.success(
-                                t("room.toast_appoint_assistant", {
-                                  actor: actorName,
-                                  target: target.displayName || "",
-                                  defaultValue: res.message,
-                                })
-                              );
-                              refetchMembers();
-                            } catch (err: unknown) {
-                              const errorResponse = err as { data?: { message?: string } };
-                              Alert.alert("Lỗi", errorResponse?.data?.message || "Đã đạt số lượng tối đa 3 Ban cán sự");
-                            }
-                          }
-                        }}
-                        className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
-                      >
-                        <Feather name="user-check" size={18} color="#2563EB" />
-                        <Text className="text-blue-600 text-base font-semibold">
-                          {t("room.appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {selectedMemberForMenu?.role === "assistant" && (
-                      <TouchableOpacity
-                        onPress={async () => {
-                          const target = selectedMemberForMenu;
-                          setSelectedMemberForMenu(null);
-                          if (target && room) {
-                            try {
-                              const res = await updateMemberRoleMutation({
-                                roomId: room._id,
-                                memberId: target.userId,
-                                role: "student",
-                              }).unwrap();
-                              const actorName = profile?.displayName || "";
-                              toast.success(
-                                t("room.toast_revoke_assistant", {
-                                  actor: actorName,
-                                  target: target.displayName || "",
-                                  defaultValue: res.message,
-                                })
-                              );
-                              refetchMembers();
-                            } catch (err: unknown) {
-                              const errorResponse = err as { data?: { message?: string } };
-                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể thu hồi");
-                            }
-                          }
-                        }}
-                        className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
-                      >
-                        <Feather name="user-minus" size={18} color="#D97706" />
-                        <Text className="text-amber-600 text-base font-semibold">
-                          {t("room.revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Bổ nhiệm Giáo viên (Chuyển quyền) */}
-                    <TouchableOpacity
-                      onPress={() => {
-                        const target = selectedMemberForMenu;
-                        setSelectedMemberForMenu(null);
-                        if (target && room) {
-                          const teacherTitle = t("room.transfer_teacher_title", { defaultValue: "Chuyển quyền Giáo viên" });
-                          const teacherRole = t("room.role_teacher", { defaultValue: "Giáo viên" });
-                          const studentRole = t("room.role_student", { defaultValue: "Học viên" });
-                          const msg = t("room.transfer_confirm_message", {
-                            role: teacherRole,
-                            name: target.displayName,
-                            downgradedRole: studentRole,
-                            defaultValue: `Bạn có chắc chắn muốn chuyển quyền Giáo viên cho ${target.displayName}? Sau khi xác nhận, bạn sẽ trở thành Học viên.`,
-                          });
-                          Alert.alert(
-                            teacherTitle,
-                            msg,
-                            [
-                              { text: t("room.cancel", { defaultValue: "Hủy" }), style: "cancel" },
-                              {
-                                text: t("room.confirm", { defaultValue: "Xác nhận" }),
-                                style: "destructive",
-                                onPress: async () => {
-                                  try {
-                                    await transferRoomOwnershipMutation({
-                                      roomId: room._id,
-                                      newOwnerId: target.userId,
-                                    }).unwrap();
-                                    refetchMembers();
-                                    refetch();
-                                  } catch (err: unknown) {
-                                    const errorResponse = err as { data?: { message?: string } };
-                                    Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể chuyển quyền");
-                                  }
-                                },
-                              },
-                            ]
-                          );
-                        }
-                      }}
-                      className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
-                    >
-                      <Feather name="shield" size={18} color="#B45309" />
-                      <Text className="text-amber-700 text-base font-bold">
-                        {t("room.appoint_teacher", { defaultValue: "Bổ nhiệm Giáo viên" })}
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-
-                {/* MEETING ROOM SPECIFIC OPTIONS */}
-                {room?.type !== "classroom" && isOwner && (
-                  <>
-                    {/* Bổ nhiệm / Thu hồi Phó nhóm */}
+                    {/* Bổ nhiệm vice */}
                     {selectedMemberForMenu?.role === "member" && (
                       <TouchableOpacity
                         onPress={async () => {
@@ -1506,20 +1379,14 @@ export default function RoomDetailScreen() {
                               const res = await updateMemberRoleMutation({
                                 roomId: room._id,
                                 memberId: target.userId,
-                                role: "vice_leader",
+                                role: "vice",
                               }).unwrap();
-                              const actorName = profile?.displayName || "";
-                              toast.success(
-                                t("room.toast_appoint_vice_leader", {
-                                  actor: actorName,
-                                  target: target.displayName || "",
-                                  defaultValue: res.message,
-                                })
-                              );
+                              toast.success(res.message || `Đã bổ nhiệm thành công`);
                               refetchMembers();
                             } catch (err: unknown) {
                               const errorResponse = err as { data?: { message?: string } };
-                              Alert.alert("Lỗi", errorResponse?.data?.message || "Đã đạt số lượng tối đa 3 Phó nhóm");
+                              const subTitle = room?.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+                              Alert.alert("Lỗi", errorResponse?.data?.message || `Đã đạt số lượng tối đa 3 ${subTitle}`);
                             }
                           }
                         }}
@@ -1527,12 +1394,15 @@ export default function RoomDetailScreen() {
                       >
                         <Feather name="user-check" size={18} color="#2563EB" />
                         <Text className="text-blue-600 text-base font-semibold">
-                          {t("room.appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
+                          {room?.type === "classroom"
+                            ? t("room.appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })
+                            : t("room.appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
                         </Text>
                       </TouchableOpacity>
                     )}
 
-                    {selectedMemberForMenu?.role === "vice_leader" && (
+                    {/* Thu hồi vice */}
+                    {selectedMemberForMenu?.role === "vice" && (
                       <TouchableOpacity
                         onPress={async () => {
                           const target = selectedMemberForMenu;
@@ -1544,14 +1414,7 @@ export default function RoomDetailScreen() {
                                 memberId: target.userId,
                                 role: "member",
                               }).unwrap();
-                              const actorName = profile?.displayName || "";
-                              toast.success(
-                                t("room.toast_revoke_vice_leader", {
-                                  actor: actorName,
-                                  target: target.displayName || "",
-                                  defaultValue: res.message,
-                                })
-                              );
+                              toast.success(res.message || "Đã thu hồi quyền");
                               refetchMembers();
                             } catch (err: unknown) {
                               const errorResponse = err as { data?: { message?: string } };
@@ -1563,28 +1426,25 @@ export default function RoomDetailScreen() {
                       >
                         <Feather name="user-minus" size={18} color="#D97706" />
                         <Text className="text-amber-600 text-base font-semibold">
-                          {t("room.revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
+                          {room?.type === "classroom"
+                            ? t("room.revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })
+                            : t("room.revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
                         </Text>
                       </TouchableOpacity>
                     )}
 
-                    {/* Bổ nhiệm Trưởng nhóm (Chuyển quyền) */}
+                    {/* Chuyển quyền Chủ phòng / Giảng viên / Trưởng nhóm */}
                     <TouchableOpacity
                       onPress={() => {
                         const target = selectedMemberForMenu;
                         setSelectedMemberForMenu(null);
                         if (target && room) {
-                          const leaderTitle = t("room.transfer_leader_title", { defaultValue: "Chuyển quyền Trưởng nhóm" });
-                          const leaderRole = t("room.role_leader", { defaultValue: "Trưởng nhóm" });
-                          const memberRole = t("room.role_member", { defaultValue: "Thành viên" });
-                          const msg = t("room.transfer_confirm_message", {
-                            role: leaderRole,
-                            name: target.displayName,
-                            downgradedRole: memberRole,
-                            defaultValue: `Bạn có chắc chắn muốn chuyển quyền Trưởng nhóm cho ${target.displayName}? Sau khi xác nhận, bạn sẽ trở thành Thành viên.`,
-                          });
+                          const isClass = room?.type === "classroom";
+                          const ownerTitle = isClass ? "Giảng viên" : "Trưởng nhóm";
+                          const memberTitle = isClass ? "Học viên" : "Thành viên";
+                          const msg = `Bạn có chắc chắn muốn chuyển quyền ${ownerTitle} cho ${target.displayName}? Sau khi xác nhận, bạn sẽ trở thành ${memberTitle}.`;
                           Alert.alert(
-                            leaderTitle,
+                            `Chuyển quyền ${ownerTitle}`,
                             msg,
                             [
                               { text: t("room.cancel", { defaultValue: "Hủy" }), style: "cancel" },
@@ -1613,16 +1473,16 @@ export default function RoomDetailScreen() {
                     >
                       <Feather name="shield" size={18} color="#B45309" />
                       <Text className="text-amber-700 text-base font-bold">
-                        {t("room.appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
+                        {room?.type === "classroom"
+                          ? t("room.appoint_teacher", { defaultValue: "Bổ nhiệm Giảng viên" })
+                          : t("room.appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
                       </Text>
                     </TouchableOpacity>
                   </>
                 )}
 
                 {/* Nút: Xóa khỏi phòng */}
-                {(isOwner ||
-                  ((currentUserRole === "assistant" || currentUserRole === "vice_leader") &&
-                    (selectedMemberForMenu?.role === "student" || selectedMemberForMenu?.role === "member"))) &&
+                {(isOwner || (currentUserRole === "vice" && selectedMemberForMenu?.role === "member")) &&
                   selectedMemberForMenu?.userId !== profile?.supabaseId && (
                     <TouchableOpacity
                       onPress={() => {

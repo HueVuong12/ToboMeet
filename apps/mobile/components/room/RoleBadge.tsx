@@ -4,61 +4,47 @@ import { Feather } from "@expo/vector-icons";
 
 interface RoleBadgeProps {
   role: string;
+  displayRole?: string;
   roomType: "classroom" | "meeting" | string;
   t: (key: string, options?: any) => string;
 }
 
-export default function RoleBadge({ role, roomType, t }: RoleBadgeProps) {
+export default function RoleBadge({ role, displayRole, roomType, t }: RoleBadgeProps) {
   const normalizedRole = React.useMemo(() => {
-    if (role === "owner") return roomType === "classroom" ? "teacher" : "leader";
-    if (role === "admin") return roomType === "classroom" ? "assistant" : "vice_leader";
-    if (role === "member" && roomType === "classroom") return "student";
-    return role;
-  }, [role, roomType]);
+    if (["owner", "teacher", "leader"].includes(role)) return "owner";
+    if (["vice", "vice_leader", "assistant", "admin"].includes(role)) return "vice";
+    return "member";
+  }, [role]);
+
+  const defaultText = React.useMemo(() => {
+    if (displayRole) return displayRole;
+    if (roomType === "classroom") {
+      if (normalizedRole === "owner") return "Giảng viên";
+      if (normalizedRole === "vice") return "Ban cán sự";
+      return "Học viên";
+    } else {
+      if (normalizedRole === "owner") return "Trưởng nhóm";
+      if (normalizedRole === "vice") return "Phó nhóm";
+      return "Thành viên";
+    }
+  }, [displayRole, normalizedRole, roomType]);
 
   switch (normalizedRole) {
-    case "teacher":
+    case "owner":
       return (
         <View className="flex-row items-center gap-1 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full self-start">
           <Feather name="shield" size={11} color="#d97706" />
           <Text className="text-[10px] font-bold text-amber-800">
-            {t("room.role_teacher", { defaultValue: "Giáo viên" })}
+            {defaultText}
           </Text>
         </View>
       );
-    case "leader":
-      return (
-        <View className="flex-row items-center gap-1 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full self-start">
-          <Feather name="shield" size={11} color="#d97706" />
-          <Text className="text-[10px] font-bold text-amber-800">
-            {t("room.role_leader", { defaultValue: "Trưởng nhóm" })}
-          </Text>
-        </View>
-      );
-    case "assistant":
+    case "vice":
       return (
         <View className="flex-row items-center gap-1 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-full self-start">
           <Feather name="user-check" size={11} color="#2563eb" />
           <Text className="text-[10px] font-bold text-blue-800">
-            {t("room.role_assistant", { defaultValue: "Ban cán sự" })}
-          </Text>
-        </View>
-      );
-    case "vice_leader":
-      return (
-        <View className="flex-row items-center gap-1 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-full self-start">
-          <Feather name="user-check" size={11} color="#2563eb" />
-          <Text className="text-[10px] font-bold text-blue-800">
-            {t("room.role_vice_leader", { defaultValue: "Phó nhóm" })}
-          </Text>
-        </View>
-      );
-    case "student":
-      return (
-        <View className="flex-row items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full self-start">
-          <Feather name="user" size={11} color="#64748b" />
-          <Text className="text-[10px] font-medium text-slate-600">
-            {t("room.role_student", { defaultValue: "Học viên" })}
+            {defaultText}
           </Text>
         </View>
       );
@@ -68,7 +54,7 @@ export default function RoleBadge({ role, roomType, t }: RoleBadgeProps) {
         <View className="flex-row items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full self-start">
           <Feather name="user" size={11} color="#64748b" />
           <Text className="text-[10px] font-medium text-slate-600">
-            {t("room.role_member", { defaultValue: "Thành viên" })}
+            {defaultText}
           </Text>
         </View>
       );

@@ -4,54 +4,46 @@ import { ShieldCheck, UserCheck, User, Loader2 } from "lucide-react";
 
 interface RoleBadgeProps {
   role: string;
+  displayRole?: string;
   roomType: "classroom" | "meeting" | string;
 }
 
-export default function RoleBadge({ role, roomType }: RoleBadgeProps) {
+export default function RoleBadge({ role, displayRole, roomType }: RoleBadgeProps) {
   const t = useTranslations("room");
 
-  // Normalize legacy roles
+  // Normalize roles to owner, vice, member
   const normalizedRole = React.useMemo(() => {
-    if (role === "owner") return roomType === "classroom" ? "teacher" : "leader";
-    if (role === "admin") return roomType === "classroom" ? "assistant" : "vice_leader";
-    if (role === "member" && roomType === "classroom") return "student";
-    return role;
-  }, [role, roomType]);
+    if (["owner", "teacher", "leader"].includes(role)) return "owner";
+    if (["vice", "vice_leader", "assistant", "admin"].includes(role)) return "vice";
+    return "member";
+  }, [role]);
+
+  const defaultText = React.useMemo(() => {
+    if (displayRole) return displayRole;
+    if (roomType === "classroom") {
+      if (normalizedRole === "owner") return "Giảng viên";
+      if (normalizedRole === "vice") return "Ban cán sự";
+      return "Học viên";
+    } else {
+      if (normalizedRole === "owner") return "Trưởng nhóm";
+      if (normalizedRole === "vice") return "Phó nhóm";
+      return "Thành viên";
+    }
+  }, [displayRole, normalizedRole, roomType]);
 
   switch (normalizedRole) {
-    case "teacher":
+    case "owner":
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-          {t("role_teacher", { defaultValue: "Giáo viên" })}
+          {defaultText}
         </span>
       );
-    case "leader":
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">
-          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-          {t("role_leader", { defaultValue: "Trưởng nhóm" })}
-        </span>
-      );
-    case "assistant":
+    case "vice":
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm">
           <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-          {t("role_assistant", { defaultValue: "Ban cán sự" })}
-        </span>
-      );
-    case "vice_leader":
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm">
-          <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-          {t("role_vice_leader", { defaultValue: "Phó nhóm" })}
-        </span>
-      );
-    case "student":
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-          <User className="w-3 h-3 text-slate-400" />
-          {t("role_student", { defaultValue: "Học viên" })}
+          {defaultText}
         </span>
       );
     case "member":
@@ -59,7 +51,7 @@ export default function RoleBadge({ role, roomType }: RoleBadgeProps) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
           <User className="w-3 h-3 text-slate-400" />
-          {t("role_member", { defaultValue: "Thành viên" })}
+          {defaultText}
         </span>
       );
   }

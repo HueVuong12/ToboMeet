@@ -271,7 +271,7 @@ export default function Sidebar({
                       className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                     >
                       <Flag className="w-3.5 h-3.5 text-slate-500" />
-                      Báo cáo phòng
+                      {t("report_room")}
                     </button>
                   )}
                   <button
@@ -857,10 +857,11 @@ export default function Sidebar({
                 description: reportData.description,
                 attachments: reportData.attachments,
               });
-              toast.success("Đã gửi báo cáo thành công.");
+              toast.success(t("report_room_success", { defaultValue: "Đã gửi báo cáo thành công." }));
               setShowReportModal(false);
-            } catch (err: any) {
-              const msg = err?.response?.data?.message || err?.message || "Không thể gửi báo cáo phòng";
+            } catch (err: unknown) {
+              const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+              const msg = errorObj?.response?.data?.message || errorObj?.message || t("report_room_error_failed", { defaultValue: "Không thể gửi báo cáo phòng" });
               toast.error(msg);
               throw err;
             } finally {
