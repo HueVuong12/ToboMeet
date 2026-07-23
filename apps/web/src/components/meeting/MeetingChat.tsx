@@ -73,10 +73,10 @@ export default function MeetingChat({
             onClick={() => setReactionDetails(null)}
           >
             <div
-              className="bg-slate-800 rounded-2xl w-full max-w-xs border border-slate-700 shadow-2xl overflow-hidden flex flex-col"
+              className="bg-[#222] border-[#333] rounded-2xl w-full max-w-xs border shadow-2xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center p-4 border-b border-slate-700/50">
+              <div className="flex justify-between items-center p-4 border-b border-[#333]">
                 <h3 className="text-sm font-semibold text-slate-200">
                   Chi tiết cảm xúc
                 </h3>
@@ -92,7 +92,7 @@ export default function MeetingChat({
                   if (users.length === 0) return null;
                   return (
                     <div key={emoji} className="flex flex-col gap-1.5">
-                      <div className="text-sm border-b border-slate-700/50 pb-1 mb-1 flex items-center gap-2">
+                      <div className="text-sm border-b border-[#333] pb-1 mb-1 flex items-center gap-2">
                         <span className="text-lg">{emoji}</span>
                         <span className="text-xs font-medium text-slate-400">
                           {users.length} người
@@ -107,7 +107,7 @@ export default function MeetingChat({
                         return (
                           <div
                             key={userId}
-                            className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-700/40 rounded-lg transition-colors"
+                            className="flex items-center gap-3 px-2 py-1.5 hover:bg-[#333] rounded-lg transition-colors"
                           >
                             {/* Hiển thị Avatar thật hoặc Avatar chữ cái */}
                             {avatarUrl ? (
@@ -245,7 +245,7 @@ export default function MeetingChat({
                 >
                   {/* THANH MENU NỔI KHI HOVER */}
                   <div
-                    className={`absolute -top-10 ${isMe ? "right-2" : "left-2"} opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800/95 backdrop-blur-sm border border-slate-700/80 rounded-xl shadow-xl flex items-center p-1 z-20 gap-0.5`}
+                    className={`absolute -top-10 ${isMe ? "right-2" : "left-2"} opacity-0 group-hover:opacity-100 transition-opacity bg-[#222] border-[#333] backdrop-blur-sm border rounded-xl shadow-xl flex items-center p-1 z-20 gap-0.5`}
                   >
                     <button
                       onClick={() => setReplyingTo(msg)}
@@ -320,7 +320,7 @@ export default function MeetingChat({
                       <a
                         href={msg.publicUrl}
                         download={msg.fileName}
-                        className="flex items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-600/50 shadow-sm w-full"
+                        className="flex items-center gap-2 p-3 rounded-xl transition-colors bg-[#222] border-[#333] hover:bg-[#333]  shadow-sm w-full"
                       >
                         <FileText
                           size={18}
@@ -420,7 +420,7 @@ export default function MeetingChat({
 
         {/* BANNER HIỂN THỊ ĐANG TRẢ LỜI AI ĐÓ */}
         {replyingTo && (
-          <div className="bg-slate-800/80 px-3 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center border border-slate-700 backdrop-blur-sm">
+          <div className="bg-[#222] border-[#333] px-3 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center border backdrop-blur-sm">
             <div className="truncate pr-2">
               <span className="font-semibold text-emerald-400 mr-1">
                 Đang trả lời {replyingTo.senderName}:
@@ -444,7 +444,7 @@ export default function MeetingChat({
             value={selectedTarget}
             disabled={!canChat}
             onChange={(e) => setSelectedTarget(e.target.value)}
-            className="w-full appearance-none bg-slate-800 text-slate-200 text-xs pl-3 pr-8 py-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors"
+            className="w-full appearance-none text-xs pl-3 pr-8 py-2.5 rounded-lg border bg-[#222] text-gray-200 border-[#333] focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors"
           >
             <option value="all">Mọi người trong phòng</option>
             {otherParticipants.map((p) => (
@@ -460,7 +460,7 @@ export default function MeetingChat({
 
         <form
           onSubmit={handleSendMessage}
-          className="relative flex items-center bg-slate-950 rounded-xl border border-slate-700 p-1 focus-within:border-emerald-500/50 transition-colors"
+          className="relative flex items-center rounded-xl border bg-[#222] border-[#333] p-1 focus-within:border-emerald-500/50 transition-colors"
         >
           <button
             type="button"

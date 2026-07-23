@@ -138,8 +138,8 @@ export default function MeetingRoomContent({
   }, [room]);
 
   return (
-    <div className="flex flex-col h-dvh w-screen bg-slate-900 text-slate-100 overflow-hidden font-sans fixed inset-0">
-      <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-slate-900/50 backdrop-blur-md border-b border-slate-800 z-10">
+    <div className="flex flex-col h-dvh w-screen bg-[#111] text-slate-100 overflow-hidden font-sans fixed inset-0">
+      <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-[#111] border-[#333] z-10">
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
           <span className="text-sm font-semibold tracking-wide">
@@ -152,8 +152,8 @@ export default function MeetingRoomContent({
         <CustomVideoGrid />
 
         {isSidebarOpen && (
-          <aside className="z-99 flex flex-col shrink-0 bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 shadow-2xl absolute rounded-3xl sm:rounded-none inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] sm:relative sm:inset-auto sm:w-80 sm:h-full">
-            <div className="h-14 px-5 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+          <aside className="z-99 flex flex-col shrink-0 bg-[#111] backdrop-blur-xl border-l border-[#333] border shadow-2xl absolute rounded-3xl sm:rounded-none inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] sm:relative sm:inset-auto sm:w-80 sm:h-full">
+            <div className="h-14 px-5 flex items-center justify-between border-b border-[#333] shrink-0">
               <h2 className="font-semibold text-sm text-slate-200 tracking-wide">
                 {sidebarTab === "chat" ? "Trò chuyện" : "Thành viên"}
               </h2>
@@ -189,14 +189,14 @@ export default function MeetingRoomContent({
         {/* MODAL CHỌN MÀN HÌNH CHIA SẺ (CHỈ HIỂN THỊ KHI CHẠY TRÊN ELECTRON) */}
         {screenSources.length > 0 && (
           <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/80 p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh]">
+            <div className="bg-[#222] border border-[#444] rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh]">
               <div className="p-4 border-b border-slate-800 flex justify-between items-center shrink-0">
                 <h2 className="text-lg font-bold text-slate-100">
                   Chọn nội dung chia sẻ
                 </h2>
                 <button
                   onClick={() => handleSelectSource(null)}
-                  className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 transition-colors"
+                  className="p-2 bg-[#333] hover:bg-slate-700 rounded-lg text-slate-400 transition-colors"
                 >
                   <X size={20} />
                 </button>

@@ -1,6 +1,10 @@
 import { useChatStatus } from "@/hooks/useChatStatus";
 import { useHandRaise } from "@/hooks/useHandRaise";
-import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
+import {
+  useLocalParticipant,
+  useRoomContext,
+  useParticipants, // Thêm hook lấy danh sách người tham gia
+} from "@livekit/components-react";
 import localforage from "localforage";
 import {
   Check,
@@ -12,17 +16,20 @@ import {
   MicOff,
   MonitorUp,
   MoreVertical,
-  PhoneOff,
+  LogOut,
   Unlock,
   Users,
   VideoIcon,
   VideoOff,
+  Loader2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
+ * Bố cục chuẩn Zoom: Các nút vuông vức, tràn viền chiều cao, không khoảng trống.
+ * Reponsive: Gom thành 1 khối căn giữa ở màn hình sm/md, chia 3 cụm ở màn hình lg.
  */
 export default function CustomToolbar({
   meetingCode,
@@ -47,22 +54,48 @@ export default function CustomToolbar({
   } = useLocalParticipant();
   const room = useRoomContext();
 
+  // Lấy danh sách thành viên để đếm số lượng
+  const participants = useParticipants();
+
+  // State quản lý loading cho Cam/Mic
+  const [isMicLoading, setIsMicLoading] = useState(false);
+  const [isCamLoading, setIsCamLoading] = useState(false);
+
   const [isCopied, setIsCopied] = useState(false);
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); // State cho menu admin
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
-  const toggleMic = () =>
-    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
-  const toggleCam = () => localParticipant.setCameraEnabled(!isCameraEnabled);
+  // Hàm toggle Mic có trạng thái Loading
+  const toggleMic = async () => {
+    try {
+      setIsMicLoading(true);
+      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    } catch (error) {
+      console.error("Lỗi Mic:", error);
+    } finally {
+      setIsMicLoading(false);
+    }
+  };
 
-  // Dùng Hook quản lý Chat
+  // Hàm toggle Cam có trạng thái Loading
+  const toggleCam = async () => {
+    try {
+      setIsCamLoading(true);
+      await localParticipant.setCameraEnabled(!isCameraEnabled);
+    } catch (error) {
+      console.error("Lỗi Camera:", error);
+    } finally {
+      setIsCamLoading(false);
+    }
+  };
+
+  // Hook quản lý Chat
   const { isHost, isChatEnabled, handleToggleChat } = useChatStatus({
     roomId,
     channelId,
     meetingCode,
   });
 
-  // Hàm bật/tắt chia sẻ màn hình (bọc trong try-catch phòng trường hợp user ấn Hủy cấp quyền)
   const toggleScreenShare = async () => {
     try {
       await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
@@ -79,26 +112,16 @@ export default function CustomToolbar({
   const handleLeaveClick = () => {
     toast("Xác nhận rời cuộc họp?", {
       description: "Bạn sẽ bị ngắt kết nối khỏi phòng hiện tại.",
-      action: {
-        label: "Rời đi",
-        onClick: leaveMeeting,
-      },
-      cancel: {
-        label: "Hủy",
-        onClick: () => {},
-      },
+      action: { label: "Rời đi", onClick: leaveMeeting },
+      cancel: { label: "Hủy", onClick: () => {} },
       duration: 5000,
     });
   };
 
-  // Hàm copy link
   const handleCopyLink = () => {
     const pathName = window.location.pathname;
     const localeRegex = /^\/[a-z]{2,3}(?=\/|$)/;
-
-    // Loại bỏ locale nếu khớp với Regex
     const cleanPath = pathName.replace(localeRegex, "");
-
     const cleanUrl = `${window.location.origin}${cleanPath}`;
 
     navigator.clipboard.writeText(cleanUrl).then(() => {
@@ -108,183 +131,217 @@ export default function CustomToolbar({
     });
   };
 
-  return (
-    <footer className="h-auto min-h-20 sm:h-20 shrink-0 flex flex-wrap items-center justify-center sm:justify-between px-4 sm:px-6 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800/60 z-30 gap-4 py-2 sm:py-0">
-      {/* Nút copy link */}
-      <div className="hidden sm:flex items-center w-50">
-        <button
-          onClick={handleCopyLink}
-          className="flex items-center gap-3 px-3 py-1.5 rounded-xl bg-slate-800/60 border border-slate-700/60 hover:bg-slate-700/80 text-slate-300 transition-all group"
-          title="Sao chép liên kết cuộc họp"
-        >
-          <div className="flex flex-col items-start leading-tight max-w-32.5">
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-              Mã cuộc họp
-            </span>
-            <span className="text-xs font-mono truncate w-full text-left text-slate-200">
-              {meetingCode}
-            </span>
-          </div>
-          <div
-            className={`p-1.5 rounded-lg transition-colors ${isCopied ? "bg-emerald-500/20" : "bg-slate-700 group-hover:bg-slate-600"}`}
-          >
-            {isCopied ? (
-              <Check size={16} className="text-emerald-400" />
-            ) : (
-              <Copy
-                size={16}
-                className="text-slate-400 group-hover:text-slate-200"
-              />
-            )}
-          </div>
-        </button>
-      </div>
+  // Helper render style nút: Tràn chiều cao, đổi màu nền khi active, Responsive width
+  const getBtnStyle = (
+    isActive: boolean,
+    customActiveColor = "bg-[#222] text-white",
+  ) =>
+    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${
+      isActive ? customActiveColor : "text-gray-300 hover:bg-[#222]"
+    }`;
 
-      {/* Cụm nút chức năng */}
-      <div className="flex items-center gap-2 sm:gap-3">
+  return (
+    <footer className="flex flex-row items-center justify-center lg:justify-between h-14 bg-[#111] border-t border-[#333] z-30 w-full shrink-0 select-none">
+      {/* ================= PHẦN BÊN TRÁI ================= */}
+      <div className="flex items-center space-x-1 mr-1 h-full lg:flex-1 justify-center lg:justify-start lg:pl-2 shrink-0">
         <button
           onClick={toggleCam}
-          className={`p-3 rounded-xl transition-all ${
-            isCameraEnabled
-              ? "bg-slate-700 hover:bg-slate-600 text-white shadow-md"
-              : "bg-slate-800 text-slate-400 border border-slate-700/50"
-          }`}
+          disabled={isCamLoading} // Khóa nút khi đang tải
+          className={getBtnStyle(
+            !isCameraEnabled,
+            "text-red-500 hover:bg-[#222]",
+          )}
         >
-          {isCameraEnabled ? <VideoIcon size={20} /> : <VideoOff size={20} />}
+          {isCamLoading ? (
+            <Loader2 size={20} className="animate-spin text-red-500" />
+          ) : isCameraEnabled ? (
+            <VideoIcon size={20} />
+          ) : (
+            <VideoOff size={20} />
+          )}
+          <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            Camera
+          </span>
         </button>
 
         <button
           onClick={toggleMic}
-          className={`p-3 rounded-xl transition-all ${
-            isMicrophoneEnabled
-              ? "bg-slate-700 hover:bg-slate-600 text-white shadow-md"
-              : "bg-slate-800 text-slate-400 border border-slate-700/50"
-          }`}
+          disabled={isMicLoading} // Khóa nút khi đang tải
+          className={getBtnStyle(
+            !isMicrophoneEnabled,
+            "text-red-500 hover:bg-[#222]",
+          )}
         >
-          {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+          {isMicLoading ? (
+            <Loader2 size={20} className="animate-spin text-red-500" />
+          ) : isMicrophoneEnabled ? (
+            <Mic size={20} />
+          ) : (
+            <MicOff size={20} />
+          )}
+          <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            Mic
+          </span>
+        </button>
+      </div>
+
+      {/* ================= PHẦN CHÍNH GIỮA ================= */}
+      <div className="flex items-center space-x-1 justify-center h-full shrink-0">
+        {/* Nút Thành viên (Có Badge số lượng) */}
+        <button
+          onClick={() => onToggleSidebar("people")}
+          className={getBtnStyle(activeTab === "people")}
+        >
+          <div className="relative flex items-center justify-center">
+            <Users
+              size={20}
+              className={activeTab === "people" ? "text-brand-400" : ""}
+            />
+            {/* Badge hiển thị số lượng thành viên */}
+            <span className="absolute -top-1 -right-3.5 inline-flex items-center justify-center px-1 min-w-[16px] h-[16px] text-[9px] font-bold text-white bg-slate-600 rounded-full border-[1.5px] border-[#111]">
+              {participants.length}
+            </span>
+          </div>
+          <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            Thành viên
+          </span>
         </button>
 
-        {/* 3. Cập nhật nút Share Screen */}
+        {/* Nút Chat */}
+        <button
+          onClick={() => onToggleSidebar("chat")}
+          className={getBtnStyle(activeTab === "chat")}
+        >
+          <div className="relative flex items-center justify-center">
+            <MessageSquare
+              size={20}
+              className={activeTab === "chat" ? "text-brand-400" : ""}
+            />
+            {/* Chấm đỏ thông báo */}
+            {hasUnreadChat && activeTab !== "chat" && (
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            Chat
+          </span>
+        </button>
+
+        {/* Nút Share Screen */}
         <button
           onClick={toggleScreenShare}
-          title="Chia sẻ màn hình"
-          className={`p-3 rounded-xl transition-all shadow-md hidden sm:block ${
-            isScreenShareEnabled
-              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30 border border-blue-500" // Trạng thái đang share
-              : "bg-slate-700 hover:bg-slate-600 text-white" // Trạng thái bình thường
-          }`}
+          className={`hidden md:flex ${getBtnStyle(isScreenShareEnabled, "bg-green-600 text-white hover:bg-green-700")}`}
         >
-          <MonitorUp size={20} />
+          <MonitorUp
+            size={20}
+            className={!isScreenShareEnabled ? "text-green-500" : ""}
+          />
+          <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            Chia sẻ
+          </span>
         </button>
 
+        {/* Nút Giơ tay */}
         <button
           onClick={toggleHandRaise}
-          title={isLocalHandRaised ? "Hạ tay xuống" : "Giơ tay"}
-          className={`p-3 rounded-xl transition-all shadow-md ${
-            isLocalHandRaised
-              ? "bg-amber-500/20 text-amber-500 border border-amber-500/30"
-              : "bg-slate-700 hover:bg-slate-600 text-white"
-          }`}
+          className={getBtnStyle(isLocalHandRaised, "bg-[#222] text-amber-500")}
         >
           <Hand
             size={20}
             className={isLocalHandRaised ? "animate-bounce" : ""}
           />
+          <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            Giơ tay
+          </span>
         </button>
 
-        {/* Menu cho admin */}
-        {isHost && (
-          <div className="relative">
-            <button
-              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="p-3 rounded-xl transition-all shadow-md bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white hover:shadow-indigo-600/30"
-              title="Tùy chọn quản trị"
-            >
-              <MoreVertical size={20} />
-            </button>
+        {/* Nút Quản lý & Option */}
+        <div className="relative h-full flex">
+          <button
+            onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+            className={getBtnStyle(isMoreMenuOpen)}
+          >
+            <MoreVertical size={20} />
+            <span className="text-[10px] mt-1 hidden sm:block font-medium">
+              Quản lý
+            </span>
+          </button>
 
-            {isMoreMenuOpen && (
-              <>
-                {/* Lớp mờ để đóng menu khi click ra ngoài */}
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsMoreMenuOpen(false)}
-                ></div>
-
-                {/* Menu Dropdown */}
-                <div className="absolute bottom-full mb-1 right-0 z-50 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/50 mb-1">
-                    Công cụ Quản trị
-                  </div>
-                  <button
-                    onClick={() => {
-                      handleToggleChat();
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2.5 transition-colors ${
-                      isChatEnabled
-                        ? "text-red-400 hover:bg-red-500/15 hover:text-red-300"
-                        : "text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300"
-                    }`}
-                  >
-                    {isChatEnabled ? (
-                      <>
-                        <Lock size={16} /> Khóa Chat
-                      </>
-                    ) : (
-                      <>
-                        <Unlock size={16} /> Mở Chat
-                      </>
-                    )}
-                  </button>
+          {/* Menu Dropdown */}
+          {isMoreMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsMoreMenuOpen(false)}
+              ></div>
+              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-56 bg-[#222] border border-[#333] rounded shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#333] mb-1">
+                  Tùy chọn chung
                 </div>
-              </>
-            )}
-          </div>
-        )}
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                >
+                  {isCopied ? (
+                    <Check size={16} className="text-emerald-400" />
+                  ) : (
+                    <Copy size={16} />
+                  )}
+                  <span>
+                    {isCopied ? "Đã sao chép liên kết" : "Sao chép liên kết"}
+                  </span>
+                </button>
 
-        <div className="w-px h-8 bg-slate-700 mx-1 sm:mx-2 hidden sm:block"></div>
-
-        <button
-          onClick={handleLeaveClick}
-          className="px-4 sm:px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold transition-all flex items-center gap-2 shadow-lg shadow-red-600/30 ml-2"
-        >
-          <PhoneOff size={18} />
-          <span className="hidden sm:inline">Rời đi</span>
-        </button>
+                {isHost && (
+                  <>
+                    <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#333] bg-[#333]">
+                      Công cụ Quản trị
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleToggleChat();
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
+                        isChatEnabled
+                          ? "text-red-400 hover:bg-red-500/15"
+                          : "text-emerald-400 hover:bg-emerald-500/15"
+                      }`}
+                    >
+                      {isChatEnabled ? (
+                        <>
+                          <Lock size={16} /> Khóa Chat
+                        </>
+                      ) : (
+                        <>
+                          <Unlock size={16} /> Mở Chat
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Nút mở Sidebar (People/Chat) */}
-      <div className="flex items-center gap-1 sm:gap-2 w-auto sm:w-50 justify-end">
+      {/* ================= PHẦN BÊN PHẢI ================= */}
+      <div className="flex items-center h-full lg:flex-1 justify-center lg:justify-end lg:pr-2 shrink-0">
         <button
-          onClick={() => onToggleSidebar("people")}
-          className={`p-2.5 rounded-lg transition-colors ${
-            activeTab === "people"
-              ? "bg-slate-700 text-brand-400"
-              : "text-slate-300 hover:bg-slate-800"
-          }`}
+          onClick={handleLeaveClick}
+          className="group h-full px-3 sm:px-4 mx-1 lg:mx-0 bg-transparent text-red-500 hover:text-red-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
         >
-          <Users size={20} />
-        </button>
-
-        {/* Nút mở Chat với chấm đỏ nhấp nháy khi có tin nhắn chưa đọc */}
-        <button
-          onClick={() => onToggleSidebar("chat")}
-          className={`relative p-2.5 rounded-lg transition-colors ${
-            activeTab === "chat"
-              ? "bg-slate-700 text-brand-400"
-              : "text-slate-300 hover:bg-slate-800"
-          }`}
-        >
-          <MessageSquare size={20} />
-
-          {/* Chấm đỏ nhấp nháy khi có tin nhắn chưa đọc */}
-          {hasUnreadChat && activeTab !== "chat" && (
-            <span className="absolute top-1 right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-slate-900"></span>
-            </span>
-          )}
+          <LogOut
+            size={18}
+            className="transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-110"
+          />
+          <span className="hidden md:inline text-sm transition-all duration-300">
+            Rời cuộc họp
+          </span>
         </button>
       </div>
     </footer>

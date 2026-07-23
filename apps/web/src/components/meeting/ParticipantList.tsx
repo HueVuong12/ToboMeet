@@ -48,7 +48,7 @@ export default function ParticipantList({
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Đang tham gia
         </span>
-        <span className="text-xs font-bold bg-slate-800 text-slate-300 px-2 py-1 rounded-full">
+        <span className="text-xs font-bold bg-[#333] text-slate-300 px-2 py-1 rounded-full">
           {displayParticipants.length} người
         </span>
       </div>
@@ -71,7 +71,7 @@ export default function ParticipantList({
           return (
             <div
               key={p.identity}
-              className="flex items-center gap-3 p-2.5 hover:bg-slate-700/30 rounded-xl transition-all group"
+              className="flex items-center gap-3 p-2.5 hover:bg-[#222] rounded-xl transition-all group"
             >
               {/* Avatar */}
               <div className="relative shrink-0">
@@ -151,7 +151,7 @@ export default function ParticipantList({
                           openMenuId === p.identity ? null : p.identity,
                         )
                       }
-                      className="p-1.5 hover:bg-slate-600 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                      className="p-1.5 hover:bg-[#333] rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
                     >
                       <MoreVertical size={16} />
                     </button>
@@ -164,7 +164,7 @@ export default function ParticipantList({
                         className="fixed inset-0 z-40"
                         onClick={() => setOpenMenuId(null)}
                       ></div>
-                      <div className="absolute right-4 top-6 z-50 w-44 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+                      <div className="absolute right-4 top-6 z-50 w-44 bg-[#333] border border-slate-600 rounded-lg shadow-2xl overflow-hidden backdrop-blur-xl">
                         {isMe && (
                           <button
                             onClick={() => {
@@ -174,7 +174,7 @@ export default function ParticipantList({
                               });
                               setOpenMenuId(null);
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                            className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#222] flex items-center gap-2.5 transition-colors"
                           >
                             <Edit2 size={15} /> Đổi tên
                           </button>
@@ -241,9 +241,10 @@ export default function ParticipantList({
       {/* Render Modal Đổi Tên bằng Portal để lơ lửng trên cùng */}
       {renameState?.isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-            <div className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
-              <h3 className="text-lg font-bold text-slate-100 mb-4 tracking-wide">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4">
+            {/* Modal Container: Nền #222, viền #333, bo góc nhẹ (rounded) thay vì 3xl */}
+            <div className="bg-[#222] border border-[#333] rounded shadow-2xl w-full max-w-sm p-6">
+              <h3 className="text-lg font-bold text-white mb-4 tracking-wide">
                 Đổi tên hiển thị
               </h3>
 
@@ -254,22 +255,25 @@ export default function ParticipantList({
                   setRenameState({ ...renameState, newName: e.target.value })
                 }
                 placeholder="Nhập tên mới..."
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 mb-6 transition-all"
+                // Input: Nền #111, viền #444, focus màu xanh Zoom (blue-500)
+                className="w-full px-4 py-3 bg-[#111] border border-[#444] rounded text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-6 transition-colors"
                 autoFocus // Tự động trỏ nháy chuột vào ô input
                 onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()} // Nhấn Enter để lưu
               />
 
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setRenameState(null)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
+                  // Nút Hủy: Đơn giản, hover nền #333
+                  className="px-5 py-2 text-sm font-medium text-gray-300 hover:bg-[#333] rounded transition-colors"
                 >
                   Hủy
                 </button>
                 <button
                   onClick={handleRenameSubmit}
                   disabled={!renameState.newName.trim()}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white transition-colors shadow-lg shadow-brand-500/30 disabled:opacity-50 disabled:shadow-none"
+                  // Nút Lưu: Nền xanh biển chuẩn Zoom, bỏ shadow màu mè
+                  className="px-5 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
                 >
                   Lưu thay đổi
                 </button>
