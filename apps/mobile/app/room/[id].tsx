@@ -952,19 +952,21 @@ export default function RoomDetailScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Nút: Báo cáo phòng */}
-            <TouchableOpacity
-              onPress={() => {
-                setShowGroupActionsModal(false);
-                setShowReportRoomModal(true);
-              }}
-              className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
-            >
-              <Feather name="flag" size={18} color="#D97706" />
-              <Text className="text-amber-600 text-base font-semibold">
-                {t("room.report_room", { defaultValue: "Báo cáo phòng" })}
-              </Text>
-            </TouchableOpacity>
+            {/* Nút: Báo cáo phòng (Chỉ hiển thị cho thành viên không phải Trưởng phòng) */}
+            {!isOwner && (
+              <TouchableOpacity
+                onPress={() => {
+                  setShowGroupActionsModal(false);
+                  setShowReportRoomModal(true);
+                }}
+                className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
+              >
+                <Feather name="flag" size={18} color="#D97706" />
+                <Text className="text-amber-600 text-base font-semibold">
+                  {t("room.report_room", { defaultValue: "Báo cáo phòng" })}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Nút: Rời phòng */}
             <TouchableOpacity
