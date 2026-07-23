@@ -7,6 +7,7 @@ import {
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
   useRemoveMemberMutation,
+  useUpdateMemberRoleMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
 import {
@@ -22,6 +23,10 @@ import {
   Video,
   ChevronDown,
   Calendar,
+  Search,
+  ShieldCheck,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { socket } from "@/lib/socket";
@@ -31,6 +36,8 @@ import { AppDispatch } from "@/lib/redux/store";
 import PreviewModal from "./PreviewModal";
 import { useMeetingManager } from "@/hooks/useMeetingManager";
 import ReportUserModal from "./ReportUserModal";
+import TransferOwnershipModal from "./TransferOwnershipModal";
+import RoleBadge from "./RoleBadge";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
 import NewsFeed from "./NewsFeed";
 
@@ -53,16 +60,22 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   const [removeMember] = useRemoveMemberMutation();
+  const [updateMemberRole] = useUpdateMemberRoleMutation();
   useRoomUpdateListener(roomId, userId);
 
-  // Trạng thái Layout & Dữ liệu
+  // Trạng thái Layout, Tìm kiếm & Quản lý Phân quyền
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
+    userId: string;
+    displayName: string;
+  } | null>(null);
+  const [memberToTransfer, setMemberToTransfer] = useState<{
     userId: string;
     displayName: string;
   } | null>(null);
@@ -391,6 +404,18 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               </button>
             </div>
 
+            {/* Search Input */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                placeholder={t("search_member_placeholder", { defaultValue: "Tìm thành viên..." })}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+              />
+            </div>
+
             {membersLoading ? (
               <div className="text-center text-slate-400 py-4 text-sm">
                 {t("loading_title")}
@@ -401,114 +426,286 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               </div>
             ) : (
               <div className="space-y-3">
-                {members.map((member: any) => (
-                  <div
-                    key={member.userId}
-                    className="group relative flex items-center gap-3 hover:bg-slate-50 p-2 rounded-lg transition-colors cursor-pointer"
-                  >
-                    {/* Avatar */}
-                    <div className="relative flex-shrink-0">
-                      {member.avatarUrl ? (
-                        <img
-                          src={member.avatarUrl}
-                          alt={member.displayName}
-                          className="w-8 h-8 rounded-full object-cover border border-slate-200"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs uppercase">
-                          {member.displayName?.charAt(0) || "?"}
-                        </div>
-                      )}
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
-                    </div>
+                {members
+                  .filter((member: any) => {
+                    if (!memberSearch.trim()) return true;
+                    const query = memberSearch.trim().toLowerCase();
+                    return (
+                      member.displayName?.toLowerCase().includes(query) ||
+                      member.email?.toLowerCase().includes(query)
+                    );
+                  })
+                  .map((member: any) => {
+                    const currentUserRole = members.find((m: any) => m.userId === userId)?.role as string | undefined;
+                    const isCurrentUserOwner = currentUserRole === "teacher" || currentUserRole === "leader" || currentUserRole === "owner";
+                    const isSelf = member.userId === userId;
 
-                    {/* Thông tin Text: Dùng flex-1 và truncate để không phá vỡ layout */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <p className="text-sm font-semibold text-slate-800 truncate">
-                        {member.displayName}
-                        {member.userId === userId && (
-                          <span className="text-slate-400 font-normal ml-1">
-                            ({t("you")})
-                          </span>
-                        )}
-                      </p>
-                      <div className="flex items-center">
-                        {member.role === "owner" ? (
-                          <div className="flex items-center gap-0.5 text-amber-600 bg-amber-50 px-1 py-0 rounded text-[9px] font-bold uppercase tracking-wide w-max">
-                            <Crown size={9} />
-                            <span>{t("room_owner")}</span>
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-slate-500">
-                            {t("anonymous_user")}
+                    return (
+                      <div
+                        key={member.userId}
+                        className="group relative flex items-center gap-3 hover:bg-slate-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      >
+                        {/* Avatar */}
+                        <div className="relative flex-shrink-0">
+                          {member.avatarUrl ? (
+                            <img
+                              src={member.avatarUrl}
+                              alt={member.displayName}
+                              className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs uppercase">
+                              {member.displayName?.charAt(0) || "?"}
+                            </div>
+                          )}
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                        </div>
+
+                        {/* Text Info & Role Badge */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                          <p className="text-sm font-semibold text-slate-800 truncate">
+                            {member.displayName}
+                            {isSelf && (
+                              <span className="text-slate-400 font-normal ml-1 text-xs">
+                                ({t("you")})
+                              </span>
+                            )}
                           </p>
+                          <div className="flex items-center">
+                            <RoleBadge role={member.role} roomType={room?.type || "meeting"} />
+                          </div>
+                        </div>
+
+                        {/* 3-DOTS ACTION MENU */}
+                        {!isSelf && (
+                          <div className="flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(
+                                  openMenuId === member.userId ? null : member.userId,
+                                );
+                              }}
+                              className="p-1 rounded hover:bg-slate-200 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+
+                            {/* DROPDOWN MENU */}
+                            {openMenuId === member.userId && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={() => setOpenMenuId(null)}
+                                />
+                                <div className="absolute right-4 z-50 w-52 bg-white border border-slate-200 rounded-xl shadow-xl py-1 mt-1 text-xs">
+                                  <button
+                                    onClick={() => setOpenMenuId(null)}
+                                    className="w-full text-left px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  >
+                                    {t("view_profile")}
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setMemberToReport({
+                                        userId: member.userId,
+                                        displayName: member.displayName || "Người dùng",
+                                      });
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  >
+                                    {t("report_user")}
+                                  </button>
+
+                                   {/* ROLE MANAGEMENT OPTIONS FOR TEACHER / LEADER */}
+                                   {isCurrentUserOwner && (
+                                     <>
+                                       <div className="h-[1px] bg-slate-100 my-1" />
+
+                                       {/* CLASSROOM SPECIFIC OPTIONS */}
+                                       {room?.type === "classroom" && (
+                                         <>
+                                           {/* Bổ nhiệm / Thu hồi Ban cán sự */}
+                                           {member.role === "student" && (
+                                             <button
+                                               onClick={async () => {
+                                                 setOpenMenuId(null);
+                                                 try {
+                                                   const res = await updateMemberRole({
+                                                     roomId,
+                                                     memberId: member.userId,
+                                                     role: "assistant",
+                                                   }).unwrap();
+                                                   toast.success(
+                                                     t("toast_appoint_assistant", {
+                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
+                                                       target: member.displayName || "",
+                                                       defaultValue: res.message,
+                                                     })
+                                                   );
+                                                 } catch (err: any) {
+                                                   toast.error(err?.data?.message || "Không thể thay đổi vai trò");
+                                                 }
+                                               }}
+                                               className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                             >
+                                               <UserCheck className="w-3.5 h-3.5" />
+                                               {t("appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })}
+                                             </button>
+                                           )}
+
+                                           {member.role === "assistant" && (
+                                             <button
+                                               onClick={async () => {
+                                                 setOpenMenuId(null);
+                                                 try {
+                                                   const res = await updateMemberRole({
+                                                     roomId,
+                                                     memberId: member.userId,
+                                                     role: "student",
+                                                   }).unwrap();
+                                                   toast.success(
+                                                     t("toast_revoke_assistant", {
+                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
+                                                       target: member.displayName || "",
+                                                       defaultValue: res.message,
+                                                     })
+                                                   );
+                                                 } catch (err: any) {
+                                                   toast.error(err?.data?.message || "Không thể thu hồi quyền");
+                                                 }
+                                               }}
+                                               className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                             >
+                                               <UserCheck className="w-3.5 h-3.5" />
+                                               {t("revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })}
+                                             </button>
+                                           )}
+
+                                           {/* Chuyển quyền Giáo viên */}
+                                           <button
+                                             onClick={() => {
+                                               setMemberToTransfer({
+                                                 userId: member.userId,
+                                                 displayName: member.displayName || "Thành viên",
+                                               });
+                                               setOpenMenuId(null);
+                                             }}
+                                             className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
+                                           >
+                                             <ShieldCheck className="w-3.5 h-3.5" />
+                                             {t("appoint_teacher", { defaultValue: "Bổ nhiệm Giáo viên" })}
+                                           </button>
+                                         </>
+                                       )}
+
+                                       {/* MEETING ROOM SPECIFIC OPTIONS */}
+                                       {room?.type !== "classroom" && (
+                                         <>
+                                           {/* Bổ nhiệm / Thu hồi Phó nhóm */}
+                                           {member.role === "member" && (
+                                             <button
+                                               onClick={async () => {
+                                                 setOpenMenuId(null);
+                                                 try {
+                                                   const res = await updateMemberRole({
+                                                     roomId,
+                                                     memberId: member.userId,
+                                                     role: "vice_leader",
+                                                   }).unwrap();
+                                                   toast.success(
+                                                     t("toast_appoint_vice_leader", {
+                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
+                                                       target: member.displayName || "",
+                                                       defaultValue: res.message,
+                                                     })
+                                                   );
+                                                 } catch (err: any) {
+                                                   toast.error(err?.data?.message || "Không thể thay đổi vai trò");
+                                                 }
+                                               }}
+                                               className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                             >
+                                               <UserCheck className="w-3.5 h-3.5" />
+                                               {t("appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
+                                             </button>
+                                           )}
+
+                                           {member.role === "vice_leader" && (
+                                             <button
+                                               onClick={async () => {
+                                                 setOpenMenuId(null);
+                                                 try {
+                                                   const res = await updateMemberRole({
+                                                     roomId,
+                                                     memberId: member.userId,
+                                                     role: "member",
+                                                   }).unwrap();
+                                                   toast.success(
+                                                     t("toast_revoke_vice_leader", {
+                                                       actor: members.find((m: any) => m.userId === userId)?.displayName || "",
+                                                       target: member.displayName || "",
+                                                       defaultValue: res.message,
+                                                     })
+                                                   );
+                                                 } catch (err: any) {
+                                                   toast.error(err?.data?.message || "Không thể thu hồi quyền");
+                                                 }
+                                               }}
+                                               className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                             >
+                                               <UserCheck className="w-3.5 h-3.5" />
+                                               {t("revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
+                                             </button>
+                                           )}
+
+                                           {/* Chuyển quyền Trưởng nhóm */}
+                                           <button
+                                             onClick={() => {
+                                               setMemberToTransfer({
+                                                 userId: member.userId,
+                                                 displayName: member.displayName || "Thành viên",
+                                               });
+                                               setOpenMenuId(null);
+                                             }}
+                                             className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
+                                           >
+                                             <ShieldCheck className="w-3.5 h-3.5" />
+                                             {t("appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
+                                           </button>
+                                         </>
+                                       )}
+                                     </>
+                                   )}
+
+                                   {/* Xóa khỏi phòng (Dành cho Giáo viên / Trưởng nhóm HOẶC Ban cán sự / Phó nhóm với Học viên / Thành viên) */}
+                                   {(isCurrentUserOwner ||
+                                     ((currentUserRole === "assistant" || currentUserRole === "vice_leader") &&
+                                       (member.role === "student" || member.role === "member"))) && (
+                                     <button
+                                       onClick={() => {
+                                         setMemberToRemove({
+                                           userId: member.userId,
+                                           displayName: member.displayName || "Người dùng",
+                                         });
+                                         setOpenMenuId(null);
+                                       }}
+                                       className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 border-t border-slate-100 flex items-center gap-2"
+                                     >
+                                       <UserX className="w-3.5 h-3.5" />
+                                       {t("remove_from_room")}
+                                     </button>
+                                   )}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* DẤU 3 CHẤM: Đặt NẰM NGOÀI div flex-col để không bị ảnh hưởng bởi overflow */}
-                    <div className="flex-shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(
-                            openMenuId === member.userId ? null : member.userId,
-                          );
-                        }}
-                        className="p-1 rounded hover:bg-slate-200 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-
-                      {/* DROPDOWN MENU */}
-                      {openMenuId === member.userId && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-40"
-                            onClick={() => setOpenMenuId(null)}
-                          />
-                          <div className="absolute right-4 z-50 w-40 bg-white border border-slate-200 rounded-lg shadow-xl py-1 mt-1">
-                            <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              {t("view_profile")}
-                            </button>
-                            {userId !== member.userId && (
-                              <button
-                                onClick={() => {
-                                  setMemberToReport({
-                                    userId: member.userId,
-                                    displayName:
-                                      member.displayName || "Người dùng",
-                                  });
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                              >
-                                {t("report_user")}
-                              </button>
-                            )}
-                            {userId !== member.userId &&
-                              members.find((m) => m.userId === userId)?.role ===
-                                "owner" && (
-                                <button
-                                  onClick={() => {
-                                    setMemberToRemove({
-                                      userId: member.userId,
-                                      displayName:
-                                        member.displayName || "Người dùng",
-                                    });
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-slate-100"
-                                >
-                                  {t("remove_from_room")}
-                                </button>
-                              )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -591,6 +788,17 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           roomId={room._id}
           roomName={room.name}
           roomCode={room.code}
+        />
+      )}
+      {/* Modal chuyển quyền chủ phòng / Giảng viên / Trưởng nhóm */}
+      {memberToTransfer && (
+        <TransferOwnershipModal
+          isOpen={!!memberToTransfer}
+          onClose={() => setMemberToTransfer(null)}
+          roomId={room._id}
+          targetUserId={memberToTransfer.userId}
+          targetUserName={memberToTransfer.displayName}
+          roomType={room.type}
         />
       )}
     </div>

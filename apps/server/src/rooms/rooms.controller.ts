@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Req,
@@ -79,11 +80,9 @@ export class RoomsController {
   }
 
   /**
-   * DELETE /api/rooms/:id/members/:userId — Xóa thành viên khỏi phòng (chỉ chủ phòng)
+   * DELETE /api/rooms/:id/members/:userId — Xóa thành viên khỏi phòng
    */
   @Delete(":id/members/:userId")
-  @Roles("owner")
-  @UseGuards(SupabaseGuard, RoomRoleGuard) // Chạy Guard check quyền trước
   async removeMember(
     @Param("id") roomId: string,
     @Param("userId") targetUserId: string,
@@ -91,6 +90,39 @@ export class RoomsController {
   ) {
     const ownerId = req.user.id;
     return this.roomsService.removeMember(roomId, targetUserId, ownerId);
+  }
+
+  /**
+   * PATCH /api/rooms/:id/members/:memberId/role — Cập nhật vai trò thành viên (Phân quyền: Bổ nhiệm / Thu hồi)
+   */
+  @Patch(":id/members/:memberId/role")
+  async updateMemberRole(
+    @Param("id") roomId: string,
+    @Param("memberId") targetUserId: string,
+    @Body("role") newRole: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!newRole) {
+      throw new BadRequestException("Vai trò mới là bắt buộc");
+    }
+    const operatorId = req.user.id;
+    return this.roomsService.updateMemberRole(roomId, targetUserId, newRole, operatorId);
+  }
+
+  /**
+   * POST /api/rooms/:id/transfer-owner — Chuyển quyền Chủ phòng / Giảng viên / Trưởng nhóm
+   */
+  @Post(":id/transfer-owner")
+  async transferOwner(
+    @Param("id") roomId: string,
+    @Body("newOwnerId") newOwnerId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!newOwnerId) {
+      throw new BadRequestException("ID người kế nhiệm là bắt buộc");
+    }
+    const operatorId = req.user.id;
+    return this.roomsService.transferOwner(roomId, newOwnerId, operatorId);
   }
 
   /**

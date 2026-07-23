@@ -163,7 +163,8 @@ export default function Sidebar({
   };
 
   const isMeeting = room.type === "meeting";
-  const isOwner = room.ownerId === userId;
+  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)?.role as string | undefined;
+  const isOwner = room.ownerId === userId || currentUserRole === "teacher" || currentUserRole === "leader" || currentUserRole === "owner";
 
   const handleCreateChannel = async () => {
     if (!newChannelName.trim()) return;

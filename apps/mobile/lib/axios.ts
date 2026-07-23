@@ -10,12 +10,61 @@ export const axiosInstance = axios.create({
   timeout: 10000,
 });
 
+// Single Refresh Lock & Cooldown 30s ngăn lặp log khi gia hạn thất bại
+let refreshPromise: Promise<string | null> | null = null;
+let lastFailedRefreshTime = 0;
+
+const getFreshAccessToken = async (): Promise<string | null> => {
+  const now = Date.now();
+  // Nếu vừa gia hạn thất bại trong vòng 30 giây -> Không thử lại liên tục để tránh lặp log
+  if (now - lastFailedRefreshTime < 30000) {
+    return null;
+  }
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+        if (!refreshErr && refreshData?.session?.access_token) {
+          console.log("[axios] Gia hạn Token thành công!");
+          lastFailedRefreshTime = 0;
+          return refreshData.session.access_token;
+        } else {
+          lastFailedRefreshTime = Date.now();
+        }
+      } catch (err) {
+        lastFailedRefreshTime = Date.now();
+        console.error("Lỗi khi gia hạn token:", err);
+      } finally {
+        refreshPromise = null;
+      }
+      return null;
+    })();
+  }
+  return refreshPromise;
+};
+
+// Interceptor Yêu cầu: Tự động đính kèm & Gia hạn Token trước khi hết hạn (Proactive Refresh)
 axiosInstance.interceptors.request.use(
   async (config) => {
     try {
-      const {
+      let {
         data: { session },
-      } = await supabase.auth.getSession(); // Tự động refresh nếu cần
+      } = await supabase.auth.getSession();
+
+      // Kiểm tra nếu token hết hạn hoặc sắp hết hạn trong vòng 60 giây -> Chủ động Refresh
+      if (session?.expires_at) {
+        const nowInSeconds = Math.floor(Date.now() / 1000);
+        if (session.expires_at - nowInSeconds < 60) {
+          const newToken = await getFreshAccessToken();
+          if (newToken) {
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${newToken}`;
+            return config;
+          }
+        }
+      }
+
       const token = session?.access_token;
 
       // Tự động đính kèm Token
@@ -23,7 +72,7 @@ axiosInstance.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error("Lỗi khi lấy token:", error);
+      console.error("Lỗi khi lấy/gia hạn token:", error);
     }
 
     return config;
@@ -33,7 +82,7 @@ axiosInstance.interceptors.request.use(
   },
 );
 
-// Lọc và bóc tách dữ liệu
+// Interceptor Phản hồi: Tự động xin Token mới & Gửi lại yêu cầu nếu gặp lỗi Token (Reactive Refresh & Retry)
 axiosInstance.interceptors.response.use(
   (response) => {
     const data = response.data as ApiResponse<unknown>;
@@ -47,7 +96,27 @@ axiosInstance.interceptors.response.use(
 
     return response.data;
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any;
+    const responseData = error.response?.data as any;
+
+    // Kiểm tra nếu lỗi do Token hết hạn/không hợp lệ (mã 1003 hoặc status 401)
+    const isTokenError =
+      error.response?.status === 401 ||
+      responseData?.code === 1003 ||
+      (typeof responseData?.message === "string" && responseData.message.includes("Token"));
+
+    if (isTokenError && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const newToken = await getFreshAccessToken();
+      if (newToken) {
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        console.log("[axios] Đã cập nhật Token mới! Gửi lại yêu cầu...");
+        return axiosInstance(originalRequest);
+      }
+    }
+
     if (error.response?.data) {
       return Promise.reject(error.response.data);
     }

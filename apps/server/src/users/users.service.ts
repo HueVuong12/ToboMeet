@@ -15,14 +15,6 @@ import { createClient } from "@supabase/supabase-js";
 import { AppGateway } from "../core/gateways/app.gateway";
 import { createHash } from "crypto";
 
-interface SupabaseSession {
-  id: string;
-  ip?: string;
-  user_agent?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 interface MappedSession {
   id: string;
   /** Địa chỉ IP của phiên đăng nhập */
@@ -124,7 +116,7 @@ export class UsersService {
       if (!payloadBase64) return "";
       const payload = JSON.parse(
         Buffer.from(payloadBase64, "base64").toString(),
-      ) as Record<string, any>;
+      ) as Record<string, unknown>;
 
       const sid =
         (payload.session_id as string) ||
@@ -302,20 +294,21 @@ export class UsersService {
       const cleanIp = this.getRealIpAddress(clientIp) || "127.0.0.1";
       const geo = await this.getGeolocation(cleanIp);
 
-      let payload: Record<string, any> = {};
+      let payload: Record<string, unknown> = {};
       try {
         const payloadBase64 = currentToken.split(".")[1];
         if (payloadBase64) {
           payload = JSON.parse(
             Buffer.from(payloadBase64, "base64").toString(),
-          ) as Record<string, any>;
+          ) as Record<string, unknown>;
         }
       } catch {
         // ignore payload parsing failure
       }
 
       const amr: Array<{ method: string }> = Array.isArray(payload.amr) ? payload.amr : [];
-      const provider: string = (payload.app_metadata?.provider || "").toLowerCase();
+      const appMetadata = payload.app_metadata as { provider?: string } | undefined;
+      const provider: string = (appMetadata?.provider || "").toLowerCase();
       let loginMethod = "password";
 
       if (provider === "google" || amr.some((a) => a.method === "oauth")) {
