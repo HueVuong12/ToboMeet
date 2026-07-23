@@ -49,6 +49,7 @@ import {
 import PostItem from "../../components/newsFeed/PostItem";
 import CreatePostModal from "../../components/newsFeed/CreatePostModal";
 import ReportUserModal from "../../components/room/ReportUserModal";
+import ReportRoomModal from "../../components/room/ReportRoomModal";
 import RoleBadge from "../../components/room/RoleBadge";
 
 export default function RoomDetailScreen() {
@@ -115,6 +116,7 @@ export default function RoomDetailScreen() {
   const [showLeftDrawer, setShowLeftDrawer] = useState(false);
   const [showRightDrawer, setShowRightDrawer] = useState(false);
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
+  const [showReportRoomModal, setShowReportRoomModal] = useState(false);
   const [messageText, setMessageText] = useState("");
 
   // News Feed state
@@ -950,6 +952,20 @@ export default function RoomDetailScreen() {
               </Text>
             </TouchableOpacity>
 
+            {/* Nút: Báo cáo phòng */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowGroupActionsModal(false);
+                setShowReportRoomModal(true);
+              }}
+              className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
+            >
+              <Feather name="flag" size={18} color="#D97706" />
+              <Text className="text-amber-600 text-base font-semibold">
+                {t("room.report_room", { defaultValue: "Báo cáo phòng" })}
+              </Text>
+            </TouchableOpacity>
+
             {/* Nút: Rời phòng */}
             <TouchableOpacity
               onPress={() => {
@@ -1633,6 +1649,16 @@ export default function RoomDetailScreen() {
           roomId={room?._id}
           roomName={room?.name}
           roomCode={room?.code}
+        />
+      )}
+
+      {/* Modal Báo cáo Phòng họp */}
+      {room && (
+        <ReportRoomModal
+          visible={showReportRoomModal}
+          onClose={() => setShowReportRoomModal(false)}
+          roomId={room._id}
+          roomName={room.name}
         />
       )}
 

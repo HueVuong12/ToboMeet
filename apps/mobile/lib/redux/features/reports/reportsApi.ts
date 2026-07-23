@@ -20,6 +20,21 @@ export const reportsApi = baseApi.injectEndpoints({
         body,
       }),
     }),
+    createRoomReport: builder.mutation<
+      any,
+      {
+        roomId: string;
+        reason: string;
+        description?: string;
+        attachments?: { url: string; fileName?: string; fileSize?: number }[];
+      }
+    >({
+      query: (body) => ({
+        url: "/reports/room",
+        method: "POST",
+        body,
+      }),
+    }),
     getReportSignedUrl: builder.mutation<
       { signedUrl: string; url: string; fileName: string },
       { fileName: string; mimeType: string }
@@ -33,4 +48,8 @@ export const reportsApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useCreateReportMutation, useGetReportSignedUrlMutation } = reportsApi;
+export const {
+  useCreateReportMutation,
+  useCreateRoomReportMutation,
+  useGetReportSignedUrlMutation,
+} = reportsApi;
