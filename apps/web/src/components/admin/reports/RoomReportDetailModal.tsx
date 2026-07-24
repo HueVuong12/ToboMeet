@@ -23,6 +23,7 @@ import {
 import ReportStatusBadge from "./ReportStatusBadge";
 import ReportTypeBadge from "./ReportTypeBadge";
 import ReportConfirmModal from "./ReportConfirmModal";
+import ReportImageLightbox from "./ReportImageLightbox";
 import ReportTimeline from "./ReportTimeline";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -59,6 +60,8 @@ export default function RoomReportDetailModal({
 
   const [adminNote, setAdminNote] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [pendingAction, setPendingAction] = useState<{
     status: string;
     actionResult?: "none" | "blocked" | "disbanded" | "warning";
@@ -322,12 +325,14 @@ export default function RoomReportDetailModal({
                   <h3 className="text-sm font-bold text-slate-800">{t("detail_evidence", { fallback: "Minh chứng đính kèm" })}</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {report.attachments.map((file: any, i: number) => (
-                      <a
+                      <div
                         key={i}
-                        href={file.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="relative block rounded-2xl overflow-hidden border border-slate-200 aspect-square group bg-slate-50 shadow-sm"
+                        onClick={() => {
+                          const allUrls = report.attachments.map((a: any) => a.url);
+                          setLightboxImages(allUrls);
+                          setLightboxIndex(i);
+                        }}
+                        className="relative block rounded-2xl overflow-hidden border border-slate-200 aspect-square group bg-slate-50 shadow-sm cursor-pointer"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -338,7 +343,7 @@ export default function RoomReportDetailModal({
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold text-center p-2">
                           {t("btn_view", { fallback: "Xem ảnh gốc" })}
                         </div>
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -443,6 +448,15 @@ export default function RoomReportDetailModal({
         onConfirm={handleConfirmAction}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* Image Lightbox */}
+      {lightboxImages.length > 0 && (
+        <ReportImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+        />
+      )}
     </div>
   );
 

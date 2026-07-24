@@ -212,6 +212,74 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
+    addChannel: builder.mutation<
+      RoomResponse,
+      {
+        roomId: string;
+        name: string;
+        isPrivate?: boolean;
+        initialMemberIds?: string[];
+      }
+    >({
+      query: ({ roomId, name, isPrivate, initialMemberIds }) => ({
+        url: `/rooms/${roomId}/channels`,
+        method: "POST",
+        data: { name, isPrivate, initialMemberIds },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    updateChannelMemberRole: builder.mutation<
+      RoomResponse,
+      {
+        roomId: string;
+        channelId: string;
+        targetUserId: string;
+        role: string;
+      }
+    >({
+      query: ({ roomId, channelId, targetUserId, role }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/members/${targetUserId}/role`,
+        method: "PUT",
+        data: { role },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    addChannelMember: builder.mutation<
+      RoomResponse,
+      { roomId: string; channelId: string; targetUserId?: string; emailOrUsername?: string }
+    >({
+      query: ({ roomId, channelId, targetUserId, emailOrUsername }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/members`,
+        method: "POST",
+        data: { targetUserId, emailOrUsername },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    removeChannelMember: builder.mutation<
+      RoomResponse,
+      { roomId: string; channelId: string; targetUserId: string }
+    >({
+      query: ({ roomId, channelId, targetUserId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/members/${targetUserId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
   }),
   overrideExisting: true,
 });
@@ -235,4 +303,7 @@ export const {
   useCheckMemberByCodeQuery,
   useUpdateMemberRoleMutation,
   useTransferRoomOwnershipMutation,
+  useUpdateChannelMemberRoleMutation,
+  useAddChannelMemberMutation,
+  useRemoveChannelMemberMutation,
 } = roomsApi;

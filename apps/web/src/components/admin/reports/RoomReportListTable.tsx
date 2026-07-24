@@ -153,7 +153,7 @@ export default function RoomReportListTable({
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {(r.attachments?.length || 0) > 0 ? (
                       <span className="text-brand-600 font-bold">
-                        {r.attachments.length} {t("detail_evidence_count", { count: r.attachments.length, fallback: "files đính kèm" })}
+                        {t("detail_evidence_count", { count: r.attachments.length, fallback: `${r.attachments.length} file(s)` })}
                       </span>
                     ) : (
                       <span className="text-slate-300">{t("detail_evidence_empty", { fallback: "Không có" })}</span>

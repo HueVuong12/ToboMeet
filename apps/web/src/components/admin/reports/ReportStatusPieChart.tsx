@@ -178,8 +178,14 @@ export default function ReportStatusPieChart({ byStatus, byType }: Props) {
   const reasonKeys: Record<string, string> = {
     "Spam": "reason_spam",
     "Quấy rối": "reason_harassment",
+    "Lừa đảo": "reason_scam",
     "Ngôn từ xúc phạm": "reason_offensive_speech",
     "Chia sẻ nội dung không phù hợp": "reason_inappropriate_content",
+    "Nội dung không phù hợp": "reason_inappropriate_content",
+    "Nội dung phản cảm": "reason_inappropriate_content_room",
+    "Chia sẻ thông tin sai sự thật": "reason_fake_info",
+    "Thông tin sai sự thật": "reason_fake_info",
+    "Vi phạm bản quyền": "reason_copyright",
     "Mạo danh": "reason_impersonation",
     "Khác": "reason_other",
   };

@@ -72,70 +72,91 @@ export default function ReportDetailEvidence({ report }: Props) {
           <p className="text-xs text-slate-400">{t("detail_evidence_empty", { fallback: "Không có bằng chứng đính kèm" })}</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {evidences.map((ev, i) => {
-            const type = getFileType(ev);
-            const Icon = FILE_ICONS[type];
-            const colorClass = FILE_COLORS[type];
-
-            const typeLabel =
-              type === "image"
-                ? t("evidence_type_image", { fallback: "Hình ảnh" })
-                : type === "video"
-                ? t("evidence_type_video", { fallback: "Video" })
-                : t("evidence_type_file", { fallback: "Tệp" });
-
-            return (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-brand-200 transition-colors"
-              >
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
-                  <Icon className="w-4.5 h-4.5" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700 truncate">
-                    {ev.fileName}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {formatFileSize(ev.fileSize)} · {typeLabel}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {type === "image" && (
-                    <button
-                      onClick={() => openImage(ev.url)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-brand-50 transition-colors"
-                      title="Xem ảnh lớn"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  )}
-                  {type === "video" && (
-                    <button
-                      onClick={() => setVideoSrc(ev.url)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-purple-500 hover:bg-purple-50 transition-colors"
-                      title="Xem video"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  )}
-                  <a
-                    href={ev.url}
-                    download={ev.fileName}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-                    title="Tải xuống"
+        <div className="space-y-3">
+          {/* Image attachments - Grid Layout */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {evidences
+                .filter((e) => getFileType(e) === "image")
+                .map((ev, i) => (
+                  <div
+                    key={i}
+                    onClick={() => openImage(ev.url)}
+                    className="relative block rounded-2xl overflow-hidden border border-slate-200 aspect-square group bg-slate-50 shadow-sm cursor-pointer"
                   >
-                    <Download className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            );
-          })}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={ev.url}
+                      alt={ev.fileName}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold text-center p-2">
+                      {t("btn_view", { fallback: "Xem ảnh" })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* Non-image attachments (Videos / Files) - Row Layout */}
+          {evidences.filter((e) => getFileType(e) !== "image").length > 0 && (
+            <div className="space-y-2">
+              {evidences
+                .filter((e) => getFileType(e) !== "image")
+                .map((ev, i) => {
+                  const type = getFileType(ev);
+                  const Icon = FILE_ICONS[type];
+                  const colorClass = FILE_COLORS[type];
+
+                  const typeLabel =
+                    type === "video"
+                      ? t("evidence_type_video", { fallback: "Video" })
+                      : t("evidence_type_file", { fallback: "Tệp" });
+
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-brand-200 transition-colors"
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
+                        <Icon className="w-4.5 h-4.5" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-700 truncate">
+                          {ev.fileName}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {formatFileSize(ev.fileSize)} · {typeLabel}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {type === "video" && (
+                          <button
+                            onClick={() => setVideoSrc(ev.url)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-purple-500 hover:bg-purple-50 transition-colors"
+                            title="Xem video"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                        <a
+                          href={ev.url}
+                          download={ev.fileName}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                          title="Tải xuống"
+                        >
+                          <Download className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </div>
       )}
 
@@ -151,7 +172,7 @@ export default function ReportDetailEvidence({ report }: Props) {
       {/* Video Player */}
       {videoSrc && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-md animate-fade-in p-4"
           onClick={() => setVideoSrc(null)}
         >
           <video

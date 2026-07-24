@@ -74,22 +74,26 @@ export default function ReportRecentActivities({ activities, isLoading = false }
   const reasonKeys: Record<string, string> = {
     "Spam": "reason_spam",
     "Quấy rối": "reason_harassment",
-    "Lừa đảo": "reason_fraud",
+    "Lừa đảo": "reason_scam",
     "Ngôn từ xúc phạm": "reason_offensive_speech",
     "Chia sẻ nội dung không phù hợp": "reason_inappropriate_content",
     "Nội dung không phù hợp": "reason_inappropriate_content",
+    "Nội dung phản cảm": "reason_inappropriate_content_room",
+    "Chia sẻ thông tin sai sự thật": "reason_fake_info",
+    "Thông tin sai sự thật": "reason_fake_info",
+    "Vi phạm bản quyền": "reason_copyright",
     "Mạo danh": "reason_impersonation",
     "Khác": "reason_other",
   };
 
   const getTranslatedReason = (reason: string) => {
-    const isRoom = reason.startsWith("[Phòng]") || reason.startsWith("[Room]");
-    const cleanReason = reason.replace(/^\[(Phòng|Room)\]\s*/, "").trim();
+    const isRoom = reason.startsWith("[Phòng]") || reason.startsWith("[Room]") || reason.includes("Room Reports");
+    const cleanReason = reason.replace(/^\[(Phòng|Room|Room Reports)\]\s*/, "").trim();
     const key = reasonKeys[cleanReason];
     const translatedReason = key ? t(key, { fallback: cleanReason }) : cleanReason;
     
     if (isRoom) {
-      const roomTag = t("tab_room_reports", { fallback: "Báo cáo phòng" });
+      const roomTag = t("tab_room_reports", { fallback: "Room Reports" });
       return `[${roomTag}] ${translatedReason}`;
     }
     return translatedReason;

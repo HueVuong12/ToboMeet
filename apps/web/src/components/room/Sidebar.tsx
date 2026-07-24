@@ -31,9 +31,13 @@ import {
   LogOut,
   Trash2,
   Flag,
+  Lock,
+  MoreVertical,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import ReportRoomModal from "./ReportRoomModal";
+import CreateChannelModal from "./CreateChannelModal";
+import AddPrivateChannelMemberModal from "./AddPrivateChannelMemberModal";
 import { axiosInstance as axios } from "@/lib/axios";
 
 interface SidebarProps {
@@ -62,6 +66,8 @@ export default function Sidebar({
   }, []);
 
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
+  const [channelToManage, setChannelToManage] = useState<any | null>(null);
+  const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(null);
   const [newChannelName, setNewChannelName] = useState("");
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
@@ -125,9 +131,13 @@ export default function Sidebar({
       setSearchQuery("");
       setSelectedUser(null);
     } catch (err: any) {
-      setInviteError(
-        err?.data?.message || err?.message || t("invite_error_fallback"),
-      );
+      const rawMsg = err?.data?.message || err?.message;
+      const parsedMsg = Array.isArray(rawMsg)
+        ? rawMsg[0]
+        : typeof rawMsg === "string"
+        ? rawMsg
+        : null;
+      setInviteError(parsedMsg || t("invite_error_fallback"));
     }
   };
 
@@ -218,7 +228,9 @@ export default function Sidebar({
               ) : (
                 <GraduationCap className="w-3 h-3" />
               )}
-              {isMeeting ? "Meeting" : "Classroom"}
+              {isMeeting
+                ? t("type_meeting", { defaultValue: "Phòng họp" })
+                : t("type_classroom", { defaultValue: "Phòng học" })}
             </span>
           </div>
         </div>
@@ -341,24 +353,82 @@ export default function Sidebar({
           <div className="mt-1 px-2 space-y-0.5">
             {room.channels.map((channel) => {
               const isActive = channel.name === activeChannel;
+              const canManageThisChannel =
+                isOwner ||
+                channel.members?.some(
+                  (m: any) =>
+                    m.userId === userId &&
+                    (m.role === "vice" || m.role === "assistant"),
+                );
+
               return (
-                <button
+                <div
                   key={channel._id || channel.name}
-                  // Cập nhật State lên cha khi click
-                  onClick={() => {
-                    setActiveChannel(channel.name);
-                    if (onClose) onClose(); // Đóng sidebar trên Mobile khi chọn kênh
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative
-                    ${
-                      isActive
-                        ? "bg-white text-slate-900 font-semibold shadow-sm border border-slate-200/60"
-                        : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900"
-                    }`}
+                  className={`group relative flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                    isActive
+                      ? "bg-white text-slate-900 font-semibold shadow-sm border border-slate-200/60"
+                      : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900"
+                  }`}
                 >
-                  <Hash className="w-4 h-4 flex-shrink-0 opacity-50" />
-                  <span className="truncate">{channel.name}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveChannel(channel.name);
+                      if (onClose) onClose();
+                    }}
+                    className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                  >
+                    {channel.isPrivate ? (
+                      <Lock className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
+                    ) : (
+                      <Hash className="w-4 h-4 flex-shrink-0 opacity-50" />
+                    )}
+                    <span className="truncate">{channel.name}</span>
+                  </button>
+
+                  {channel.isPrivate && canManageThisChannel && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const chId = channel._id || channel.name;
+                          setOpenChannelMenuId(openChannelMenuId === chId ? null : chId);
+                        }}
+                        title="Tùy chọn kênh"
+                        className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 opacity-70 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {openChannelMenuId === (channel._id || channel.name) && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenChannelMenuId(null);
+                            }}
+                          />
+                          <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenChannelMenuId(null);
+                                setChannelToManage(channel);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                            >
+                              <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Thêm thành viên</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -399,87 +469,27 @@ export default function Sidebar({
       </div>
 
       {/* Add Channel Modal */}
-      {showAddChannelModal &&
-        isMounted &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={() => setShowAddChannelModal(false)}
-            />
+      {showAddChannelModal && (
+        <CreateChannelModal
+          isOpen={showAddChannelModal}
+          onClose={() => setShowAddChannelModal(false)}
+          roomId={room._id}
+          roomMembers={roomMembers || []}
+          currentUserId={userId}
+        />
+      )}
 
-            {/* Dialog */}
-            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 pt-6 pb-2">
-                <h2 className="text-lg font-bold text-slate-900">
-                  {t("create_channel")}
-                </h2>
-                <button
-                  onClick={() => setShowAddChannelModal(false)}
-                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="px-6 py-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-bold text-slate-700">
-                    {t("channel_name")}
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-slate-400 text-base">
-                      #
-                    </span>
-                    <input
-                      type="text"
-                      value={newChannelName}
-                      onChange={(e) => setNewChannelName(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={t("channel_name_placeholder")}
-                      autoFocus
-                      className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 bg-slate-50
-                               text-sm text-slate-900 placeholder:text-slate-400
-                               focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
-                               transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div className="flex items-center gap-2 mt-3 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end gap-3 px-6 pb-6 pt-2">
-                <button
-                  onClick={() => setShowAddChannelModal(false)}
-                  className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-                >
-                  {t("cancel")}
-                </button>
-                <button
-                  onClick={handleCreateChannel}
-                  disabled={!newChannelName.trim() || isLoading}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 text-white text-sm font-semibold
-                           hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {t("create_channel")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* Manage Private Channel Members Modal */}
+      {channelToManage && (
+        <AddPrivateChannelMemberModal
+          isOpen={!!channelToManage}
+          onClose={() => setChannelToManage(null)}
+          roomId={room._id}
+          channel={channelToManage}
+          roomMembers={roomMembers || []}
+          roomOwnerId={room.ownerId}
+        />
+      )}
 
       {/* Modal Thêm thành viên */}
       {showInviteModal &&
@@ -868,6 +878,18 @@ export default function Sidebar({
               setIsReporting(false);
             }
           }}
+        />
+      )}
+
+      {/* Modal Quản lý / Thêm thành viên Kênh riêng tư */}
+      {channelToManage && isMounted && (
+        <AddPrivateChannelMemberModal
+          isOpen={!!channelToManage}
+          onClose={() => setChannelToManage(null)}
+          roomId={room._id}
+          channel={channelToManage}
+          roomMembers={roomMembers}
+          roomOwnerId={room.ownerId}
         />
       )}
     </aside>

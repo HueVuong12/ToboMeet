@@ -54,6 +54,17 @@ export function useRoomUpdateListener(roomId: string, userId: string) {
           }
           break;
 
+        case "channel_member_removed":
+          invalidateRoomList();
+          if (data.targetUserId === userId) {
+            toast.warning(
+              t("toast_remove_from_private_channel_warning", {
+                defaultValue: "Bạn không còn quyền truy cập kênh riêng tư này.",
+              }),
+            );
+          }
+          break;
+
         case "member_role_updated":
           invalidateRoomList();
           break;

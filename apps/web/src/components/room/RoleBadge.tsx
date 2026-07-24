@@ -18,32 +18,31 @@ export default function RoleBadge({ role, displayRole, roomType }: RoleBadgeProp
     return "member";
   }, [role]);
 
-  const defaultText = React.useMemo(() => {
-    if (displayRole) return displayRole;
+  const badgeText = React.useMemo(() => {
     if (roomType === "classroom") {
-      if (normalizedRole === "owner") return "Giảng viên";
-      if (normalizedRole === "vice") return "Ban cán sự";
-      return "Học viên";
+      if (normalizedRole === "owner") return t("role_teacher", { defaultValue: displayRole || "Giảng viên" });
+      if (normalizedRole === "vice") return t("role_assistant", { defaultValue: displayRole || "Ban cán sự" });
+      return t("role_student", { defaultValue: displayRole || "Học viên" });
     } else {
-      if (normalizedRole === "owner") return "Trưởng nhóm";
-      if (normalizedRole === "vice") return "Phó nhóm";
-      return "Thành viên";
+      if (normalizedRole === "owner") return t("role_leader", { defaultValue: displayRole || "Trưởng nhóm" });
+      if (normalizedRole === "vice") return t("role_vice_leader", { defaultValue: displayRole || "Phó nhóm" });
+      return t("role_member", { defaultValue: displayRole || "Thành viên" });
     }
-  }, [displayRole, normalizedRole, roomType]);
+  }, [displayRole, normalizedRole, roomType, t]);
 
   switch (normalizedRole) {
     case "owner":
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-          {defaultText}
+          {badgeText}
         </span>
       );
     case "vice":
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm">
           <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-          {defaultText}
+          {badgeText}
         </span>
       );
     case "member":
@@ -51,7 +50,7 @@ export default function RoleBadge({ role, displayRole, roomType }: RoleBadgeProp
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
           <User className="w-3 h-3 text-slate-400" />
-          {defaultText}
+          {badgeText}
         </span>
       );
   }

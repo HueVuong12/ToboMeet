@@ -7,7 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Room, RoomDocument } from "./schemas/room.schema";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { User, UserDocument } from "../users/schemas/user.schema";
@@ -134,8 +134,14 @@ export class RoomsService implements OnModuleInit {
 
     const activeMembers = room.members.filter((member) => member.isLeft !== true && member.status !== "REMOVED" && member.status !== "LEFT");
     const memberUserIds = activeMembers.map((member) => member.userId);
+    const validObjectIds = memberUserIds.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
     const users = await this.userModel
-      .find({ supabaseId: { $in: memberUserIds } })
+      .find({
+        $or: [
+          { supabaseId: { $in: memberUserIds } },
+          { _id: { $in: validObjectIds } },
+        ],
+      })
       .exec();
 
     // Định nghĩa thứ tự ưu tiên vai trò: owner (1) -> vice (2) -> member (3)
@@ -159,7 +165,9 @@ export class RoomsService implements OnModuleInit {
     });
 
     const data: RoomMemberResponse[] = activeMembers.map((member) => {
-      const userInfo = users.find((u) => u.supabaseId === member.userId);
+      const userInfo = users.find(
+        (u) => u.supabaseId === member.userId || u._id.toString() === member.userId,
+      );
       const normalized = normalizeRole(member.role);
 
       return {
@@ -433,6 +441,20 @@ export class RoomsService implements OnModuleInit {
       room.members[operatorIdx].role = "member";
     }
 
+    // Reset vai trò của Owner mới trong tất cả các kênh thành member (không chiếm suất vice)
+    if (room.channels && Array.isArray(room.channels)) {
+      room.channels.forEach((c) => {
+        if (c.members && Array.isArray(c.members)) {
+          c.members.forEach((cm) => {
+            if (cm.userId === newOwnerId) {
+              cm.role = "member";
+            }
+          });
+        }
+      });
+      room.markModified("channels");
+    }
+
     room.markModified("members");
     await room.save();
 
@@ -520,17 +542,17 @@ export class RoomsService implements OnModuleInit {
       
       room.markModified("members");
     } else {
-      // Thêm member mới
-      const defaultRole = room.type === "classroom" ? "student" : "member";
-      room.members.push({ userId, role: defaultRole, joinedAt: new Date(), status: "ACTIVE", isLeft: false });
+      // Thêm member mới với vai trò chuẩn 'member' dưới DB
+      room.members.push({ userId, role: "member", joinedAt: new Date(), status: "ACTIVE", isLeft: false });
     }
+    this.sanitizeMemberRoles(room);
     await room.save();
 
     // Lấy thông tin user từ Database
     const userInfo = await this.userModel.findOne({ supabaseId: userId });
 
     const existingMember = room.members.find((m) => m.userId === userId);
-    const memberRole = existingMember?.role || (room.type === "classroom" ? "student" : "member");
+    const memberRole = existingMember?.role || "member";
 
     // Format dữ liệu chuẩn theo interface RoomMemberResponse
     const newMemberPayload: RoomMemberResponse = {
@@ -577,12 +599,99 @@ export class RoomsService implements OnModuleInit {
       throw new ForbiddenException("Phòng họp này đang bị tạm khóa do vi phạm quy định cộng đồng.");
     }
 
-    const member = room.members.find((m) => m.userId === userId);
-    if (!member || member.isLeft === true || member.status === "REMOVED" || member.status === "LEFT") {
+    let isObjectId = false;
+    try {
+      isObjectId = Types.ObjectId.isValid(userId);
+    } catch (e) {}
+
+    const userDoc = await this.userModel
+      .findOne({
+        $or: [
+          { supabaseId: userId },
+          ...(isObjectId ? [{ _id: new Types.ObjectId(userId) }] : []),
+        ],
+      })
+      .exec();
+
+    const allowedUserIds = new Set<string>([userId]);
+    if (userDoc) {
+      if (userDoc.supabaseId) allowedUserIds.add(userDoc.supabaseId);
+      if (userDoc._id) allowedUserIds.add(userDoc._id.toString());
+    }
+
+    const member = room.members.find(
+      (m) =>
+        allowedUserIds.has(m.userId) &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
+    );
+    if (!member) {
       throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
     }
 
+    // Nếu không phải là Chủ phòng (Owner), chỉ trả về các Kênh Công khai (isPrivate !== true)
+    // hoặc Kênh Riêng tư mà người dùng được cấp quyền tham gia trong channel.members (và chưa bị xóa/rời đi)
+    if (!allowedUserIds.has(room.ownerId) && room.channels) {
+      room.channels = room.channels.filter(
+        (c) =>
+          !c.isPrivate ||
+          c.members?.some(
+            (m) =>
+              allowedUserIds.has(m.userId) &&
+              m.isLeft !== true &&
+              m.status !== "REMOVED" &&
+              m.status !== "LEFT",
+          ),
+      );
+    }
+
     return room;
+  }
+
+  /**
+   * Kiểm tra người dùng có quyền truy cập kênh chỉ định hay không (Public hoac Private va chua bi xoa)
+   */
+  async checkChannelAccess(roomId: string, channelId: string, userId: string): Promise<boolean> {
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+    if (!room) return false;
+
+    let isObjectId = false;
+    try {
+      isObjectId = Types.ObjectId.isValid(userId);
+    } catch (e) {}
+
+    const userDoc = await this.userModel
+      .findOne({
+        $or: [
+          { supabaseId: userId },
+          ...(isObjectId ? [{ _id: new Types.ObjectId(userId) }] : []),
+        ],
+      })
+      .exec();
+
+    const allowedUserIds = new Set<string>([userId]);
+    if (userDoc) {
+      if (userDoc.supabaseId) allowedUserIds.add(userDoc.supabaseId);
+      if (userDoc._id) allowedUserIds.add(userDoc._id.toString());
+    }
+
+    if (allowedUserIds.has(room.ownerId)) return true;
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) return false;
+
+    if (!channel.isPrivate) return true;
+
+    const member = channel.members?.find(
+      (m) =>
+        allowedUserIds.has(m.userId) &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
+    );
+
+    return !!member;
   }
 
   /**
@@ -592,11 +701,17 @@ export class RoomsService implements OnModuleInit {
     userId: string,
     roomId: string,
     channelName: string,
+    isPrivate: boolean = false,
+    initialMemberIds: string[] = [],
   ): Promise<Room> {
     const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
 
     if (!room) {
       throw new NotFoundException("Phòng không tồn tại");
+    }
+
+    if (room.ownerId !== userId) {
+      throw new ForbiddenException("Chỉ chủ phòng mới có quyền tạo kênh mới");
     }
 
     // Kiểm tra tên kênh đã trùng chưa (không phân biệt hoa thường)
@@ -607,8 +722,17 @@ export class RoomsService implements OnModuleInit {
       throw new BadRequestException("Tên kênh đã tồn tại");
     }
 
+    const initialMembers = isPrivate
+      ? Array.from(new Set(initialMemberIds)).map((id) => ({
+          userId: id,
+          role: "member",
+        }))
+      : [];
+
     room.channels.push({
       name: channelName.trim(),
+      isPrivate: !!isPrivate,
+      members: initialMembers,
       createdAt: new Date(),
     });
     await room.save();
@@ -624,11 +748,19 @@ export class RoomsService implements OnModuleInit {
     roomId: string,
     payload: { email?: string; targetUserId?: string },
   ): Promise<RoomResponse> {
-    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+    const isObjectId = Types.ObjectId.isValid(roomId);
+    const room = await this.roomModel.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: roomId }] : []),
+        { code: roomId },
+      ],
+      isDeleted: { $ne: true },
+    });
     if (!room) throw new NotFoundException("Phòng không tồn tại");
 
-    // Kiểm tra xem người thực hiện có quyền hay không (phải là thành viên trong phòng)
-    const isRequesterMember = room.members.some((m) => m.userId === userId);
+    // Kiểm tra xem người thực hiện có quyền hay không (phải là thành viên hoặc chủ phòng)
+    const isRequesterMember =
+      room.ownerId === userId || room.members.some((m) => m.userId === userId);
     if (!isRequesterMember) {
       throw new ForbiddenException(
         "Bạn không có quyền thêm thành viên vào phòng này",
@@ -637,8 +769,12 @@ export class RoomsService implements OnModuleInit {
 
     let targetUser: UserDocument | null = null;
     if (payload.targetUserId) {
+      const isObjectId = Types.ObjectId.isValid(payload.targetUserId);
       targetUser = await this.userModel.findOne({
-        supabaseId: payload.targetUserId,
+        $or: [
+          { supabaseId: payload.targetUserId },
+          ...(isObjectId ? [{ _id: payload.targetUserId }] : []),
+        ],
       });
     } else if (payload.email) {
       targetUser = await this.userModel.findOne({
@@ -650,17 +786,30 @@ export class RoomsService implements OnModuleInit {
       throw new NotFoundException("Không tìm thấy người dùng");
     }
 
-    // Kiểm tra xem đã là thành viên chưa
-    const isAlreadyMember = room.members.some(
-      (m) => m.userId === targetUser!.supabaseId && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
-    );
+    const targetId = targetUser.supabaseId || targetUser._id?.toString();
+    if (!targetId) {
+      throw new BadRequestException("Không thể xác định ID của người dùng");
+    }
+
+    // Kiểm tra xem đã là thành viên (hoặc Chủ phòng) hay chưa
+    const isAlreadyMember =
+      room.ownerId === targetId ||
+      room.members.some(
+        (m) =>
+          m.userId === targetId &&
+          m.isLeft !== true &&
+          m.status !== "REMOVED" &&
+          m.status !== "LEFT",
+      );
     if (isAlreadyMember) {
-      throw new BadRequestException("Thành viên đã tham gia nhóm");
+      throw new BadRequestException("Thành viên này đã ở trong phòng họp");
     }
 
     // Nếu trước đó đã rời phòng hoặc bị xóa, reset isLeft và update rejoinedAt
     const previousMemberIdx = room.members.findIndex(
-      (m) => m.userId === targetUser!.supabaseId && (m.isLeft === true || m.status === "REMOVED" || m.status === "LEFT"),
+      (m) =>
+        m.userId === targetId &&
+        (m.isLeft === true || m.status === "REMOVED" || m.status === "LEFT"),
     );
 
     if (previousMemberIdx !== -1) {
@@ -673,24 +822,35 @@ export class RoomsService implements OnModuleInit {
       if (room.members.length >= 100) {
         throw new BadRequestException("Phòng đã đạt số lượng tối đa (100 người)");
       }
-      // Thêm thành viên
-      const defaultRole = room.type === "classroom" ? "student" : "member";
+      // Thêm thành viên với vai trò chuẩn 'member' dưới DB
       room.members.push({
-        userId: targetUser.supabaseId,
-        role: defaultRole,
+        userId: targetId,
+        role: "member",
         joinedAt: new Date(),
         status: "ACTIVE",
         isLeft: false,
       });
     }
-    await room.save();
 
-    // Phát tín hiệu realtime
-    this.roomsGateway.notifyRoomUpdated(room._id.toString(), {
-      type: "member_added",
-      addedUserId: targetUser.supabaseId,
-      roomId: room._id.toString(),
-    });
+    this.sanitizeMemberRoles(room);
+
+    try {
+      await room.save();
+    } catch (err: any) {
+      this.logger.error("Lỗi khi lưu thông tin thành viên vào phòng:", err);
+      throw new BadRequestException(err?.message || "Không thể thêm thành viên vào phòng");
+    }
+
+    // Phát tín hiệu realtime an toàn
+    try {
+      this.roomsGateway?.notifyRoomUpdated(room._id.toString(), {
+        type: "member_added",
+        addedUserId: targetId,
+        roomId: room._id.toString(),
+      });
+    } catch (e) {
+      this.logger.warn("Không thể phát tín hiệu socket notifyRoomUpdated:", e);
+    }
 
     return this.mapToRoomResponse(room);
   }
@@ -853,35 +1013,372 @@ export class RoomsService implements OnModuleInit {
   }
 
   /**
+   * Kiểm tra xem người dùng có quyền quản lý thành viên / phân quyền trong Kênh hay không
+   */
+  /**
+   * Kiểm tra xem người dùng có quyền quản lý thành viên / phân quyền trong Kênh hay không
+   */
+  async canManageChannelMembers(room: RoomDocument, channelId: string, userId: string): Promise<boolean> {
+    let isObjectId = false;
+    try {
+      isObjectId = Types.ObjectId.isValid(userId);
+    } catch (e) {}
+
+    const userDoc = await this.userModel
+      .findOne({
+        $or: [
+          { supabaseId: userId },
+          ...(isObjectId ? [{ _id: new Types.ObjectId(userId) }] : []),
+        ],
+      })
+      .exec();
+
+    const allowedUserIds = new Set<string>([userId]);
+    if (userDoc) {
+      if (userDoc.supabaseId) allowedUserIds.add(userDoc.supabaseId);
+      if (userDoc._id) allowedUserIds.add(userDoc._id.toString());
+    }
+
+    if (allowedUserIds.has(room.ownerId)) return true;
+
+    const roomMember = room.members?.find(
+      (m) =>
+        allowedUserIds.has(m.userId) &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
+    );
+    if (
+      roomMember &&
+      (roomMember.role === "owner" ||
+        roomMember.role === "teacher" ||
+        roomMember.role === "leader")
+    ) {
+      return true;
+    }
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) return false;
+
+    const channelMember = channel.members?.find(
+      (m) =>
+        allowedUserIds.has(m.userId) &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
+    );
+
+    return (
+      !!channelMember &&
+      (channelMember.role === "vice" || channelMember.role === "assistant")
+    );
+  }
+
+  /**
+   * Cập nhật vai trò thành viên trong Kênh (Phó nhóm / Ban cán sự / Thành viên)
+   */
+  async updateChannelMemberRole(
+    userId: string,
+    roomId: string,
+    channelId: string,
+    targetUserId: string,
+    newRole: string,
+  ): Promise<RoomResponse> {
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    const canManage = await this.canManageChannelMembers(room, channelId, userId);
+    if (!canManage) {
+      throw new ForbiddenException("Bạn không có quyền quản lý vai trò trong kênh này");
+    }
+
+    if (targetUserId === room.ownerId) {
+      throw new BadRequestException("Không thể thay đổi vai trò của Chủ phòng / Giảng viên trong kênh");
+    }
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) throw new NotFoundException("Kênh không tồn tại");
+
+    if (!channel.members) channel.members = [];
+
+    // Kiểm tra giới hạn tối đa 3 Phó nhóm / Ban cán sự cho từng Kênh (không đếm Giảng viên / Trưởng nhóm)
+    if (newRole === "vice" || newRole === "assistant") {
+      const currentViceCount = channel.members.filter(
+        (m) =>
+          (m.role === "vice" || m.role === "assistant") &&
+          m.userId !== targetUserId &&
+          m.userId !== room.ownerId,
+      ).length;
+      if (currentViceCount >= 3) {
+        const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+        throw new BadRequestException(`Đã đạt số lượng tối đa 3 ${subTitle}`);
+      }
+    }
+
+    const existing = channel.members.find((m) => m.userId === targetUserId);
+    if (existing) {
+      existing.role = newRole;
+    } else {
+      channel.members.push({ userId: targetUserId, role: newRole });
+    }
+
+    room.markModified("channels");
+    await room.save();
+
+    try {
+      this.roomsGateway?.notifyRoomUpdated(roomId, {
+        type: "member_role_updated",
+        roomId,
+        channelId,
+        targetUserId,
+      });
+    } catch (e) {
+      this.logger.warn("Không thể phát tín hiệu socket notifyRoomUpdated:", e);
+    }
+
+    return this.mapToRoomResponse(room);
+  }
+
+  /**
+   * Thêm thành viên vào Kênh riêng tư (bằng targetUserId hoặc emailOrUsername)
+   */
+  async addChannelMember(
+    userId: string,
+    roomId: string,
+    channelId: string,
+    targetUserId?: string,
+    emailOrUsername?: string,
+  ): Promise<RoomResponse> {
+    const queries = [targetUserId?.trim(), emailOrUsername?.trim()].filter(
+      Boolean,
+    ) as string[];
+    if (queries.length === 0) {
+      throw new BadRequestException("Vui lòng nhập email hoặc tên tài khoản");
+    }
+
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    const canManage = await this.canManageChannelMembers(room, channelId, userId);
+    if (!canManage) {
+      throw new ForbiddenException("Chỉ Trưởng nhóm/Giảng viên hoặc Phó nhóm/Ban cán sự của kênh mới có quyền thêm thành viên vào kênh riêng tư");
+    }
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) throw new NotFoundException("Kênh không tồn tại");
+
+    // Tra cứu thông tin người dùng trong UserModel với $or tập hợp tất cả các trường
+    const orConditions: any[] = [];
+    for (const q of queries) {
+      orConditions.push({ email: q.toLowerCase() });
+      orConditions.push({ username: q });
+      orConditions.push({ displayName: q });
+      orConditions.push({ supabaseId: q });
+      if (Types.ObjectId.isValid(q)) {
+        orConditions.push({ _id: new Types.ObjectId(q) });
+      }
+    }
+
+    const targetUser = await this.userModel
+      .findOne({
+        $or: orConditions,
+        isDeleted: { $ne: true },
+      })
+      .exec();
+
+    if (!targetUser) {
+      throw new NotFoundException("Không tìm thấy người dùng.");
+    }
+
+    if (targetUser.status === "BLOCKED" || (targetUser as any).isBlocked) {
+      throw new BadRequestException("Tài khoản đã bị khóa hoặc bị xóa.");
+    }
+
+    const targetIds = new Set<string>();
+    if (targetUser.supabaseId) targetIds.add(targetUser.supabaseId);
+    if (targetUser._id) targetIds.add(targetUser._id.toString());
+    const resolvedSubId = targetUser.supabaseId || targetUser._id.toString();
+
+    if (targetIds.has(userId)) {
+      throw new BadRequestException("Không thể tự thêm chính mình.");
+    }
+
+    // 1. Kiểm tra & tự động thêm vào phòng họp/lớp học nếu chưa phải thành viên
+    if (!room.members) room.members = [];
+    const existingRoomMember = room.members.find((m) => targetIds.has(m.userId));
+    if (!existingRoomMember) {
+      room.members.push({
+        userId: resolvedSubId,
+        role: "member",
+        joinedAt: new Date(),
+        status: "ACTIVE",
+        isLeft: false,
+      } as any);
+      room.markModified("members");
+    } else if (
+      existingRoomMember.isLeft ||
+      existingRoomMember.status === "REMOVED" ||
+      existingRoomMember.status === "LEFT"
+    ) {
+      existingRoomMember.isLeft = false;
+      existingRoomMember.status = "ACTIVE";
+      existingRoomMember.rejoinedAt = new Date();
+      room.markModified("members");
+    }
+
+    // 2. Kiểm tra thành viên trong Kênh riêng tư
+    if (!channel.members) channel.members = [];
+    const existingCM = channel.members.find((m) => targetIds.has(m.userId));
+    if (existingCM) {
+      if (
+        existingCM.isLeft !== true &&
+        existingCM.status !== "REMOVED" &&
+        existingCM.status !== "LEFT"
+      ) {
+        throw new BadRequestException("Thành viên đã tồn tại trong kênh.");
+      }
+      existingCM.isLeft = false;
+      existingCM.status = "JOINED";
+      existingCM.role = "member";
+      delete existingCM.leftAt;
+    } else {
+      channel.members.push({
+        userId: resolvedSubId,
+        role: "member",
+        isLeft: false,
+        status: "JOINED",
+      });
+    }
+    room.markModified("channels");
+
+    await room.save();
+
+    try {
+      this.roomsGateway?.notifyRoomUpdated(roomId, {
+        type: "member_role_updated",
+        roomId,
+        channelId,
+        targetUserId: resolvedSubId,
+      });
+    } catch (e) {
+      this.logger.warn("Không thể phát tín hiệu socket notifyRoomUpdated:", e);
+    }
+
+    return this.mapToRoomResponse(room);
+  }
+
+  /**
+   * Xóa thành viên khỏi Kênh riêng tư (Xóa mềm - Soft Delete)
+   */
+  async removeChannelMember(
+    userId: string,
+    roomId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<RoomResponse> {
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    if (!this.canManageChannelMembers(room, channelId, userId)) {
+      throw new ForbiddenException("Chỉ Trưởng nhóm/Giảng viên hoặc Phó nhóm/Ban cán sự của kênh mới có quyền xóa thành viên khỏi kênh riêng tư");
+    }
+
+    if (targetUserId === room.ownerId) {
+      throw new BadRequestException("Không thể xóa Chủ phòng / Giảng viên khỏi kênh");
+    }
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) throw new NotFoundException("Kênh không tồn tại");
+
+    if (channel.members) {
+      const targetMember = channel.members.find((m) => m.userId === targetUserId);
+      if (targetMember) {
+        targetMember.isLeft = true;
+        targetMember.status = "REMOVED";
+        targetMember.leftAt = new Date();
+        room.markModified("channels");
+        await room.save();
+      }
+    }
+
+    try {
+      this.roomsGateway?.notifyRoomUpdated(roomId, {
+        type: "channel_member_removed",
+        roomId,
+        channelId,
+        targetUserId,
+      });
+    } catch (e) {
+      this.logger.warn("Không thể phát tín hiệu socket notifyRoomUpdated:", e);
+    }
+
+    return this.mapToRoomResponse(room);
+  }
+
+  /**
+   * Tự động chuyển đổi các vai trò cũ (student, teacher, assistant, leader) về 3 vai trò chuẩn ('owner', 'vice', 'member')
+   */
+  private sanitizeMemberRoles(room: RoomDocument) {
+    if (room.members && Array.isArray(room.members)) {
+      room.members.forEach((m) => {
+        if (m.role === "student") m.role = "member";
+        else if (m.role === "teacher" || m.role === "leader") m.role = "owner";
+        else if (m.role === "assistant" || m.role === "vice_leader") m.role = "vice";
+      });
+      room.markModified("members");
+    }
+
+    if (room.channels && Array.isArray(room.channels)) {
+      room.channels.forEach((c) => {
+        if (c.members && Array.isArray(c.members)) {
+          c.members.forEach((cm) => {
+            if (cm.role === "student") cm.role = "member";
+            else if (cm.role === "teacher" || cm.role === "leader") cm.role = "owner";
+            else if (cm.role === "assistant" || cm.role === "vice_leader") cm.role = "vice";
+          });
+        }
+      });
+      room.markModified("channels");
+    }
+  }
+
+  /**
    * Bộ chuyển đổi: Mongoose Document -> RoomResponse chuẩn
    * Đảm bảo đồng bộ kiểu dữ liệu với frontend, tránh lộ thông tin nhạy cảm
    */
   private mapToRoomResponse(room: RoomDocument): RoomResponse {
     // Chuyển Mongoose Document thành plain JavaScript Object
-    const plainRoom = room.toObject();
+    const plainRoom = room.toObject ? room.toObject() : (room as any);
+
+    const safeToIsoString = (val: any): string => {
+      if (!val) return new Date().toISOString();
+      if (val instanceof Date) return val.toISOString();
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+    };
 
     return {
-      _id: plainRoom._id.toString(),
-      name: plainRoom.name,
-      type: plainRoom.type as "meeting" | "classroom",
-      code: plainRoom.code,
-      ownerId: plainRoom.ownerId,
+      _id: plainRoom._id?.toString() || "",
+      name: plainRoom.name || "",
+      type: (plainRoom.type || "meeting") as "meeting" | "classroom",
+      code: plainRoom.code || "",
+      ownerId: plainRoom.ownerId || "",
       // Ánh xạ channels (nếu có id sinh tự động thì chuyển sang string)
-      channels: plainRoom.channels,
+      channels: plainRoom.channels || [],
       // Ánh xạ members cơ bản (chỉ lấy những thành viên đang hoạt động)
       members: plainRoom.members
         ?.filter((m: RoomMember) => m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT")
         .map((m: RoomMember) => {
-          const normalized = normalizeRole(m.role);
+          const normalized = normalizeRole(m.role || "member");
           return {
             userId: m.userId,
             role: normalized,
             displayRole: getDisplayRole(normalized, plainRoom.type),
-            joinedAt: m.joinedAt.toISOString(),
+            joinedAt: safeToIsoString(m.joinedAt),
           };
-        }),
-      createdAt: plainRoom.createdAt.toISOString(),
-      updatedAt: plainRoom.updatedAt.toISOString(),
+        }) || [],
+      createdAt: safeToIsoString(plainRoom.createdAt),
+      updatedAt: safeToIsoString(plainRoom.updatedAt),
     };
   }
 }

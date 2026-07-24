@@ -104,6 +104,11 @@ export default function AdminRoomManagement() {
         return "bg-emerald-100 text-emerald-700";
       case "disbanded":
         return "bg-red-100 text-red-700";
+      case "blocked":
+        return "bg-rose-100 text-rose-700";
+      case "ended":
+      case "warning":
+        return "bg-amber-100 text-amber-700";
       default:
         return "bg-slate-100 text-slate-600";
     }
@@ -393,7 +398,7 @@ export default function AdminRoomManagement() {
                     <td className="px-6 py-4 text-center">{room.membersCount}</td>
                     <td className="px-6 py-4">
                       <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${getStatusBadge(room.status)}`}>
-                        {t(`room_status_${room.status}`)}
+                        {t(`room_status_${room.status}` as any, { fallback: room.status })}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-slate-500 font-medium">

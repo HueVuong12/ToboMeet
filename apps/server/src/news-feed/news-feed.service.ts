@@ -89,7 +89,7 @@ export class NewsFeedService {
   }
 
   /**
-   * Helper kiểm tra thành viên phòng họp
+   * Helper kiểm tra thành viên phòng họp & quyền truy cập Kênh riêng tư
    */
   private async checkRoomMember(roomId: string, userId: string) {
     const room = await this.roomModel.findById(roomId);
@@ -97,9 +97,29 @@ export class NewsFeedService {
       throw new NotFoundException("Phòng họp không tồn tại");
     }
 
+    let isObjectId = false;
+    try {
+      isObjectId = Types.ObjectId.isValid(userId);
+    } catch (e) {}
+
+    const userDoc = await this.userModel
+      .findOne({
+        $or: [
+          { supabaseId: userId },
+          ...(isObjectId ? [{ _id: new Types.ObjectId(userId) }] : []),
+        ],
+      })
+      .exec();
+
+    const allowedUserIds = new Set<string>([userId]);
+    if (userDoc) {
+      if (userDoc.supabaseId) allowedUserIds.add(userDoc.supabaseId);
+      if (userDoc._id) allowedUserIds.add(userDoc._id.toString());
+    }
+
     const member = room.members.find(
       (m) =>
-        m.userId === userId &&
+        allowedUserIds.has(m.userId) &&
         m.isLeft !== true &&
         m.status === "ACTIVE",
     );
@@ -108,7 +128,36 @@ export class NewsFeedService {
       throw new ForbiddenException("Bạn không phải thành viên của phòng này");
     }
 
-    return { room, member };
+    return { room, member, allowedUserIds };
+  }
+
+  private async checkChannelAccess(roomId: string, channelId: string, userId: string) {
+    const { room, member, allowedUserIds } = await this.checkRoomMember(roomId, userId);
+
+    if (allowedUserIds.has(room.ownerId)) {
+      return { room, member };
+    }
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) {
+      throw new NotFoundException("Kênh không tồn tại");
+    }
+
+    if (channel.isPrivate) {
+      const channelMember = channel.members?.find(
+        (m) =>
+          allowedUserIds.has(m.userId) &&
+          m.isLeft !== true &&
+          m.status !== "REMOVED" &&
+          m.status !== "LEFT",
+      );
+
+      if (!channelMember) {
+        throw new ForbiddenException("Bạn không có quyền truy cập kênh riêng tư này");
+      }
+    }
+
+    return { room, member, channel };
   }
 
   /**
@@ -140,7 +189,7 @@ export class NewsFeedService {
    * Lấy danh sách bài viết theo Kênh
    */
   async getPosts(roomId: string, channelId: string, userId: string): Promise<unknown[]> {
-    await this.checkRoomMember(roomId, userId);
+    await this.checkChannelAccess(roomId, channelId, userId);
 
     const posts = await this.postModel
       .find({ roomId, channelId, isDeleted: { $ne: true } })
@@ -177,7 +226,7 @@ export class NewsFeedService {
    * Tạo bài viết mới
    */
   async createPost(userId: string, dto: CreatePostDto) {
-    await this.checkRoomMember(dto.roomId, userId);
+    await this.checkChannelAccess(dto.roomId, dto.channelId, userId);
 
     if (!dto.content?.trim() && (!dto.attachments || dto.attachments.length === 0)) {
       throw new BadRequestException("Nội dung bài viết hoặc tệp đính kèm là bắt buộc");
@@ -221,7 +270,7 @@ export class NewsFeedService {
       throw new NotFoundException("Bài viết không tồn tại");
     }
 
-    await this.checkRoomMember(post.roomId, userId);
+    await this.checkChannelAccess(post.roomId, post.channelId, userId);
 
     if (post.authorId !== userId) {
       throw new ForbiddenException("Bạn không có quyền chỉnh sửa bài viết này");
@@ -266,7 +315,7 @@ export class NewsFeedService {
       throw new NotFoundException("Bài viết không tồn tại");
     }
 
-    const { member } = await this.checkRoomMember(post.roomId, userId);
+    const { member } = await this.checkChannelAccess(post.roomId, post.channelId, userId);
     const isTeacher = member.role === "owner" || member.role === "admin";
 
     // Phân quyền: Tác giả bài viết hoặc Giáo viên (Owner/Admin) mới được xóa
@@ -291,7 +340,7 @@ export class NewsFeedService {
       throw new NotFoundException("Bài viết không tồn tại");
     }
 
-    await this.checkRoomMember(post.roomId, userId);
+    await this.checkChannelAccess(post.roomId, post.channelId, userId);
 
     const reactionKey = EMOJI_MAP[type] || type;
 
@@ -343,7 +392,7 @@ export class NewsFeedService {
       throw new NotFoundException("Bài viết không tồn tại");
     }
 
-    await this.checkRoomMember(post.roomId, userId);
+    await this.checkChannelAccess(post.roomId, post.channelId, userId);
 
     const comments = await this.commentModel
       .find({ postId: new Types.ObjectId(postId) })
@@ -362,7 +411,7 @@ export class NewsFeedService {
       throw new NotFoundException("Bài viết không tồn tại");
     }
 
-    await this.checkRoomMember(post.roomId, userId);
+    await this.checkChannelAccess(post.roomId, post.channelId, userId);
 
     if (!dto.content?.trim() && (!dto.attachments || dto.attachments.length === 0)) {
       throw new BadRequestException("Nội dung bình luận hoặc tệp đính kèm là bắt buộc");
@@ -395,7 +444,7 @@ export class NewsFeedService {
     }
 
     const post = await this.postModel.findById(comment.postId);
-    await this.checkRoomMember(post!.roomId, userId);
+    await this.checkChannelAccess(post!.roomId, post!.channelId, userId);
 
     if (comment.authorId !== userId) {
       throw new ForbiddenException("Bạn không có quyền chỉnh sửa bình luận này");
@@ -426,7 +475,7 @@ export class NewsFeedService {
     }
 
     const post = await this.postModel.findById(comment.postId);
-    const { member } = await this.checkRoomMember(post!.roomId, userId);
+    const { member } = await this.checkChannelAccess(post!.roomId, post!.channelId, userId);
     const isTeacher = member.role === "owner" || member.role === "admin";
 
     // Phân quyền: Chủ bình luận hoặc Giáo viên mới được xóa
@@ -457,7 +506,7 @@ export class NewsFeedService {
     }
 
     const post = await this.postModel.findById(comment.postId);
-    await this.checkRoomMember(post!.roomId, userId);
+    await this.checkChannelAccess(post!.roomId, post!.channelId, userId);
 
     const allowedReactions = ["👍", "❤️", "😂", "😮", "😢", "👏", "🎉"];
     if (!allowedReactions.includes(type)) {
