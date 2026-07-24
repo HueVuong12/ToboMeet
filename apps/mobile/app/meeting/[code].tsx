@@ -5,15 +5,13 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MeetingPayload, MeetingStore } from "../../lib/meetingStore";
 
-// LIVEKIT COMPONENTS
-import { LiveKitRoom } from "@livekit/react-native";
-import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
+import { LiveKitRoom, AudioSession } from "@livekit/react-native";
 import MobileToolbar from "../../components/meeting/MobileToolbar";
+import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
 
-// MÀN HÌNH CHÍNH
 export default function MobileMeetingScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
@@ -29,9 +27,17 @@ export default function MobileMeetingScreen() {
       setMeetingData(data);
       MeetingStore.clear();
     }
+
+    const configureAudio = async () => {
+      try {
+        await AudioSession.startAudioSession();
+      } catch (error) {
+        console.error("Lỗi khi khởi động hệ thống âm thanh:", error);
+      }
+    };
+    configureAudio();
   }, []);
 
-  // Luôn chạy khi màn hình bị đóng
   useEffect(() => {
     return () => {
       if (meetingData?.roomId) {
@@ -40,16 +46,25 @@ export default function MobileMeetingScreen() {
     };
   }, [meetingData?.roomId]);
 
+  // Cấu hình khởi tạo room
   const roomOptions = useMemo(() => {
     return {
+      adaptiveStream: true,
+      dynacast: true,
       videoCaptureDefaults: {
-        // Dịch ngôn ngữ: "front" -> "user", "back" -> "environment"
         facingMode: (meetingData?.cameraFacing === "back"
           ? "environment"
           : "user") as "user" | "environment",
       },
     };
   }, [meetingData?.cameraFacing]);
+
+  // Cấu hình lúc kết nối
+  const connectOptions = useMemo(() => {
+    return {
+      autoSubscribe: false, // Quan trọng nhất để ko bị lag
+    };
+  }, []);
 
   if (!meetingData || !LIVEKIT_URL) {
     return (
@@ -58,7 +73,7 @@ export default function MobileMeetingScreen() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#0f172a",
+          backgroundColor: "#000",
         }}
       >
         <ActivityIndicator size="large" color="#3b82f6" />
@@ -74,11 +89,11 @@ export default function MobileMeetingScreen() {
       video={meetingData.isCamOn}
       audio={meetingData.isMicOn}
       options={roomOptions}
+      connectOptions={connectOptions}
       onDisconnected={async () => {
         if (meetingData?.roomId) {
           await AsyncStorage.removeItem(`active_meeting_${meetingData.roomId}`);
         }
-
         if (router.canGoBack()) {
           router.back();
         } else {
@@ -86,19 +101,20 @@ export default function MobileMeetingScreen() {
         }
       }}
     >
-      <View style={{ flex: 1, backgroundColor: "#0f172a" }}>
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
         <View
           style={{
             height: 70,
             justifyContent: "center",
             alignItems: "center",
+            backgroundColor: "#111",
             borderBottomWidth: 1,
-            borderBottomColor: "rgba(255,255,255,0.05)",
+            borderBottomColor: "#333",
           }}
         >
           <Text
             style={{
-              color: "#94a3b8",
+              color: "#9ca3af",
               fontSize: 12,
               textTransform: "uppercase",
               fontWeight: "bold",
@@ -119,7 +135,9 @@ export default function MobileMeetingScreen() {
           meetingCode={code}
           roomId={meetingData.roomId}
           channelId={meetingData.channelId}
-          initialFacingMode={roomOptions.videoCaptureDefaults.facingMode}
+          initialFacingMode={
+            meetingData?.cameraFacing === "back" ? "environment" : "user"
+          }
           onOpenMembers={() => setShowMembersModal(true)}
           onOpenChat={() => setShowChatModal(true)}
         />
@@ -131,7 +149,6 @@ export default function MobileMeetingScreen() {
           channelId={meetingData.channelId}
           meetingCode={code}
         />
-
         <MobileChatModal
           meetingCode={code}
           roomId={meetingData.roomId}

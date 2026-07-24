@@ -9,14 +9,12 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
-// LIVEKIT COMPONENTS
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { toast } from "../../lib/toast";
 import { useHandRaise } from "../../hooks/useHandRaise";
-import { useChatStatus } from "../../hooks/useChatStatus"; // Bổ sung hook quản lý chat
+import { useChatStatus } from "../../hooks/useChatStatus";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// COMPONENT: THANH ĐIỀU KHIỂN
 export default function MobileToolbar({
   initialFacingMode,
   roomId,
@@ -38,7 +36,6 @@ export default function MobileToolbar({
     useLocalParticipant();
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
-  // Khởi tạo Hook Quản lý Chat
   const { isHost, isChatEnabled, handleToggleChat } = useChatStatus({
     roomId,
     channelId,
@@ -49,7 +46,6 @@ export default function MobileToolbar({
     initialFacingMode || "user",
   );
 
-  // State quản lý Menu Admin
   const [showAdminMenu, setShowAdminMenu] = useState(false);
 
   const toggleMic = () =>
@@ -75,105 +71,162 @@ export default function MobileToolbar({
     }
   };
 
+  // Helper render style nút: Tràn viền, không bo góc, căn giữa icon và text
+  const getBtnStyle = () => ({
+    minWidth: 60,
+    height: 56, // Tương đương h-14 trên web
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    backgroundColor: "transparent",
+  });
+
   return (
     <>
       <View
         style={{
-          backgroundColor: "#0f172a",
+          backgroundColor: "#111", // Nền đen tuyền đồng bộ web
           borderTopWidth: 1,
-          borderTopColor: "rgba(255,255,255,0.05)",
+          borderTopColor: "#333",
+          height: 56,
         }}
       >
-        {/* Chuyển sang ScrollView ngang để chứa nhiều nút không bị tràn */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{
             alignItems: "center",
-            paddingHorizontal: 12,
-            paddingVertical: 12,
-            gap: 6,
+            paddingHorizontal: 0, // Bỏ padding để nút sát viền
+            paddingVertical: 0,
+            gap: 0, // Bỏ gap để các nút sát mí nhau
           }}
         >
           {/* Nút Camera */}
-          <TouchableOpacity
-            onPress={toggleCam}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#1e293b",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
+          <TouchableOpacity onPress={toggleCam} style={getBtnStyle()}>
             <Feather
               name={isCameraEnabled ? "video" : "video-off"}
-              size={18}
-              color="white"
+              size={20}
+              color={isCameraEnabled ? "#d1d5db" : "#ef4444"}
             />
+            <Text
+              style={{
+                color: isCameraEnabled ? "#d1d5db" : "#ef4444",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "500",
+              }}
+            >
+              Camera
+            </Text>
           </TouchableOpacity>
 
-          {/* Nút Lật Camera */}
+          {/* Nút Lật Camera (Chỉ có trên mobile) */}
           <TouchableOpacity
             onPress={handleFlipCamera}
             disabled={!isCameraEnabled}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#1e293b",
-              justifyContent: "center",
-              alignItems: "center",
-              opacity: isCameraEnabled ? 1 : 0.4,
-            }}
+            style={{ ...getBtnStyle(), opacity: isCameraEnabled ? 1 : 0.4 }}
           >
-            <Feather name="refresh-ccw" size={18} color="white" />
+            <Feather name="refresh-ccw" size={20} color="#d1d5db" />
+            <Text
+              style={{
+                color: "#d1d5db",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "500",
+              }}
+            >
+              Lật Cam
+            </Text>
           </TouchableOpacity>
 
           {/* Nút Mic */}
-          <TouchableOpacity
-            onPress={toggleMic}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#1e293b",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
+          <TouchableOpacity onPress={toggleMic} style={getBtnStyle()}>
             <Feather
               name={isMicrophoneEnabled ? "mic" : "mic-off"}
-              size={18}
-              color="white"
+              size={20}
+              color={isMicrophoneEnabled ? "#d1d5db" : "#ef4444"}
             />
+            <Text
+              style={{
+                color: isMicrophoneEnabled ? "#d1d5db" : "#ef4444",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "500",
+              }}
+            >
+              Mic
+            </Text>
           </TouchableOpacity>
 
-          {/* NÚT GIƠ TAY */}
-          <TouchableOpacity
-            onPress={toggleHandRaise}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: isLocalHandRaised
-                ? "rgba(245, 158, 11, 0.2)"
-                : "#1e293b",
-              borderWidth: isLocalHandRaised ? 1 : 0,
-              borderColor: "rgba(245, 158, 11, 0.3)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
+          {/* Nút Thành Viên */}
+          <TouchableOpacity onPress={onOpenMembers} style={getBtnStyle()}>
+            <Feather name="users" size={20} color="#d1d5db" />
+            <Text
+              style={{
+                color: "#d1d5db",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "500",
+              }}
+            >
+              Thành viên
+            </Text>
+          </TouchableOpacity>
+
+          {/* Nút Chat */}
+          <TouchableOpacity onPress={onOpenChat} style={getBtnStyle()}>
+            <Feather name="message-square" size={20} color="#d1d5db" />
+            <Text
+              style={{
+                color: "#d1d5db",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "500",
+              }}
+            >
+              Chat
+            </Text>
+          </TouchableOpacity>
+
+          {/* Nút Giơ tay */}
+          <TouchableOpacity onPress={toggleHandRaise} style={getBtnStyle()}>
             <Ionicons
               name="hand-left"
-              size={18}
-              color={isLocalHandRaised ? "#f59e0b" : "white"}
+              size={20}
+              color={isLocalHandRaised ? "#f59e0b" : "#d1d5db"}
             />
+            <Text
+              style={{
+                color: isLocalHandRaised ? "#f59e0b" : "#d1d5db",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "500",
+              }}
+            >
+              Giơ tay
+            </Text>
           </TouchableOpacity>
 
-          {/* Nút Rời đi */}
+          {/* Nút Quản trị viên (3 chấm) */}
+          {isHost && (
+            <TouchableOpacity
+              onPress={() => setShowAdminMenu(true)}
+              style={getBtnStyle()}
+            >
+              <Feather name="more-vertical" size={20} color="#d1d5db" />
+              <Text
+                style={{
+                  color: "#d1d5db",
+                  fontSize: 10,
+                  marginTop: 4,
+                  fontWeight: "500",
+                }}
+              >
+                Quản lý
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Nút Rời đi (Đổi icon và màu chữ) */}
           <TouchableOpacity
             onPress={() => {
               Alert.alert("Rời phòng", "Bạn có chắc chắn muốn rời cuộc họp?", [
@@ -185,65 +238,20 @@ export default function MobileToolbar({
                 },
               ]);
             }}
-            style={{
-              width: 52,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#ef4444",
-              justifyContent: "center",
-              alignItems: "center",
-              marginHorizontal: 2,
-            }}
+            style={{ ...getBtnStyle(), paddingHorizontal: 12 }}
           >
-            <Feather name="phone-off" size={18} color="white" />
-          </TouchableOpacity>
-
-          {/* Nút Thành Viên */}
-          <TouchableOpacity
-            onPress={onOpenMembers}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#1e293b",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Feather name="users" size={18} color="white" />
-          </TouchableOpacity>
-
-          {/* Nút Chat */}
-          <TouchableOpacity
-            onPress={onOpenChat}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#1e293b",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Feather name="message-square" size={18} color="white" />
-          </TouchableOpacity>
-
-          {/* NÚT QUẢN TRỊ VIÊN (3 CHẤM) */}
-          {isHost && (
-            <TouchableOpacity
-              onPress={() => setShowAdminMenu(true)}
+            <Feather name="log-out" size={20} color="#ef4444" />
+            <Text
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                backgroundColor: "#1e293b",
-                justifyContent: "center",
-                alignItems: "center",
+                color: "#ef4444",
+                fontSize: 10,
+                marginTop: 4,
+                fontWeight: "bold",
               }}
             >
-              <Feather name="more-vertical" size={18} color="white" />
-            </TouchableOpacity>
-          )}
+              Rời đi
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -255,24 +263,26 @@ export default function MobileToolbar({
             flex: 1,
             backgroundColor: "rgba(0,0,0,0.6)",
             justifyContent: "flex-end",
-            paddingTop: Math.max(insets.top, 20), // Đẩy xuống khỏi tai thỏ/camera đục lỗ
+            paddingTop: Math.max(insets.top, 20),
             paddingBottom: Math.max(insets.bottom, 20),
           }}
           onPress={() => setShowAdminMenu(false)}
         >
           <View
             style={{
-              backgroundColor: "#1e293b",
+              backgroundColor: "#222", // Đổi màu nền menu sang xám đậm
               padding: 20,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              borderWidth: 1,
+              borderColor: "#333",
             }}
           >
             <View
               style={{
                 width: 40,
                 height: 4,
-                backgroundColor: "#475569",
+                backgroundColor: "#444",
                 borderRadius: 2,
                 alignSelf: "center",
                 marginBottom: 16,
@@ -280,7 +290,7 @@ export default function MobileToolbar({
             />
             <Text
               style={{
-                color: "#94a3b8",
+                color: "#9ca3af",
                 fontSize: 12,
                 fontWeight: "bold",
                 marginBottom: 12,
@@ -300,10 +310,10 @@ export default function MobileToolbar({
                 alignItems: "center",
                 paddingVertical: 14,
                 paddingHorizontal: 12,
-                backgroundColor: isChatEnabled
-                  ? "rgba(239, 68, 68, 0.1)"
-                  : "rgba(16, 185, 129, 0.1)",
-                borderRadius: 12,
+                backgroundColor: "#111", // Nền nút đen tuyền
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#333",
               }}
             >
               <Feather
@@ -315,7 +325,7 @@ export default function MobileToolbar({
                 style={{
                   color: isChatEnabled ? "#ef4444" : "#10b981",
                   marginLeft: 12,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: "600",
                 }}
               >

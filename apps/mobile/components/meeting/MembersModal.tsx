@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // COMPONENT: DANH SÁCH THÀNH VIÊN (BOTTOM SHEET)
 export default function MembersModal({
@@ -26,6 +27,7 @@ export default function MembersModal({
   channelId: string;
   meetingCode: string;
 }) {
+  const insets = useSafeAreaInsets();
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const {
     localParticipant,
@@ -52,6 +54,8 @@ export default function MembersModal({
           flex: 1,
           justifyContent: "flex-end",
           backgroundColor: "rgba(0,0,0,0.5)",
+          paddingTop: Math.max(insets.top, 20), // Đẩy xuống khỏi tai thỏ/camera đục lỗ
+          paddingBottom: Math.max(insets.bottom, 20), // Đẩy lên khỏi phím điều hướng
         }}
       >
         <TouchableOpacity

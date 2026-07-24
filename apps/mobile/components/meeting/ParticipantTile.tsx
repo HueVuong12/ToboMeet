@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, Image } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
@@ -29,25 +29,40 @@ export default function ParticipantTile({
       avatarUrl = meta.avatarUrl;
     }
   } catch (error) {
-    // Bỏ qua nếu metadata không hợp lệ
     console.error(error);
   }
+
+  useEffect(() => {
+    console.log(
+      "[ParticipantTile MOUNT]",
+      trackRef.participant.identity,
+      trackRef.source,
+    );
+
+    return () => {
+      console.log(
+        "[ParticipantTile UNMOUNT]",
+        trackRef.participant.identity,
+        trackRef.source,
+      );
+    };
+  }, [trackRef.participant.identity, trackRef.source]);
 
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: "#1e293b",
-        borderRadius: 12,
+        backgroundColor: "#111",
+        borderRadius: 0,
         overflow: "hidden",
-        borderWidth: isScreenShare ? 2 : 1,
-        borderColor: isScreenShare ? "#3b82f6" : "#334155",
+        borderWidth: isScreenShare ? 2 : 0,
+        borderColor: isScreenShare ? "#3b82f6" : "transparent",
       }}
     >
       {/* VIDEO HOẶC AVATAR */}
       {showVideo ? (
         <VideoView
-          style={{ flex: 1 }}
+          style={{ flex: 1, backgroundColor: "#000" }}
           videoTrack={videoTrack}
           objectFit={isScreenShare ? "contain" : "cover"}
         />
@@ -57,7 +72,7 @@ export default function ParticipantTile({
             flex: 1,
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: "#1e293b",
+            backgroundColor: "#111",
           }}
         >
           {avatarUrl ? (
@@ -71,7 +86,7 @@ export default function ParticipantTile({
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: "#3b82f6",
+                backgroundColor: "#333",
                 justifyContent: "center",
                 alignItems: "center",
               }}
@@ -86,21 +101,19 @@ export default function ParticipantTile({
         </View>
       )}
 
-      {/* BADGE GIƠ TAY NỔI TRÊN GÓC PHẢI */}
+      {/* BADGE GIƠ TAY */}
       {handState.isRaised && (
         <View
           style={{
             position: "absolute",
-            top: 8,
-            right: 8,
-            backgroundColor: "rgba(245, 158, 11, 0.9)", // Màu amber-500
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 8,
+            top: 6,
+            right: 6,
+            backgroundColor: "rgba(245, 158, 11, 0.9)",
+            paddingHorizontal: 6,
+            paddingVertical: 3,
+            borderRadius: 4,
             flexDirection: "row",
             alignItems: "center",
-            borderWidth: 1,
-            borderColor: "#fbbf24",
             zIndex: 10,
           }}
         >
@@ -120,12 +133,12 @@ export default function ParticipantTile({
       <View
         style={{
           position: "absolute",
-          bottom: 8,
-          left: 8,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          paddingHorizontal: 8,
+          bottom: 6,
+          left: 6,
+          backgroundColor: "rgba(0,0,0,0.7)",
+          paddingHorizontal: 6,
           paddingVertical: 4,
-          borderRadius: 6,
+          borderRadius: 4,
           flexDirection: "row",
           alignItems: "center",
           maxWidth: "90%",
@@ -143,7 +156,7 @@ export default function ParticipantTile({
           <Feather
             name="video-off"
             size={12}
-            color="#f87171"
+            color="#ef4444"
             style={{ marginRight: 4 }}
           />
         )}
@@ -151,8 +164,7 @@ export default function ParticipantTile({
           style={{ color: "white", fontSize: 12, fontWeight: "bold" }}
           numberOfLines={1}
         >
-          {trackRef.participant.name || "Khách"}{" "}
-          {isScreenShare && "đang chia sẻ"}
+          {trackRef.participant.name || "Khách"} {isScreenShare && "(Chia sẻ)"}
         </Text>
       </View>
     </View>
