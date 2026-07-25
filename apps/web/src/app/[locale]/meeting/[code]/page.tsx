@@ -305,6 +305,9 @@ export default function MeetingPage() {
       token={meetingData.token}
       serverUrl={LIVEKIT_URL}
       connect={true}
+      connectOptions={{
+        autoSubscribe: false, // chỉ subscribe những track dùng để hiển thị
+      }}
       options={{
         adaptiveStream: true,
         dynacast: true,
