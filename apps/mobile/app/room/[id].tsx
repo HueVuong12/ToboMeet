@@ -130,7 +130,10 @@ export default function RoomDetailScreen() {
     { skip: !id || !activeChannelId }
   );
 
-  const currentUserRole = membersList?.find((m) => m.userId === profile?.supabaseId)?.role;
+  // Ưu tiên room.members (luôn có sẵn từ getRoomById), fallback sang membersList
+  const currentUserRole =
+    room?.members?.find((m: any) => m.userId === profile?.supabaseId)?.role ||
+    membersList?.find((m) => m.userId === profile?.supabaseId)?.role;
   const isOwner = !!(
     room &&
     profile &&
@@ -139,6 +142,13 @@ export default function RoomDetailScreen() {
       currentUserRole === "leader" ||
       currentUserRole === "owner")
   );
+  // Phó phòng — normalize tất cả legacy roles
+  const isCurrentUserVice =
+    !isOwner &&
+    (currentUserRole === "vice" ||
+      currentUserRole === "vice_leader" ||
+      currentUserRole === "assistant" ||
+      currentUserRole === "admin");
   // const hasNavigatedAway = React.useRef(false);
 
   const insets = useSafeAreaInsets();
@@ -1481,8 +1491,13 @@ export default function RoomDetailScreen() {
                   </>
                 )}
 
-                {/* Nút: Xóa khỏi phòng */}
-                {(isOwner || (currentUserRole === "vice" && selectedMemberForMenu?.role === "member")) &&
+                {/* Nút: Xóa khỏi phòng
+                     - Trưởng phòng: xóa bất kỳ thành viên nào
+                     - Phó phòng: chỉ xóa thành viên thường, không xóa Trưởng phòng hay Phó khác */}
+                {(isOwner ||
+                  (isCurrentUserVice &&
+                    selectedMemberForMenu?.role === "member" &&
+                    selectedMemberForMenu?.userId !== room?.ownerId)) &&
                   selectedMemberForMenu?.userId !== profile?.supabaseId && (
                     <TouchableOpacity
                       onPress={() => {

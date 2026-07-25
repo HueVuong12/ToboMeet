@@ -195,27 +195,86 @@ export class RoomsService implements OnModuleInit {
     const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Phòng không tồn tại");
 
+    // --- Fallback ID lookup: hỗ trợ cả supabaseId lẫn MongoDB _id ---
+    let isObjectId = false;
+    try { isObjectId = Types.ObjectId.isValid(ownerId); } catch (_) {}
+
+    const operatorUserDoc = await this.userModel.findOne({
+      $or: [
+        { supabaseId: ownerId },
+        ...(isObjectId ? [{ _id: new Types.ObjectId(ownerId) }] : []),
+      ],
+    }).exec();
+
+    const allowedOperatorIds = new Set<string>([ownerId]);
+    if (operatorUserDoc?.supabaseId) allowedOperatorIds.add(operatorUserDoc.supabaseId);
+    if (operatorUserDoc?._id) allowedOperatorIds.add(operatorUserDoc._id.toString());
+
+    console.log("[removeMember Backend Debug]", {
+      ownerId,
+      allowedOperatorIds: Array.from(allowedOperatorIds),
+      roomMembers: room.members.map(m => ({ userId: m.userId, role: m.role, status: m.status, isLeft: m.isLeft })),
+    });
+
     const operatorMember = room.members.find(
-      (m) => m.userId === ownerId && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
+      (m) =>
+        allowedOperatorIds.has(m.userId) &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
     );
+
+    console.log("[removeMember Backend Debug 2]", {
+      operatorMember,
+    });
+
     if (!operatorMember) {
-      throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
+      throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này (operator not found)");
     }
 
     const opRole = normalizeRole(operatorMember.role);
     const isHighRole = opRole === "owner";
-    const isSubRole = opRole === "vice";
+    
+    // Tìm kiếm xem operator có giữ vai trò Phó nhóm ở bất kỳ kênh nào thuộc phòng này không
+    const hasChannelViceRole = room.channels?.some((channel) =>
+      channel.members?.some(
+        (cm) =>
+          allowedOperatorIds.has(cm.userId) &&
+          (cm.role === "vice" || cm.role === "assistant" || cm.role === "vice_leader") &&
+          cm.status !== "REMOVED" &&
+          cm.status !== "LEFT"
+      )
+    );
+
+    const isSubRole = opRole === "vice" || hasChannelViceRole;
+
+    console.log("[removeMember Backend Debug 3]", {
+      opRole,
+      isHighRole,
+      isSubRole,
+      hasChannelViceRole,
+    });
 
     if (!isHighRole && !isSubRole) {
-      throw new ForbiddenException("Bạn không có quyền xóa thành viên khỏi phòng");
+      throw new ForbiddenException("Bạn không có quyền xóa thành viên khỏi phòng (not high or sub role)");
     }
 
-    const targetMember = room.members.find((m) => m.userId === targetUserId);
+    // Chỉ lấy targetMember còn ACTIVE (chưa bị xóa/rời)
+    const targetMember = room.members.find(
+      (m) => m.userId === targetUserId && m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT",
+    );
     if (!targetMember) {
-      throw new NotFoundException("Thành viên không tồn tại trong phòng");
+      throw new NotFoundException("Thành viên không tồn tại hoặc đã rời khỏi phòng");
     }
 
     const targetRole = normalizeRole(targetMember.role);
+
+    // Phó phòng không được xóa Trưởng phòng (dù role thế nào)
+    if (isSubRole && (targetRole === "owner" || targetUserId === room.ownerId)) {
+      throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
+    }
+
+    // Trưởng phòng không thể bị xóa
     if (targetRole === "owner") {
       throw new BadRequestException(
         room.type === "classroom"
@@ -224,6 +283,7 @@ export class RoomsService implements OnModuleInit {
       );
     }
 
+    // Phó phòng không được xóa Phó phòng khác
     if (isSubRole && targetRole === "vice") {
       const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
       throw new ForbiddenException(`${subTitle} không thể xóa thành viên cùng cấp`);

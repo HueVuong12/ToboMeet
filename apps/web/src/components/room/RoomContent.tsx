@@ -97,19 +97,46 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     (currentChannel as any)?.id?.toString() ||
     "";
   const isCurrentUserOwner = room?.ownerId === userId;
-  const currentUserRoomRole = room?.members?.find(
-    (m: any) => m.userId === userId,
-  )?.role;
+  // Tìm kiếm vai trò người dùng trong room members
+  const currentUserRoomRole = (() => {
+    // 1. Tìm trong useGetRoomMembersQuery cache (đã chuẩn hóa)
+    const normalizedMember = members?.find(
+      (m: any) =>
+        m.userId === userId ||
+        (m.supabaseId && m.supabaseId === userId)
+    );
+    if (normalizedMember) return normalizedMember.role;
+
+    // 2. Tìm trong room.members raw từ DB
+    const rawMember = room?.members?.find(
+      (m: any) =>
+        m.userId === userId ||
+        (m.supabaseId && m.supabaseId === userId)
+    );
+    return rawMember?.role;
+  })();
+
   const isCurrentUserRoomLeader =
     isCurrentUserOwner ||
     currentUserRoomRole === "owner" ||
     currentUserRoomRole === "teacher" ||
     currentUserRoomRole === "leader";
+
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
   )?.role;
+  const isCurrentUserRoomVice =
+    !isCurrentUserRoomLeader &&
+    (currentUserRoomRole?.toLowerCase() === "vice" ||
+      currentUserRoomRole?.toLowerCase() === "vice_leader" ||
+      currentUserRoomRole?.toLowerCase() === "assistant" ||
+      currentUserRoomRole?.toLowerCase() === "admin" ||
+      currentUserChannelRole?.toLowerCase() === "vice" ||
+      currentUserChannelRole?.toLowerCase() === "assistant" ||
+      currentUserChannelRole?.toLowerCase() === "vice_leader");
   const canUserManageChannel =
     isCurrentUserRoomLeader ||
+    isCurrentUserRoomVice ||
     currentUserChannelRole === "vice" ||
     currentUserChannelRole === "assistant";
 
@@ -493,9 +520,23 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                   ) : (
                     <div className="space-y-3">
                       {displayedMembers.map((member: any) => {
-                    const currentUserRole = members.find((m: any) => m.userId === userId)?.role as string | undefined;
-                    const isCurrentUserOwner = currentUserRole === "teacher" || currentUserRole === "leader" || currentUserRole === "owner";
+                    // Dùng isCurrentUserRoomVice được tính ở component scope (reliable)
+                    const isCurrentUserOwner =
+                      room?.ownerId === userId ||
+                      currentUserRoomRole === "owner" ||
+                      currentUserRoomRole === "teacher" ||
+                      currentUserRoomRole === "leader";
+                    const isCurrentUserVice = isCurrentUserRoomVice;
                     const isSelf = member.userId === userId;
+
+                    console.log("[RoomContent Debug]", {
+                      userId,
+                      memberUserId: member.userId,
+                      currentUserRoomRole,
+                      isCurrentUserVice,
+                      memberRole: member.role,
+                      isOwner: room?.ownerId === userId,
+                    });
 
                     return (
                       <div
@@ -577,7 +618,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                   openMenuId === member.userId ? null : member.userId,
                                 );
                               }}
-                              className="p-1 rounded hover:bg-slate-200 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="p-1 rounded hover:bg-slate-200 text-slate-400 opacity-100 transition-opacity"
                             >
                               <MoreVertical size={16} />
                             </button>
@@ -798,8 +839,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                     </div>
                                   )}
 
-                                  {/* Xóa khỏi phòng (Dành cho owner HOẶC vice đối với member) */}
-                                  {(isCurrentUserOwner || (currentUserRole === "vice" && member.role === "member")) && (
+                                  {/* Xóa khỏi phòng:
+                                       - Trưởng phòng: xóa bất kỳ ai (trừ chính mình)
+                                       - Phó phòng: chỉ xóa thành viên thường, không xóa Trưởng/Phó khác */}
+                                  {(isCurrentUserOwner ||
+                                    (isCurrentUserVice &&
+                                      member.userId !== room?.ownerId &&
+                                      member.userId !== userId &&
+                                      member.role !== "owner" &&
+                                      member.role !== "teacher" &&
+                                      member.role !== "leader" &&
+                                      member.role !== "vice" &&
+                                      member.role !== "vice_leader" &&
+                                      member.role !== "assistant" &&
+                                      member.role !== "admin")) && (
                                     <button
                                       onClick={() => {
                                         setMemberToRemove({
