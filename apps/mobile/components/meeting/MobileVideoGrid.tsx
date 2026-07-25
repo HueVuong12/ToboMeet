@@ -1,4 +1,11 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+// MobileVideoGrid.tsx
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -7,39 +14,60 @@ import {
   Dimensions,
 } from "react-native";
 
-import { useTracks, useLocalParticipant, TrackReference } from "@livekit/components-react";
-import { RemoteTrackPublication, Track } from "livekit-client";
+import {
+  useTracks,
+  useRoomContext,
+  TrackReference,
+} from "@livekit/components-react";
+import { RemoteTrackPublication, RoomEvent, Track } from "livekit-client";
 import ParticipantTile from "./ParticipantTile";
 
 const { width: windowWidth } = Dimensions.get("window");
 
 function chunkArray<T>(array: T[], size: number): T[][] {
-  const result = [];
+  const result: T[][] = [];
   for (let i = 0; i < array.length; i += size) {
     result.push(array.slice(i, i + size));
   }
   return result;
 }
 
+function makeKey(identity: string, source: Track.Source) {
+  return `${identity}|${source}`;
+}
+
 export default function MobileVideoGrid() {
   const [currentPage, setCurrentPage] = useState(0);
-  const { localParticipant } = useLocalParticipant();
+  const room = useRoomContext();
 
-  // Lấy toàn bộ track từ những người trong phòng (dù chưa được subscribe)
-  const tracks = useTracks([
-    { source: Track.Source.Camera, withPlaceholder: true },
-    { source: Track.Source.ScreenShare, withPlaceholder: false },
-  ]);
+  // Chỉ lưu desired keys hiện tại (dùng để so sánh nhanh)
+  const lastDesiredRef = useRef<Set<string>>(new Set());
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Chia mảng thành các trang 4 người
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false },
+  );
+
+  // Xây dựng pages
   const pages = useMemo(() => {
     const screenShareTracks = tracks.filter(
       (t) => t.source === Track.Source.ScreenShare,
     );
     const cameraTracks = tracks.filter((t) => t.source === Track.Source.Camera);
-    const cameraPages = chunkArray(cameraTracks, 4);
 
-    const newPages: any[] = [];
+    cameraTracks.sort((a, b) => {
+      if (a.participant.isLocal && !b.participant.isLocal) return -1;
+      if (!a.participant.isLocal && b.participant.isLocal) return 1;
+      return a.participant.identity.localeCompare(b.participant.identity);
+    });
+
+    const cameraPages = chunkArray(cameraTracks, 4);
+    const newPages: { type: "screenshare" | "camera"; items: any[] }[] = [];
+
     screenShareTracks.forEach((trackRef) =>
       newPages.push({ type: "screenshare", items: [trackRef] }),
     );
@@ -50,48 +78,104 @@ export default function MobileVideoGrid() {
     return newPages;
   }, [tracks]);
 
-  // Đăng ký có chọn lọc track (selective subscribtion)
-  useEffect(() => {
-    // Nếu chưa có trang nào thì bỏ qua
-    if (!pages || pages.length === 0) return;
+  // Áp dụng subscription – chỉ khi intent thực sự khác
+  const applySubscriptions = useCallback(
+    (desiredKeys: Set<string>) => {
+      // So sánh Set nhanh: nếu giống hệt thì bỏ qua
+      if (
+        desiredKeys.size === lastDesiredRef.current.size &&
+        [...desiredKeys].every((k) => lastDesiredRef.current.has(k))
+      ) {
+        return;
+      }
 
-    // Lấy danh sách track của NHỮNG NGƯỜI ĐANG Ở TRANG HIỆN TẠI
-    const activeItems = pages[currentPage]?.items || [];
-    const activeKeys = new Set(
-      activeItems.map((t: any) => `${t.participant.identity}_${t.source}`),
+      lastDesiredRef.current = desiredKeys;
+
+      room.remoteParticipants.forEach((participant) => {
+        [Track.Source.Camera, Track.Source.ScreenShare].forEach((source) => {
+          const pub = participant.getTrackPublication(source) as
+            | RemoteTrackPublication
+            | undefined;
+
+          if (!pub || typeof pub.setSubscribed !== "function") return;
+
+          const key = makeKey(participant.identity, source);
+          const shouldSubscribe = desiredKeys.has(key);
+
+          // QUAN TRỌNG: dùng isDesired (intent), KHÔNG dùng isSubscribed
+          if (pub.isDesired !== shouldSubscribe) {
+            pub.setSubscribed(shouldSubscribe);
+            console.log(
+              `[Reconciliation] ${shouldSubscribe ? "🟢 SUB" : "🔴 UNSUB"} → ${key}`,
+            );
+          }
+        });
+      });
+    },
+    [room],
+  );
+
+  // Debounced apply
+  const scheduleApply = useCallback(
+    (desiredKeys: Set<string>) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Chỉ apply sau khi người dùng dừng vuốt 220ms
+      debounceTimerRef.current = setTimeout(() => {
+        applySubscriptions(desiredKeys);
+      }, 220);
+    },
+    [applySubscriptions],
+  );
+
+  // Effect chính – chạy khi currentPage hoặc pages đổi
+  useEffect(() => {
+    if (!pages.length) return;
+
+    const activeItems = pages[currentPage]?.items ?? [];
+    const desired = new Set<string>(
+      activeItems.map((t: any) => makeKey(t.participant.identity, t.source)),
     );
 
-    tracks.forEach(async (trackRef) => {
-      // Bỏ qua bản thân (LocalParticipant luôn tự hiển thị media của mình)
-      if (trackRef.participant.identity === localParticipant.identity) return;
+    scheduleApply(desired);
 
-      const key = `${trackRef.participant.identity}_${trackRef.source}`;
-      const pub = trackRef.publication as RemoteTrackPublication;
-
-      if (pub && typeof pub.setSubscribed === "function") {
-        const isCurrentlySubscribed = pub.isSubscribed;
-
-        // So sánh xem người này có nằm trong Set của trang hiện tại không
-        const shouldBeSubscribed = activeKeys.has(key);
-
-        if (shouldBeSubscribed && !isCurrentlySubscribed) {
-          try {
-            await pub.setSubscribed(true);
-            console.log(`Đã Subscribe: ${pub.trackSid || key}`);
-          } catch (error) {
-            console.error("Lỗi Subscribe:", error);
-          }
-        } else if (!shouldBeSubscribed && isCurrentlySubscribed) {
-          try {
-            await pub.setSubscribed(false);
-            console.log(`Đã Hủy Subscribe: ${pub.trackSid || key}`);
-          } catch (error) {
-            console.error("Lỗi Hủy Subscribe:", error);
-          }
-        }
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
-    });
-  }, [currentPage, pages, tracks, localParticipant.identity]);
+    };
+  }, [currentPage, pages, scheduleApply]);
+
+  // Listener nhẹ – chỉ bắt track mới thuộc trang đang xem
+  useEffect(() => {
+    const onTrackPublished = (
+      publication: RemoteTrackPublication,
+      participant: any,
+    ) => {
+      if (
+        publication.source !== Track.Source.Camera &&
+        publication.source !== Track.Source.ScreenShare
+      ) {
+        return;
+      }
+
+      const key = makeKey(participant.identity, publication.source);
+
+      // Chỉ subscribe nếu track này thuộc desired hiện tại
+      if (lastDesiredRef.current.has(key) && !publication.isDesired) {
+        publication.setSubscribed(true);
+        console.log(`[TrackPublished] 🟢 SUB immediate → ${key}`);
+      }
+    };
+
+    room.on(RoomEvent.TrackPublished, onTrackPublished);
+
+    return () => {
+      room.off(RoomEvent.TrackPublished, onTrackPublished);
+    };
+  }, [room]);
 
   const renderPage = useCallback(({ item }: { item: any }) => {
     const isScreenShare = item.type === "screenshare";
@@ -169,16 +253,15 @@ export default function MobileVideoGrid() {
         renderItem={renderPage}
         keyExtractor={(_, index) => `page_${index}`}
         onMomentumScrollEnd={(e) => {
-          // Tính toán trang hiện tại khi người dùng vuốt xong
           const newIndex = Math.round(
             e.nativeEvent.contentOffset.x / windowWidth,
           );
           setCurrentPage(newIndex);
         }}
-        removeClippedSubviews={true}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        windowSize={2}
+        windowSize={3}
+        removeClippedSubviews={true}
       />
 
       {pages.length > 1 && (

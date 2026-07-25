@@ -6,11 +6,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { MeetingPayload, MeetingStore } from "../../lib/meetingStore";
 
 import { LiveKitRoom, AudioSession } from "@livekit/react-native";
+import { Room } from "livekit-client";
+
 import MobileToolbar from "../../components/meeting/MobileToolbar";
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
+import { toast } from "../../lib/toast";
 
 export default function MobileMeetingScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -20,6 +23,7 @@ export default function MobileMeetingScreen() {
   const [meetingData, setMeetingData] = useState<MeetingPayload | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
+  const [customRoom, setCustomRoom] = useState<Room | null>(null);
 
   useEffect(() => {
     const data = MeetingStore.get();
@@ -33,6 +37,7 @@ export default function MobileMeetingScreen() {
         await AudioSession.startAudioSession();
       } catch (error) {
         console.error("Lỗi khi khởi động hệ thống âm thanh:", error);
+        toast.error("Lỗi khi khởi động hệ thống âm thanh");
       }
     };
     configureAudio();
@@ -46,18 +51,25 @@ export default function MobileMeetingScreen() {
     };
   }, [meetingData?.roomId]);
 
-  // Cấu hình khởi tạo room
-  const roomOptions = useMemo(() => {
-    return {
-      adaptiveStream: true,
+  useEffect(() => {
+    if (!meetingData) return;
+
+    const roomInstance = new Room({
+      adaptiveStream: false,
       dynacast: true,
       videoCaptureDefaults: {
-        facingMode: (meetingData?.cameraFacing === "back"
+        facingMode: (meetingData.cameraFacing === "back"
           ? "environment"
           : "user") as "user" | "environment",
       },
+    });
+
+    setCustomRoom(roomInstance);
+
+    return () => {
+      roomInstance.disconnect();
     };
-  }, [meetingData?.cameraFacing]);
+  }, [meetingData]);
 
   // Cấu hình lúc kết nối
   const connectOptions = useMemo(() => {
@@ -66,7 +78,8 @@ export default function MobileMeetingScreen() {
     };
   }, []);
 
-  if (!meetingData || !LIVEKIT_URL) {
+  // Chờ cho cả meetingData và customRoom được khởi tạo xong
+  if (!meetingData || !LIVEKIT_URL || !customRoom) {
     return (
       <View
         style={{
@@ -83,13 +96,17 @@ export default function MobileMeetingScreen() {
 
   return (
     <LiveKitRoom
+      room={customRoom}
       serverUrl={LIVEKIT_URL}
       token={meetingData.token}
       connect={true}
       video={meetingData.isCamOn}
       audio={meetingData.isMicOn}
-      options={roomOptions}
       connectOptions={connectOptions}
+      onError={(error) => {
+        console.error("Bắt được lỗi WebRTC:", error);
+        customRoom.disconnect();
+      }}
       onDisconnected={async () => {
         if (meetingData?.roomId) {
           await AsyncStorage.removeItem(`active_meeting_${meetingData.roomId}`);

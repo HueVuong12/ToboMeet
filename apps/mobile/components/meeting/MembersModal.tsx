@@ -67,13 +67,13 @@ export default function MembersModal({
         {/* Khung Modal Thành Viên */}
         <View
           style={{
-            backgroundColor: "#1e293b",
+            backgroundColor: "#111",
             height: "75%",
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             padding: 20,
             borderTopWidth: 1,
-            borderColor: "rgba(255,255,255,0.1)",
+            borderColor: "#333",
           }}
         >
           <View
@@ -84,7 +84,7 @@ export default function MembersModal({
               marginBottom: 15,
               paddingBottom: 16,
               borderBottomWidth: 1,
-              borderBottomColor: "rgba(255,255,255,0.05)",
+              borderBottomColor: "#222",
             }}
           >
             <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
@@ -105,7 +105,7 @@ export default function MembersModal({
           >
             <Text
               style={{
-                color: "#94a3b8",
+                color: "#9ca3af",
                 fontSize: 12,
                 fontWeight: "bold",
                 textTransform: "uppercase",
@@ -115,14 +115,16 @@ export default function MembersModal({
             </Text>
             <View
               style={{
-                backgroundColor: "#334155",
+                backgroundColor: "#222",
                 paddingHorizontal: 10,
                 paddingVertical: 4,
                 borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#333",
               }}
             >
               <Text
-                style={{ color: "#e2e8f0", fontSize: 12, fontWeight: "bold" }}
+                style={{ color: "#d1d5db", fontSize: 12, fontWeight: "bold" }}
               >
                 {displayParticipants.length} người
               </Text>
@@ -173,7 +175,9 @@ export default function MembersModal({
                           width: 40,
                           height: 40,
                           borderRadius: 20,
-                          backgroundColor: "rgba(59, 130, 246, 0.2)",
+                          backgroundColor: "#222",
+                          borderWidth: 1,
+                          borderColor: "#333",
                           justifyContent: "center",
                           alignItems: "center",
                         }}
@@ -300,11 +304,11 @@ export default function MembersModal({
                         position: "absolute",
                         right: 30,
                         top: 40,
-                        backgroundColor: "#0f172a",
+                        backgroundColor: "#222",
                         borderRadius: 12,
                         padding: 4,
                         borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.1)",
+                        borderColor: "#333",
                         zIndex: 999,
                       }}
                     >
@@ -453,12 +457,12 @@ export default function MembersModal({
           >
             <View
               style={{
-                backgroundColor: "#1e293b",
+                backgroundColor: "#111",
                 width: "100%",
                 borderRadius: 24,
                 padding: 24,
                 borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.1)",
+                borderColor: "#333",
               }}
             >
               <Text
@@ -478,16 +482,16 @@ export default function MembersModal({
                   setRenameState({ ...renameState, newName: text })
                 }
                 placeholder="Nhập tên mới..."
-                placeholderTextColor="#64748b"
+                placeholderTextColor="#6b7280"
                 style={{
-                  backgroundColor: "#0f172a",
-                  color: "white",
+                  backgroundColor: "#222",
+                  color: "#d1d5db",
                   padding: 16,
                   borderRadius: 12,
                   fontSize: 16,
                   marginBottom: 24,
                   borderWidth: 1,
-                  borderColor: "#334155",
+                  borderColor: "#333",
                 }}
                 autoFocus
               />

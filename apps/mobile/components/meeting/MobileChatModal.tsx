@@ -77,17 +77,27 @@ export default function MobileChatModal({
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "padding"}
       >
-        <View className="bg-slate-900 flex-1 mt-24 rounded-t-3xl overflow-hidden border-t border-slate-700 flex-col">
+        <View
+          style={{
+            backgroundColor: "#111",
+            borderTopWidth: 1,
+            borderTopColor: "#333",
+          }}
+          className="flex-1 mt-24 rounded-t-3xl overflow-hidden flex-col"
+        >
           {/* HEADER */}
-          <View className="flex-row justify-between items-center p-4 border-b border-slate-800 shrink-0">
-            <Text className="text-white font-bold text-lg">
+          <View
+            style={{ borderBottomWidth: 1, borderBottomColor: "#333" }}
+            className="flex-row justify-between items-center p-4 shrink-0"
+          >
+            <Text style={{ color: "#d1d5db" }} className="font-bold text-lg">
               Trò chuyện trong phòng
             </Text>
             <TouchableOpacity
               onPress={onClose}
-              className="p-2 bg-slate-800 rounded-full"
+              className="p-2 rounded-full bg-[#222]"
             >
-              <Feather name="x" size={20} color="#94a3b8" />
+              <Feather name="x" size={20} color="#9ca3af" />
             </TouchableOpacity>
           </View>
 
@@ -124,7 +134,7 @@ export default function MobileChatModal({
                   <View
                     className={`flex-row items-center mb-1 ${isMe ? "justify-end" : "justify-start"}`}
                   >
-                    <Text className="text-xs text-slate-400">
+                    <Text style={{ color: "#9ca3af" }} className="text-xs">
                       {realtimeSenderName}
                     </Text>
                   </View>
@@ -167,16 +177,28 @@ export default function MobileChatModal({
                     {item.fileType?.startsWith("image/") ? (
                       <Image
                         source={{ uri: item.publicUrl }}
-                        className="w-48 h-48 rounded-xl bg-slate-800"
+                        style={{ backgroundColor: "#222" }}
+                        className="w-48 h-48 rounded-xl"
                         resizeMode="cover"
                       />
                     ) : item.fileName ? (
-                      <View className="flex-row items-center gap-3 bg-slate-800 p-3 rounded-xl border border-slate-700 min-w-[160px] max-w-[240px]">
-                        <View className="bg-slate-700 p-2 rounded-lg shrink-0">
+                      <View
+                        style={{
+                          backgroundColor: "#222",
+                          borderColor: "#333",
+                          borderWidth: 1,
+                        }}
+                        className="flex-row items-center gap-3 p-3 rounded-xl min-w-[160px] max-w-[240px]"
+                      >
+                        <View
+                          style={{ backgroundColor: "#333" }}
+                          className="p-2 rounded-lg shrink-0"
+                        >
                           <Feather name="download" size={16} color="#3b82f6" />
                         </View>
                         <Text
-                          className="text-slate-200 text-sm flex-1"
+                          style={{ color: "#d1d5db" }}
+                          className="text-sm flex-1"
                           numberOfLines={1}
                           ellipsizeMode="middle"
                         >
@@ -185,7 +207,8 @@ export default function MobileChatModal({
                       </View>
                     ) : (
                       <View
-                        className={`px-4 py-3 rounded-2xl ${isMe ? "bg-blue-600 rounded-tr-sm" : "bg-slate-700 rounded-tl-sm"}`}
+                        style={{ backgroundColor: isMe ? "#2563eb" : "#222" }}
+                        className={`px-4 py-3 rounded-2xl ${isMe ? "rounded-tr-sm" : "rounded-tl-sm"}`}
                       >
                         <Text className="text-white text-base">
                           {item.content}
@@ -236,7 +259,12 @@ export default function MobileChatModal({
                                 onLongPress={() =>
                                   setReactionDetails(item.reactions!)
                                 }
-                                className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full border ${hasReacted ? "bg-slate-700 border-emerald-500" : "bg-slate-800 border-slate-700"}`}
+                                style={{
+                                  backgroundColor: hasReacted ? "#333" : "#222",
+                                  borderColor: hasReacted ? "#10b981" : "#333",
+                                  borderWidth: 1,
+                                }}
+                                className="flex-row items-center gap-1 px-2 py-0.5 rounded-full"
                               >
                                 <Text className="text-[11px]">{emoji}</Text>
                                 <Text
@@ -257,7 +285,14 @@ export default function MobileChatModal({
 
           {/* BANNER REPLY */}
           {replyingTo && (
-            <View className="bg-slate-800 px-4 py-2 flex-row justify-between items-center border-t border-slate-700">
+            <View
+              style={{
+                backgroundColor: "#111",
+                borderTopWidth: 1,
+                borderTopColor: "#333",
+              }}
+              className="px-4 py-2 flex-row justify-between items-center"
+            >
               <View className="flex-1 mr-2">
                 <Text className="font-semibold text-emerald-400 text-xs mb-0.5">
                   Đang trả lời {replyingTo.senderName}:
@@ -281,8 +316,14 @@ export default function MobileChatModal({
           {/* KHU VỰC NHẬP LIỆU */}
           {!canChat ? (
             <View
-              className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-row items-center justify-center gap-2 shrink-0"
-              style={{ paddingBottom: Math.max(insets.bottom, 12), height: 75 }}
+              style={{
+                backgroundColor: "#111",
+                borderTopWidth: 1,
+                borderTopColor: "#333",
+                paddingBottom: Math.max(insets.bottom, 12),
+                height: 75,
+              }}
+              className="p-3 mb-2 flex-row items-center justify-center gap-2 shrink-0"
             >
               <View className="bg-red-500/10 px-4 py-2.5 rounded-xl flex-row items-center gap-2 border border-red-500/20">
                 <Feather name="lock" size={16} color="#f87171" />
@@ -293,15 +334,28 @@ export default function MobileChatModal({
             </View>
           ) : (
             <View
-              className="p-3 border-t mb-2 border-slate-800 bg-slate-900 flex-col gap-2 shrink-0"
-              style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+              style={{
+                backgroundColor: "#111",
+                borderTopWidth: 1,
+                borderTopColor: "#333",
+                paddingBottom: Math.max(insets.bottom, 12),
+              }}
+              className="p-3 mb-2 flex-col gap-2 shrink-0"
             >
               {/* DROPDOWN CHỌN NGƯỜI NHẬN */}
               <TouchableOpacity
                 onPress={() => setShowTargetSelector(true)}
-                className="self-start px-3 py-1.5 bg-slate-800 rounded-lg flex-row items-center border border-slate-700 mb-1"
+                style={{
+                  backgroundColor: "#222",
+                  borderWidth: 1,
+                  borderColor: "#333",
+                }}
+                className="self-start px-3 py-1.5 rounded-lg flex-row items-center mb-1"
               >
-                <Text className="text-slate-300 text-xs font-medium mr-1.5">
+                <Text
+                  style={{ color: "#d1d5db" }}
+                  className="text-xs font-medium mr-1.5"
+                >
                   Gửi:{" "}
                   {selectedTarget === "all"
                     ? "Mọi người"
@@ -324,17 +378,24 @@ export default function MobileChatModal({
                   <>
                     <TouchableOpacity
                       onPress={handlePickImage}
-                      className="p-2.5 rounded-full bg-slate-800"
+                      className="p-2.5 rounded-full bg-[#222]"
                     >
                       <Feather name="image" size={20} color="#3b82f6" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handlePickDocument}
-                      className="p-2.5 rounded-full bg-slate-800"
+                      className="p-2.5 rounded-full bg-[#222]"
                     >
                       <Feather name="paperclip" size={20} color="#10b981" />
                     </TouchableOpacity>
-                    <View className="flex-1 bg-slate-800 rounded-full flex-row items-center px-4 border border-slate-700">
+                    <View
+                      style={{
+                        backgroundColor: "#222",
+                        borderWidth: 1,
+                        borderColor: "#333",
+                      }}
+                      className="flex-1 rounded-full flex-row items-center px-4"
+                    >
                       <TextInput
                         value={inputValue}
                         onChangeText={setInputValue}
@@ -375,16 +436,18 @@ export default function MobileChatModal({
         >
           <View
             style={{
-              backgroundColor: "#1e293b",
+              backgroundColor: "#222",
               padding: 20,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              borderWidth: 1,
+              borderColor: "#333",
               maxHeight: "50%",
             }}
           >
             <Text
               style={{
-                color: "#94a3b8",
+                color: "#9ca3af",
                 fontSize: 14,
                 fontWeight: "bold",
                 marginBottom: 16,
@@ -473,7 +536,12 @@ export default function MobileChatModal({
           onPress={() => setActiveMessage(null)}
         >
           <View
-            className="bg-slate-800 w-full rounded-2xl border border-slate-700 p-4"
+            style={{
+              backgroundColor: "#222",
+              borderColor: "#333",
+              borderWidth: 1,
+            }}
+            className="w-full rounded-2xl p-4"
             onStartShouldSetResponder={() => true}
           >
             <View className="flex-row justify-between mb-4 border-b border-slate-700 pb-4">
@@ -497,7 +565,10 @@ export default function MobileChatModal({
               }}
             >
               <Feather name="corner-up-left" size={20} color="#3b82f6" />
-              <Text className="text-white ml-3 text-base font-medium">
+              <Text
+                style={{ color: "#d1d5db" }}
+                className="ml-3 text-base font-medium"
+              >
                 Trả lời tin nhắn này
               </Text>
             </TouchableOpacity>

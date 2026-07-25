@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, Image } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
@@ -13,13 +13,37 @@ export default function ParticipantTile({
   trackRef: TrackReference;
 }) {
   const publication = trackRef.publication;
-  const videoTrack = publication?.track as VideoTrack;
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
+
+  const [videoTrack, setVideoTrack] = useState(
+    publication?.track as VideoTrack | undefined,
+  );
 
   const isMuted = publication?.isMuted ?? false;
   const showVideo = !!videoTrack && !isMuted;
   const { getHandState } = useHandRaise();
   const handState = getHandState(trackRef.participant);
+
+  useEffect(() => {
+    const track = publication?.track as VideoTrack | undefined;
+    setVideoTrack(track);
+
+    // Lắng nghe khi track được attach
+    const onSubscribed = () => {
+      setVideoTrack(publication?.track as VideoTrack);
+    };
+    const onUnsubscribed = () => {
+      setVideoTrack(undefined);
+    };
+
+    publication?.on("subscribed", onSubscribed);
+    publication?.on("unsubscribed", onUnsubscribed);
+
+    return () => {
+      publication?.off("subscribed", onSubscribed);
+      publication?.off("unsubscribed", onUnsubscribed);
+    };
+  }, [publication]);
 
   // Xử lý Metadata để lấy Avatar
   let avatarUrl = null;
@@ -31,22 +55,6 @@ export default function ParticipantTile({
   } catch (error) {
     console.error(error);
   }
-
-  useEffect(() => {
-    console.log(
-      "[ParticipantTile MOUNT]",
-      trackRef.participant.identity,
-      trackRef.source,
-    );
-
-    return () => {
-      console.log(
-        "[ParticipantTile UNMOUNT]",
-        trackRef.participant.identity,
-        trackRef.source,
-      );
-    };
-  }, [trackRef.participant.identity, trackRef.source]);
 
   return (
     <View
