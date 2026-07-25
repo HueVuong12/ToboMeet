@@ -97,11 +97,19 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     (currentChannel as any)?.id?.toString() ||
     "";
   const isCurrentUserOwner = room?.ownerId === userId;
+  const currentUserRoomRole = room?.members?.find(
+    (m: any) => m.userId === userId,
+  )?.role;
+  const isCurrentUserRoomLeader =
+    isCurrentUserOwner ||
+    currentUserRoomRole === "owner" ||
+    currentUserRoomRole === "teacher" ||
+    currentUserRoomRole === "leader";
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
   )?.role;
   const canUserManageChannel =
-    isCurrentUserOwner ||
+    isCurrentUserRoomLeader ||
     currentUserChannelRole === "vice" ||
     currentUserChannelRole === "assistant";
 
@@ -704,6 +712,19 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                   {canUserManageChannel && member.userId !== room?.ownerId && currentChannel?.isPrivate && (
                                     <div className="border-t border-slate-100 pt-1 mt-1">
                                       {(() => {
+                                        const targetChannelRole = currentChannel?.members?.find(
+                                          (m: any) =>
+                                            m.userId === member.userId ||
+                                            (member.supabaseId && m.userId === member.supabaseId) ||
+                                            (member._id && m.userId === member._id)
+                                        )?.role;
+                                        const isTargetVice = targetChannelRole === "vice" || targetChannelRole === "assistant";
+                                        const isTargetRoomLeader =
+                                          member.role === "owner" ||
+                                          member.role === "teacher" ||
+                                          member.role === "leader" ||
+                                          member.userId === room?.ownerId;
+
                                         const isTargetInPrivateChannel = currentChannel?.members?.some(
                                           (m: any) =>
                                             (m.userId === member.userId ||
@@ -715,6 +736,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                         );
 
                                         if (isTargetInPrivateChannel) {
+                                          if (!isCurrentUserRoomLeader && (isTargetVice || isTargetRoomLeader)) {
+                                            return null;
+                                          }
+
                                           return (
                                             <button
                                               onClick={async () => {

@@ -441,6 +441,10 @@ export class RoomsService implements OnModuleInit {
       room.members[operatorIdx].role = "member";
     }
 
+    // Đảm bảo Owner cũ vẫn còn trong danh sách thành viên của các kênh riêng tư trước khi hạ vai trò
+    // (vì khi còn là owner, họ có quyền truy cập ngầm định và không được thêm vào channel.members)
+    this.ensureOldOwnerInPrivateChannels(room, operatorId);
+
     // Reset vai trò của Owner mới trong tất cả các kênh thành member (không chiếm suất vice)
     if (room.channels && Array.isArray(room.channels)) {
       room.channels.forEach((c) => {
@@ -518,10 +522,10 @@ export class RoomsService implements OnModuleInit {
     }
 
     // Nếu từng bị xóa bởi chủ phòng (status === "REMOVED"), không cho tự tham gia lại
-    // const removedMember = room.members.find((m) => m.userId === userId && m.status === "REMOVED");
-    // if (removedMember) {
-    //   throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
-    // }
+    const removedMember = room.members.find((m) => m.userId === userId && m.status === "REMOVED");
+    if (removedMember) {
+      throw new ForbiddenException("Bạn không thể tự tham gia lại phòng này do đã bị Trưởng nhóm xóa.");
+    }
 
     // Kiểm tra xem trước đó từng là thành viên và đã rời phòng (LEFT)
     const previousMemberIndex = room.members.findIndex(
@@ -722,12 +726,15 @@ export class RoomsService implements OnModuleInit {
       throw new BadRequestException("Tên kênh đã tồn tại");
     }
 
-    const initialMembers = isPrivate
-      ? Array.from(new Set(initialMemberIds)).map((id) => ({
-          userId: id,
-          role: "member",
-        }))
+    // Khi kênh riêng tư được tạo, tự động thêm người tạo (userId) vào danh sách thành viên ban đầu
+    // để họ không bị mất quyền truy cập khi sau này bị chuyển giao quyền chủ phòng
+    const memberIds = isPrivate
+      ? Array.from(new Set([userId, ...initialMemberIds]))
       : [];
+    const initialMembers = memberIds.map((id) => ({
+      userId: id,
+      role: "member",
+    }));
 
     room.channels.push({
       name: channelName.trim(),
@@ -813,6 +820,23 @@ export class RoomsService implements OnModuleInit {
     );
 
     if (previousMemberIdx !== -1) {
+      const prevMember = room.members[previousMemberIdx];
+      // Nếu trạng thái trước đó là REMOVED (bị xóa khỏi phòng), chỉ cho phép owner hoặc vice thêm lại
+      if (prevMember.status === "REMOVED") {
+        const requesterMember = room.members.find((m) => m.userId === userId);
+        const isOwnerOrVice =
+          room.ownerId === userId ||
+          (requesterMember &&
+            (normalizeRole(requesterMember.role) === "owner" ||
+             normalizeRole(requesterMember.role) === "vice"));
+
+        if (!isOwnerOrVice) {
+          throw new ForbiddenException(
+            "Thành viên này từng bị xóa khỏi phòng. Chỉ Trưởng nhóm hoặc Phó nhóm mới có quyền thêm lại.",
+          );
+        }
+      }
+
       room.members[previousMemberIdx].isLeft = false;
       room.members[previousMemberIdx].status = "ACTIVE";
       room.members[previousMemberIdx].rejoinedAt = new Date();
@@ -889,6 +913,10 @@ export class RoomsService implements OnModuleInit {
           "Người kế nhiệm được chọn không thuộc phòng này.",
         );
       }
+
+      // Đảm bảo chủ phòng cũ (người rời) vẫn còn trong danh sách thành viên của các kênh riêng tư
+      // trước khi hạ vai trò, để họ không mất quyền truy cập các kênh đó
+      this.ensureOldOwnerInPrivateChannels(room, userId);
 
       // Thực hiện chuyển giao quyền sở hữu
       room.ownerId = newOwnerId;
@@ -1279,7 +1307,8 @@ export class RoomsService implements OnModuleInit {
     const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) throw new NotFoundException("Phòng không tồn tại");
 
-    if (!this.canManageChannelMembers(room, channelId, userId)) {
+    const canManage = await this.canManageChannelMembers(room, channelId, userId);
+    if (!canManage) {
       throw new ForbiddenException("Chỉ Trưởng nhóm/Giảng viên hoặc Phó nhóm/Ban cán sự của kênh mới có quyền xóa thành viên khỏi kênh riêng tư");
     }
 
@@ -1290,9 +1319,47 @@ export class RoomsService implements OnModuleInit {
     const channel = room.channels.find((c) => c._id?.toString() === channelId);
     if (!channel) throw new NotFoundException("Kênh không tồn tại");
 
+    // Fetch user doc of requester to get full list of IDs
+    const allowedUserIds = new Set<string>([userId]);
+    const userDoc = await this.userModel.findOne({
+      $or: [
+        { supabaseId: userId },
+        ...(Types.ObjectId.isValid(userId) ? [{ _id: new Types.ObjectId(userId) }] : []),
+      ],
+    }).exec();
+    if (userDoc) {
+      if (userDoc.supabaseId) allowedUserIds.add(userDoc.supabaseId);
+      if (userDoc._id) allowedUserIds.add(userDoc._id.toString());
+    }
+
+    // Check if requester is a Room Leader/Owner
+    const isRoomOwner = allowedUserIds.has(room.ownerId);
+    const roomMember = room.members?.find(
+      (m) =>
+        allowedUserIds.has(m.userId) &&
+        m.isLeft !== true &&
+        m.status !== "REMOVED" &&
+        m.status !== "LEFT",
+    );
+    const isRoomLeader = isRoomOwner || (roomMember && ["owner", "teacher", "leader"].includes(roomMember.role));
+
+    // Check if target is a Room Leader/Owner
+    const targetRoomMember = room.members?.find((m) => m.userId === targetUserId);
+    const isTargetRoomLeader = targetUserId === room.ownerId || (targetRoomMember && ["owner", "teacher", "leader"].includes(targetRoomMember.role));
+
     if (channel.members) {
       const targetMember = channel.members.find((m) => m.userId === targetUserId);
       if (targetMember) {
+        // Enforce vice leader limitations
+        if (!isRoomLeader) {
+          if (isTargetRoomLeader) {
+            throw new ForbiddenException("Phó nhóm / Ban cán sự không thể xóa Trưởng nhóm / Giảng viên khỏi kênh");
+          }
+          if (["vice", "assistant"].includes(targetMember.role)) {
+            throw new ForbiddenException("Phó nhóm / Ban cán sự không thể xóa Phó nhóm / Ban cán sự khác khỏi kênh");
+          }
+        }
+
         targetMember.isLeft = true;
         targetMember.status = "REMOVED";
         targetMember.leftAt = new Date();
@@ -1313,6 +1380,46 @@ export class RoomsService implements OnModuleInit {
     }
 
     return this.mapToRoomResponse(room);
+  }
+
+  /**
+   * Đảm bảo chủ phòng cũ (oldOwnerId) được thêm vào danh sách thành viên của tất cả các kênh riêng tư
+   * trong phòng (nếu họ chưa có), để tránh mất quyền truy cập sau khi chuyển giao quyền chủ phòng.
+   * Phương thức này an toàn: chỉ thêm mới nếu chưa tồn tại, không thay đổi dữ liệu hiện có.
+   */
+  private ensureOldOwnerInPrivateChannels(
+    room: RoomDocument,
+    oldOwnerId: string,
+  ) {
+    if (!room.channels || !Array.isArray(room.channels)) return;
+
+    let modified = false;
+    for (const channel of room.channels) {
+      if (!channel.isPrivate) continue; // Chỉ xử lý kênh riêng tư
+
+      if (!channel.members) {
+        channel.members = [];
+      }
+
+      const alreadyMember = channel.members.some(
+        (cm) => cm.userId === oldOwnerId,
+      );
+
+      if (!alreadyMember) {
+        // Thêm chủ phòng cũ như một thành viên bình thường
+        channel.members.push({
+          userId: oldOwnerId,
+          role: "member",
+          isLeft: false,
+          status: "JOINED",
+        });
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      room.markModified("channels");
+    }
   }
 
   /**
