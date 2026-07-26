@@ -23,7 +23,6 @@ export function useMeetingManager({
   const [joinMeetingApi] = useJoinMeetingMutation();
 
   const meetingWindowRef = useRef<Window | null>(null);
-  const pendingJoinConfigRef = useRef<any>(null);
 
   // Lắng nghe socket handoff và local storage
   useEffect(() => {
@@ -34,18 +33,6 @@ export function useMeetingManager({
 
     checkStatus();
     window.addEventListener("storage", checkStatus);
-
-    const handleSwitchAccepted = (data: any) => {
-      if (
-        data.channelId === currentChannel?._id &&
-        pendingJoinConfigRef.current
-      ) {
-        toast.success("Đã kết nối thiết bị mới, đang vào phòng...");
-        handleJoinMeeting(pendingJoinConfigRef.current, true);
-        pendingJoinConfigRef.current = null;
-      }
-    };
-    socket.on("switch_device_accepted", handleSwitchAccepted);
 
     const handleForceClose = (e: any) => {
       if (e.detail === roomId) {
@@ -58,7 +45,6 @@ export function useMeetingManager({
     window.addEventListener("FORCE_CLOSE_MEETING_WINDOW", handleForceClose);
 
     return () => {
-      socket.off("switch_device_accepted", handleSwitchAccepted);
       window.removeEventListener("storage", checkStatus);
       window.removeEventListener(
         "FORCE_CLOSE_MEETING_WINDOW",
@@ -121,20 +107,15 @@ export function useMeetingManager({
     } catch (error: any) {
       if (error?.code === 4013) {
         setShowPreviewModal(false);
-        pendingJoinConfigRef.current = config;
 
-        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
+        // Hiện thông báo và hỏi người dùng có muốn ngắt kết nối thiết bị kia không
+        toast.warning("Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
           duration: 10000,
           action: {
-            label: "Chuyển sang máy này",
+            label: "Ngắt kết nối máy kia & Vào phòng",
             onClick: () => {
-              socket.emit("request_switch_device", {
-                userId,
-                channelId: currentChannel._id,
-                roomId: roomId,
-                requesterSocketId: socket.id,
-              });
-              toast.info("Đang chờ xác nhận từ thiết bị khác...");
+              handleJoinMeeting(config, true);
+              toast.info("Đang chuyển thiết bị và vào phòng...");
             },
           },
         });

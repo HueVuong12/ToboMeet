@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { socket } from "../lib/socket";
 import { toast } from "../lib/toast";
 import { MeetingStore } from "../lib/meetingStore";
-import { useGetActiveMeetingQuery, useJoinMeetingMutation } from "../lib/redux/features/meetings/meetingsApi";
+import {
+  useGetActiveMeetingQuery,
+  useJoinMeetingMutation,
+} from "../lib/redux/features/meetings/meetingsApi";
 
 interface UseMeetingManagerProps {
   roomId: string;
@@ -59,21 +61,6 @@ export function useMeetingManager({
     checkActiveDevice();
   }, [roomId, activeChannelId, activeMeeting]);
 
-  // Lắng nghe Socket khi thiết bị khác đồng ý nhường phòng
-  useEffect(() => {
-    const handleSwitchAccepted = async (data: any) => {
-      if (data.channelId === activeChannelId) {
-        toast.success("Đã kết nối thiết bị mới, đang vào phòng...");
-        handleJoinMeeting(true); // forceSwitch = true, cho phép chuyển thiết bị
-      }
-    };
-
-    socket.on("switch_device_accepted", handleSwitchAccepted);
-    return () => {
-      socket.off("switch_device_accepted", handleSwitchAccepted);
-    };
-  }, [activeChannelId]);
-
   // Hàm xử lý tham gia cuộc họp
   const handleJoinMeeting = async (
     forceSwitch = false,
@@ -120,15 +107,8 @@ export function useMeetingManager({
             {
               text: "Chuyển sang máy này",
               onPress: () => {
-                socket.emit("request_switch_device", {
-                  userId,
-                  channelId: activeChannelId,
-                  roomId: roomId,
-                  requesterSocketId: socket.id,
-                });
-                toast.info(
-                  "Vui lòng xác nhận chuyển đổi trên màn hình thiết bị cũ của bạn...",
-                );
+                handleJoinMeeting(true, config);
+                toast.info("Đang chuyển thiết bị và vào phòng...");
               },
             },
           ],

@@ -1,8 +1,9 @@
 {
   "expo": {
     "name": "ToboMeet",
+    "slug": "ToboMeet",
     "scheme": "tobomeet",
-    "slug": "mobile",
+    "owner": "teamtobo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -62,7 +63,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "eb160c21-91e9-4dc0-8634-c36278944b45"
+        "projectId": "b455d065-ed8a-4efa-8b26-cd4550bc6141"
       }
     }
   }
