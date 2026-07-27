@@ -5,6 +5,7 @@ import {
   useJoinMeetingMutation,
 } from "@/lib/redux/api/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
+import { useMeetingCacheManager } from "./useMeetingCacheManager";
 
 interface UseMeetingManagerProps {
   roomId: string;
@@ -22,6 +23,7 @@ export function useMeetingManager({
   const meetingWindowRef = useRef<Window | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinMeetingApi] = useJoinMeetingMutation();
+  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
   const deviceId = useDeviceId();
 
   const { data: deviceStatus } = useGetDeviceStatusQuery(
@@ -32,10 +34,29 @@ export function useMeetingManager({
     },
     {
       skip: !currentChannel?._id || !deviceId, // Chỉ gọi khi đã có đủ thông tin
-      pollingInterval: 10000, // Tự động cập nhật 10s/lần để UI không bao giờ bị lệch
     },
   );
   const isJoinedOnThisDevice = deviceStatus?.isJoinedOnThisDevice || false;
+
+  useEffect(() => {
+    if (!roomId) return;
+
+    // Khởi tạo kênh lắng nghe đồng bộ với Tab B
+    const syncChannel = new BroadcastChannel(`meeting_sync_${roomId}`);
+
+    syncChannel.onmessage = (event) => {
+      if (event.data?.type === "MEETING_DISCONNECTED") {
+        const channelId = event.data.channelId;
+
+        // Lúc này, lệnh dispatch sẽ chạy trên bộ nhớ của Tab A
+        clearMeetingDeviceStatus(roomId, channelId);
+      }
+    };
+
+    return () => {
+      syncChannel.close();
+    };
+  }, [roomId, clearMeetingDeviceStatus]);
 
   const handleJoinMeeting = async (config: any, forceSwitch = false) => {
     if (!currentChannel?._id) return;

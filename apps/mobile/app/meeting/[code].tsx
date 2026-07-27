@@ -10,10 +10,10 @@ import { Room } from "livekit-client";
 
 import MobileToolbar from "../../components/meeting/MobileToolbar";
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
 import { toast } from "../../lib/toast";
+import { useMeetingCacheManager } from "../../hooks/useMeetingCacheManager";
 
 export default function MobileMeetingScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -24,6 +24,8 @@ export default function MobileMeetingScreen() {
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [customRoom, setCustomRoom] = useState<Room | null>(null);
+
+  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
 
   useEffect(() => {
     const data = MeetingStore.get();
@@ -42,14 +44,6 @@ export default function MobileMeetingScreen() {
     };
     configureAudio();
   }, []);
-
-  useEffect(() => {
-    return () => {
-      if (meetingData?.roomId) {
-        AsyncStorage.removeItem(`active_meeting_${meetingData.roomId}`);
-      }
-    };
-  }, [meetingData?.roomId]);
 
   useEffect(() => {
     if (!meetingData) return;
@@ -108,9 +102,10 @@ export default function MobileMeetingScreen() {
         customRoom.disconnect();
       }}
       onDisconnected={async () => {
-        if (meetingData?.roomId) {
-          await AsyncStorage.removeItem(`active_meeting_${meetingData.roomId}`);
+        if (meetingData) {
+          clearMeetingDeviceStatus(meetingData.roomId, meetingData.channelId);
         }
+
         if (router.canGoBack()) {
           router.back();
         } else {

@@ -10,12 +10,14 @@ import { Loader2, Video, Mic, VideoOff, MicOff, LogOut } from "lucide-react";
 import { useJoinMeetingByCodeMutation } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
 import { useDeviceId } from "@/hooks/useDeviceId";
+import { useMeetingCacheManager } from "@/hooks/useMeetingCacheManager";
 
 export default function MeetingPage() {
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const searchParams = useSearchParams();
   const params = useParams();
   const deviceId = useDeviceId();
+  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
 
   const meetingCode = params.code as string;
 
@@ -157,6 +159,18 @@ export default function MeetingPage() {
     setTimeout(() => {
       sessionStorage.removeItem(`is_joined_${meetingCode}`);
       sessionStorage.removeItem(`meeting_name_${meetingCode}`);
+
+      if (meetingData) {
+        clearMeetingDeviceStatus(meetingData?.roomId, meetingData?.channelId);
+        const syncChannel = new BroadcastChannel(
+          `meeting_sync_${meetingData.roomId}`,
+        );
+        syncChannel.postMessage({
+          type: "MEETING_DISCONNECTED",
+          channelId: meetingData.channelId,
+        });
+        syncChannel.close();
+      }
 
       window.close();
 

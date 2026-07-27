@@ -53,6 +53,13 @@ export const meetingsApi = baseApi.injectEndpoints({
         url: `/rooms/${roomId}/channels/${channelId}/meetings/devices/${deviceId}`,
         method: "GET",
       }),
+
+      providesTags: (result, error, { roomId, channelId, deviceId }) => [
+        {
+          type: "DeviceStatus",
+          id: `${roomId}-${channelId}-${deviceId}`,
+        },
+      ],
     }),
 
     toggleMeetingChat: builder.mutation<

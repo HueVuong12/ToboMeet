@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "../lib/toast";
 import { MeetingStore } from "../lib/meetingStore";
 import {
   useGetActiveMeetingQuery,
+  useGetDeviceStatusQuery,
   useJoinMeetingMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
@@ -29,37 +29,27 @@ export function useMeetingManager({
 }: UseMeetingManagerProps) {
   const router = useRouter();
   const [isJoining, setIsJoining] = useState(false);
-  const [isJoinedOnThisDevice, setIsJoinedOnThisDevice] = useState(false);
   const deviceId = useDeviceId();
 
   const [joinMeeting] = useJoinMeetingMutation();
+
+  const { data: deviceStatus } = useGetDeviceStatusQuery(
+    {
+      roomId,
+      channelId: activeChannelId || "",
+      deviceId: deviceId || "",
+    },
+    {
+      skip: !activeChannelId || !deviceId, // Chỉ gọi khi đã có đủ thông tin
+    },
+  );
+  const isJoinedOnThisDevice = deviceStatus?.isJoinedOnThisDevice || false;
 
   // Theo dõi trạng thái cuộc họp hiện tại từ Server
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: activeChannelId || "" },
     { skip: !roomId || !activeChannelId, refetchOnMountOrArgChange: true },
   );
-
-  // Kiểm tra Local Storage (AsyncStorage) xem máy này có đang họp không
-  useEffect(() => {
-    const checkActiveDevice = async () => {
-      if (!roomId) return;
-      const savedChannel = await AsyncStorage.getItem(
-        `active_meeting_${roomId}`,
-      );
-
-      // Nếu Server báo phòng này hiện KHÔNG CÓ cuộc họp nào diễn ra
-      // nhưng điện thoại lại có lưu cờ (do lần trước crash app) -> Lập tức xóa cờ rác!
-      if (activeMeeting && !activeMeeting.isOngoing && savedChannel) {
-        await AsyncStorage.removeItem(`active_meeting_${roomId}`);
-        setIsJoinedOnThisDevice(false);
-        return;
-      }
-
-      setIsJoinedOnThisDevice(savedChannel === activeChannelId);
-    };
-    checkActiveDevice();
-  }, [roomId, activeChannelId, activeMeeting]);
 
   // Hàm xử lý tham gia cuộc họp
   const handleJoinMeeting = async (
@@ -86,10 +76,6 @@ export function useMeetingManager({
         displayName: displayName || "Người dùng",
         forceSwitch,
       }).unwrap();
-
-      // Đánh dấu thiết bị Mobile này đang trong cuộc họp
-      await AsyncStorage.setItem(`active_meeting_${roomId}`, activeChannelId);
-      setIsJoinedOnThisDevice(true);
 
       MeetingStore.set({
         token: response.token,

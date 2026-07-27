@@ -1,20 +1,11 @@
 // src/meetings/meetings.service.ts
-import {
-  Injectable,
-  BadRequestException,
-  Inject,
-  forwardRef,
-} from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { AccessToken, RoomServiceClient, TrackType } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import {
-  RoomActivity,
-  RoomActivityDocument,
-} from "../rooms/schemas/room-activity.schema";
 import {
   ErrorCode,
   MeetingDeviceStatus,
@@ -36,9 +27,6 @@ export class MeetingsService {
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
-    @InjectModel(RoomActivity.name)
-    private activityModel: Model<RoomActivityDocument>,
-    @Inject(forwardRef(() => MeetingsGateway))
     private readonly meetingsGateway: MeetingsGateway,
   ) {
     const livekitHost = process.env.LIVEKIT_API_URL;
@@ -55,7 +43,7 @@ export class MeetingsService {
   }
 
   /**
-   * Tham gia hoặc tự động khởi tạo cuộc họp nếu chưa có ai tạo trong kênh
+   * Tham gia hoặc tự động khởi tạo mã cuộc họp lần đầu nếu chưa có ai tạo trong kênh
    * Chỉ cho phép 1 thiết bị vào 1 kênh họp tại 1 thời điểm
    */
   async joinOrCreateMeeting(
@@ -80,6 +68,7 @@ export class MeetingsService {
     const finalDisplayName =
       displayName || user?.displayName || "Người dùng ẩn danh";
     const avatarUrl = user?.avatarUrl || "";
+    let isMeetingStarting = false;
 
     // Tìm cuộc họp đang diễn ra (ongoing) trong kênh này
     let meeting = await this.meetingModel
@@ -101,8 +90,6 @@ export class MeetingsService {
         );
 
         if (isAlreadyInThisRoom) {
-          // Nếu là yêu cầu chuyển thiết bị
-          // Tạo token mới và join vào, thiết bị khác sẽ tự động ngắt kết nối
           if (forceSwitch) {
             console.log(`Tiến hành cấp Token thế chỗ cho user ${userId}`);
           } else {
@@ -116,6 +103,7 @@ export class MeetingsService {
         ) {
           throw error;
         }
+        isMeetingStarting = true;
       }
     }
 
@@ -133,18 +121,11 @@ export class MeetingsService {
 
       // Cập nhật trạng thái phòng họp thành active
       await this.roomModel.updateOne({ _id: roomId }, { status: "active" });
+    }
 
-      // Ghi nhận hoạt động phòng
-      await this.activityModel.create({
-        roomId,
-        type: "MEETING_STARTED",
-        metadata: {
-          userId,
-          displayName: finalDisplayName,
-          details: `Chủ phòng bắt đầu cuộc họp (Mã cuộc họp: ${meetingCode})`,
-        },
-      });
-
+    // Chỉ thông báo lần đầu khi phòng chưa active
+    if (isMeetingStarting) {
+      console.log("okok loglog");
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(channelId, {
         isOngoing: true,
@@ -167,14 +148,6 @@ export class MeetingsService {
     const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
-    // if (
-    //   !userInRoom ||
-    //   userInRoom.isLeft === true ||
-    //   userInRoom.status === "REMOVED" ||
-    //   userInRoom.status === "LEFT"
-    // ) {
-    //   throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
-    // }
     const userRole = userInRoom.role;
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
@@ -182,7 +155,7 @@ export class MeetingsService {
       identity: uniqueIdentity,
       name: finalDisplayName,
       metadata: JSON.stringify({
-        deviceId: deviceId,
+        deviceId: deviceId, // xác định thiết bị nào đang trong cuộc họp
         avatarUrl: avatarUrl,
         hasAdminPowers: hasAdminPowers,
         role: userRole,
@@ -262,9 +235,8 @@ export class MeetingsService {
       // Có người trong phòng nhưng không phải là thiết bị này
       return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
     } catch (error) {
+      console.log(error);
       // Khi không có ai trong phòng, LiveKit SFU tự động dọn dẹp (xóa) phòng.
-      // Lệnh listParticipants sẽ bắn ra lỗi "Room not found".
-      // Điều này là bình thường và chứng tỏ chắc chắn thiết bị không thể đang ở trong phòng.
       return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
     }
   }
@@ -369,11 +341,12 @@ export class MeetingsService {
           meeting.meetingCode,
         );
 
-        // Nếu API không lỗi và có ít nhất 1 người, phòng đang diễn ra
-        if (participants && participants.length > 0) {
+        // Nếu phòng vẫn còn session (chưa tự end)
+        if (participants) {
           isActuallyOngoing = true;
         }
       } catch (error) {
+        console.log(error);
         // Lỗi thường do LiveKit đã giải tán phòng khi trống
         isActuallyOngoing = false;
       }
@@ -442,10 +415,8 @@ export class MeetingsService {
         await this.livekitRoomService.listParticipants(meetingCode);
 
       if (participants.length === 0) {
-        // 1. Cập nhật Database
         await this.endMeetingByCode(meetingCode);
 
-        // 2. Ép giải tán phòng
         await this.forceDeleteLiveKitRoom(meetingCode);
       }
     } catch (error) {
@@ -516,15 +487,6 @@ export class MeetingsService {
 
     if (meeting) {
       console.log(`Đã đóng cuộc họp: ${meetingCode}`);
-
-      // Ghi nhận hoạt động phòng (Chuyển qua đọc meeting session)
-      // await this.activityModel.create({
-      //   roomId: meeting.roomId,
-      //   type: "MEETING_ENDED",
-      //   metadata: {
-      //     details: `Cuộc họp đã kết thúc (Mã cuộc họp: ${meetingCode})`,
-      //   },
-      // });
 
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
