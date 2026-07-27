@@ -12,25 +12,26 @@ export const meetingsApi = baseApi.injectEndpoints({
       {
         roomId: string;
         channelId: string;
+        deviceId: string;
         displayName?: string;
         forceSwitch?: boolean;
       }
     >({
-      query: ({ roomId, channelId, displayName, forceSwitch }) => ({
+      query: ({ roomId, channelId, deviceId, displayName, forceSwitch }) => ({
         url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
         method: "POST",
-        data: { displayName, forceSwitch },
+        data: { displayName, deviceId, forceSwitch },
       }),
     }),
 
     joinMeetingByCode: builder.mutation<
       MeetingJoinResponse,
-      { meetingCode: string; displayName?: string }
+      { meetingCode: string; deviceId: string; displayName?: string }
     >({
-      query: ({ meetingCode, displayName }) => ({
+      query: ({ meetingCode, deviceId, displayName }) => ({
         url: `/meetings/join-by-code`,
         method: "POST",
-        data: { displayName, meetingCode },
+        data: { displayName, deviceId, meetingCode },
       }),
     }),
 

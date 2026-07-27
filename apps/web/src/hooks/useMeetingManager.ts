@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { socket } from "@/lib/socket";
 import { toast } from "sonner";
-import { useJoinMeetingMutation } from "@/lib/redux/api/meetingsApi";
+import {
+  useGetDeviceStatusQuery,
+  useJoinMeetingMutation,
+} from "@/lib/redux/api/meetingsApi";
+import { useDeviceId } from "./useDeviceId";
 
 interface UseMeetingManagerProps {
   roomId: string;
-  userId: string;
   currentChannel: any;
   activeChannel: string;
   setShowPreviewModal: (show: boolean) => void;
@@ -13,54 +15,42 @@ interface UseMeetingManagerProps {
 
 export function useMeetingManager({
   roomId,
-  userId,
   currentChannel,
   activeChannel,
   setShowPreviewModal,
 }: UseMeetingManagerProps) {
-  const [isJoining, setIsJoining] = useState(false);
-  const [isJoinedOnThisDevice, setIsJoinedOnThisDevice] = useState(false);
-  const [joinMeetingApi] = useJoinMeetingMutation();
-
   const meetingWindowRef = useRef<Window | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinMeetingApi] = useJoinMeetingMutation();
+  const deviceId = useDeviceId();
 
-  // Lắng nghe socket handoff và local storage
-  useEffect(() => {
-    const checkStatus = () => {
-      const savedChannel = localStorage.getItem(`active_meeting_${roomId}`);
-      setIsJoinedOnThisDevice(savedChannel === currentChannel?._id);
-    };
-
-    checkStatus();
-    window.addEventListener("storage", checkStatus);
-
-    const handleForceClose = (e: any) => {
-      if (e.detail === roomId) {
-        if (meetingWindowRef.current && !meetingWindowRef.current.closed) {
-          meetingWindowRef.current.close();
-        }
-        setIsJoinedOnThisDevice(false);
-      }
-    };
-    window.addEventListener("FORCE_CLOSE_MEETING_WINDOW", handleForceClose);
-
-    return () => {
-      window.removeEventListener("storage", checkStatus);
-      window.removeEventListener(
-        "FORCE_CLOSE_MEETING_WINDOW",
-        handleForceClose,
-      );
-    };
-  }, [currentChannel?._id, roomId]);
+  const { data: deviceStatus } = useGetDeviceStatusQuery(
+    {
+      roomId,
+      channelId: currentChannel?._id,
+      deviceId: deviceId || "",
+    },
+    {
+      skip: !currentChannel?._id || !deviceId, // Chỉ gọi khi đã có đủ thông tin
+      pollingInterval: 10000, // Tự động cập nhật 10s/lần để UI không bao giờ bị lệch
+    },
+  );
+  const isJoinedOnThisDevice = deviceStatus?.isJoinedOnThisDevice || false;
 
   const handleJoinMeeting = async (config: any, forceSwitch = false) => {
     if (!currentChannel?._id) return;
+
+    if (!deviceId) {
+      toast.error("Đang khởi tạo định danh thiết bị, vui lòng thử lại!");
+      return;
+    }
 
     try {
       setIsJoining(true);
       const response = await joinMeetingApi({
         roomId,
         channelId: currentChannel._id,
+        deviceId: deviceId,
         displayName: config.displayName || undefined,
         forceSwitch,
       }).unwrap();
@@ -91,19 +81,7 @@ export function useMeetingManager({
         }
       };
 
-      localStorage.setItem(`active_meeting_${roomId}`, currentChannel._id);
-      setIsJoinedOnThisDevice(true);
-
-      setTimeout(() => {
-        meetingWindowRef.current = window.open(meetingUrl, "_blank");
-        const timer = setInterval(() => {
-          if (meetingWindowRef.current?.closed) {
-            clearInterval(timer);
-            localStorage.removeItem(`active_meeting_${roomId}`);
-            setIsJoinedOnThisDevice(false);
-          }
-        }, 1000);
-      }, 800);
+      meetingWindowRef.current = window.open(meetingUrl, "_blank");
     } catch (error: any) {
       if (error?.code === 4013) {
         setShowPreviewModal(false);

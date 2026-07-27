@@ -47,8 +47,30 @@ export class MeetingsController {
       roomId,
       channelId,
       userId,
+      body.deviceId,
       body.displayName,
       body.forceSwitch,
+    );
+  }
+
+  /**
+   * GET /api/rooms/:id/channels/:channelId/meetings/devices/:deviceId
+   * Kiểm tra trạng thái tham gia của thiết bị
+   */
+  @Get("devices/:deviceId")
+  @UseGuards(SupabaseGuard)
+  async getDeviceStatus(
+    @Param("id") roomId: string,
+    @Param("channelId") channelId: string,
+    @Param("deviceId") deviceId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.meetingsService.getDeviceStatus(
+      roomId,
+      channelId,
+      userId,
+      deviceId,
     );
   }
 
@@ -105,7 +127,7 @@ export class MeetingsController {
   async muteParticipant(
     @Param("code") meetingCode: string,
     @Param("identity") participantIdentity: string,
-    @Body() body: { trackType: 'audio' | 'video' }
+    @Body() body: { trackType: "audio" | "video" },
   ) {
     await this.meetingsService.muteParticipantTrack(
       meetingCode,
@@ -126,7 +148,8 @@ export class GlobalMeetingsController {
   @Post("join-by-code")
   @UseGuards(SupabaseGuard)
   async joinMeetingByCode(
-    @Body() body: { meetingCode: string; displayName?: string },
+    @Body()
+    body: { meetingCode: string; deviceId: string; displayName?: string },
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
@@ -134,6 +157,7 @@ export class GlobalMeetingsController {
     return this.meetingsService.joinMeetingByCode(
       body.meetingCode,
       userId,
+      body.deviceId,
       body.displayName,
     );
   }

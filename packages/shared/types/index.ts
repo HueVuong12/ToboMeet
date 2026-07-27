@@ -212,3 +212,8 @@ export interface PresignedUploadResponse {
   presignedUrl: string;
   publicUrl: string;
 }
+
+export interface MeetingDeviceStatus {
+  isJoinedOnThisDevice: boolean;
+  meetingCode: string;
+}

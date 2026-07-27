@@ -17,19 +17,18 @@ import {
 } from "../rooms/schemas/room-activity.schema";
 import {
   ErrorCode,
+  MeetingDeviceStatus,
   MeetingJoinResponse,
   PresignedUploadResponse,
 } from "@tobomeet/shared/types";
 import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
-import { SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseService } from "../supabase/supabase.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class MeetingsService {
   private livekitRoomService: RoomServiceClient;
-  private supabase: SupabaseClient;
   private readonly BUCKET_NAME = "meeting-chat";
   constructor(
     private eventEmitter: EventEmitter2,
@@ -63,6 +62,7 @@ export class MeetingsService {
     roomId: string,
     channelId: string,
     userId: string,
+    deviceId: string,
     displayName?: string,
     forceSwitch?: boolean,
   ): Promise<MeetingJoinResponse> {
@@ -86,7 +86,6 @@ export class MeetingsService {
       .findOne({
         roomId,
         channelId,
-        status: "ongoing",
       })
       .exec();
 
@@ -120,7 +119,7 @@ export class MeetingsService {
       }
     }
 
-    // Nếu CHƯA CÓ cuộc họp nào, tiến hành tạo mới (Bắt đầu cuộc họp)
+    // Nếu chưa có cuộc họp nào, tiến hành tạo mới 1 lần duy nhất (lazy init)
     if (!meeting) {
       const randomString = Math.random().toString(36).substring(2, 9);
       const meetingCode = `meet-${roomId.substring(0, 4)}-${randomString}`;
@@ -129,7 +128,6 @@ export class MeetingsService {
         roomId,
         channelId,
         meetingCode,
-        status: "ongoing",
         hostId: userId,
       });
 
@@ -184,6 +182,7 @@ export class MeetingsService {
       identity: uniqueIdentity,
       name: finalDisplayName,
       metadata: JSON.stringify({
+        deviceId: deviceId,
         avatarUrl: avatarUrl,
         hasAdminPowers: hasAdminPowers,
         role: userRole,
@@ -205,7 +204,7 @@ export class MeetingsService {
     return {
       token: await at.toJwt(),
       meetingCode: meeting.meetingCode,
-      status: meeting.status,
+      status: "ongoing",
       isHost: meeting.hostId === userId,
       displayName: finalDisplayName,
 
@@ -213,6 +212,61 @@ export class MeetingsService {
       channelId: channelId.toString(),
       channelName: currentChannel?.name,
     };
+  }
+
+  /**
+   * Kiểm tra xem thiết bị hiện tại có đang nằm trong cuộc họp của kênh này không.
+   */
+  async getDeviceStatus(
+    roomId: string,
+    channelId: string,
+    userId: string,
+    deviceId: string,
+  ): Promise<MeetingDeviceStatus> {
+    const meeting = await this.meetingModel
+      .findOne({
+        roomId,
+        channelId,
+      })
+      .exec();
+
+    if (!meeting || !this.livekitRoomService) {
+      return { isJoinedOnThisDevice: false, meetingCode: null };
+    }
+
+    try {
+      // Hỏi trực tiếp LiveKit xem có ai đang trong phòng không
+      const participants = await this.livekitRoomService.listParticipants(
+        meeting.meetingCode,
+      );
+
+      // Tìm xem user này có đang kết nối không
+      const userParticipant = participants.find((p) => p.identity === userId);
+
+      if (userParticipant && userParticipant.metadata) {
+        try {
+          // Giải mã metadata để lấy deviceId
+          const meta = JSON.parse(userParticipant.metadata);
+
+          if (meta.deviceId === deviceId) {
+            return {
+              isJoinedOnThisDevice: true,
+              meetingCode: meeting.meetingCode,
+            };
+          }
+        } catch (parseError) {
+          console.error("Lỗi parse metadata từ LiveKit:", parseError);
+        }
+      }
+
+      // Có người trong phòng nhưng không phải là thiết bị này
+      return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
+    } catch (error) {
+      // Khi không có ai trong phòng, LiveKit SFU tự động dọn dẹp (xóa) phòng.
+      // Lệnh listParticipants sẽ bắn ra lỗi "Room not found".
+      // Điều này là bình thường và chứng tỏ chắc chắn thiết bị không thể đang ở trong phòng.
+      return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
+    }
   }
 
   /**
@@ -263,13 +317,12 @@ export class MeetingsService {
   async joinMeetingByCode(
     meetingCode: string,
     userId: string,
+    deviceId: string,
     displayName?: string,
   ): Promise<MeetingJoinResponse> {
-    // Tra cứu ngược từ Database xem meetingCode này thuộc về Room và Channel nào
     const meeting = await this.meetingModel
       .findOne({
         meetingCode,
-        status: "ongoing", // Chỉ cho phép vào nếu cuộc họp đang diễn ra
       })
       .exec();
 
@@ -277,11 +330,11 @@ export class MeetingsService {
       throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
     }
 
-    // Gọi lại hàm joinOrCreateMeeting gốc bằng các ID đã tìm thấy trong DB
     return this.joinOrCreateMeeting(
       meeting.roomId,
       meeting.channelId,
       userId,
+      deviceId,
       displayName,
       false,
     );
@@ -289,20 +342,47 @@ export class MeetingsService {
 
   /**
    * Lấy trạng thái cuộc họp hiện tại của một kênh
+   * (Nâng cấp: Xác thực trạng thái thực tế trực tiếp từ LiveKit)
    */
   async getActiveMeeting(roomId: string, channelId: string) {
     const meeting = await this.meetingModel
       .findOne({
         roomId,
         channelId,
-        status: "ongoing",
       })
       .exec();
 
+    if (!meeting) {
+      return {
+        isOngoing: false,
+        meetingCode: null,
+        hostId: null,
+      };
+    }
+
+    let isActuallyOngoing = false;
+
+    if (this.livekitRoomService) {
+      try {
+        // Hỏi LiveKit xem phòng này có ai không
+        const participants = await this.livekitRoomService.listParticipants(
+          meeting.meetingCode,
+        );
+
+        // Nếu API không lỗi và có ít nhất 1 người, phòng đang diễn ra
+        if (participants && participants.length > 0) {
+          isActuallyOngoing = true;
+        }
+      } catch (error) {
+        // Lỗi thường do LiveKit đã giải tán phòng khi trống
+        isActuallyOngoing = false;
+      }
+    }
+
     return {
-      isOngoing: !!meeting,
-      meetingCode: meeting?.meetingCode || null,
-      hostId: meeting?.hostId || null,
+      isOngoing: isActuallyOngoing,
+      meetingCode: meeting.meetingCode,
+      hostId: meeting.hostId,
     };
   }
 
@@ -398,18 +478,30 @@ export class MeetingsService {
   /**
    * Tắt Mic hoặc Camera của người dùng
    */
-  async muteParticipantTrack(meetingCode: string, participantIdentity: string, trackType: 'audio' | 'video') {
+  async muteParticipantTrack(
+    meetingCode: string,
+    participantIdentity: string,
+    trackType: "audio" | "video",
+  ) {
     if (!this.livekitRoomService) return;
     try {
-      // 1. Lấy thông tin người dùng từ LiveKit
-      const participant = await this.livekitRoomService.getParticipant(meetingCode, participantIdentity);
-      const targetTrackType = trackType === 'audio' ? TrackType.AUDIO : TrackType.VIDEO;
+      const participant = await this.livekitRoomService.getParticipant(
+        meetingCode,
+        participantIdentity,
+      );
+      const targetTrackType =
+        trackType === "audio" ? TrackType.AUDIO : TrackType.VIDEO;
 
-      // 2. Tìm track (luồng dữ liệu) tương ứng đang được phát
-      const track = participant.tracks.find(t => t.type === targetTrackType);
+      // Tìm track (luồng dữ liệu) tương ứng đang được phát
+      const track = participant.tracks.find((t) => t.type === targetTrackType);
       if (track) {
-        // 3. Ép tắt track đó
-        await this.livekitRoomService.mutePublishedTrack(meetingCode, participantIdentity, track.sid, true);
+        // Ép tắt track đó
+        await this.livekitRoomService.mutePublishedTrack(
+          meetingCode,
+          participantIdentity,
+          track.sid,
+          true,
+        );
       }
     } catch (error) {
       console.error(`Lỗi khi tắt ${trackType}:`, error);
@@ -420,33 +512,19 @@ export class MeetingsService {
   async endMeetingByCode(meetingCode: string) {
     const meeting = await this.meetingModel.findOne({
       meetingCode,
-      status: "ongoing",
     });
 
     if (meeting) {
-      meeting.status = "ended";
-      await meeting.save();
       console.log(`Đã đóng cuộc họp: ${meetingCode}`);
 
-      // Cập nhật trạng thái phòng họp thành ended (nếu không có meeting ongoing khác)
-      const otherOngoing = await this.meetingModel
-        .findOne({ roomId: meeting.roomId, status: "ongoing" })
-        .exec();
-      if (!otherOngoing) {
-        await this.roomModel.updateOne(
-          { _id: meeting.roomId, status: { $ne: "disbanded" } },
-          { status: "ended" },
-        );
-      }
-
-      // Ghi nhận hoạt động phòng
-      await this.activityModel.create({
-        roomId: meeting.roomId,
-        type: "MEETING_ENDED",
-        metadata: {
-          details: `Cuộc họp đã kết thúc (Mã cuộc họp: ${meetingCode})`,
-        },
-      });
+      // Ghi nhận hoạt động phòng (Chuyển qua đọc meeting session)
+      // await this.activityModel.create({
+      //   roomId: meeting.roomId,
+      //   type: "MEETING_ENDED",
+      //   metadata: {
+      //     details: `Cuộc họp đã kết thúc (Mã cuộc họp: ${meetingCode})`,
+      //   },
+      // });
 
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {

@@ -1,4 +1,5 @@
 import {
+  MeetingDeviceStatus,
   MeetingJoinResponse,
   PresignedUploadResponse,
 } from "@tobomeet/shared/types";
@@ -11,25 +12,26 @@ export const meetingsApi = baseApi.injectEndpoints({
       {
         roomId: string;
         channelId: string;
+        deviceId: string;
         displayName?: string;
         forceSwitch?: boolean;
       }
     >({
-      query: ({ roomId, channelId, displayName, forceSwitch }) => ({
+      query: ({ roomId, channelId, deviceId, displayName, forceSwitch }) => ({
         url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
         method: "POST",
-        data: { displayName, forceSwitch },
+        data: { displayName, forceSwitch, deviceId },
       }),
     }),
 
     joinMeetingByCode: builder.mutation<
       MeetingJoinResponse,
-      { meetingCode: string; displayName?: string }
+      { meetingCode: string; deviceId: string; displayName?: string }
     >({
-      query: ({ meetingCode, displayName }) => ({
+      query: ({ meetingCode, deviceId, displayName }) => ({
         url: `/meetings/join-by-code`,
         method: "POST",
-        data: { displayName, meetingCode },
+        data: { displayName, deviceId, meetingCode },
       }),
     }),
 
@@ -39,6 +41,16 @@ export const meetingsApi = baseApi.injectEndpoints({
     >({
       query: ({ roomId, channelId }) => ({
         url: `/rooms/${roomId}/channels/${channelId}/meetings/active`,
+        method: "GET",
+      }),
+    }),
+
+    getDeviceStatus: builder.query<
+      MeetingDeviceStatus,
+      { roomId: string; channelId: string; deviceId: string }
+    >({
+      query: ({ roomId, channelId, deviceId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/devices/${deviceId}`,
         method: "GET",
       }),
     }),
@@ -104,6 +116,7 @@ export const {
   useJoinMeetingMutation,
   useJoinMeetingByCodeMutation,
   useGetActiveMeetingQuery,
+  useGetDeviceStatusQuery,
   useToggleMeetingChatMutation,
   useRemoveParticipantMutation,
   useMuteParticipantMutation,

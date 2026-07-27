@@ -8,11 +8,11 @@ import {
   useGetActiveMeetingQuery,
   useJoinMeetingMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
+import { useDeviceId } from "./useDeviceId";
 
 interface UseMeetingManagerProps {
   roomId: string;
   activeChannelId: string | null;
-  userId?: string;
   displayName?: string;
 }
 
@@ -25,12 +25,12 @@ export interface DeviceConfig {
 export function useMeetingManager({
   roomId,
   activeChannelId,
-  userId,
   displayName,
 }: UseMeetingManagerProps) {
   const router = useRouter();
   const [isJoining, setIsJoining] = useState(false);
   const [isJoinedOnThisDevice, setIsJoinedOnThisDevice] = useState(false);
+  const deviceId = useDeviceId();
 
   const [joinMeeting] = useJoinMeetingMutation();
 
@@ -68,6 +68,11 @@ export function useMeetingManager({
   ) => {
     if (!roomId || !activeChannelId) return;
 
+    if (!deviceId) {
+      toast.error("Đang khởi tạo định danh thiết bị, vui lòng thử lại!");
+      return;
+    }
+
     const isCamOn = config?.isCamOn ?? true;
     const isMicOn = config?.isMicOn ?? false;
     const cameraFacing = config?.cameraFacing;
@@ -77,6 +82,7 @@ export function useMeetingManager({
       const response = await joinMeeting({
         roomId,
         channelId: activeChannelId,
+        deviceId: deviceId,
         displayName: displayName || "Người dùng",
         forceSwitch,
       }).unwrap();

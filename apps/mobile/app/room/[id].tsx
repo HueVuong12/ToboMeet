@@ -94,7 +94,6 @@ export default function RoomDetailScreen() {
     useMeetingManager({
       roomId: id,
       activeChannelId: activeChannelId,
-      userId: profile?.supabaseId,
       displayName: profile?.displayName,
     });
 

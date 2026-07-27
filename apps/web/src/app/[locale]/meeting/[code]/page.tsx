@@ -9,11 +9,13 @@ import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
 import { Loader2, Video, Mic, VideoOff, MicOff, LogOut } from "lucide-react";
 import { useJoinMeetingByCodeMutation } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
+import { useDeviceId } from "@/hooks/useDeviceId";
 
 export default function MeetingPage() {
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const searchParams = useSearchParams();
   const params = useParams();
+  const deviceId = useDeviceId();
 
   const meetingCode = params.code as string;
 
@@ -56,6 +58,12 @@ export default function MeetingPage() {
 
   const handleJoinByCode = useCallback(async () => {
     if (!meetingCode) return;
+
+    if (!deviceId) {
+      toast.error("Đang khởi tạo định danh thiết bị, vui lòng thử lại!");
+      return;
+    }
+
     try {
       // Lấy tên từ state, nếu trống (do F5) thì lấy từ sessionStorage
       const savedName = sessionStorage.getItem(`meeting_name_${meetingCode}`);
@@ -63,6 +71,7 @@ export default function MeetingPage() {
 
       const response = await joinMeetingByCodeApi({
         meetingCode,
+        deviceId: deviceId,
         displayName: finalName,
       }).unwrap();
 
@@ -77,11 +86,6 @@ export default function MeetingPage() {
         channelId: response.channelId,
         channelName: response.channelName,
       });
-
-      localStorage.setItem(
-        `active_meeting_${response.roomId}`,
-        response.channelId,
-      );
 
       setStatus("JOINED");
     } catch (error: any) {
@@ -147,9 +151,6 @@ export default function MeetingPage() {
   }, [meetingCode, status, handleJoinByCode]);
 
   const handleDisconnect = () => {
-    if (meetingData)
-      localStorage.removeItem(`active_meeting_${meetingData.roomId}`);
-
     if (isUnloadingRef.current) return;
     setIsDisconnecting(true);
 

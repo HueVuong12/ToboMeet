@@ -79,7 +79,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const { handleJoinMeeting, isJoining, isJoinedOnThisDevice } =
     useMeetingManager({
       roomId,
-      userId,
       currentChannel,
       activeChannel,
       setShowPreviewModal,
