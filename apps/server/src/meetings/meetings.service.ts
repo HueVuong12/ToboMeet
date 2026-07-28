@@ -54,6 +54,8 @@ export class MeetingsService {
     displayName?: string,
     forceSwitch?: boolean,
   ): Promise<MeetingJoinResponse> {
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
     const room = await this.roomModel.findOne({
       _id: roomId,
       "channels._id": channelId,
@@ -118,24 +120,22 @@ export class MeetingsService {
         meetingCode,
         hostId: userId,
       });
-
-      // Cập nhật trạng thái phòng họp thành active
-      await this.roomModel.updateOne({ _id: roomId }, { status: "active" });
     }
+
+    const rooms = await this.livekitRoomService.listRooms([
+      meeting.meetingCode,
+    ]);
+
+    // Nếu room với meeting code đang chưa được khởi tạo
+    if (rooms && rooms.length === 0) isMeetingStarting = true;
 
     // Chỉ thông báo lần đầu khi phòng chưa active
     if (isMeetingStarting) {
-      console.log("okok loglog");
-      // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(channelId, {
         isOngoing: true,
         meetingCode: meeting.meetingCode,
       });
     }
-
-    // Sinh LiveKit Access Token cho người dùng này
-    const apiKey = process.env.LIVEKIT_API_KEY;
-    const apiSecret = process.env.LIVEKIT_API_SECRET;
 
     if (!apiKey || !apiSecret) {
       // Không gửi chi tiết lỗi hệ thống cho client
@@ -336,14 +336,16 @@ export class MeetingsService {
 
     if (this.livekitRoomService) {
       try {
-        // Hỏi LiveKit xem phòng này có ai không
-        const participants = await this.livekitRoomService.listParticipants(
+        const rooms = await this.livekitRoomService.listRooms([
           meeting.meetingCode,
-        );
+        ]);
 
-        // Nếu phòng vẫn còn session (chưa tự end)
-        if (participants) {
+        // Nếu mảng trả về có chứa phòng, nghĩa là phòng THỰC SỰ ĐANG TỒN TẠI
+        if (rooms && rooms.length > 0) {
           isActuallyOngoing = true;
+        } else {
+          // Trả về mảng rỗng nghĩa là phòng đã bị xóa / chưa được tạo
+          isActuallyOngoing = false;
         }
       } catch (error) {
         console.log(error);

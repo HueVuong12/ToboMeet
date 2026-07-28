@@ -40,6 +40,7 @@ export default function MeetingPage() {
   } | null>(null);
 
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const hasTriedReconnectRef = useRef(false);
 
   const [status, setStatus] = useState<
     "LOOKING_FOR_TOKEN" | "IN_LOBBY" | "JOINED" | "RECONNECTING"
@@ -55,14 +56,18 @@ export default function MeetingPage() {
       isUnloadingRef.current = true;
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+    };
   }, []);
 
   const handleJoinByCode = useCallback(async () => {
     if (!meetingCode) return;
 
     if (!deviceId) {
-      toast.error("Đang khởi tạo định danh thiết bị, vui lòng thử lại!");
+      console.log("[Meeting] Waiting for deviceId...");
       return;
     }
 
@@ -90,9 +95,11 @@ export default function MeetingPage() {
       });
 
       setStatus("JOINED");
+      hasTriedReconnectRef.current = false;
     } catch (error: any) {
       // Nếu xin Token thất bại (ví dụ: phòng đã khóa/kết thúc), xóa cờ và văng ra Lobby
       sessionStorage.removeItem(`is_joined_${meetingCode}`);
+      hasTriedReconnectRef.current = false;
 
       if (error?.code === 4013) {
         toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.");
@@ -101,7 +108,7 @@ export default function MeetingPage() {
         setStatus("IN_LOBBY");
       }
     }
-  }, [meetingCode, displayName, joinMeetingByCodeApi]);
+  }, [meetingCode, displayName, deviceId, joinMeetingByCodeApi]);
 
   // Kiểm tra Session hoặc xin Token qua BroadcastChannel
   useEffect(() => {
@@ -112,7 +119,6 @@ export default function MeetingPage() {
 
     if (isJoined) {
       setStatus("RECONNECTING");
-      handleJoinByCode();
       return;
     }
 
@@ -152,8 +158,19 @@ export default function MeetingPage() {
     };
   }, [meetingCode, status, handleJoinByCode]);
 
+  // khi RECONNECTING + deviceId sẵn sàng → join
+  useEffect(() => {
+    if (status !== "RECONNECTING") return;
+    if (!deviceId) return; // vẫn đợi
+    if (hasTriedReconnectRef.current) return; // đã thử rồi
+
+    hasTriedReconnectRef.current = true;
+    handleJoinByCode();
+  }, [status, deviceId, handleJoinByCode]);
+
   const handleDisconnect = () => {
     if (isUnloadingRef.current) return;
+
     setIsDisconnecting(true);
 
     setTimeout(() => {
