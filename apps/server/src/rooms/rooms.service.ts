@@ -914,22 +914,23 @@ export class RoomsService implements OnModuleInit {
       throw new BadRequestException("Tên kênh đã tồn tại");
     }
 
-    // Khi kênh riêng tư được tạo, tự động thêm người tạo (userId) vào danh sách thành viên ban đầu
-    // để họ không bị mất quyền truy cập khi sau này bị chuyển giao quyền chủ phòng
-    const memberIds = isPrivate
-      ? Array.from(new Set([userId, ...initialMemberIds]))
-      : [];
-    const initialMembers = memberIds.map((id) => ({
-      userId: id,
-      role: "member",
-    }));
-
-    room.channels.push({
+    const newChannel: any = {
       name: channelName.trim(),
       isPrivate: !!isPrivate,
-      members: initialMembers,
       createdAt: new Date(),
-    });
+    };
+
+    // Khi kênh riêng tư được tạo, tự động thêm người tạo (userId) vào danh sách thành viên ban đầu
+    // để họ không bị mất quyền truy cập khi sau này bị chuyển giao quyền chủ phòng
+    if (isPrivate) {
+      const memberIds = Array.from(new Set([userId, ...initialMemberIds]));
+      newChannel.members = memberIds.map((id) => ({
+        userId: id,
+        role: "member",
+      }));
+    }
+
+    room.channels.push(newChannel);
     await room.save();
 
     return room;
@@ -1685,26 +1686,50 @@ export class RoomsService implements OnModuleInit {
       return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
     };
 
+    const activeRoomMembers = plainRoom.members
+      ?.filter((m: RoomMember) => m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT")
+      .map((m: RoomMember) => {
+        const normalized = normalizeRole(m.role || "member");
+        return {
+          userId: m.userId,
+          role: normalized,
+          displayRole: getDisplayRole(normalized, plainRoom.type),
+          joinedAt: safeToIsoString(m.joinedAt),
+        };
+      }) || [];
+
+    const mappedChannels = plainRoom.channels?.map((c: any) => {
+      // Đối với kênh công khai, tự động map toàn bộ thành viên của room làm thành viên kênh
+      if (c.isPrivate !== true) {
+        const specialMembers = c.members || [];
+        const fullMembers = activeRoomMembers.map((rm: any) => {
+          const special = specialMembers.find((sm: any) => sm.userId === rm.userId);
+          return {
+            userId: rm.userId,
+            role: special ? special.role : "member",
+          };
+        });
+        return {
+          ...c,
+          _id: c._id?.toString() || "",
+          members: fullMembers,
+        };
+      }
+      return {
+        ...c,
+        _id: c._id?.toString() || "",
+        members: c.members || [],
+      };
+    }) || [];
+
     return {
       _id: plainRoom._id?.toString() || "",
       name: plainRoom.name || "",
       type: (plainRoom.type || "meeting") as "meeting" | "classroom",
       code: plainRoom.code || "",
       ownerId: plainRoom.ownerId || "",
-      // Ánh xạ channels (nếu có id sinh tự động thì chuyển sang string)
-      channels: plainRoom.channels || [],
-      // Ánh xạ members cơ bản (chỉ lấy những thành viên đang hoạt động)
-      members: plainRoom.members
-        ?.filter((m: RoomMember) => m.isLeft !== true && m.status !== "REMOVED" && m.status !== "LEFT")
-        .map((m: RoomMember) => {
-          const normalized = normalizeRole(m.role || "member");
-          return {
-            userId: m.userId,
-            role: normalized,
-            displayRole: getDisplayRole(normalized, plainRoom.type),
-            joinedAt: safeToIsoString(m.joinedAt),
-          };
-        }) || [],
+      channels: mappedChannels,
+      members: activeRoomMembers,
       createdAt: safeToIsoString(plainRoom.createdAt),
       updatedAt: safeToIsoString(plainRoom.updatedAt),
     };

@@ -12,7 +12,7 @@ export class Channel {
   @Prop({ type: Boolean, default: false })
   isPrivate?: boolean;
 
-  @Prop({ type: [ChannelMemberSchema], default: [] })
+  @Prop({ type: [ChannelMemberSchema] })
   members?: ChannelMember[];
 
   @Prop({ default: () => new Date() })
