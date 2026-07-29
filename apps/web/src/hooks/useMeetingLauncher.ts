@@ -1,62 +1,26 @@
-import { useState, useRef, useEffect } from "react";
+// src/hooks/useMeetingLauncher.ts
+import { useState, useRef } from "react";
 import { toast } from "sonner";
-import {
-  useGetDeviceStatusQuery,
-  useJoinMeetingMutation,
-} from "@/lib/redux/api/meetingsApi";
+import { useJoinMeetingMutation } from "@/lib/redux/api/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
-import { useMeetingCacheManager } from "./useMeetingCacheManager";
 
-interface UseMeetingManagerProps {
+interface UseMeetingLauncherProps {
   roomId: string;
   currentChannel: any;
   activeChannel: string;
   setShowPreviewModal: (show: boolean) => void;
 }
 
-export function useMeetingManager({
+export function useMeetingLauncher({
   roomId,
   currentChannel,
   activeChannel,
   setShowPreviewModal,
-}: UseMeetingManagerProps) {
+}: UseMeetingLauncherProps) {
   const meetingWindowRef = useRef<Window | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinMeetingApi] = useJoinMeetingMutation();
-  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
   const deviceId = useDeviceId();
-
-  const { data: deviceStatus } = useGetDeviceStatusQuery(
-    {
-      roomId,
-      channelId: currentChannel?._id,
-      deviceId: deviceId || "",
-    },
-    {
-      skip: !currentChannel?._id || !deviceId, // Chỉ gọi khi đã có đủ thông tin
-    },
-  );
-  const isJoinedOnThisDevice = deviceStatus?.isJoinedOnThisDevice || false;
-
-  useEffect(() => {
-    if (!roomId) return;
-
-    // Khởi tạo kênh lắng nghe đồng bộ với Tab B
-    const syncChannel = new BroadcastChannel(`meeting_sync_${roomId}`);
-
-    syncChannel.onmessage = (event) => {
-      if (event.data?.type === "MEETING_DISCONNECTED") {
-        const channelId = event.data.channelId;
-
-        // Lúc này, lệnh dispatch sẽ chạy trên bộ nhớ của Tab A
-        clearMeetingDeviceStatus(roomId, channelId);
-      }
-    };
-
-    return () => {
-      syncChannel.close();
-    };
-  }, [roomId, clearMeetingDeviceStatus]);
 
   const handleJoinMeeting = async (config: any, forceSwitch = false) => {
     if (!currentChannel?._id) return;
@@ -86,8 +50,8 @@ export function useMeetingManager({
 
       setShowPreviewModal(false);
 
-      const meetingUrl = `/meeting/${response.meetingCode}?cam=${config.isCamOn}&cameraConfig=${cameraConfig}&mic=${config.isMicOn}&micId=${config.micId}&speakerId=${config.speakerId}`;
-
+      const meetingUrl = `/meeting/${response.meetingCode}`;
+      
       const bc = new BroadcastChannel(`token_channel_${response.meetingCode}`);
       bc.onmessage = (event) => {
         if (event.data === "TAB_B_READY") {
@@ -97,6 +61,17 @@ export function useMeetingManager({
             roomId: roomId,
             channelId: currentChannel._id,
             channelName: activeChannel,
+            deviceConfig: {
+              camOn: config.isCamOn,
+              micOn: config.isMicOn,
+              micId: config.micId,
+              speakerId: config.speakerId,
+              cameraConfig: {
+                deviceId: config.cameraId,
+                width: config.resolution.width,
+                height: config.resolution.height,
+              },
+            },
           });
           setTimeout(() => bc.close(), 500);
         }
@@ -107,7 +82,6 @@ export function useMeetingManager({
       if (error?.code === 4013) {
         setShowPreviewModal(false);
 
-        // Hiện thông báo và hỏi người dùng có muốn ngắt kết nối thiết bị kia không
         toast.warning("Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
           duration: 10000,
           action: {
@@ -126,5 +100,5 @@ export function useMeetingManager({
     }
   };
 
-  return { handleJoinMeeting, isJoining, isJoinedOnThisDevice };
+  return { handleJoinMeeting, isJoining };
 }

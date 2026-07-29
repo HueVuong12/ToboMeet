@@ -76,6 +76,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Đã trong cuộc họp",
     statusCode: 401,
   },
+  MEETING_NOT_STARTED_OR_ENDED: {
+    code: 4014,
+    message: "Cuộc họp chưa bắt đầu hoặc đã kết thúc",
+    statusCode: 401,
+  },
   ROOM_OR_CHANNEL_NOT_FOUND: {
     code: 4041,
     message: "Phòng hoặc kênh không tồn tại",
@@ -216,4 +221,9 @@ export interface PresignedUploadResponse {
 export interface MeetingDeviceStatus {
   isJoinedOnThisDevice: boolean;
   meetingCode: string;
+}
+
+export interface RoomMemberStatus {
+  isMember: boolean;
+  roomId?: string;
 }

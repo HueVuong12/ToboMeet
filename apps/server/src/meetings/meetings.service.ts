@@ -11,6 +11,7 @@ import {
   MeetingDeviceStatus,
   MeetingJoinResponse,
   PresignedUploadResponse,
+  RoomMemberStatus,
 } from "@tobomeet/shared/types";
 import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
@@ -70,7 +71,6 @@ export class MeetingsService {
     const finalDisplayName =
       displayName || user?.displayName || "Người dùng ẩn danh";
     const avatarUrl = user?.avatarUrl || "";
-    let isMeetingStarting = false;
 
     // Tìm cuộc họp đang diễn ra (ongoing) trong kênh này
     let meeting = await this.meetingModel
@@ -105,7 +105,6 @@ export class MeetingsService {
         ) {
           throw error;
         }
-        isMeetingStarting = true;
       }
     }
 
@@ -122,12 +121,7 @@ export class MeetingsService {
       });
     }
 
-    const rooms = await this.livekitRoomService.listRooms([
-      meeting.meetingCode,
-    ]);
-
-    // Nếu room với meeting code đang chưa được khởi tạo
-    if (rooms && rooms.length === 0) isMeetingStarting = true;
+    const isMeetingStarting = this.isRoomActive(meeting.meetingCode);
 
     // Chỉ thông báo lần đầu khi phòng chưa active
     if (isMeetingStarting) {
@@ -143,12 +137,11 @@ export class MeetingsService {
       throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
-    // HƯNG NOTE LẠI: CHÌA KHOÁ ĐỂ CUỘC HỌP CHỈ DIỄN RA TRÊN 1 THIẾT BỊ
     // Chỉ dùng đúng userId làm định danh duy nhất
     const uniqueIdentity = userId;
 
     const userInRoom = room.members.find((m) => m.userId === userId);
-    const userRole = userInRoom.role;
+    const userRole = userInRoom ? userInRoom.role : "stranger";
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
     const at = new AccessToken(apiKey, apiSecret, {
@@ -242,6 +235,36 @@ export class MeetingsService {
   }
 
   /**
+   * Kiểm tra xem một người dùng có phải là thành viên chính thức của phòng hay không
+   * (Dựa vào mã cuộc họp meetingCode)
+   * Phục vụ việc chuyển hướng (Redirect) khi rời phòng hoặc phòng đã kết thúc.
+   */
+  async getMemberStatus(
+    meetingCode: string,
+    userId: string,
+  ): Promise<RoomMemberStatus> {
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+
+    if (!meeting) {
+      return { isMember: false, roomId: null };
+    }
+
+    const room = await this.roomModel.findById(meeting.roomId).exec();
+
+    if (!room) {
+      return { isMember: false, roomId: null };
+    }
+
+    const userInRoom = room.members.find((m) => m.userId === userId);
+    const isMember = !!userInRoom;
+
+    return {
+      isMember,
+      roomId: isMember ? meeting.roomId : undefined,
+    };
+  }
+
+  /**
    * Sinh presigned url upload cho meeting chat
    */
   async generatePresignedUrl(
@@ -286,6 +309,11 @@ export class MeetingsService {
     }
   }
 
+  /**
+   * Tham gia cuộc họp bằng link/code
+   * Tất cả những ai đã đăng nhập đều dùng được, kể cả thành viên trong phòng
+   * Không cho người bên ngoài phòng tự ý tạo cuộc họp trước
+   */
   async joinMeetingByCode(
     meetingCode: string,
     userId: string,
@@ -301,6 +329,13 @@ export class MeetingsService {
     if (!meeting) {
       throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
     }
+
+    const isActuallyOngoing = await this.isRoomActive(meeting.meetingCode);
+
+    // Chặn vào phòng bằng code(link) nếu đã kết thúc
+    // Chặn refresh khi phòng còn duy nhất 1 người
+    if (!isActuallyOngoing)
+      throw new AppException(ErrorCode.MEETING_NOT_STARTED_OR_ENDED);
 
     return this.joinOrCreateMeeting(
       meeting.roomId,
@@ -332,27 +367,7 @@ export class MeetingsService {
       };
     }
 
-    let isActuallyOngoing = false;
-
-    if (this.livekitRoomService) {
-      try {
-        const rooms = await this.livekitRoomService.listRooms([
-          meeting.meetingCode,
-        ]);
-
-        // Nếu mảng trả về có chứa phòng, nghĩa là phòng THỰC SỰ ĐANG TỒN TẠI
-        if (rooms && rooms.length > 0) {
-          isActuallyOngoing = true;
-        } else {
-          // Trả về mảng rỗng nghĩa là phòng đã bị xóa / chưa được tạo
-          isActuallyOngoing = false;
-        }
-      } catch (error) {
-        console.log(error);
-        // Lỗi thường do LiveKit đã giải tán phòng khi trống
-        isActuallyOngoing = false;
-      }
-    }
+    const isActuallyOngoing = await this.isRoomActive(meeting.meetingCode);
 
     return {
       isOngoing: isActuallyOngoing,
@@ -482,6 +497,8 @@ export class MeetingsService {
     }
   }
 
+  // utils, helpers
+
   async endMeetingByCode(meetingCode: string) {
     const meeting = await this.meetingModel.findOne({
       meetingCode,
@@ -496,5 +513,29 @@ export class MeetingsService {
         meetingCode: null,
       });
     }
+  }
+
+  async isRoomActive(meetingCode: string): Promise<boolean> {
+    let isActuallyOngoing = false;
+
+    if (this.livekitRoomService) {
+      try {
+        const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+
+        // Nếu mảng trả về có chứa phòng, nghĩa là phòng THỰC SỰ ĐANG TỒN TẠI
+        if (rooms && rooms.length > 0) {
+          isActuallyOngoing = true;
+        } else {
+          // Trả về mảng rỗng nghĩa là phòng đã bị xóa / chưa được tạo
+          isActuallyOngoing = false;
+        }
+      } catch (error) {
+        console.log(error);
+        // Lỗi thường do LiveKit đã giải tán phòng khi trống
+        isActuallyOngoing = false;
+      }
+    }
+
+    return isActuallyOngoing;
   }
 }

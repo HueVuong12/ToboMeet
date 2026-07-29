@@ -1,206 +1,30 @@
-// src/app/[locale]/room/[id]/page.tsx
+// src/app/[locale]/meeting/[code]/page.tsx
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback, useRef } from "react";
 import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
 import { Loader2, Video, Mic, VideoOff, MicOff, LogOut } from "lucide-react";
-import { useJoinMeetingByCodeMutation } from "@/lib/redux/api/meetingsApi";
-import { toast } from "sonner";
-import { useDeviceId } from "@/hooks/useDeviceId";
-import { useMeetingCacheManager } from "@/hooks/useMeetingCacheManager";
+import { useMeetingSession } from "@/hooks/useMeetingSession";
 
 export default function MeetingPage() {
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
-  const searchParams = useSearchParams();
-  const params = useParams();
-  const deviceId = useDeviceId();
-  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
-
-  const meetingCode = params.code as string;
-
-  const [camOn, setCamOn] = useState(searchParams.get("cam") !== "false");
-  const [micOn, setMicOn] = useState(searchParams.get("mic") === "true");
-  const [displayName, setDisplayName] = useState("");
-
-  const micId = searchParams.get("micId");
-  const speakerId = searchParams.get("speakerId");
-  const cameraConfig = searchParams.get("cameraConfig");
-  const parsed = cameraConfig
-    ? JSON.parse(decodeURIComponent(cameraConfig))
-    : null;
-
-  const [meetingData, setMeetingData] = useState<{
-    token: string;
-    roomId: string;
-    channelId: string;
-    channelName: string;
-  } | null>(null);
-
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const hasTriedReconnectRef = useRef(false);
-
-  const [status, setStatus] = useState<
-    "LOOKING_FOR_TOKEN" | "IN_LOBBY" | "JOINED" | "RECONNECTING"
-  >("LOOKING_FOR_TOKEN");
-  const [joinMeetingByCodeApi, { isLoading: isJoining }] =
-    useJoinMeetingByCodeMutation();
-
-  const isUnloadingRef = useRef(false);
-
-  // Lắng nghe sự kiện F5 hoặc tắt Tab của trình duyệt
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      isUnloadingRef.current = true;
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("pagehide", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("pagehide", handleBeforeUnload);
-    };
-  }, []);
-
-  const handleJoinByCode = useCallback(async () => {
-    if (!meetingCode) return;
-
-    if (!deviceId) {
-      console.log("[Meeting] Waiting for deviceId...");
-      return;
-    }
-
-    try {
-      // Lấy tên từ state, nếu trống (do F5) thì lấy từ sessionStorage
-      const savedName = sessionStorage.getItem(`meeting_name_${meetingCode}`);
-      const finalName = displayName || savedName || undefined;
-
-      const response = await joinMeetingByCodeApi({
-        meetingCode,
-        deviceId: deviceId,
-        displayName: finalName,
-      }).unwrap();
-
-      sessionStorage.setItem(`is_joined_${meetingCode}`, "true");
-      if (finalName) {
-        sessionStorage.setItem(`meeting_name_${meetingCode}`, finalName);
-      }
-
-      setMeetingData({
-        token: response.token,
-        roomId: response.roomId,
-        channelId: response.channelId,
-        channelName: response.channelName,
-      });
-
-      setStatus("JOINED");
-      hasTriedReconnectRef.current = false;
-    } catch (error: any) {
-      // Nếu xin Token thất bại (ví dụ: phòng đã khóa/kết thúc), xóa cờ và văng ra Lobby
-      sessionStorage.removeItem(`is_joined_${meetingCode}`);
-      hasTriedReconnectRef.current = false;
-
-      if (error?.code === 4013) {
-        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.");
-      } else {
-        toast.error("Không thể kết nối lại cuộc họp. Vui lòng thử lại.");
-        setStatus("IN_LOBBY");
-      }
-    }
-  }, [meetingCode, displayName, deviceId, joinMeetingByCodeApi]);
-
-  // Kiểm tra Session hoặc xin Token qua BroadcastChannel
-  useEffect(() => {
-    if (!meetingCode || status !== "LOOKING_FOR_TOKEN") return;
-
-    // Nếu trước đó đã join nhưng bị refresh trang
-    const isJoined = sessionStorage.getItem(`is_joined_${meetingCode}`);
-
-    if (isJoined) {
-      setStatus("RECONNECTING");
-      return;
-    }
-
-    // BROADCAST CHANNEL (Mở tab mới từ hệ thống)
-    const bc = new BroadcastChannel(`token_channel_${meetingCode}`);
-
-    bc.onmessage = (event) => {
-      if (event.data?.type === "TOKEN_PAYLOAD") {
-        // Lưu cờ vào session để đánh dấu tab này đã join
-        sessionStorage.setItem(`is_joined_${meetingCode}`, "true");
-
-        setMeetingData({
-          token: event.data.token,
-          roomId: event.data.roomId,
-          channelId: event.data.channelId,
-          channelName: event.data.channelName,
-        });
-        setStatus("JOINED");
-        bc.close();
-      }
-    };
-
-    // Báo hiệu xin Token
-    bc.postMessage("TAB_B_READY");
-
-    // Timeout 1.5 giây -> Nếu không có tín hiệu thì ra Lobby
-    const timeout = setTimeout(() => {
-      if (status === "LOOKING_FOR_TOKEN") {
-        setStatus("IN_LOBBY");
-        bc.close();
-      }
-    }, 1500);
-
-    return () => {
-      bc.close();
-      clearTimeout(timeout);
-    };
-  }, [meetingCode, status, handleJoinByCode]);
-
-  // khi RECONNECTING + deviceId sẵn sàng → join
-  useEffect(() => {
-    if (status !== "RECONNECTING") return;
-    if (!deviceId) return; // vẫn đợi
-    if (hasTriedReconnectRef.current) return; // đã thử rồi
-
-    hasTriedReconnectRef.current = true;
-    handleJoinByCode();
-  }, [status, deviceId, handleJoinByCode]);
-
-  const handleDisconnect = () => {
-    if (isUnloadingRef.current) return;
-
-    setIsDisconnecting(true);
-
-    setTimeout(() => {
-      sessionStorage.removeItem(`is_joined_${meetingCode}`);
-      sessionStorage.removeItem(`meeting_name_${meetingCode}`);
-
-      if (meetingData) {
-        clearMeetingDeviceStatus(meetingData?.roomId, meetingData?.channelId);
-        const syncChannel = new BroadcastChannel(
-          `meeting_sync_${meetingData.roomId}`,
-        );
-        syncChannel.postMessage({
-          type: "MEETING_DISCONNECTED",
-          channelId: meetingData.channelId,
-        });
-        syncChannel.close();
-      }
-
-      window.close();
-
-      // Fallback chuyển hướng nếu window.close() bị chặn
-      setTimeout(() => {
-        if (meetingData?.roomId) {
-          window.location.href = `/room/${meetingData.roomId}`;
-        } else {
-          window.location.href = "/";
-        }
-      }, 300);
-    }, 1000);
-  };
+  const {
+    meetingCode,
+    status,
+    meetingData,
+    isDisconnecting,
+    isJoining,
+    camOn,
+    setCamOn,
+    micOn,
+    setMicOn,
+    displayName,
+    setDisplayName,
+    handleJoinByCode,
+    handleDisconnect,
+    hardwareConfig,
+  } = useMeetingSession();
 
   if (status === "RECONNECTING") {
     return (
@@ -344,15 +168,19 @@ export default function MeetingPage() {
         adaptiveStream: true,
         dynacast: true,
         videoCaptureDefaults: {
-          deviceId: parsed?.deviceId,
+          deviceId: hardwareConfig.parsedCameraConfig?.deviceId,
           resolution: {
-            width: parsed?.width,
-            height: parsed?.height,
+            width: hardwareConfig.parsedCameraConfig?.width,
+            height: hardwareConfig.parsedCameraConfig?.height,
             frameRate: 30,
           },
         },
-        ...(micId && { audioCaptureDefaults: { deviceId: micId } }),
-        ...(speakerId && { audioOutput: { deviceId: speakerId } }),
+        ...(hardwareConfig.micId && {
+          audioCaptureDefaults: { deviceId: hardwareConfig.micId },
+        }),
+        ...(hardwareConfig.speakerId && {
+          audioOutput: { deviceId: hardwareConfig.speakerId },
+        }),
       }}
       onDisconnected={handleDisconnect}
     >

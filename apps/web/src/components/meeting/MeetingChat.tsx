@@ -1,12 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import {
-  useLocalParticipant,
-  useParticipants,
-  useRoomInfo,
-} from "@livekit/components-react";
 import {
   Send,
   Lock,
@@ -16,11 +10,8 @@ import {
   ChevronDown,
   Reply,
   Info,
-  Unlock,
 } from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
-import { toast } from "sonner";
-import { useGeneratePresignedUploadUrlMutation } from "@/lib/redux/api/meetingsApi";
 import { useChatStatus } from "@/hooks/useChatStatus";
 import { useChatManager } from "@/hooks/useChatManager";
 
@@ -410,7 +401,7 @@ export default function MeetingChat({
       <div className="shrink-0 flex flex-col gap-2 relative">
         {/* LỚP PHỦ LÀM MỜ KHI CHAT BỊ KHÓA */}
         {!canChat && (
-          <div className="absolute inset-0 z-10 bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl pointer-events-none border border-slate-800">
+          <div className="absolute inset-0 z-10 bg-[#222]/60 border-[#333] backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl pointer-events-none border">
             <div className="bg-slate-800/90 text-slate-300 px-4 py-2 rounded-lg flex items-center gap-2 text-xs shadow-lg border border-slate-700/50">
               <Lock size={14} className="text-red-400" />
               Chủ phòng đã khóa chat

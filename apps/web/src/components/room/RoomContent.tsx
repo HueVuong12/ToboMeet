@@ -28,10 +28,14 @@ import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
 import PreviewModal from "./PreviewModal";
-import { useMeetingManager } from "@/hooks/useMeetingManager";
 import ReportUserModal from "./ReportUserModal";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
-import { meetingsApi, useGetActiveMeetingQuery } from "@/lib/redux/api/meetingsApi";
+import {
+  meetingsApi,
+  useGetActiveMeetingQuery,
+} from "@/lib/redux/api/meetingsApi";
+import { useMeetingDeviceStatus } from "@/hooks/useMeetingDeviceStatus";
+import { useMeetingLauncher } from "@/hooks/useMeetingLauncher";
 
 interface RoomContentProps {
   roomId: string;
@@ -76,13 +80,19 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     { skip: !currentChannel?._id },
   );
 
-  const { handleJoinMeeting, isJoining, isJoinedOnThisDevice } =
-    useMeetingManager({
-      roomId,
-      currentChannel,
-      activeChannel,
-      setShowPreviewModal,
-    });
+  // Lấy trạng thái độc lập
+  const { isJoinedOnThisDevice } = useMeetingDeviceStatus(
+    roomId,
+    currentChannel?._id,
+  );
+
+  // Lấy hàm khởi tạo độc lập
+  const { handleJoinMeeting, isJoining } = useMeetingLauncher({
+    roomId,
+    currentChannel,
+    activeChannel,
+    setShowPreviewModal,
+  });
 
   // Join/Leave channel và lắng nghe sự kiện thay đổi trạng thái cuộc họp
   useEffect(() => {

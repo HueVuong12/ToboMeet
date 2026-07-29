@@ -163,6 +163,22 @@ export class GlobalMeetingsController {
   }
 
   /**
+   * GET /api/meetings/:meetingCode/member-status
+   * Kiểm tra trạng thái thành viên trong phòng của người dùng không lộ roomId
+   * Chỉ trả về roomId khi là thành viên trong phòng (dùng điều hướng)
+   */
+  @Get(":meetingCode/member-status")
+  @UseGuards(SupabaseGuard)
+  async getMemberStatus(
+    @Param("meetingCode") meetingCode: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+
+    return this.meetingsService.getMemberStatus(meetingCode, userId);
+  }
+
+  /**
    * POST /api/meetings/presigned
    * Xin presigned upload url để upload file lên chat của meeting
    */
