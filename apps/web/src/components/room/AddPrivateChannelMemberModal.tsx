@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/lib/redux/store";
 import { useAddChannelMemberMutation, roomsApi } from "@/lib/redux/api/roomsApi";
 import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
 import { toast } from "sonner";
@@ -32,7 +33,7 @@ export default function AddPrivateChannelMemberModal({
   channel,
 }: Props) {
   const t = useTranslations("room");
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const [addChannelMember] = useAddChannelMemberMutation();
 
   const [searchQuery, setSearchQuery] = useState("");

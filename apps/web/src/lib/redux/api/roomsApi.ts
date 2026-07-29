@@ -88,19 +88,7 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
     }),
 
-    addChannel: builder.mutation<
-      RoomResponse,
-      { roomId: string; name: string }
-    >({
-      query: ({ roomId, name }) => ({
-        url: `/rooms/${roomId}/channels`,
-        method: "POST",
-        data: { name },
-      }),
-      invalidatesTags: (_result, _error, { roomId }) => [
-        { type: "Room", id: roomId },
-      ],
-    }),
+
 
     leaveRoom: builder.mutation<void, { roomId: string; newOwnerId?: string }>({
       query: ({ roomId, newOwnerId }) => ({

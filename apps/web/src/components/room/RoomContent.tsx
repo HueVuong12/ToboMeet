@@ -125,15 +125,21 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
   )?.role;
+
+  // Xác định Phó nhóm được phép xóa thành viên khỏi phòng:
+  // 1. Phó nhóm cấp phòng (role "vice" ở cấp room)
+  // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
   const isCurrentUserRoomVice =
     !isCurrentUserRoomLeader &&
     (currentUserRoomRole?.toLowerCase() === "vice" ||
       currentUserRoomRole?.toLowerCase() === "vice_leader" ||
       currentUserRoomRole?.toLowerCase() === "assistant" ||
       currentUserRoomRole?.toLowerCase() === "admin" ||
-      currentUserChannelRole?.toLowerCase() === "vice" ||
-      currentUserChannelRole?.toLowerCase() === "assistant" ||
-      currentUserChannelRole?.toLowerCase() === "vice_leader");
+      (currentChannel?.isPrivate !== true &&
+        (currentUserChannelRole?.toLowerCase() === "vice" ||
+          currentUserChannelRole?.toLowerCase() === "assistant" ||
+          currentUserChannelRole?.toLowerCase() === "vice_leader")));
+
   const canUserManageChannel =
     isCurrentUserRoomLeader ||
     isCurrentUserRoomVice ||
@@ -403,10 +409,11 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         {/* News Feed Panel */}
         {currentChannel ? (
           <NewsFeed
+            key={currentChannel._id || activeChannel}
             roomId={roomId}
             channelId={currentChannel._id || ""}
             userId={userId}
-            userRole={members.find((m: any) => m.userId === userId)?.role || "member"}
+            userRole={(members.find((m: any) => m.userId === userId)?.role || "member") as "admin" | "owner" | "member"}
             channelName={activeChannel}
           />
         ) : (
@@ -842,31 +849,52 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                   {/* Xóa khỏi phòng:
                                        - Trưởng phòng: xóa bất kỳ ai (trừ chính mình)
                                        - Phó phòng: chỉ xóa thành viên thường, không xóa Trưởng/Phó khác */}
-                                  {(isCurrentUserOwner ||
-                                    (isCurrentUserVice &&
-                                      member.userId !== room?.ownerId &&
-                                      member.userId !== userId &&
-                                      member.role !== "owner" &&
-                                      member.role !== "teacher" &&
-                                      member.role !== "leader" &&
-                                      member.role !== "vice" &&
-                                      member.role !== "vice_leader" &&
-                                      member.role !== "assistant" &&
-                                      member.role !== "admin")) && (
-                                    <button
-                                      onClick={() => {
-                                        setMemberToRemove({
-                                          userId: member.userId,
-                                          displayName: member.displayName || "Người dùng",
-                                        });
-                                        setOpenMenuId(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 border-t border-slate-100 flex items-center gap-2"
-                                    >
-                                      <UserX className="w-3.5 h-3.5" />
-                                      {t("remove_from_room")}
-                                    </button>
-                                  )}
+                                  {(() => {
+                                    const targetChannelRole = currentChannel?.members?.find(
+                                      (m: any) =>
+                                        m.userId === member.userId ||
+                                        (member.supabaseId && m.userId === member.supabaseId) ||
+                                        (member._id && m.userId === member._id)
+                                    )?.role;
+
+                                    const isTargetVice =
+                                      member.role === "vice" ||
+                                      member.role === "vice_leader" ||
+                                      member.role === "assistant" ||
+                                      member.role === "admin" ||
+                                      (currentChannel?.isPrivate !== true &&
+                                        (targetChannelRole === "vice" ||
+                                         targetChannelRole === "assistant" ||
+                                         targetChannelRole === "vice_leader"));
+
+                                    const canRemove =
+                                      isCurrentUserOwner ||
+                                      (isCurrentUserRoomVice &&
+                                        member.userId !== room?.ownerId &&
+                                        member.userId !== userId &&
+                                        member.role !== "owner" &&
+                                        member.role !== "teacher" &&
+                                        member.role !== "leader" &&
+                                        !isTargetVice);
+
+                                    if (!canRemove) return null;
+
+                                    return (
+                                      <button
+                                        onClick={() => {
+                                          setMemberToRemove({
+                                            userId: member.userId,
+                                            displayName: member.displayName || "Người dùng",
+                                          });
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 border-t border-slate-100 flex items-center gap-2"
+                                      >
+                                        <UserX className="w-3.5 h-3.5" />
+                                        {t("remove_from_room")}
+                                      </button>
+                                    );
+                                  })()}
                                 </div>
                               </>
                             )}
