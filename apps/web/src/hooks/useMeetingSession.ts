@@ -1,5 +1,5 @@
 // src/hooks/useMeetingSession.ts
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { useDeviceId } from "@/hooks/useDeviceId";
@@ -11,7 +11,6 @@ import {
 import { useGetMeQuery } from "@/lib/redux/features/users/usersApi";
 
 export function useMeetingSession() {
-  const searchParams = useSearchParams();
   const params = useParams();
   const deviceId = useDeviceId();
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
@@ -61,7 +60,6 @@ export function useMeetingSession() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    console.log("my profile", myProfile);
     if (!isAuthenticating) {
       if (myProfile !== undefined) {
         // Có dữ liệu trả về thành công -> Đã đăng nhập

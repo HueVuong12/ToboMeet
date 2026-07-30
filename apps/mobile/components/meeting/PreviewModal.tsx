@@ -13,7 +13,7 @@ import {
   useMicrophonePermissions,
 } from "expo-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DeviceConfig } from "../../hooks/useMeetingManager";
+import { DeviceConfig } from "../../hooks/useMeetingLauncher";
 
 export default function PreviewModal({
   isOpen,
@@ -29,14 +29,14 @@ export default function PreviewModal({
   const [isPreviewCamOn, setIsPreviewCamOn] = useState(true);
   const [isPreviewMicOn, setIsPreviewMicOn] = useState(true);
 
-  // 1. Sử dụng Hook để quản lý trạng thái quyền (Tự động re-render khi quyền thay đổi)
+  // Sử dụng Hook để quản lý trạng thái quyền (Tự động re-render khi quyền thay đổi)
   const [camPermission, requestCamPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<"front" | "back">("front");
 
   const insets = useSafeAreaInsets();
 
-  // 2. Tự động xin quyền khi Modal được mở lên
+  // Tự động xin quyền khi Modal được mở lên
   useEffect(() => {
     if (isOpen) {
       if (!camPermission?.granted) requestCamPermission();
@@ -66,7 +66,6 @@ export default function PreviewModal({
         {/* Video Preview Container */}
         <View className="flex-1 bg-slate-900 rounded-3xl overflow-hidden mb-6 border border-slate-800 justify-center items-center">
           {isPreviewCamOn ? (
-            // 3. KIỂM TRA QUYỀN TRƯỚC KHI RENDER CAMERAVIEW
             camPermission?.granted ? (
               <>
                 <CameraView

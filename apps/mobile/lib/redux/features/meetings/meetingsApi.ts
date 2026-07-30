@@ -3,6 +3,7 @@ import {
   MeetingDeviceStatus,
   MeetingJoinResponse,
   PresignedUploadResponse,
+  RoomMemberStatus,
 } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
@@ -61,6 +62,13 @@ export const meetingsApi = baseApi.injectEndpoints({
           id: `${roomId}-${channelId}-${deviceId}`,
         },
       ],
+    }),
+
+    getMemberStatus: builder.query<RoomMemberStatus, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `meetings/${meetingCode}/member-status`,
+        method: "GET",
+      }),
     }),
 
     toggleMeetingChat: builder.mutation<
@@ -123,6 +131,7 @@ export const meetingsApi = baseApi.injectEndpoints({
 export const {
   useJoinMeetingMutation,
   useJoinMeetingByCodeMutation,
+  useLazyGetMemberStatusQuery,
   useGetActiveMeetingQuery,
   useGetDeviceStatusQuery,
   useToggleMeetingChatMutation,

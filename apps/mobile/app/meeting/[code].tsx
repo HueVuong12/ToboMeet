@@ -1,5 +1,5 @@
 // app/meeting/[code].tsx
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { LiveKitRoom } from "@livekit/react-native";
 
@@ -7,58 +7,68 @@ import MobileToolbar from "../../components/meeting/MobileToolbar";
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
+import MobileMeetingLobby from "../../components/meeting/MobileMeetingLobby";
 import { useMeetingSession } from "../../hooks/useMeetingSession";
 
 export default function MobileMeetingScreen() {
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+
   const {
     code,
     LIVEKIT_URL,
+    status,
     meetingData,
     customRoom,
     connectOptions,
     isDisconnecting,
-    showMembersModal,
-    setShowMembersModal,
-    showChatModal,
-    setShowChatModal,
+    isJoining,
+    camOn,
+    setCamOn,
+    micOn,
+    setMicOn,
+    cameraFacing,
+    setCameraFacing,
+    displayName,
+    setDisplayName,
+    handleJoinByCode,
     onRoomError,
     onRoomDisconnected,
   } = useMeetingSession();
 
-  // Màn hình chờ thoát
-  if (isDisconnecting) {
+  if (status === "LOADING" || isDisconnecting) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#000",
-        }}
-      >
-        <ActivityIndicator size="large" color="#9ca3af" />
-        <Text style={{ color: "#9ca3af", marginTop: 16, fontWeight: "bold" }}>
-          Đang rời cuộc họp...
-        </Text>
+      <View className="flex-1 justify-center items-center bg-black">
+        <ActivityIndicator size="large" color="#3b82f6" />
+        {isDisconnecting && (
+          <Text className="text-gray-400 mt-4 font-bold">
+            Đang rời cuộc họp...
+          </Text>
+        )}
       </View>
     );
   }
 
-  // Màn hình chờ khởi tạo phòng
-  if (!meetingData || !LIVEKIT_URL || !customRoom) {
+  // Sảnh chờ
+  if (status === "IN_LOBBY") {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#000",
-        }}
-      >
-        <ActivityIndicator size="large" color="#3b82f6" />
-      </View>
+      <MobileMeetingLobby
+        meetingCode={code as string}
+        camOn={camOn}
+        setCamOn={setCamOn}
+        micOn={micOn}
+        setMicOn={setMicOn}
+        cameraFacing={cameraFacing}
+        setCameraFacing={setCameraFacing}
+        displayName={displayName}
+        setDisplayName={setDisplayName}
+        handleJoin={handleJoinByCode}
+        isJoining={isJoining}
+      />
     );
   }
+
+  if (!meetingData || !LIVEKIT_URL || !customRoom) return null;
 
   return (
     <LiveKitRoom
@@ -72,38 +82,20 @@ export default function MobileMeetingScreen() {
       onError={onRoomError}
       onDisconnected={onRoomDisconnected}
     >
-      <View style={{ flex: 1, backgroundColor: "#000" }}>
-        <View
-          style={{
-            height: 70,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "#111",
-            borderBottomWidth: 1,
-            borderBottomColor: "#333",
-          }}
-        >
-          <Text
-            style={{
-              color: "#9ca3af",
-              fontSize: 12,
-              textTransform: "uppercase",
-              fontWeight: "bold",
-            }}
-          >
+      <View className="flex-1 bg-black">
+        <View className="h-[70px] justify-center items-center bg-[#111] border-b border-[#333]">
+          <Text className="text-gray-400 text-xs uppercase font-bold">
             Phòng họp
           </Text>
-          <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
-            {code}
-          </Text>
+          <Text className="text-white font-bold text-base">{code}</Text>
         </View>
 
-        <View style={{ flex: 1 }}>
+        <View className="flex-1">
           <MobileVideoGrid />
         </View>
 
         <MobileToolbar
-          meetingCode={code}
+          meetingCode={code as string}
           roomId={meetingData.roomId}
           channelId={meetingData.channelId}
           initialFacingMode={
@@ -118,10 +110,10 @@ export default function MobileMeetingScreen() {
           onClose={() => setShowMembersModal(false)}
           roomId={meetingData.roomId}
           channelId={meetingData.channelId}
-          meetingCode={code}
+          meetingCode={code as string}
         />
         <MobileChatModal
-          meetingCode={code}
+          meetingCode={code as string}
           roomId={meetingData.roomId}
           channelId={meetingData.channelId}
           visible={showChatModal}
