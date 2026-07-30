@@ -27,6 +27,9 @@ import {
   useRemoveMemberMutation,
   useUpdateMemberRoleMutation,
   useTransferRoomOwnershipMutation,
+  useUpdateChannelMemberRoleMutation,
+  useAddChannelMemberMutation,
+  useRemoveChannelMemberMutation,
   roomsApi,
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
@@ -50,6 +53,8 @@ import CreatePostModal from "../../components/newsFeed/CreatePostModal";
 import ReportUserModal from "../../components/room/ReportUserModal";
 import ReportRoomModal from "../../components/room/ReportRoomModal";
 import RoleBadge from "../../components/room/RoleBadge";
+import CreateChannelModal from "../../components/room/CreateChannelModal";
+import AddPrivateChannelMemberModal from "../../components/room/AddPrivateChannelMemberModal";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,7 +69,6 @@ export default function RoomDetailScreen() {
     refetch,
   } = useGetRoomByIdQuery(id, { refetchOnMountOrArgChange: true });
   const { data: profile } = useGetMeQuery();
-  const [addChannel, { isLoading: isAddingChannel }] = useAddChannelMutation();
   const { data: membersList, refetch: refetchMembers } = useGetRoomMembersQuery(
     room?._id || "",
     { skip: !room?._id, refetchOnMountOrArgChange: true },
@@ -76,8 +80,13 @@ export default function RoomDetailScreen() {
   const [updateMemberRoleMutation] = useUpdateMemberRoleMutation();
   const [transferRoomOwnershipMutation] = useTransferRoomOwnershipMutation();
   const [removeMemberMutation] = useRemoveMemberMutation();
+  const [removeChannelMember] = useRemoveChannelMemberMutation();
+  const [addChannelMember] = useAddChannelMemberMutation();
+  const [updateChannelMemberRole] = useUpdateChannelMemberRoleMutation();
 
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [channelToManage, setChannelToManage] = useState<any | null>(null);
+  const [showAddPrivateChannelMemberModal, setShowAddPrivateChannelMemberModal] = useState(false);
 
   // Member options menu & Report user state
   const [selectedMemberForMenu, setSelectedMemberForMenu] = useState<{
@@ -96,8 +105,6 @@ export default function RoomDetailScreen() {
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [isChannelsExpanded, setIsChannelsExpanded] = useState(true);
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
-  const [newChannelName, setNewChannelName] = useState("");
-  const [channelError, setChannelError] = useState<string | null>(null);
 
   // Search User state (Invite Member)
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -142,13 +149,30 @@ export default function RoomDetailScreen() {
       currentUserRole === "leader" ||
       currentUserRole === "owner")
   );
+  const currentChannel =
+    room?.channels?.find((c: any) => c._id === activeChannelId) ||
+    room?.channels?.[0];
+
+  const currentUserChannelRole = (currentChannel as any)?.members?.find(
+    (m: any) => m.userId === profile?.supabaseId
+  )?.role;
+
   // Phó phòng — normalize tất cả legacy roles
   const isCurrentUserVice =
     !isOwner &&
     (currentUserRole === "vice" ||
       currentUserRole === "vice_leader" ||
       currentUserRole === "assistant" ||
-      currentUserRole === "admin");
+      currentUserRole === "admin" ||
+      currentUserChannelRole === "vice" ||
+      currentUserChannelRole === "assistant");
+
+  const canUserManageChannel =
+    isOwner ||
+    isCurrentUserVice ||
+    currentUserChannelRole === "vice" ||
+    currentUserChannelRole === "assistant";
+
   // const hasNavigatedAway = React.useRef(false);
 
   const insets = useSafeAreaInsets();
@@ -290,25 +314,15 @@ export default function RoomDetailScreen() {
     }
   }, [room]);
 
-  const handleCreateChannel = async () => {
-    if (!newChannelName.trim() || !room) return;
-    setChannelError(null);
-
-    try {
-      await addChannel({
-        roomId: room._id,
-        name: newChannelName.trim().toLowerCase().replace(/\s+/g, "-"),
-      }).unwrap();
-      setNewChannelName("");
-      setShowAddChannelModal(false);
-      refetch();
-    } catch (err) {
-      const errorResponse = err as { message?: string };
-      setChannelError(
-        errorResponse.message || "Không thể tạo kênh. Vui lòng thử lại.",
-      );
+  // Navigation Guard: Nếu kênh hiện tại không nằm trong danh sách được phép truy cập (VD: bị xóa khỏi Kênh riêng tư)
+  useEffect(() => {
+    if (room?.channels && room.channels.length > 0 && activeChannelId) {
+      const channelExists = room.channels.some((c: any) => c._id === activeChannelId);
+      if (!channelExists) {
+        setActiveChannelId(room.channels[0]._id || null);
+      }
     }
-  };
+  }, [room?.channels, activeChannelId]);
 
   const handleCopyLink = () => {
     if (!room) return;
@@ -467,9 +481,7 @@ export default function RoomDetailScreen() {
     );
   }
 
-  const activeChannel =
-    room.channels?.find((c: { _id?: string }) => c._id === activeChannelId) ||
-    room.channels?.[0];
+  const activeChannel = currentChannel;
 
   return (
     <KeyboardAvoidingView
@@ -717,33 +729,57 @@ export default function RoomDetailScreen() {
               {isChannelsExpanded && (
                 <ScrollView>
                   {room.channels?.map(
-                    (item: { _id?: string; name: string }) => {
+                    (item: { _id?: string; name: string; isPrivate?: boolean; members?: any[] }) => {
                       const isActive = activeChannelId === item._id;
+                      const canManageThisChannel =
+                        isOwner ||
+                        item.members?.some(
+                          (m: any) =>
+                            m.userId === profile?.supabaseId &&
+                            (m.role === "vice" || m.role === "assistant")
+                        );
+
                       return (
-                        <TouchableOpacity
+                        <View
                           key={item._id || item.name}
-                          onPress={() => {
-                            setActiveChannelId(item._id || null);
-                            setShowLeftDrawer(false);
-                          }}
-                          className={`flex-row items-center mx-3 my-1 px-3 py-2.5 rounded-xl ${
+                          className={`flex-row items-center justify-between mx-3 my-1 rounded-xl ${
                             isActive ? "bg-blue-50/50" : ""
                           }`}
                         >
-                          <Feather
-                            name="hash"
-                            size={16}
-                            color={isActive ? "#0052FF" : "#94A3B8"}
-                            style={{ marginRight: 6 }}
-                          />
-                          <Text
-                            className={`text-base font-semibold ${
-                              isActive ? "text-[#0052FF]" : "text-slate-600"
-                            }`}
+                          <TouchableOpacity
+                            onPress={() => {
+                              setActiveChannelId(item._id || null);
+                              setShowLeftDrawer(false);
+                            }}
+                            className="flex-row items-center flex-1 px-3 py-2.5"
                           >
-                            {item.name}
-                          </Text>
-                        </TouchableOpacity>
+                            <Feather
+                              name={item.isPrivate ? "lock" : "hash"}
+                              size={16}
+                              color={isActive ? (item.isPrivate ? "#D97706" : "#0052FF") : (item.isPrivate ? "#D97706" : "#94A3B8")}
+                              style={{ marginRight: 6 }}
+                            />
+                            <Text
+                              className={`text-base font-semibold ${
+                                isActive ? "text-[#0052FF]" : "text-slate-600"
+                              }`}
+                            >
+                              {item.name}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {item.isPrivate && canManageThisChannel && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setChannelToManage(item);
+                                setShowAddPrivateChannelMemberModal(true);
+                              }}
+                              className="p-2.5 mr-1"
+                            >
+                              <Feather name="more-vertical" size={16} color="#94A3B8" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       );
                     },
                   )}
@@ -808,86 +844,126 @@ export default function RoomDetailScreen() {
             <ScrollView className="flex-1 p-5">
               {/* Members Section */}
               <View className="mb-6">
-                <View className="flex-row justify-between items-center mb-3">
-                  <Text className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                    {t("room.everyone")} ({membersList?.length || 0})
-                  </Text>
-                </View>
+                {(() => {
+                  const displayedMembers = membersList
+                    ?.filter((m) => {
+                      if ((currentChannel as any)?.isPrivate) {
+                        const isInPrivateChannel =
+                          m.userId === room?.ownerId ||
+                          (currentChannel as any)?.members?.some(
+                            (cm: any) =>
+                              cm.userId === m.userId &&
+                              cm.isLeft !== true &&
+                              cm.status !== "REMOVED" &&
+                              cm.status !== "LEFT"
+                          );
+                        if (!isInPrivateChannel) return false;
+                      }
 
-                {/* Member Search Bar */}
-                <View className="bg-slate-50 border border-slate-200 rounded-xl flex-row items-center px-3 py-1.5 mb-3">
-                  <Feather name="search" size={14} color="#94A3B8" style={{ marginRight: 6 }} />
-                  <TextInput
-                    value={memberSearchQuery}
-                    onChangeText={setMemberSearchQuery}
-                    placeholder="Tìm thành viên..."
-                    placeholderTextColor="#94A3B8"
-                    className="flex-1 text-xs text-slate-900 py-1"
-                  />
-                  {memberSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setMemberSearchQuery("")}>
-                      <Feather name="x-circle" size={14} color="#94A3B8" />
-                    </TouchableOpacity>
-                  )}
-                </View>
+                      if (!memberSearchQuery.trim()) return true;
+                      const q = memberSearchQuery.trim().toLowerCase();
+                      return (
+                        m.displayName?.toLowerCase().includes(q) ||
+                        m.email?.toLowerCase().includes(q)
+                      );
+                    }) || [];
 
-                {membersList
-                  ?.filter((m) => {
-                    if (!memberSearchQuery.trim()) return true;
-                    const q = memberSearchQuery.trim().toLowerCase();
-                    return (
-                      m.displayName?.toLowerCase().includes(q) ||
-                      m.email?.toLowerCase().includes(q)
-                    );
-                  })
-                  .map((m) => {
-                    const isSelf = m.userId === profile?.supabaseId;
-                    return (
-                      <View
-                        key={m.userId}
-                        className="flex-row items-center gap-3 mb-3"
-                      >
-                        <View className="relative">
-                          <View className="w-10 h-10 rounded-full bg-blue-100 justify-center items-center overflow-hidden">
-                            {m.avatarUrl ? (
-                              <Image
-                                source={{ uri: m.avatarUrl }}
-                                className="w-10 h-10"
-                              />
-                            ) : (
-                              <Text className="font-bold text-blue-600 text-sm">
-                                {m.displayName?.charAt(0).toUpperCase()}
-                              </Text>
-                            )}
-                          </View>
-                          <View className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
-                        </View>
-                        <View className="flex-1">
-                          <Text className="text-base font-bold text-slate-800">
-                            {m.displayName}{" "}
-                            {isSelf && (
-                              <Text className="text-slate-400 font-normal text-xs">
-                                ({t("room.you")})
-                              </Text>
-                            )}
-                          </Text>
-                          <View className="mt-0.5">
-                            <RoleBadge role={m.role} roomType={room?.type || "meeting"} t={t} />
-                          </View>
-                        </View>
+                  return (
+                    <>
+                      <View className="flex-row justify-between items-center mb-3">
+                        <Text className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+                          {t("room.everyone")} ({displayedMembers.length})
+                        </Text>
+                      </View>
 
-                        {/* Action Menu Trigger (Only for other users) */}
-                        {!isSelf && (
-                          <TouchableOpacity
-                            onPress={() => setSelectedMemberForMenu(m)}
-                            className="p-1.5 rounded-lg active:bg-slate-100"
-                          >
-                            <Feather name="more-vertical" size={18} color="#64748B" />
+                      {/* Member Search Bar */}
+                      <View className="bg-slate-50 border border-slate-200 rounded-xl flex-row items-center px-3 py-1.5 mb-3">
+                        <Feather name="search" size={14} color="#94A3B8" style={{ marginRight: 6 }} />
+                        <TextInput
+                          value={memberSearchQuery}
+                          onChangeText={setMemberSearchQuery}
+                          placeholder="Tìm thành viên..."
+                          placeholderTextColor="#94A3B8"
+                          className="flex-1 text-xs text-slate-900 py-1"
+                        />
+                        {memberSearchQuery.length > 0 && (
+                          <TouchableOpacity onPress={() => setMemberSearchQuery("")}>
+                            <Feather name="x-circle" size={14} color="#94A3B8" />
                           </TouchableOpacity>
                         )}
                       </View>
-                    );
-                  })}
+
+                      {displayedMembers.map((m) => {
+                        const isSelf = m.userId === profile?.supabaseId;
+                        return (
+                          <View
+                            key={m.userId}
+                            className="flex-row items-center gap-3 mb-3"
+                          >
+                            <View className="relative">
+                              <View className="w-10 h-10 rounded-full bg-blue-100 justify-center items-center overflow-hidden">
+                                {m.avatarUrl ? (
+                                  <Image
+                                    source={{ uri: m.avatarUrl }}
+                                    className="w-10 h-10"
+                                  />
+                                ) : (
+                                  <Text className="font-bold text-blue-600 text-sm">
+                                    {m.displayName?.charAt(0).toUpperCase()}
+                                  </Text>
+                                )}
+                              </View>
+                              <View className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
+                            </View>
+                            <View className="flex-1">
+                              <Text className="text-base font-bold text-slate-800">
+                                {m.displayName}{" "}
+                                {isSelf && (
+                                  <Text className="text-slate-400 font-normal text-xs">
+                                    ({t("room.you")})
+                                  </Text>
+                                )}
+                              </Text>
+                              <View className="mt-0.5">
+                                {(() => {
+                                  const tRole = (currentChannel as any)?.members?.find(
+                                    (cm: any) => cm.userId === m.userId
+                                  )?.role;
+
+                                  const isRoomOwner =
+                                    m.role === "owner" ||
+                                    m.role === "teacher" ||
+                                    m.role === "leader" ||
+                                    m.userId === room?.ownerId;
+
+                                  if (isRoomOwner) {
+                                    return <RoleBadge role={m.role} roomType={room?.type || "meeting"} t={t} />;
+                                  }
+
+                                  if (tRole === "vice" || tRole === "assistant") {
+                                    return <RoleBadge role={tRole} roomType={room?.type || "meeting"} t={t} />;
+                                  }
+
+                                  return <RoleBadge role="member" roomType={room?.type || "meeting"} t={t} />;
+                                })()}
+                              </View>
+                            </View>
+
+                            {/* Action Menu Trigger (Only for other users) */}
+                            {!isSelf && (
+                              <TouchableOpacity
+                                onPress={() => setSelectedMemberForMenu(m)}
+                                className="p-1.5 rounded-lg active:bg-slate-100"
+                              >
+                                <Feather name="more-vertical" size={18} color="#64748B" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
               </View>
 
               {/* Description Section */}
@@ -1245,90 +1321,24 @@ export default function RoomDetailScreen() {
       </Modal>
 
       {/* Create Channel Modal */}
-      <Modal
+      <CreateChannelModal
         visible={showAddChannelModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddChannelModal(false)}
-      >
-        <View className="flex-1 justify-center items-center bg-black/40 px-4">
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setShowAddChannelModal(false)}
-            className="absolute inset-0"
-          />
+        onClose={() => setShowAddChannelModal(false)}
+        roomId={room._id}
+        roomMembers={membersList || []}
+        currentUserId={profile?.supabaseId || ""}
+      />
 
-          <View className="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl border border-slate-100">
-            {/* Header */}
-            <View className="flex-row justify-between items-center mb-5">
-              <Text className="text-lg font-bold text-slate-900">
-                {t("room.create_channel")}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowAddChannelModal(false)}
-                className="w-8 h-8 rounded-lg bg-slate-100 justify-center items-center"
-              >
-                <Feather name="x" size={16} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Body */}
-            <View className="mb-5">
-              <Text className="text-xs text-slate-400 font-semibold mb-2 uppercase">
-                {t("room.channel_name")}
-              </Text>
-              <View className="relative flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                <Text className="text-slate-400 text-sm mr-2">#</Text>
-                <TextInput
-                  value={newChannelName}
-                  onChangeText={setNewChannelName}
-                  placeholder={t("room.channel_name_placeholder")}
-                  autoFocus
-                  className="flex-1 text-sm text-slate-900 py-1"
-                />
-              </View>
-
-              {channelError && (
-                <View className="flex-row items-center gap-2 mt-3">
-                  <Feather name="alert-circle" size={14} color="#EF4444" />
-                  <Text className="text-red-600 text-xs flex-1">
-                    {channelError}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Footer */}
-            <View className="flex-row justify-end gap-3">
-              <TouchableOpacity
-                onPress={() => setShowAddChannelModal(false)}
-                className="px-4 py-3 rounded-xl bg-slate-100 justify-center items-center"
-              >
-                <Text className="text-sm font-medium text-slate-600">
-                  {t("room.cancel")}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleCreateChannel}
-                disabled={!newChannelName.trim() || isAddingChannel}
-                className={`px-5 py-3 rounded-xl justify-center items-center flex-row gap-2 ${
-                  !newChannelName.trim() || isAddingChannel
-                    ? "bg-blue-300"
-                    : "bg-[#0052FF]"
-                }`}
-              >
-                {isAddingChannel && (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                )}
-                <Text className="text-white font-bold text-sm">
-                  {t("room.create_channel")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Add Private Channel Member Modal */}
+      <AddPrivateChannelMemberModal
+        visible={showAddPrivateChannelMemberModal}
+        onClose={() => {
+          setShowAddPrivateChannelMemberModal(false);
+          setChannelToManage(null);
+        }}
+        roomId={room._id}
+        channel={channelToManage}
+      />
 
       {/* Modal Thao tác Thành viên (Báo xấu, Xóa khỏi phòng) */}
       <Modal
@@ -1376,102 +1386,165 @@ export default function RoomDetailScreen() {
             {selectedMemberForMenu?.userId !== profile?.supabaseId && (
               <>
                 {/* ROLE MANAGEMENT OPTIONS FOR OWNER */}
+                {isOwner && (() => {
+                  const targetChannelRole = (currentChannel as any)?.members?.find(
+                    (cm: any) => cm.userId === selectedMemberForMenu?.userId
+                  )?.role;
+                  const isTargetVice = targetChannelRole === "vice" || targetChannelRole === "assistant";
+
+                  return (
+                    <>
+                      {/* Bổ nhiệm vice */}
+                      {!isTargetVice && selectedMemberForMenu?.userId !== room?.ownerId && (
+                        <TouchableOpacity
+                          onPress={async () => {
+                            const target = selectedMemberForMenu;
+                            setSelectedMemberForMenu(null);
+                            if (target && room) {
+                              try {
+                                const res = await updateChannelMemberRole({
+                                  roomId: room._id,
+                                  channelId: currentChannel?._id || "",
+                                  targetUserId: target.userId,
+                                  role: room?.type === "classroom" ? "assistant" : "vice",
+                                }).unwrap();
+                                toast.success(t("room.toast_appoint_vice_leader_success", { defaultValue: "Bổ nhiệm Phó nhóm thành công" }));
+                                refetchMembers();
+                              } catch (err: unknown) {
+                                const errorResponse = err as { data?: { message?: string } };
+                                const subTitle = room?.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
+                                Alert.alert("Lỗi", errorResponse?.data?.message || `Đã đạt số lượng tối đa 3 ${subTitle}`);
+                              }
+                            }
+                          }}
+                          className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
+                        >
+                          <Feather name="user-check" size={18} color="#2563EB" />
+                          <Text className="text-blue-600 text-base font-semibold">
+                            {room?.type === "classroom"
+                              ? t("room.appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })
+                              : t("room.appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Thu hồi vice */}
+                      {isTargetVice && selectedMemberForMenu?.userId !== room?.ownerId && (
+                        <TouchableOpacity
+                          onPress={async () => {
+                            const target = selectedMemberForMenu;
+                            setSelectedMemberForMenu(null);
+                            if (target && room) {
+                              try {
+                                const res = await updateChannelMemberRole({
+                                  roomId: room._id,
+                                  channelId: currentChannel?._id || "",
+                                  targetUserId: target.userId,
+                                  role: "member",
+                                }).unwrap();
+                                toast.success(t("room.toast_revoke_vice_leader_success", { defaultValue: "Đã thu hồi quyền thành công" }));
+                                refetchMembers();
+                              } catch (err: unknown) {
+                                const errorResponse = err as { data?: { message?: string } };
+                                Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể thu hồi");
+                              }
+                            }
+                          }}
+                          className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
+                        >
+                          <Feather name="user-minus" size={18} color="#D97706" />
+                          <Text className="text-amber-600 text-base font-semibold">
+                            {room?.type === "classroom"
+                              ? t("room.revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })
+                              : t("room.revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* Chuyển quyền Chủ phòng / Giảng viên / Trưởng nhóm */}
                 {isOwner && (
-                  <>
-                    {/* Bổ nhiệm vice */}
-                    {selectedMemberForMenu?.role === "member" && (
-                      <TouchableOpacity
-                        onPress={async () => {
-                          const target = selectedMemberForMenu;
-                          setSelectedMemberForMenu(null);
-                          if (target && room) {
-                            try {
-                              const res = await updateMemberRoleMutation({
-                                roomId: room._id,
-                                memberId: target.userId,
-                                role: "vice",
-                              }).unwrap();
-                              toast.success(res.message || `Đã bổ nhiệm thành công`);
-                              refetchMembers();
-                            } catch (err: unknown) {
-                              const errorResponse = err as { data?: { message?: string } };
-                              const subTitle = room?.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
-                              Alert.alert("Lỗi", errorResponse?.data?.message || `Đã đạt số lượng tối đa 3 ${subTitle}`);
-                            }
-                          }
-                        }}
-                        className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
-                      >
-                        <Feather name="user-check" size={18} color="#2563EB" />
-                        <Text className="text-blue-600 text-base font-semibold">
-                          {room?.type === "classroom"
-                            ? t("room.appoint_assistant", { defaultValue: "Bổ nhiệm Ban cán sự" })
-                            : t("room.appoint_vice_leader", { defaultValue: "Bổ nhiệm Phó nhóm" })}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                  <TouchableOpacity
+                    onPress={() => {
+                      const target = selectedMemberForMenu;
+                      setSelectedMemberForMenu(null);
+                      if (target && room) {
+                        const isClass = room?.type === "classroom";
+                        const ownerTitle = isClass ? "Giảng viên" : "Trưởng nhóm";
+                        const memberTitle = isClass ? "Học viên" : "Thành viên";
+                        const msg = `Bạn có chắc chắn muốn chuyển quyền ${ownerTitle} cho ${target.displayName}? Sau khi xác nhận, bạn sẽ trở thành ${memberTitle}.`;
+                        Alert.alert(
+                          `Chuyển quyền ${ownerTitle}`,
+                          msg,
+                          [
+                            { text: t("room.cancel", { defaultValue: "Hủy" }), style: "cancel" },
+                            {
+                              text: t("room.confirm", { defaultValue: "Xác nhận" }),
+                              style: "destructive",
+                              onPress: async () => {
+                                try {
+                                  await transferRoomOwnershipMutation({
+                                    roomId: room._id,
+                                    newOwnerId: target.userId,
+                                  }).unwrap();
+                                  refetchMembers();
+                                  refetch();
+                                } catch (err: unknown) {
+                                  const errorResponse = err as { data?: { message?: string } };
+                                  Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể chuyển quyền");
+                                }
+                              },
+                            },
+                          ]
+                        );
+                      }
+                    }}
+                    className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
+                  >
+                    <Feather name="shield" size={18} color="#B45309" />
+                    <Text className="text-amber-700 text-base font-bold">
+                      {room?.type === "classroom"
+                        ? t("room.appoint_teacher", { defaultValue: "Bổ nhiệm Giảng viên" })
+                        : t("room.appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
-                    {/* Thu hồi vice */}
-                    {selectedMemberForMenu?.role === "vice" && (
-                      <TouchableOpacity
-                        onPress={async () => {
-                          const target = selectedMemberForMenu;
-                          setSelectedMemberForMenu(null);
-                          if (target && room) {
-                            try {
-                              const res = await updateMemberRoleMutation({
-                                roomId: room._id,
-                                memberId: target.userId,
-                                role: "member",
-                              }).unwrap();
-                              toast.success(res.message || "Đã thu hồi quyền");
-                              refetchMembers();
-                            } catch (err: unknown) {
-                              const errorResponse = err as { data?: { message?: string } };
-                              Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể thu hồi");
-                            }
-                          }
-                        }}
-                        className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
-                      >
-                        <Feather name="user-minus" size={18} color="#D97706" />
-                        <Text className="text-amber-600 text-base font-semibold">
-                          {room?.type === "classroom"
-                            ? t("room.revoke_assistant", { defaultValue: "Thu hồi Ban cán sự" })
-                            : t("room.revoke_vice_leader", { defaultValue: "Thu hồi Phó nhóm" })}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Chuyển quyền Chủ phòng / Giảng viên / Trưởng nhóm */}
+                {/* THAO TÁC KÊNH RIÊNG TƯ (PRIVATE CHANNEL ACCESS) */}
+                {canUserManageChannel &&
+                  selectedMemberForMenu?.userId !== room?.ownerId &&
+                  (currentChannel as any)?.isPrivate && (
                     <TouchableOpacity
-                      onPress={() => {
+                      onPress={async () => {
                         const target = selectedMemberForMenu;
                         setSelectedMemberForMenu(null);
-                        if (target && room) {
-                          const isClass = room?.type === "classroom";
-                          const ownerTitle = isClass ? "Giảng viên" : "Trưởng nhóm";
-                          const memberTitle = isClass ? "Học viên" : "Thành viên";
-                          const msg = `Bạn có chắc chắn muốn chuyển quyền ${ownerTitle} cho ${target.displayName}? Sau khi xác nhận, bạn sẽ trở thành ${memberTitle}.`;
+                        if (target && room && currentChannel) {
                           Alert.alert(
-                            `Chuyển quyền ${ownerTitle}`,
-                            msg,
+                            "Xác nhận xóa khỏi kênh",
+                            `Bạn có chắc chắn muốn xóa thành viên ${target.displayName} khỏi kênh riêng tư này?`,
                             [
-                              { text: t("room.cancel", { defaultValue: "Hủy" }), style: "cancel" },
+                              { text: t("room.cancel"), style: "cancel" },
                               {
-                                text: t("room.confirm", { defaultValue: "Xác nhận" }),
+                                text: "Xóa",
                                 style: "destructive",
                                 onPress: async () => {
                                   try {
-                                    await transferRoomOwnershipMutation({
+                                    await removeChannelMember({
                                       roomId: room._id,
-                                      newOwnerId: target.userId,
+                                      channelId: currentChannel._id || "",
+                                      targetUserId: target.userId,
                                     }).unwrap();
-                                    refetchMembers();
+                                    toast.success(
+                                      t("room.toast_remove_from_private_channel_success", {
+                                        defaultValue: "Đã xóa khỏi Kênh riêng tư thành công",
+                                      })
+                                    );
                                     refetch();
-                                  } catch (err: unknown) {
-                                    const errorResponse = err as { data?: { message?: string } };
-                                    Alert.alert("Lỗi", errorResponse?.data?.message || "Không thể chuyển quyền");
+                                  } catch (err: any) {
+                                    const rawMsg = err?.data?.message || err?.message;
+                                    Alert.alert("Lỗi", rawMsg || "Không thể xóa thành viên khỏi kênh");
                                   }
                                 },
                               },
@@ -1481,15 +1554,12 @@ export default function RoomDetailScreen() {
                       }}
                       className="flex-row items-center gap-4 py-3.5 border-b border-slate-100/50"
                     >
-                      <Feather name="shield" size={18} color="#B45309" />
-                      <Text className="text-amber-700 text-base font-bold">
-                        {room?.type === "classroom"
-                          ? t("room.appoint_teacher", { defaultValue: "Bổ nhiệm Giảng viên" })
-                          : t("room.appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
+                      <Feather name="user-minus" size={18} color="#EF4444" />
+                      <Text className="text-red-500 text-base font-semibold">
+                        {t("room.remove_from_private_channel", { defaultValue: "Xóa khỏi Kênh riêng tư" })}
                       </Text>
                     </TouchableOpacity>
-                  </>
-                )}
+                  )}
 
                 {/* Nút: Xóa khỏi phòng
                      - Trưởng phòng: xóa bất kỳ thành viên nào

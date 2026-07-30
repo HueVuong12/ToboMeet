@@ -11,7 +11,7 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
   const router = useRouter();
   const { t } = useTranslation();
 
-  const { removeMemberFromRoomCache, addMemberToRoomCache, invalidateRoomList } =
+  const { removeMemberFromRoomCache, addMemberToRoomCache, invalidateRoomList, invalidateRoom } =
     useRoomCacheManager();
 
   useEffect(() => {
@@ -58,6 +58,7 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
 
         case "ownership_transferred":
           invalidateRoomList();
+          invalidateRoom(roomId);
           if (data.newOwnerId === userId) {
             Alert.alert(
               t("common.notification", { defaultValue: "Thông báo" }),
@@ -70,6 +71,19 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
 
         case "member_role_updated":
           invalidateRoomList();
+          invalidateRoom(roomId);
+          break;
+
+        case "channel_member_removed":
+          invalidateRoomList();
+          invalidateRoom(roomId);
+          if (data.targetUserId === userId) {
+            toast.info(
+              t("room.toast_remove_from_private_channel_warning", {
+                defaultValue: "Bạn không còn quyền truy cập kênh riêng tư này.",
+              })
+            );
+          }
           break;
 
         default:

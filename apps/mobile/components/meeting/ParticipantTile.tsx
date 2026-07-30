@@ -15,7 +15,7 @@ import { useHandRaise } from "../../hooks/useHandRaise";
 export default function ParticipantTile({
   trackRef,
 }: {
-  trackRef: TrackReference;
+  trackRef: any;
 }) {
   const publication = trackRef.publication;
   const videoTrack = publication?.track as VideoTrack;

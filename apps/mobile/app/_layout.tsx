@@ -31,7 +31,7 @@ export default function RootLayout() {
   const navigationState = useRootNavigationState();
 
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<any>(null);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   useEffect(() => {

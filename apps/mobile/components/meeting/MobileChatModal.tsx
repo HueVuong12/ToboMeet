@@ -127,7 +127,7 @@ export default function MobileChatModal({
     const p =
       id === localParticipant?.identity
         ? localParticipant
-        : participants.find((x) => x.identity === id);
+        : participants.find((x: any) => x.identity === id);
     if (p) {
       name = p.name || name;
       try {
