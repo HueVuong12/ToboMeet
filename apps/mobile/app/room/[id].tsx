@@ -920,7 +920,7 @@ export default function RoomDetailScreen() {
                                 {m.displayName}{" "}
                                 {isSelf && (
                                   <Text className="text-slate-400 font-normal text-xs">
-                                    ({t("room.you")})
+                                    {t("room.you")}
                                   </Text>
                                 )}
                               </Text>

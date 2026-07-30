@@ -17,6 +17,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import { router } from "expo-router";
 import { toast } from "../../lib/toast";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Tab = "language" | "devices";
 
@@ -54,8 +55,13 @@ export default function SettingsScreen() {
   const isRevoking = isRevokingSingle || isRevokingOthers;
 
   const handleLanguageChange = async (newLocale: "vi" | "en") => {
-    if (newLocale === i18n.language) return;
+    if (i18n.language.startsWith(newLocale)) return;
     await i18n.changeLanguage(newLocale);
+    try {
+      await AsyncStorage.setItem("settings.lang", newLocale);
+    } catch (e) {
+      console.log("Error saving locale to AsyncStorage:", e);
+    }
   };
 
   const handleRevokeSession = async (sessionId: string) => {
@@ -176,7 +182,7 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 onPress={() => handleLanguageChange("vi")}
                 className={`flex-row items-center justify-between px-5 py-4 rounded-2xl border ${
-                  i18n.language === "vi"
+                  i18n.language.startsWith("vi")
                     ? "border-[#0052FF] bg-blue-50/10"
                     : "border-slate-200/80 bg-white"
                 }`}
@@ -192,7 +198,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                {i18n.language === "vi" ? (
+                {i18n.language.startsWith("vi") ? (
                   <View className="w-5 h-5 rounded-full bg-[#0052FF] items-center justify-center">
                     <Feather name="check" size={12} color="#ffffff" />
                   </View>
@@ -205,7 +211,7 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 onPress={() => handleLanguageChange("en")}
                 className={`flex-row items-center justify-between px-5 py-4 rounded-2xl border ${
-                  i18n.language === "en"
+                  i18n.language.startsWith("en")
                     ? "border-[#0052FF] bg-blue-50/10"
                     : "border-slate-200/80 bg-white"
                 }`}
@@ -221,7 +227,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                {i18n.language === "en" ? (
+                {i18n.language.startsWith("en") ? (
                   <View className="w-5 h-5 rounded-full bg-[#0052FF] items-center justify-center">
                     <Feather name="check" size={12} color="#ffffff" />
                   </View>
