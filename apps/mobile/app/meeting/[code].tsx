@@ -1,78 +1,50 @@
 // app/meeting/[code].tsx
-
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { MeetingPayload, MeetingStore } from "../../lib/meetingStore";
-
-import { LiveKitRoom, AudioSession } from "@livekit/react-native";
-import { Room } from "livekit-client";
+import { LiveKitRoom } from "@livekit/react-native";
 
 import MobileToolbar from "../../components/meeting/MobileToolbar";
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
-import { toast } from "../../lib/toast";
-import { useMeetingCacheManager } from "../../hooks/useMeetingCacheManager";
+import { useMeetingSession } from "../../hooks/useMeetingSession";
 
 export default function MobileMeetingScreen() {
-  const { code } = useLocalSearchParams<{ code: string }>();
-  const router = useRouter();
-  const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL;
+  const {
+    code,
+    LIVEKIT_URL,
+    meetingData,
+    customRoom,
+    connectOptions,
+    isDisconnecting,
+    showMembersModal,
+    setShowMembersModal,
+    showChatModal,
+    setShowChatModal,
+    onRoomError,
+    onRoomDisconnected,
+  } = useMeetingSession();
 
-  const [meetingData, setMeetingData] = useState<MeetingPayload | null>(null);
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [showChatModal, setShowChatModal] = useState(false);
-  const [customRoom, setCustomRoom] = useState<Room | null>(null);
+  // Màn hình chờ thoát
+  if (isDisconnecting) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#000",
+        }}
+      >
+        <ActivityIndicator size="large" color="#9ca3af" />
+        <Text style={{ color: "#9ca3af", marginTop: 16, fontWeight: "bold" }}>
+          Đang rời cuộc họp...
+        </Text>
+      </View>
+    );
+  }
 
-  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
-
-  useEffect(() => {
-    const data = MeetingStore.get();
-    if (data) {
-      setMeetingData(data);
-      MeetingStore.clear();
-    }
-
-    const configureAudio = async () => {
-      try {
-        await AudioSession.startAudioSession();
-      } catch (error) {
-        console.error("Lỗi khi khởi động hệ thống âm thanh:", error);
-        toast.error("Lỗi khi khởi động hệ thống âm thanh");
-      }
-    };
-    configureAudio();
-  }, []);
-
-  useEffect(() => {
-    if (!meetingData) return;
-
-    const roomInstance = new Room({
-      adaptiveStream: false,
-      dynacast: true,
-      videoCaptureDefaults: {
-        facingMode: (meetingData.cameraFacing === "back"
-          ? "environment"
-          : "user") as "user" | "environment",
-      },
-    });
-
-    setCustomRoom(roomInstance);
-
-    return () => {
-      roomInstance.disconnect();
-    };
-  }, [meetingData]);
-
-  // Cấu hình lúc kết nối
-  const connectOptions = useMemo(() => {
-    return {
-      autoSubscribe: false, // Quan trọng nhất để ko bị lag
-    };
-  }, []);
-
-  // Chờ cho cả meetingData và customRoom được khởi tạo xong
+  // Màn hình chờ khởi tạo phòng
   if (!meetingData || !LIVEKIT_URL || !customRoom) {
     return (
       <View
@@ -97,21 +69,8 @@ export default function MobileMeetingScreen() {
       video={meetingData.isCamOn}
       audio={meetingData.isMicOn}
       connectOptions={connectOptions}
-      onError={(error) => {
-        console.error("Bắt được lỗi WebRTC:", error);
-        customRoom.disconnect();
-      }}
-      onDisconnected={async () => {
-        if (meetingData) {
-          clearMeetingDeviceStatus(meetingData.roomId, meetingData.channelId);
-        }
-
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace("/home");
-        }
-      }}
+      onError={onRoomError}
+      onDisconnected={onRoomDisconnected}
     >
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         <View
@@ -148,7 +107,7 @@ export default function MobileMeetingScreen() {
           roomId={meetingData.roomId}
           channelId={meetingData.channelId}
           initialFacingMode={
-            meetingData?.cameraFacing === "back" ? "environment" : "user"
+            meetingData.cameraFacing === "back" ? "environment" : "user"
           }
           onOpenMembers={() => setShowMembersModal(true)}
           onOpenChat={() => setShowChatModal(true)}

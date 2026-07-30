@@ -50,8 +50,13 @@ export async function middleware(request: NextRequest) {
 
   const isCallbackPage = pathWithoutLocale.startsWith("/auth/callback");
   const isRoomJoinPage = pathWithoutLocale.startsWith("/room/join");
+  const isMeetingPage = pathWithoutLocale.startsWith("/meeting");
   const isPublicPage =
-    isAuthPage || isHomePage || isCallbackPage || isRoomJoinPage;
+    isAuthPage ||
+    isHomePage ||
+    isCallbackPage ||
+    isRoomJoinPage ||
+    isMeetingPage;
 
   // Nếu vào trang admin mà không có user hoặc role không phải admin -> Giả vờ như trang không tồn tại (404)
   if (isAdminPage && role !== "admin") {

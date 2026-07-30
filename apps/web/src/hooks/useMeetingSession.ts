@@ -8,6 +8,7 @@ import {
   useJoinMeetingByCodeMutation,
   useLazyGetMemberStatusQuery,
 } from "@/lib/redux/api/meetingsApi";
+import { useGetMeQuery } from "@/lib/redux/features/users/usersApi";
 
 export function useMeetingSession() {
   const searchParams = useSearchParams();
@@ -49,6 +50,29 @@ export function useMeetingSession() {
 
   const hasTriedReconnectRef = useRef(false);
   const isUnloadingRef = useRef(false);
+
+  // ===== KIỂM TRA ĐĂNG NHẬP (AUTHENTICATION) =====
+  const {
+    data: myProfile,
+    error: myProfileError,
+    isLoading: isAuthenticating,
+  } = useGetMeQuery();
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    console.log("my profile", myProfile);
+    if (!isAuthenticating) {
+      if (myProfile !== undefined) {
+        // Có dữ liệu trả về thành công -> Đã đăng nhập
+        setIsAuthenticated(true);
+      } else if (myProfileError) {
+        // Có lỗi (thường là 401/403) -> Chưa đăng nhập
+        setIsAuthenticated(false);
+      }
+    }
+  }, [myProfile, myProfileError, isAuthenticating]);
+  // =================================================
 
   // Phục hồi lại cài đặt thiết bị từ sessionStorage
   useEffect(() => {
@@ -269,6 +293,7 @@ export function useMeetingSession() {
   };
 
   return {
+    isAuthenticated,
     meetingCode,
     status,
     meetingData,
@@ -282,6 +307,6 @@ export function useMeetingSession() {
     setDisplayName,
     handleJoinByCode,
     handleDisconnect,
-    hardwareConfig
+    hardwareConfig,
   };
 }

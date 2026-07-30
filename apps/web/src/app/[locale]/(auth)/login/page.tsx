@@ -13,7 +13,10 @@ export default function LoginPage() {
   const t = useTranslations();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
+
   const pathError = searchParams.get("error");
+  const redirectUrl = searchParams.get("redirect") || "";
+
   const [loginState, loginAction, isLoginPending] = useActionState(
     login,
     initialState,
@@ -79,6 +82,7 @@ export default function LoginPage() {
       {/* --- NÚT ĐĂNG NHẬP MẠNG XÃ HỘI --- */}
       <div className="flex flex-col gap-3 mb-6">
         <form action={googleAction}>
+          <input type="hidden" name="redirect" value={redirectUrl} />
           <button
             disabled={isPending}
             type="submit"
@@ -109,6 +113,7 @@ export default function LoginPage() {
         </form>
 
         <form action={fbAction}>
+          <input type="hidden" name="redirect" value={redirectUrl} />
           <button
             disabled={isPending}
             type="submit"
@@ -137,6 +142,7 @@ export default function LoginPage() {
       </div>
 
       <form action={loginAction} className="flex flex-col gap-5">
+        <input type="hidden" name="redirect" value={redirectUrl} />
         <div>
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
             Email

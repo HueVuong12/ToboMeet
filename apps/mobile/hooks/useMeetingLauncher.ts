@@ -1,16 +1,13 @@
+// hooks/useMeetingLauncher.ts
 import { useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { toast } from "../lib/toast";
 import { MeetingStore } from "../lib/meetingStore";
-import {
-  useGetActiveMeetingQuery,
-  useGetDeviceStatusQuery,
-  useJoinMeetingMutation,
-} from "../lib/redux/features/meetings/meetingsApi";
+import { useJoinMeetingMutation } from "../lib/redux/features/meetings/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
 
-interface UseMeetingManagerProps {
+interface UseMeetingLauncherProps {
   roomId: string;
   activeChannelId: string | null;
   displayName?: string;
@@ -22,36 +19,16 @@ export interface DeviceConfig {
   cameraFacing: "front" | "back";
 }
 
-export function useMeetingManager({
+export function useMeetingLauncher({
   roomId,
   activeChannelId,
   displayName,
-}: UseMeetingManagerProps) {
+}: UseMeetingLauncherProps) {
   const router = useRouter();
   const [isJoining, setIsJoining] = useState(false);
   const deviceId = useDeviceId();
-
   const [joinMeeting] = useJoinMeetingMutation();
 
-  const { data: deviceStatus } = useGetDeviceStatusQuery(
-    {
-      roomId,
-      channelId: activeChannelId || "",
-      deviceId: deviceId || "",
-    },
-    {
-      skip: !activeChannelId || !deviceId, // Chỉ gọi khi đã có đủ thông tin
-    },
-  );
-  const isJoinedOnThisDevice = deviceStatus?.isJoinedOnThisDevice || false;
-
-  // Theo dõi trạng thái cuộc họp hiện tại từ Server
-  const { data: activeMeeting } = useGetActiveMeetingQuery(
-    { roomId, channelId: activeChannelId || "" },
-    { skip: !roomId || !activeChannelId, refetchOnMountOrArgChange: true },
-  );
-
-  // Hàm xử lý tham gia cuộc họp
   const handleJoinMeeting = async (
     forceSwitch = false,
     config?: DeviceConfig,
@@ -100,7 +77,7 @@ export function useMeetingManager({
               text: "Chuyển sang máy này",
               onPress: () => {
                 handleJoinMeeting(true, config);
-                toast.info("Đang chuyển thiết bị và vào phòng...");
+                toast.info("Đã chuyển thiết bị và vào phòng...");
               },
             },
           ],
@@ -113,10 +90,5 @@ export function useMeetingManager({
     }
   };
 
-  return {
-    handleJoinMeeting,
-    isJoining,
-    isJoinedOnThisDevice,
-    activeMeeting,
-  };
+  return { handleJoinMeeting, isJoining };
 }

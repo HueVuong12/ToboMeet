@@ -23,7 +23,6 @@ import {
   useLeaveRoomMutation,
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
-  roomsApi,
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
   useGetMeQuery,
@@ -31,12 +30,14 @@ import {
 } from "../../lib/redux/features/users/usersApi";
 import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
-import { useMeetingManager } from "../../hooks/useMeetingManager";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../lib/redux/store";
 import PreviewModal from "../../components/meeting/PreviewModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomUpdateListener } from "../../hooks/socket/useRoomUpdateListener";
+import { useMeetingDeviceStatus } from "../../hooks/useMeetingDeviceStatus";
+import { useMeetingLauncher } from "../../hooks/useMeetingLauncher";
+import { meetingsApi } from "../../lib/redux/features/meetings/meetingsApi";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -86,16 +87,20 @@ export default function RoomDetailScreen() {
   const [messageText, setMessageText] = useState("");
 
   const isOwner = room && profile && room.ownerId === profile.supabaseId;
-  // const hasNavigatedAway = React.useRef(false);
-
   const insets = useSafeAreaInsets();
 
-  const { handleJoinMeeting, isJoining, isJoinedOnThisDevice, activeMeeting } =
-    useMeetingManager({
-      roomId: id,
-      activeChannelId: activeChannelId,
-      displayName: profile?.displayName,
-    });
+  // Lấy trạng thái hiển thị UI (Nháy xanh nút họp, hiện thông báo đang trong phòng...)
+  const { isJoinedOnThisDevice, activeMeeting } = useMeetingDeviceStatus(
+    id,
+    activeChannelId,
+  );
+
+  // Lấy hàm xử lý hành động khi user ấn nút "Tham gia"
+  const { handleJoinMeeting, isJoining } = useMeetingLauncher({
+    roomId: id,
+    activeChannelId,
+    displayName: profile?.displayName,
+  });
 
   // Lắng nghe bất kì sự kiện nào trong room, đã refractor thành hook
   useRoomUpdateListener(id, profile?.supabaseId);
@@ -122,7 +127,7 @@ export default function RoomDetailScreen() {
     }) => {
       // Cập nhật trực tiếp cache của RTK Query để UI đổi nút ngay lập tức
       dispatch(
-        roomsApi.util.updateQueryData(
+        meetingsApi.util.updateQueryData(
           "getActiveMeeting",
           { roomId: id, channelId: activeChannelId },
           (draft) => {
