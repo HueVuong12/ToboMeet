@@ -122,7 +122,7 @@ export async function loginWithOAuth(
   formData: FormData,
 ) {
   const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl = process.env.SITE_URL || "http://localhost:3000";
   const locale = await getLocale();
   const redirectUrl = formData.get("redirect") as string;
   // Xác định đường dẫn tiếp theo sau khi OAuth thành công
