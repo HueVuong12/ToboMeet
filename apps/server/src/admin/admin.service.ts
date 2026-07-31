@@ -2,16 +2,18 @@ import { Injectable, Inject, forwardRef, BadRequestException, NotFoundException,
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import * as nodemailer from "nodemailer";
+import * as fs from "fs";
+import * as path from "path";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { Meeting, MeetingDocument } from "../meetings/schemas/meeting.schema";
 import { MeetingsGateway } from "../meetings/meetings.gateway";
 import { ConfigService } from "@nestjs/config";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 @Injectable()
 export class AdminService {
-  private supabaseAdmin;
+  private supabaseAdmin: SupabaseClient;
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -31,15 +33,15 @@ export class AdminService {
     });
   }
 
-  logEmailDebug(message: string, error?: any) {
+  logEmailDebug(message: string, error?: unknown) {
     try {
-      const fs = require("fs");
-      const path = require("path");
+
       const logPath = path.join(process.cwd(), "debug_email.log");
       const time = new Date().toISOString();
       let logMsg = `[${time}] ${message}\n`;
       if (error) {
-        logMsg += `[${time}] ERROR DETAILS: ${error.stack || error.message || JSON.stringify(error)}\n`;
+        const errObj = error as { stack?: string; message?: string };
+        logMsg += `[${time}] ERROR DETAILS: ${errObj.stack || errObj.message || JSON.stringify(error)}\n`;
       }
       fs.appendFileSync(logPath, logMsg);
       console.log(`[Email Log] ${message}`);
@@ -47,6 +49,7 @@ export class AdminService {
       console.error("Không thể ghi file debug_email.log", e);
     }
   }
+
 
   async getDashboardStats() {
     const totalUsers = await this.userModel.countDocuments().exec();
@@ -73,7 +76,10 @@ export class AdminService {
 
     let totalDurationMinutes = 0;
     endedMeetings.forEach((m) => {
-      const durationSeconds = (((m as any).updatedAt?.getTime() || 0) - ((m as any).createdAt?.getTime() || 0)) / 1000;
+      const doc = m as unknown as Record<string, unknown>;
+      const updatedAt = doc.updatedAt as Date | undefined;
+      const createdAt = doc.createdAt as Date | undefined;
+      const durationSeconds = (((updatedAt?.getTime()) || 0) - ((createdAt?.getTime()) || 0)) / 1000;
       totalDurationMinutes += durationSeconds / 60;
     });
 
@@ -99,7 +105,9 @@ export class AdminService {
     }
 
     meetings.forEach((m) => {
-      const key = (m as any).createdAt ? (m as any).createdAt.toISOString().split("T")[0] : "";
+      const doc = m as unknown as Record<string, unknown>;
+      const createdAt = doc.createdAt as Date | undefined;
+      const key = createdAt ? createdAt.toISOString().split("T")[0] : "";
       if (chartDataMap[key] !== undefined) {
         chartDataMap[key]++;
       }
@@ -135,19 +143,20 @@ export class AdminService {
         id: r._id,
         name: r.name,
         code: r.code,
-        createdAt: (r as any).createdAt,
+        createdAt: (r as unknown as Record<string, unknown>).createdAt,
       })),
       recentMeetings: recentMeetings.map((m) => ({
         id: m._id,
         meetingCode: m.meetingCode,
         status: m.status,
-        createdAt: (m as any).createdAt,
+        createdAt: (m as unknown as Record<string, unknown>).createdAt,
       })),
     };
   }
 
   async getUsersList(searchQuery?: string, page: number = 1, limit: number = 10) {
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
+
     if (searchQuery && searchQuery.trim()) {
       const searchRegex = new RegExp(searchQuery.trim(), "i");
       filter.$or = [
@@ -207,7 +216,7 @@ export class AdminService {
           violationType: u.violationType,
           violationCounts: violationCountsObj,
           lockHistory: u.lockHistory || [],
-          createdAt: (u as any).createdAt,
+          createdAt: (u as unknown as Record<string, unknown>).createdAt,
         };
       })
     );
@@ -275,7 +284,7 @@ export class AdminService {
         displayName: newUser.displayName,
         role: role || "user",
         status: "ACTIVE",
-        createdAt: (newUser as any).createdAt,
+        createdAt: (newUser as unknown as Record<string, unknown>).createdAt,
       };
     } catch (dbError) {
       // Rollback: Xóa tài khoản trên Supabase nếu lưu DB lỗi
@@ -284,8 +293,8 @@ export class AdminService {
     }
   }
 
-  async updateUserAccount(id: string, displayName: string, role: string, status: string, adminEmail?: string) {
-    this.logEmailDebug(`[Debug] Cập nhật thông tin tài khoản: id=${id}, role=${role}`);
+  async updateUserAccount(id: string, displayName: string, role: string, status?: string, adminEmail?: string) {
+    this.logEmailDebug(`[Debug] Cập nhật thông tin tài khoản (bởi ${adminEmail || "admin"}): id=${id}, role=${role}, status=${status || "N/A"}`);
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException("Người dùng không tồn tại");
@@ -314,9 +323,11 @@ export class AdminService {
       displayName: user.displayName,
       role: role,
       status: user.status || "ACTIVE",
-      createdAt: (user as any).createdAt,
+      createdAt: (user as unknown as Record<string, unknown>).createdAt,
     };
   }
+
+
 
   async sendLockEmail(email: string) {
     const host = this.configService.get<string>("SMTP_HOST");
@@ -490,14 +501,13 @@ Trân trọng,
     // Gửi email tùy chỉnh qua SMTP
     try {
       await this.sendResetPasswordEmail(user.email, randomPassword);
-    } catch (emailErr: any) {
+    } catch (emailErr: unknown) {
       this.logEmailDebug(`Gửi email mật khẩu mới thất bại đến ${user.email}`, emailErr);
     }
 
     // Ghi Audit Log vào audit.log
     try {
-      const fs = require("fs");
-      const path = require("path");
+      
       const logPath = path.join(process.cwd(), "audit.log");
       const time = new Date().toISOString();
       const logMsg = `[${time}] Admin: ${adminEmail} | Target User: ${user.email} | Action: Yêu cầu đặt lại mật khẩu.\n`;
@@ -556,9 +566,10 @@ Trân trọng,
     try {
       await this.sendDeleteEmail(user.email);
       this.logEmailDebug(`[Debug] Đã gửi email xóa vĩnh viễn thành công tới ${user.email}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.logEmailDebug(`[Debug ERROR] Gửi email xóa vĩnh viễn thất bại đến ${user.email}`, err);
     }
+
 
     // 2. Xóa trên Supabase
     const { error: deleteError } = await this.supabaseAdmin.auth.admin.deleteUser(
@@ -683,13 +694,24 @@ Trân trọng,
     return { isLocked: false };
   }
 
-  async lockUserAccount(id: string, body: any, adminEmail: string) {
+  async lockUserAccount(
+    id: string,
+    body: {
+      violationType: string;
+      recommendedDuration: string;
+      actualDuration: string;
+      lockReason: string;
+      sendEmail?: boolean;
+      lockSource?: string;
+    },
+    adminEmail: string,
+  ) {
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException("Người dùng không tồn tại");
     }
 
-    const { violationType, recommendedDuration, actualDuration, lockReason, sendEmail, lockSource } = body;
+    const { violationType, recommendedDuration, actualDuration, lockReason, lockSource } = body;
 
     const mapping: Record<string, string> = {
       "Spam": "Spam / Quảng cáo",
@@ -762,12 +784,14 @@ Trân trọng,
     // 3. Thực hiện khóa hoặc cảnh báo
     let emailSentSuccess = false;
     
+    const validLockSource: "MANUAL" | "AI" = lockSource === "AI" ? "AI" : "MANUAL";
+
     if (durationType === "WARNING") {
       user.lockHistory.push({
         lockedBy: adminEmail,
         lockedAt,
         lockType: "WARNING",
-        lockSource: lockSource || "MANUAL",
+        lockSource: validLockSource,
         violationType: normalizedViolation,
         violationCount: currentCount,
         recommendedDuration,
@@ -778,7 +802,7 @@ Trân trọng,
     } else {
       user.status = "BLOCKED";
       user.lockType = durationType;
-      user.lockSource = lockSource || "MANUAL";
+      user.lockSource = validLockSource;
       user.lockedAt = lockedAt;
       user.lockedUntil = untilDate || null;
       user.lockReason = finalReason;
@@ -792,7 +816,7 @@ Trân trọng,
         lockedAt,
         lockedUntil: untilDate,
         lockType: durationType,
-        lockSource: lockSource || "MANUAL",
+        lockSource: validLockSource,
         violationType: normalizedViolation,
         violationCount: currentCount,
         recommendedDuration,
@@ -800,6 +824,7 @@ Trân trọng,
         lockReason: finalReason,
         emailSent: false, // sẽ cập nhật lại sau khi gửi email
       });
+
 
       const banDuration = durationType === "INDEFINITE" 
         ? "876000h" 
@@ -830,8 +855,9 @@ Trân trọng,
         lockedUntil: untilDate,
       });
       emailSentSuccess = true;
-    } catch (err: any) {
-      this.logEmailDebug(`Lỗi gửi email phạt cho ${user.email}: ${err.message}`);
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      this.logEmailDebug(`Lỗi gửi email phạt cho ${user.email}: ${errObj.message}`);
       emailWarning = "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
     }
 
@@ -895,14 +921,19 @@ Trân trọng,
 
     try {
       await this.sendUnlockEmail(user.email);
-    } catch (err: any) {
-      this.logEmailDebug(`Lỗi gửi email mở khóa đến ${user.email}: ${err.message}`);
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      this.logEmailDebug(`Lỗi gửi email mở khóa đến ${user.email}: ${errObj.message}`);
     }
 
     return { success: true, message: "Mở khóa tài khoản thành công" };
   }
 
-  async extendUserLock(id: string, body: any, adminEmail: string) {
+  async extendUserLock(
+    id: string,
+    body: { actualDuration: string; lockReason: string },
+    adminEmail: string,
+  ) {
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException("Người dùng không tồn tại");
@@ -987,8 +1018,9 @@ Trân trọng,
         lockedUntil: untilDate,
       });
       emailSentSuccess = true;
-    } catch (err: any) {
-      this.logEmailDebug(`Lỗi gửi email gia hạn khóa đến ${user.email}: ${err.message}`);
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      this.logEmailDebug(`Lỗi gửi email gia hạn khóa đến ${user.email}: ${errObj.message}`);
       emailWarning = "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
     }
 
@@ -1005,3 +1037,4 @@ Trân trọng,
     };
   }
 }
+

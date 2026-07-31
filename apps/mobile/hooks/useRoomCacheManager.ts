@@ -71,11 +71,19 @@ export function useRoomCacheManager() {
     dispatch(roomsApi.util.invalidateTags(["Room"]));
   };
 
+  /**
+   * Làm mới dữ liệu của một phòng cụ thể (kèm thành viên, kênh thuộc phòng đó)
+   */
+  const invalidateRoom = (roomId: string) => {
+    dispatch(roomsApi.util.invalidateTags([{ type: "Room", id: roomId }]));
+  };
+
   return {
     removeRoomFromMyList,
     removeMemberFromRoomCache,
     addMemberToRoomCache,
     updateRoomDetailsCache,
     invalidateRoomList,
+    invalidateRoom,
   };
 }

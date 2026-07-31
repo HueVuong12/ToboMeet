@@ -13,12 +13,16 @@ import LanguageSwitcher from "../components/commons/LanguageSwitcher";
 import StoreProvider from "../lib/redux/StoreProvider";
 import Toast from "react-native-toast-message";
 import { EventProvider } from "../providers/EventProvider";
-import { registerGlobals } from "@livekit/react-native";
-import { Session } from "@supabase/supabase-js";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GlobalSocketListeners } from "../providers/GlobalSocketListeners";
 
-registerGlobals();
+// registerGlobals dynamically loaded to avoid Expo Go crash
+try {
+  const { registerGlobals } = require("@livekit/react-native");
+  registerGlobals();
+} catch (e) {
+  console.warn("LiveKit native globals not loaded in Expo Go mode:", e);
+}
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -27,7 +31,7 @@ export default function RootLayout() {
   const navigationState = useRootNavigationState();
 
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<any>(null);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   useEffect(() => {

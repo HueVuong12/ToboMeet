@@ -1,12 +1,19 @@
 import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import type { Request } from "express";
 import { SupabaseService } from "../../supabase/supabase.service";
+import { DeviceSession, DeviceSessionDocument } from "../../users/schemas/device-session.schema";
 import { AppException } from "../exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
 
 @Injectable()
 export class SupabaseGuard implements CanActivate {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    @InjectModel(DeviceSession.name)
+    private readonly sessionModel: Model<DeviceSessionDocument>,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -31,6 +38,42 @@ export class SupabaseGuard implements CanActivate {
       user.banned_until && new Date(user.banned_until) > new Date();
     if (isLocked) {
       throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+    }
+
+    // Kiểm tra trạng thái thu hồi phiên (isRevoked) từ MongoDB
+    try {
+      const userAgent = ((request.headers["user-agent"] as string) || "").trim().toLowerCase();
+      const payloadBase64 = token.split(".")[1];
+      if (payloadBase64) {
+        const payload = JSON.parse(
+          Buffer.from(payloadBase64, "base64").toString(),
+        ) as Record<string, any>;
+        
+        let sessionId =
+          (payload.session_id as string) ||
+          (payload.sid as string) ||
+          (payload.jti as string) ||
+          "";
+
+        if (!sessionId && payload.sub && userAgent) {
+          const { createHash } = require("crypto");
+          sessionId = createHash("sha256").update(`${payload.sub}-${userAgent}`).digest("hex");
+        }
+        if (!sessionId) {
+          sessionId = payload.sub || "";
+        }
+
+        if (sessionId) {
+          const sessionDoc = await this.sessionModel
+            .findOne({ sessionId, userId: user.id })
+            .lean();
+          if (sessionDoc?.isRevoked) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+          }
+        }
+      }
+    } catch (err) {
+      if (err instanceof AppException) throw err;
     }
 
     const mappedRole = user.app_metadata?.role || user.role || "user";

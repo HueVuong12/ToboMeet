@@ -21,6 +21,8 @@ export class RoomActivity {
       "POLL_CREATED",
       "WHITEBOARD_CREATED",
       "DISBANDED",
+      "ROLE_UPDATED",
+      "OWNER_TRANSFERRED",
     ],
   })
   type: string;

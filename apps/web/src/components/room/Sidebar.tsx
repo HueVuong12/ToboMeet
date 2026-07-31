@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { RoomResponse } from "@tobomeet/shared/types";
 import {
   useAddChannelMutation,
@@ -29,8 +30,15 @@ import {
   Link as LinkIcon,
   LogOut,
   Trash2,
+  Flag,
+  Lock,
+  MoreVertical,
 } from "lucide-react";
 import { createPortal } from "react-dom";
+import ReportRoomModal from "./ReportRoomModal";
+import CreateChannelModal from "./CreateChannelModal";
+import AddPrivateChannelMemberModal from "./AddPrivateChannelMemberModal";
+import { axiosInstance as axios } from "@/lib/axios";
 
 interface SidebarProps {
   room: RoomResponse;
@@ -58,6 +66,8 @@ export default function Sidebar({
   }, []);
 
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
+  const [channelToManage, setChannelToManage] = useState<any | null>(null);
+  const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(null);
   const [newChannelName, setNewChannelName] = useState("");
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +82,10 @@ export default function Sidebar({
   const [disbandRoom, { isLoading: isDisbanding }] = useDisbandRoomMutation();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  
+  // State cho Báo cáo phòng
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
 
   // States và Hooks cho bàn giao quyền chủ phòng
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
@@ -117,9 +131,13 @@ export default function Sidebar({
       setSearchQuery("");
       setSelectedUser(null);
     } catch (err: any) {
-      setInviteError(
-        err?.data?.message || err?.message || t("invite_error_fallback"),
-      );
+      const rawMsg = err?.data?.message || err?.message;
+      const parsedMsg = Array.isArray(rawMsg)
+        ? rawMsg[0]
+        : typeof rawMsg === "string"
+        ? rawMsg
+        : null;
+      setInviteError(parsedMsg || t("invite_error_fallback"));
     }
   };
 
@@ -140,7 +158,7 @@ export default function Sidebar({
       }).unwrap();
       router.push("../dashboard");
     } catch (err: any) {
-      alert(err?.data?.message || err?.message || t("leave_error_fallback"));
+      toast.error(err?.data?.message || err?.message || t("leave_error_fallback"));
     }
   };
 
@@ -150,12 +168,13 @@ export default function Sidebar({
       setShowDisbandConfirm(false);
       router.push("../dashboard");
     } catch (err: any) {
-      alert(err?.data?.message || err?.message || "Không thể giải tán phòng");
+      toast.error(err?.data?.message || err?.message || "Không thể giải tán phòng");
     }
   };
 
   const isMeeting = room.type === "meeting";
-  const isOwner = room.ownerId === userId;
+  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)?.role as string | undefined;
+  const isOwner = room.ownerId === userId || currentUserRole === "teacher" || currentUserRole === "leader" || currentUserRole === "owner";
 
   const handleCreateChannel = async () => {
     if (!newChannelName.trim()) return;
@@ -209,7 +228,9 @@ export default function Sidebar({
               ) : (
                 <GraduationCap className="w-3 h-3" />
               )}
-              {isMeeting ? "Meeting" : "Classroom"}
+              {isMeeting
+                ? t("type_meeting", { defaultValue: "Phòng họp" })
+                : t("type_classroom", { defaultValue: "Phòng học" })}
             </span>
           </div>
         </div>
@@ -253,6 +274,18 @@ export default function Sidebar({
                     {t("copy_link")}
                   </button>
                   <div className="border-t border-slate-100 my-1" />
+                  {!isOwner && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowReportModal(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <Flag className="w-3.5 h-3.5 text-slate-500" />
+                      {t("report_room")}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setShowMenu(false);
@@ -320,24 +353,82 @@ export default function Sidebar({
           <div className="mt-1 px-2 space-y-0.5">
             {room.channels.map((channel) => {
               const isActive = channel.name === activeChannel;
+              const canManageThisChannel =
+                isOwner ||
+                channel.members?.some(
+                  (m: any) =>
+                    m.userId === userId &&
+                    (m.role === "vice" || m.role === "assistant"),
+                );
+
               return (
-                <button
+                <div
                   key={channel._id || channel.name}
-                  // Cập nhật State lên cha khi click
-                  onClick={() => {
-                    setActiveChannel(channel.name);
-                    if (onClose) onClose(); // Đóng sidebar trên Mobile khi chọn kênh
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative
-                    ${
-                      isActive
-                        ? "bg-white text-slate-900 font-semibold shadow-sm border border-slate-200/60"
-                        : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900"
-                    }`}
+                  className={`group relative flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                    isActive
+                      ? "bg-white text-slate-900 font-semibold shadow-sm border border-slate-200/60"
+                      : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900"
+                  }`}
                 >
-                  <Hash className="w-4 h-4 flex-shrink-0 opacity-50" />
-                  <span className="truncate">{channel.name}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveChannel(channel.name);
+                      if (onClose) onClose();
+                    }}
+                    className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                  >
+                    {channel.isPrivate ? (
+                      <Lock className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
+                    ) : (
+                      <Hash className="w-4 h-4 flex-shrink-0 opacity-50" />
+                    )}
+                    <span className="truncate">{channel.name}</span>
+                  </button>
+
+                  {channel.isPrivate && canManageThisChannel && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const chId = channel._id || channel.name;
+                          setOpenChannelMenuId(openChannelMenuId === chId ? null : chId);
+                        }}
+                        title="Tùy chọn kênh"
+                        className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 opacity-70 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {openChannelMenuId === (channel._id || channel.name) && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenChannelMenuId(null);
+                            }}
+                          />
+                          <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenChannelMenuId(null);
+                                setChannelToManage(channel);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                            >
+                              <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Thêm thành viên</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -378,87 +469,27 @@ export default function Sidebar({
       </div>
 
       {/* Add Channel Modal */}
-      {showAddChannelModal &&
-        isMounted &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={() => setShowAddChannelModal(false)}
-            />
+      {showAddChannelModal && (
+        <CreateChannelModal
+          isOpen={showAddChannelModal}
+          onClose={() => setShowAddChannelModal(false)}
+          roomId={room._id}
+          roomMembers={roomMembers || []}
+          currentUserId={userId}
+        />
+      )}
 
-            {/* Dialog */}
-            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 pt-6 pb-2">
-                <h2 className="text-lg font-bold text-slate-900">
-                  {t("create_channel")}
-                </h2>
-                <button
-                  onClick={() => setShowAddChannelModal(false)}
-                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="px-6 py-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-bold text-slate-700">
-                    {t("channel_name")}
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-slate-400 text-base">
-                      #
-                    </span>
-                    <input
-                      type="text"
-                      value={newChannelName}
-                      onChange={(e) => setNewChannelName(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={t("channel_name_placeholder")}
-                      autoFocus
-                      className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 bg-slate-50
-                               text-sm text-slate-900 placeholder:text-slate-400
-                               focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
-                               transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div className="flex items-center gap-2 mt-3 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end gap-3 px-6 pb-6 pt-2">
-                <button
-                  onClick={() => setShowAddChannelModal(false)}
-                  className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-                >
-                  {t("cancel")}
-                </button>
-                <button
-                  onClick={handleCreateChannel}
-                  disabled={!newChannelName.trim() || isLoading}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 text-white text-sm font-semibold
-                           hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {t("create_channel")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* Manage Private Channel Members Modal */}
+      {channelToManage && (
+        <AddPrivateChannelMemberModal
+          isOpen={!!channelToManage}
+          onClose={() => setChannelToManage(null)}
+          roomId={room._id}
+          channel={channelToManage}
+          roomMembers={roomMembers || []}
+          roomOwnerId={room.ownerId}
+        />
+      )}
 
       {/* Modal Thêm thành viên */}
       {showInviteModal &&
@@ -818,6 +849,49 @@ export default function Sidebar({
           </div>,
           document.body,
         )}
+
+      {/* Modal Báo cáo phòng */}
+      {showReportModal && isMounted && (
+        <ReportRoomModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          roomId={room._id}
+          roomName={room.name}
+          isSubmitting={isReporting}
+          onSubmitReport={async (reportData) => {
+            try {
+              setIsReporting(true);
+              await axios.post("/reports/room", {
+                roomId: room._id,
+                reason: reportData.reason,
+                description: reportData.description,
+                attachments: reportData.attachments,
+              });
+              toast.success(t("report_room_success", { defaultValue: "Đã gửi báo cáo thành công." }));
+              setShowReportModal(false);
+            } catch (err: unknown) {
+              const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+              const msg = errorObj?.response?.data?.message || errorObj?.message || t("report_room_error_failed", { defaultValue: "Không thể gửi báo cáo phòng" });
+              toast.error(msg);
+              throw err;
+            } finally {
+              setIsReporting(false);
+            }
+          }}
+        />
+      )}
+
+      {/* Modal Quản lý / Thêm thành viên Kênh riêng tư */}
+      {channelToManage && isMounted && (
+        <AddPrivateChannelMemberModal
+          isOpen={!!channelToManage}
+          onClose={() => setChannelToManage(null)}
+          roomId={room._id}
+          channel={channelToManage}
+          roomMembers={roomMembers}
+          roomOwnerId={room.ownerId}
+        />
+      )}
     </aside>
   );
 }

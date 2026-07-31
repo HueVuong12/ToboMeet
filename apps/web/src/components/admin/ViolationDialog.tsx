@@ -9,6 +9,8 @@ import {
   useExtendUserLockMutation,
 } from "@/lib/redux/api/adminApi";
 import { X, ShieldAlert, Clock, Mail, Info, Calendar, History, ShieldCheck, AlertTriangle } from "lucide-react";
+import { useConfirm } from "@/providers/ConfirmProvider";
+import { toast } from "sonner";
 
 interface ViolationDialogProps {
   user: AdminUserResponse;
@@ -48,6 +50,11 @@ const PENALTY_POLICY: Record<string, { type: string; label: string }[]> = {
   malware_fraud: [
     { type: "INDEFINITE", label: "Vô thời hạn" },
   ],
+  other: [
+    { type: "WARNING", label: "Cảnh báo" },
+    { type: "TEMPORARY", label: "24 giờ" },
+    { type: "INDEFINITE", label: "Vô thời hạn" },
+  ],
 };
 
 const ADJUSTABLE_DURATIONS = [
@@ -64,6 +71,7 @@ const ADJUSTABLE_DURATIONS = [
 
 export default function ViolationDialog({ user, onClose, onSuccess }: ViolationDialogProps) {
   const t = useTranslations("admin");
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<"action" | "history">("action");
 
   const getDurationLabel = (val: string) => {
@@ -88,7 +96,7 @@ export default function ViolationDialog({ user, onClose, onSuccess }: ViolationD
         return t("lock_type_indefinite", { defaultValue: "Vô thời hạn" });
       case "Khóa cho đến khi quản trị viên mở khóa (Vô thời hạn)":
       case "Khóa cho đến khi quản trị viên mở khóa":
-        return t("lock_type_indefinite", { defaultValue: "Khóa cho đến khi quản trị viên mở khóa" });
+        return t("lock_type_indefinite_label", { defaultValue: "Khóa vô thời hạn" });
       default:
         return val;
     }
@@ -210,7 +218,7 @@ export default function ViolationDialog({ user, onClose, onSuccess }: ViolationD
     let finalDuration = applyProposal ? recommendedDuration : selectedDuration;
     if (!applyProposal && selectedDuration === "custom") {
       if (!customDate) {
-        alert(t("select_custom_time_error"));
+        toast.warning(t("select_custom_time_error"));
         return;
       }
       finalDuration = new Date(customDate).toISOString();
@@ -237,7 +245,7 @@ export default function ViolationDialog({ user, onClose, onSuccess }: ViolationD
       }
       onClose();
     } catch (err: any) {
-      alert(t("error_prefix") + (err?.data?.message || err?.message));
+      toast.error(t("error_prefix") + (err?.data?.message || err?.message));
     }
   };
 
@@ -249,7 +257,7 @@ export default function ViolationDialog({ user, onClose, onSuccess }: ViolationD
     let finalDuration = extendDuration;
     if (extendDuration === "custom") {
       if (!extendCustomDate) {
-        alert(t("select_custom_time_error"));
+        toast.warning(t("select_custom_time_error"));
         return;
       }
       finalDuration = new Date(extendCustomDate).toISOString();
@@ -269,22 +277,27 @@ export default function ViolationDialog({ user, onClose, onSuccess }: ViolationD
       }
       onClose();
     } catch (err: any) {
-      alert(t("error_prefix") + (err?.data?.message || err?.message));
+      toast.error(t("error_prefix") + (err?.data?.message || err?.message));
     }
   };
 
   // Thực hiện mở khóa
-  const handleUnlockClick = async () => {
-    if (!confirm(t("unlock_confirm_desc", { name: user.displayName || user.email }))) {
-      return;
-    }
-    try {
-      await unlockUser(user.id).unwrap();
-      onSuccess(t("unlock_success"));
-      onClose();
-    } catch (err: any) {
-      alert(t("error_prefix") + (err?.data?.message || err?.message));
-    }
+  const handleUnlockClick = () => {
+    confirm({
+      title: t("unlock") || "Mở khóa tài khoản",
+      message: t("unlock_confirm_desc", { name: user.displayName || user.email }),
+      confirmText: t("unlock") || "Mở khóa",
+      onConfirm: async () => {
+        try {
+          await unlockUser(user.id).unwrap();
+          onSuccess(t("unlock_success"));
+          onClose();
+        } catch (err: any) {
+          toast.error(t("error_prefix") + (err?.data?.message || err?.message));
+          throw err;
+        }
+      },
+    });
   };
 
   const formatDateTime = (dateStr?: string) => {

@@ -3,7 +3,11 @@ import { baseApi } from "../../api/baseApi";
 
 export interface UserSession {
   id: string;
-  ip: string;
+  city?: string;
+  country?: string;
+  isp?: string;
+  ip?: string;
+  ipAddress?: string | null;
   os: string;
   browser: string;
   isMobile: boolean;
@@ -42,6 +46,13 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["UserSessions"],
     }),
+    revokeOtherSessions: builder.mutation<void, void>({
+      query: () => ({
+        url: "/users/me/sessions/others",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["UserSessions"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -50,5 +61,6 @@ export const {
   useGetMeQuery,
   useGetSessionsQuery,
   useRevokeSessionMutation,
+  useRevokeOtherSessionsMutation,
   useSearchUsersQuery,
 } = usersApi;

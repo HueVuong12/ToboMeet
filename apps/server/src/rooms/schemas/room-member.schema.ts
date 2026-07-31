@@ -7,7 +7,7 @@ export class RoomMember {
 
   @Prop({
     required: true,
-    enum: ["owner", "admin", "member"],
+    enum: ["owner", "vice", "member"],
     default: "member",
   })
   role: string;

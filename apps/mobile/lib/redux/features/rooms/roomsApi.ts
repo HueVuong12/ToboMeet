@@ -45,12 +45,17 @@ export const roomsApi = baseApi.injectEndpoints({
 
     addChannel: builder.mutation<
       RoomResponse,
-      { roomId: string; name: string }
+      {
+        roomId: string;
+        name: string;
+        isPrivate?: boolean;
+        initialMemberIds?: string[];
+      }
     >({
-      query: ({ roomId, name }) => ({
+      query: ({ roomId, name, isPrivate, initialMemberIds }) => ({
         url: `/rooms/${roomId}/channels`,
         method: "POST",
-        data: { name },
+        data: { name, isPrivate, initialMemberIds },
       }),
       invalidatesTags: (result, error, { roomId }) => [
         { type: "Room", id: roomId },
@@ -142,9 +147,93 @@ export const roomsApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
+    /**
+     * Cập nhật vai trò thành viên (Bổ nhiệm / Thu hồi)
+     */
+    updateMemberRole: builder.mutation<
+      { message: string; role: string },
+      { roomId: string; memberId: string; role: string }
+    >({
+      query: ({ roomId, memberId, role }) => ({
+        url: `/rooms/${roomId}/members/${memberId}/role`,
+        method: "PATCH",
+        data: { role },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    /**
+     * Chuyển quyền chủ phòng / Giảng viên / Trưởng nhóm
+     */
+    transferRoomOwnership: builder.mutation<
+      { message: string; newOwnerId: string },
+      { roomId: string; newOwnerId: string }
+    >({
+      query: ({ roomId, newOwnerId }) => ({
+        url: `/rooms/${roomId}/transfer-owner`,
+        method: "POST",
+        data: { newOwnerId },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    updateChannelMemberRole: builder.mutation<
+      RoomResponse,
+      {
+        roomId: string;
+        channelId: string;
+        targetUserId: string;
+        role: string;
+      }
+    >({
+      query: ({ roomId, channelId, targetUserId, role }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/members/${targetUserId}/role`,
+        method: "PUT",
+        data: { role },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    addChannelMember: builder.mutation<
+      RoomResponse,
+      { roomId: string; channelId: string; targetUserId?: string; emailOrUsername?: string }
+    >({
+      query: ({ roomId, channelId, targetUserId, emailOrUsername }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/members`,
+        method: "POST",
+        data: { targetUserId, emailOrUsername },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    removeChannelMember: builder.mutation<
+      RoomResponse,
+      { roomId: string; channelId: string; targetUserId: string }
+    >({
+      query: ({ roomId, channelId, targetUserId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/members/${targetUserId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
   }),
 
-  overrideExisting: false,
+  overrideExisting: true,
 });
 
 export const {
@@ -161,4 +250,9 @@ export const {
   useCheckMemberByCodeQuery,
   useCheckMemberByIdQuery,
   useGetRoomByCodeQuery,
+  useUpdateMemberRoleMutation,
+  useTransferRoomOwnershipMutation,
+  useUpdateChannelMemberRoleMutation,
+  useAddChannelMemberMutation,
+  useRemoveChannelMemberMutation,
 } = roomsApi;

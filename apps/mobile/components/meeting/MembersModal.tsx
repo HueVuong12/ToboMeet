@@ -12,6 +12,7 @@ import {
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 // COMPONENT: DANH SÁCH THÀNH VIÊN (BOTTOM SHEET)
 export default function MembersModal({
@@ -28,6 +29,7 @@ export default function MembersModal({
   meetingCode: string;
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const {
     localParticipant,
@@ -88,7 +90,7 @@ export default function MembersModal({
             }}
           >
             <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
-              Thành viên
+              {t("meeting_modal.title", { defaultValue: "Thành viên" })}
             </Text>
             <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
               <Feather name="x" size={20} color="#94a3b8" />
@@ -111,7 +113,7 @@ export default function MembersModal({
                 textTransform: "uppercase",
               }}
             >
-              Đang tham gia
+              {t("meeting_modal.joining", { defaultValue: "Đang tham gia" })}
             </Text>
             <View
               style={{
@@ -126,7 +128,10 @@ export default function MembersModal({
               <Text
                 style={{ color: "#d1d5db", fontSize: 12, fontWeight: "bold" }}
               >
-                {displayParticipants.length} người
+                {t("meeting_modal.people_count", {
+                  count: displayParticipants.length,
+                  defaultValue: `${displayParticipants.length} người`,
+                })}
               </Text>
             </View>
           </View>

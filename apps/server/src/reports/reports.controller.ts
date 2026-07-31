@@ -7,6 +7,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { CreateReportDto } from "./dto/create-report.dto";
+import { CreateRoomReportDto } from "./dto/create-room-report.dto";
 import { ReportsService } from "./reports.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { Request } from "express";
@@ -63,5 +64,44 @@ export class ReportsController {
     }
 
     return this.reportsService.createReport(reporterId, dto);
+  }
+
+  @Post("room")
+  async createRoomReport(
+    @Body() dto: CreateRoomReportDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const reporterId = req.user.id;
+    const { roomId, reason, description } = dto;
+
+    if (!roomId) {
+      throw new BadRequestException("roomId là bắt buộc");
+    }
+
+    if (!reason) {
+      throw new BadRequestException("Lý do báo cáo phòng là bắt buộc");
+    }
+
+    const validReasons = [
+      "Quấy rối",
+      "Spam",
+      "Nội dung phản cảm",
+      "Lừa đảo",
+      "Chia sẻ thông tin sai sự thật",
+      "Vi phạm bản quyền",
+      "Khác",
+    ];
+
+    if (!validReasons.includes(reason)) {
+      throw new BadRequestException("Lý do báo cáo không hợp lệ");
+    }
+
+    if (reason === "Khác" && (!description || !description.trim())) {
+      throw new BadRequestException(
+        "Vui lòng nhập mô tả chi tiết khi chọn lý do 'Khác'",
+      );
+    }
+
+    return this.reportsService.createRoomReport(reporterId, dto);
   }
 }

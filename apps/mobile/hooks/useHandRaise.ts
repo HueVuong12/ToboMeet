@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
+let useRoomContext: any = () => null;
+let useLocalParticipant: any = () => ({ localParticipant: null });
+try {
+  const livekit = require("@livekit/react-native");
+  useRoomContext = livekit.useRoomContext;
+  useLocalParticipant = livekit.useLocalParticipant;
+} catch (e) {
+  console.warn("LiveKit hooks not available in Expo Go");
+}
 import { RoomEvent, Participant } from "livekit-client";
 
 export function useHandRaise() {

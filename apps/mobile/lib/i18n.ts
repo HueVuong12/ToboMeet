@@ -17,10 +17,12 @@ const languageDetectorPlugin: LanguageDetectorAsyncModule = {
     AsyncStorage.getItem(STORE_LANGUAGE_KEY)
       .then((savedLanguage) => {
         if (savedLanguage) {
-          return callback(savedLanguage);
+          const lang = savedLanguage.startsWith("vi") ? "vi" : "en";
+          return callback(lang);
         }
-        const phoneLanguage = Localization.getLocales()[0]?.languageCode;
-        callback(phoneLanguage || "vi");
+        const rawLanguage = Localization.getLocales()[0]?.languageCode;
+        const phoneLanguage = rawLanguage && rawLanguage.startsWith("en") ? "en" : "vi";
+        callback(phoneLanguage);
       })
       .catch((error) => {
         console.log("Lỗi đọc ngôn ngữ", error);

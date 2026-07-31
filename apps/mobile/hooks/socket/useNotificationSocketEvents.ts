@@ -24,10 +24,6 @@ export function useNotificationSocketEvents() {
             case "KICKED": {
               if (roomId) removeRoomFromMyList(roomId);
 
-              toast.info(
-                `Bạn đã bị kick khỏi ${notif.metadata?.roomName || ""}.`,
-              );
-
               if (isCurrentlyInRoom) {
                 setTimeout(() => {
                   router.replace("/dashboard");

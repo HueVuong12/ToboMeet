@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { View, Text, Image } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
-import { TrackReference, VideoView } from "@livekit/react-native";
+let VideoView: any = View;
+try {
+  VideoView = require("@livekit/react-native").VideoView;
+} catch (e) {
+  console.warn("VideoView not available in Expo Go");
+}
 import { Track, VideoTrack } from "livekit-client";
 import { useHandRaise } from "../../hooks/useHandRaise";
 
@@ -10,7 +15,7 @@ import { useHandRaise } from "../../hooks/useHandRaise";
 export default function ParticipantTile({
   trackRef,
 }: {
-  trackRef: TrackReference;
+  trackRef: any;
 }) {
   const publication = trackRef.publication;
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
