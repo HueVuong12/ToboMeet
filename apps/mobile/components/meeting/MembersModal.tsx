@@ -15,6 +15,7 @@ import {
   useParticipants,
 } from "@livekit/components-react";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
 import { useRemoveParticipantMutation } from "../../lib/redux/features/rooms/roomsApi";
 import { useHandRaise } from "../../hooks/useHandRaise";
@@ -34,6 +35,7 @@ export default function MembersModal({
   channelId: string;
   meetingCode: string;
 }) {
+  const { t } = useTranslation();
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
@@ -173,7 +175,7 @@ export default function MembersModal({
             }}
           >
             <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
-              Thành viên
+              {t("meeting_modal.title", { defaultValue: "Thành viên" })}
             </Text>
             <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
               <Feather name="x" size={20} color="#94a3b8" />
@@ -196,7 +198,7 @@ export default function MembersModal({
                 textTransform: "uppercase",
               }}
             >
-              Đang tham gia
+              {t("meeting_modal.joining", { defaultValue: "Đang tham gia" })}
             </Text>
             <View
               style={{
@@ -209,7 +211,7 @@ export default function MembersModal({
               <Text
                 style={{ color: "#e2e8f0", fontSize: 12, fontWeight: "bold" }}
               >
-                {displayParticipants.length} người
+                {t("meeting_modal.people_count", { count: displayParticipants.length, defaultValue: `${displayParticipants.length} người` })}
               </Text>
             </View>
           </View>

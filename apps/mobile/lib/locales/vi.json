@@ -228,7 +228,7 @@
     "evidence_max_reached": "Đã đạt giới hạn tối đa 5 ảnh minh chứng.",
     "you_were_removed": "Bạn đã bị xóa khỏi {{roomName}}.",
     "member_removed_success": "Đã xóa {{name}} khỏi phòng họp.",
-    "role_teacher": "Giáo viên",
+    "role_teacher": "Giảng viên",
     "role_assistant": "Ban cán sự",
     "role_student": "Học viên",
     "role_leader": "Trưởng nhóm",
@@ -236,7 +236,7 @@
     "role_member": "Thành viên",
     "appoint_assistant": "Bổ nhiệm Ban cán sự",
     "revoke_assistant": "Thu hồi Ban cán sự",
-    "appoint_teacher": "Bổ nhiệm Giáo viên",
+    "appoint_teacher": "Bổ nhiệm Giảng viên",
     "appoint_vice_leader": "Bổ nhiệm Phó nhóm",
     "revoke_vice_leader": "Thu hồi Phó nhóm",
     "appoint_leader": "Bổ nhiệm Trưởng nhóm",
@@ -244,7 +244,10 @@
     "toast_revoke_assistant": "{{actor}} đã thu hồi quyền Ban cán sự của {{target}}.",
     "toast_appoint_vice_leader": "{{actor}} đã bổ nhiệm {{target}} làm Phó nhóm.",
     "toast_revoke_vice_leader": "{{actor}} đã thu hồi quyền Phó nhóm của {{target}}.",
-    "transfer_teacher_title": "Chuyển quyền Giáo viên",
+    "transfer_teacher_title": "Chuyển quyền Giảng viên",
+    "search_members": "Tìm thành viên...",
+    "max_vice_reached": "Đã đạt số lượng tối đa 3 {{role}}.",
+    "default_description": "Không gian làm việc chung dành cho phòng {{name}}.",
     "transfer_leader_title": "Chuyển quyền Trưởng nhóm",
     "transfer_confirm_message": "Bạn có chắc chắn muốn chuyển quyền {{role}} cho {{name}}? Sau khi xác nhận, bạn sẽ trở thành {{downgradedRole}}.",
     "cancel": "Hủy",
@@ -309,5 +312,10 @@
     "delete_comment_error": "Không thể xóa nhận xét.",
     "send_comment_error": "Không thể gửi nhận xét. Vui lòng thử lại.",
     "submit_post_error": "Tác vụ thất bại. Vui lòng thử lại."
+  },
+  "meeting_modal": {
+    "title": "Thành viên",
+    "joining": "Đang tham gia",
+    "people_count": "{{count}} người"
   }
 }

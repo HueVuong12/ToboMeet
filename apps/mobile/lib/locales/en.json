@@ -247,6 +247,9 @@
     "toast_appoint_vice_leader": "{{actor}} appointed {{target}} as Vice Leader.",
     "toast_revoke_vice_leader": "{{actor}} revoked Vice Leader role from {{target}}.",
     "transfer_teacher_title": "Transfer Teacher Role",
+    "search_members": "Search members...",
+    "max_vice_reached": "Maximum limit of 3 {{role}} reached.",
+    "default_description": "Co-working space for room {{name}}.",
     "transfer_leader_title": "Transfer Leader Role",
     "transfer_confirm_message": "Are you sure you want to transfer {{role}} role to {{name}}? After confirmation, you will become a {{downgradedRole}}.",
     "cancel": "Cancel",
@@ -311,5 +314,10 @@
     "delete_comment_error": "Failed to delete comment.",
     "send_comment_error": "Failed to send comment. Please try again.",
     "submit_post_error": "Operation failed. Please try again."
+  },
+  "meeting_modal": {
+    "title": "Members",
+    "joining": "Participating",
+    "people_count": "{{count}} people"
   }
 }

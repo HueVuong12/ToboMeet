@@ -19,15 +19,15 @@ export default function RoleBadge({ role, displayRole, roomType, t }: RoleBadgeP
   const defaultText = React.useMemo(() => {
     if (displayRole) return displayRole;
     if (roomType === "classroom") {
-      if (normalizedRole === "owner") return "Giảng viên";
-      if (normalizedRole === "vice") return "Ban cán sự";
-      return "Học viên";
+      if (normalizedRole === "owner") return t("room.role_teacher", { defaultValue: "Giảng viên" });
+      if (normalizedRole === "vice") return t("room.role_assistant", { defaultValue: "Ban cán sự" });
+      return t("room.role_student", { defaultValue: "Học viên" });
     } else {
-      if (normalizedRole === "owner") return "Trưởng nhóm";
-      if (normalizedRole === "vice") return "Phó nhóm";
-      return "Thành viên";
+      if (normalizedRole === "owner") return t("room.role_leader", { defaultValue: "Trưởng nhóm" });
+      if (normalizedRole === "vice") return t("room.role_vice_leader", { defaultValue: "Phó nhóm" });
+      return t("room.role_member", { defaultValue: "Thành viên" });
     }
-  }, [displayRole, normalizedRole, roomType]);
+  }, [displayRole, normalizedRole, roomType, t]);
 
   switch (normalizedRole) {
     case "owner":

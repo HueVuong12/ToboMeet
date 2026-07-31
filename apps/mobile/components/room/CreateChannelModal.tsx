@@ -308,7 +308,7 @@ export default function CreateChannelModal({
                               )}
                               <View className="flex-1">
                                 <Text className="text-xs font-bold text-slate-800" numberOfLines={1}>
-                                  {m.displayName || "Thành viên"}
+                                  {m.displayName || t("room.member", { defaultValue: "Thành viên" })}
                                 </Text>
                                 {m.email && (
                                   <Text className="text-[9px] text-slate-400" numberOfLines={1}>
