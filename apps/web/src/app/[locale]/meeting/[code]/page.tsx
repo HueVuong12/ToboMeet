@@ -140,7 +140,12 @@ export default function MeetingPage() {
           },
         },
         ...(hardwareConfig.micId && {
-          audioCaptureDefaults: { deviceId: hardwareConfig.micId },
+          audioCaptureDefaults: {
+            deviceId: hardwareConfig.micId,
+            echoCancellation: true,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
         }),
         ...(hardwareConfig.speakerId && {
           audioOutput: { deviceId: hardwareConfig.speakerId },
@@ -148,7 +153,7 @@ export default function MeetingPage() {
       }}
       onDisconnected={handleDisconnect}
     >
-      <RoomAudioRenderer />
+      <RoomAudioRenderer volume={1.0} />
       <MeetingRoomContent
         channelName={meetingData.channelName}
         roomId={meetingData.roomId}

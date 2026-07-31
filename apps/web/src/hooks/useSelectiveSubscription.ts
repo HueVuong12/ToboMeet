@@ -75,6 +75,21 @@ export function useSelectiveSubscription() {
     return newPages;
   }, [tracks, pageSize]);
 
+  // Luôn subscribe toàn bộ audio
+  const ensureAudioSubscribed = useCallback(() => {
+    room.remoteParticipants.forEach((participant) => {
+      const micPub = participant.getTrackPublication(
+        Track.Source.Microphone,
+      ) as RemoteTrackPublication | undefined;
+
+      if (micPub && typeof micPub.setSubscribed === "function") {
+        if (!micPub.isDesired) {
+          micPub.setSubscribed(true);
+        }
+      }
+    });
+  }, [room]);
+
   // Hàm áp dụng Subscribe WebRTC
   const applySubscriptions = useCallback(
     (desiredKeys: Set<string>) => {
@@ -83,6 +98,7 @@ export function useSelectiveSubscription() {
         desiredKeys.size === lastDesiredRef.current.size &&
         [...desiredKeys].every((k) => lastDesiredRef.current.has(k))
       ) {
+        ensureAudioSubscribed();
         return;
       }
 
@@ -105,9 +121,19 @@ export function useSelectiveSubscription() {
             );
           }
         });
+
+        const micPub = participant.getTrackPublication(
+          Track.Source.Microphone,
+        ) as RemoteTrackPublication | undefined;
+
+        if (micPub && typeof micPub.setSubscribed === "function") {
+          if (!micPub.isDesired) {
+            micPub.setSubscribed(true);
+          }
+        }
       });
     },
-    [room],
+    [room, ensureAudioSubscribed],
   );
 
   // Debounce nhẹ (tránh spam khi bấm chuyển trang liên tục)
@@ -142,6 +168,15 @@ export function useSelectiveSubscription() {
       publication: RemoteTrackPublication,
       participant: any,
     ) => {
+      // Audio luôn subscribe ngay
+      if (publication.source === Track.Source.Microphone) {
+        if (!publication.isDesired) {
+          publication.setSubscribed(true);
+        }
+        return;
+      }
+
+      // Video chỉ sub nếu đang nằm ở trang hiện tại
       if (
         publication.source !== Track.Source.Camera &&
         publication.source !== Track.Source.ScreenShare
@@ -164,6 +199,23 @@ export function useSelectiveSubscription() {
   const hasScreenShare = tracks.some(
     (t) => t.source === Track.Source.ScreenShare,
   );
+
+  // Khi có người mới join → đảm bảo audio của họ được sub
+  useEffect(() => {
+    const onParticipantConnected = () => {
+      ensureAudioSubscribed();
+    };
+
+    room.on(RoomEvent.ParticipantConnected, onParticipantConnected);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, onParticipantConnected);
+    };
+  }, [room, ensureAudioSubscribed]);
+
+  // Lần đầu mount cũng đảm bảo audio
+  useEffect(() => {
+    ensureAudioSubscribed();
+  }, [ensureAudioSubscribed]);
 
   // Tự động nhảy về trang đầu khi có Screen Share
   useEffect(() => {
