@@ -17,18 +17,31 @@ async function handleProxy(
   const path = resolvedParams.path.join("/");
   const targetUrl = `${NESTJS_BASE_URL}/${path}${request.nextUrl.search}`;
 
-  const headers = new Headers(request.headers);
-  headers.delete("host");
+  // Chỉ tạo headers cần thiết, KHÔNG copy toàn bộ request.headers
+  const headers = new Headers();
 
+  // Content-Type
+  const contentType = request.headers.get("content-type");
+  if (contentType) {
+    headers.set("Content-Type", contentType);
+  }
+
+  // Accept (nếu backend cần)
+  const accept = request.headers.get("accept");
+  if (accept) {
+    headers.set("Accept", accept);
+  }
+
+  // Authorization từ Supabase session
   if (session?.access_token) {
     headers.set("Authorization", `Bearer ${session.access_token}`);
   }
 
-  let body: any = undefined;
+  // Body
+  let body: BodyInit | undefined = undefined;
 
   if (request.method !== "GET" && request.method !== "HEAD") {
-    const contentType = request.headers.get("content-type") || "";
-    if (contentType.includes("multipart/form-data")) {
+    if (contentType?.includes("multipart/form-data")) {
       body = await request.arrayBuffer();
     } else {
       body = await request.text();
@@ -42,7 +55,7 @@ async function handleProxy(
       body,
     });
 
-    // ===== Các status không có body =====
+    // Các status không có body
     if (
       response.status === 204 ||
       response.status === 205 ||
@@ -53,20 +66,18 @@ async function handleProxy(
       });
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
+    const resContentType = response.headers.get("content-type") ?? "";
     const data = await response.text();
 
-    // Không có body thì trả luôn
     if (!data) {
       return new NextResponse(null, {
         status: response.status,
       });
     }
 
-    const isJsonContentType = contentType.includes("application/json");
+    const isJsonContentType = resContentType.includes("application/json");
     const looksLikeHtml = data.trimStart().startsWith("<");
 
-    // Backend trả HTML hoặc response không phải JSON
     if (!isJsonContentType || looksLikeHtml) {
       return NextResponse.json(
         {
@@ -83,11 +94,10 @@ async function handleProxy(
       );
     }
 
-    // Trả nguyên JSON từ backend
     return new NextResponse(data, {
       status: response.status,
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": resContentType,
       },
     });
   } catch (error) {
