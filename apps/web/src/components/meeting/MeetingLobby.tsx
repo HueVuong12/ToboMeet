@@ -78,8 +78,37 @@ export default function MeetingLobby({
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Quản lý Luồng Media (Cam & Mic Preview)
+  // State mới để theo dõi việc xin quyền
+  const [isPermissionChecked, setIsPermissionChecked] = useState(false);
+
+  // Xin quyền khi vào lobby
   useEffect(() => {
+    const requestInitialPermissions = async () => {
+      try {
+        // Yêu cầu luồng cả mic và cam để trình duyệt hiện popup
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+
+        // Xin quyền thành công xong thì tắt luồng này đi ngay lập tức
+        // để trả quyền điều khiển về cho state camOn/micOn
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (error) {
+        console.warn("Người dùng từ chối quyền hoặc lỗi thiết bị:", error);
+        toast.error("Vui lòng cấp quyền Camera và Micro để tiếp tục!");
+      } finally {
+        setIsPermissionChecked(true); // Đánh dấu là đã hỏi xong
+      }
+    };
+
+    requestInitialPermissions();
+  }, []); // Chỉ chạy 1 lần khi mount
+
+  useEffect(() => {
+    // Đợi đến khi quá trình xin quyền ban đầu kết thúc mới chạy logic này
+    if (!isPermissionChecked) return;
+
     let currentStream: MediaStream | null = null;
 
     const startMedia = async () => {
@@ -142,7 +171,14 @@ export default function MeetingLobby({
         currentStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [camOn, micOn, selectedCameraId, selectedMicId, selectedSpeakerId]);
+  }, [
+    camOn,
+    micOn,
+    selectedCameraId,
+    selectedMicId,
+    selectedSpeakerId,
+    isPermissionChecked,
+  ]);
 
   const handleCameraChange = async (deviceId: string) => {
     setSelectedCameraId(deviceId);
@@ -151,7 +187,6 @@ export default function MeetingLobby({
   };
 
   const handleJoin = () => {
-    // Lưu cấu hình thiết bị đã chọn vào sessionStorage trước khi join
     sessionStorage.setItem(
       `device_config_${meetingCode}`,
       JSON.stringify({
@@ -358,7 +393,7 @@ export default function MeetingLobby({
               <button
                 type="button"
                 onClick={handleJoin}
-                disabled={isJoining}
+                disabled={isJoining || !isPermissionChecked}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 text-sm"
               >
                 {isJoining ? (

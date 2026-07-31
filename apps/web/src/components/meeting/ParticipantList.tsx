@@ -68,6 +68,10 @@ export default function ParticipantList({
 
           const isMe = p.identity === localParticipant.identity;
 
+          // Kiểm tra xem user hiện tại có action nào đối với participant này không
+          // Có menu khi: Tự click vào chính mình (để đổi tên) HOẶC Mình là Admin (để kick/tắt mic người khác)
+          const hasMenuOptions = isMe || isLocalAdmin;
+
           return (
             <div
               key={p.identity}
@@ -103,12 +107,16 @@ export default function ParticipantList({
                 {role !== "member" && (
                   <div className="flex items-center mt-0.5">
                     {role === "owner" ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                        <Crown size={12} /> Chủ phòng
+                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                        <Crown size={11} /> Chủ phòng
                       </span>
                     ) : role === "admin" ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-400">
-                        <Shield size={12} /> Quản trị viên
+                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-blue-400">
+                        <Shield size={11} /> Phó phòng
+                      </span>
+                    ) : role === "stranger" ? (
+                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        Người ngoài
                       </span>
                     ) : null}
                   </div>
@@ -137,101 +145,103 @@ export default function ParticipantList({
                   )}
                 </div>
 
-                {/* 3 Chấm Menu hoặc Spinner */}
-                <div className="relative">
-                  {/* Kiểm tra nếu người này đang bị kick thì hiện vòng xoay, ngược lại hiện 3 chấm */}
-                  {kickingUserId === p.identity ? (
-                    <div className="p-1.5 text-red-400 flex items-center justify-center">
-                      <Loader2 size={16} className="animate-spin" />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() =>
-                        setOpenMenuId(
-                          openMenuId === p.identity ? null : p.identity,
-                        )
-                      }
-                      className="p-1.5 hover:bg-[#333] rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                  )}
+                {/* 3 Chấm Menu hoặc Spinner (Chỉ render khi có menu options) */}
+                {hasMenuOptions && (
+                  <div className="relative">
+                    {/* Kiểm tra nếu người này đang bị kick thì hiện vòng xoay, ngược lại hiện 3 chấm */}
+                    {kickingUserId === p.identity ? (
+                      <div className="p-1.5 text-red-400 flex items-center justify-center">
+                        <Loader2 size={16} className="animate-spin" />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setOpenMenuId(
+                            openMenuId === p.identity ? null : p.identity,
+                          )
+                        }
+                        className="p-1.5 hover:bg-[#333] rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                    )}
 
-                  {/* Dropdown Menu */}
-                  {openMenuId === p.identity && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setOpenMenuId(null)}
-                      ></div>
-                      <div className="absolute right-4 top-6 z-50 w-44 bg-[#333] border border-slate-600 rounded-lg shadow-2xl overflow-hidden backdrop-blur-xl">
-                        {isMe && (
-                          <button
-                            onClick={() => {
-                              setRenameState({
-                                isOpen: true,
-                                newName: p.name || "",
-                              });
-                              setOpenMenuId(null);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#222] flex items-center gap-2.5 transition-colors"
-                          >
-                            <Edit2 size={15} /> Đổi tên
-                          </button>
-                        )}
-
-                        {/* CHỈ HIỆN KICK NẾU MÌNH LÀ ADMIN VÀ NGƯỜI BỊ KICK KHÔNG PHẢI LÀ MÌNH */}
-                        {isLocalAdmin && !isMe && (
-                          <>
-                            {/* Nếu mic của họ đang MỞ thì mới hiện nút TẮT MIC */}
-                            {p.isMicrophoneEnabled && (
-                              <button
-                                onClick={() => {
-                                  handleMute(
-                                    p.identity,
-                                    p.name || "Thành viên",
-                                    "audio",
-                                  );
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
-                              >
-                                <MicOff size={15} /> Tắt Mic
-                              </button>
-                            )}
-
-                            {/* Nếu camera của họ đang MỞ thì mới hiện nút TẮT CAMERA */}
-                            {p.isCameraEnabled && (
-                              <button
-                                onClick={() => {
-                                  handleMute(
-                                    p.identity,
-                                    p.name || "Thành viên",
-                                    "video",
-                                  );
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
-                              >
-                                <VideoOff size={15} /> Tắt Camera
-                              </button>
-                            )}
-
+                    {/* Dropdown Menu */}
+                    {openMenuId === p.identity && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setOpenMenuId(null)}
+                        ></div>
+                        <div className="absolute right-4 top-6 z-50 w-44 bg-[#333] border border-slate-600 rounded-lg shadow-2xl overflow-hidden backdrop-blur-xl">
+                          {isMe && (
                             <button
                               onClick={() => {
-                                handleRemove(p.identity);
+                                setRenameState({
+                                  isOpen: true,
+                                  newName: p.name || "",
+                                });
                                 setOpenMenuId(null);
                               }}
-                              className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/15 hover:text-red-300 flex items-center gap-2.5 transition-colors"
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#222] flex items-center gap-2.5 transition-colors"
                             >
-                              <UserMinus size={15} /> Đuổi khỏi phòng
+                              <Edit2 size={15} /> Đổi tên
                             </button>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                          )}
+
+                          {/* CHỈ HIỆN KICK NẾU MÌNH LÀ ADMIN VÀ NGƯỜI BỊ KICK KHÔNG PHẢI LÀ MÌNH */}
+                          {isLocalAdmin && !isMe && (
+                            <>
+                              {/* Nếu mic của họ đang MỞ thì mới hiện nút TẮT MIC */}
+                              {p.isMicrophoneEnabled && (
+                                <button
+                                  onClick={() => {
+                                    handleMute(
+                                      p.identity,
+                                      p.name || "Thành viên",
+                                      "audio",
+                                    );
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <MicOff size={15} /> Tắt Mic
+                                </button>
+                              )}
+
+                              {/* Nếu camera của họ đang MỞ thì mới hiện nút TẮT CAMERA */}
+                              {p.isCameraEnabled && (
+                                <button
+                                  onClick={() => {
+                                    handleMute(
+                                      p.identity,
+                                      p.name || "Thành viên",
+                                      "video",
+                                    );
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <VideoOff size={15} /> Tắt Camera
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  handleRemove(p.identity);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/15 hover:text-red-300 flex items-center gap-2.5 transition-colors"
+                              >
+                                <UserMinus size={15} /> Xoá khỏi phòng
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
