@@ -39,29 +39,6 @@ export class MeetingsGateway {
     client.leave(channelId);
   }
 
-  @SubscribeMessage("request_switch_device")
-  handleRequestSwitch(
-    @MessageBody() data: { userId: string; channelId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    // Gửi yêu cầu cho máy đang trong cuộc họp
-    client.to(`user_${data.userId}`).emit("switch_device_requested", data);
-  }
-
-  @SubscribeMessage("accept_switch_device")
-  handleAcceptSwitch(
-    @MessageBody() data: any,
-    @ConnectedSocket() client: Socket,
-  ) {
-    // Nếu có targetSocketId, gửi ĐÍCH DANH cho Máy B (Point-to-Point)
-    if (data.targetSocketId) {
-      this.server.to(data.targetSocketId).emit("switch_device_accepted", data);
-    } else {
-      // Fallback an toàn nếu thiếu ID
-      client.to(`user_${data.userId}`).emit("switch_device_accepted", data);
-    }
-  }
-
   /**
    * Cập nhật trạng thái cuộc họp mới cho tất cả người dùng trong kênh
    */

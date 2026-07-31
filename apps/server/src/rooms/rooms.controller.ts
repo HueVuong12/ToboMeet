@@ -37,8 +37,14 @@ export class RoomsController {
    * POST /api/rooms — Tạo phòng mới
    */
   @Post()
-  async createRoom(@Body() dto: CreateRoomDto, @Req() req: AuthenticatedRequest) {
-    console.log(`[RoomsController] Yêu cầu tạo phòng từ userId: ${req.user?.id}`, dto);
+  async createRoom(
+    @Body() dto: CreateRoomDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    console.log(
+      `[RoomsController] Yêu cầu tạo phòng từ userId: ${req.user?.id}`,
+      dto,
+    );
     if (!dto.name || !dto.type) {
       throw new BadRequestException("Tên phòng và loại phòng là bắt buộc");
     }
@@ -52,7 +58,9 @@ export class RoomsController {
     const userId = req.user.id;
     try {
       const result = await this.roomsService.createRoom(userId, dto);
-      console.log(`[RoomsController] Tạo phòng THÀNH CÔNG, code: ${result.code}`);
+      console.log(
+        `[RoomsController] Tạo phòng THÀNH CÔNG, code: ${result.code}`,
+      );
       return result;
     } catch (err) {
       console.error(`[RoomsController] Tạo phòng THẤT BẠI:`, err);
@@ -73,7 +81,10 @@ export class RoomsController {
    * GET /api/rooms/:id/members — Lấy toàn bộ danh sách thành viên trong phòng
    */
   @Get(":id/members")
-  async getRoomMembers(@Param("id") roomId: string, @Req() req: AuthenticatedRequest) {
+  async getRoomMembers(
+    @Param("id") roomId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.id;
     // Kiểm tra quyền thành viên trước
     await this.roomsService.getRoomByIdForUser(roomId, userId);
@@ -84,13 +95,14 @@ export class RoomsController {
    * DELETE /api/rooms/:id/members/:userId — Xóa thành viên khỏi phòng
    */
   @Delete(":id/members/:userId")
+  @HttpCode(HttpStatus.NO_CONTENT)
   async removeMember(
     @Param("id") roomId: string,
     @Param("userId") targetUserId: string,
     @Req() req: AuthenticatedRequest,
   ) {
     const ownerId = req.user.id;
-    return this.roomsService.removeMember(roomId, targetUserId, ownerId);
+    await this.roomsService.removeMember(roomId, targetUserId, ownerId);
   }
 
   /**
@@ -107,7 +119,12 @@ export class RoomsController {
       throw new BadRequestException("Vai trò mới là bắt buộc");
     }
     const operatorId = req.user.id;
-    return this.roomsService.updateMemberRole(roomId, targetUserId, newRole, operatorId);
+    return this.roomsService.updateMemberRole(
+      roomId,
+      targetUserId,
+      newRole,
+      operatorId,
+    );
   }
 
   /**
@@ -202,7 +219,9 @@ export class RoomsController {
     @Body("emailOrUsername") emailOrUsername?: string,
   ) {
     if (!targetUserId && !emailOrUsername) {
-      throw new BadRequestException("Vui lòng nhập email, tên tài khoản hoặc ID người dùng");
+      throw new BadRequestException(
+        "Vui lòng nhập email, tên tài khoản hoặc ID người dùng",
+      );
     }
     const userId = req.user.id;
     return this.roomsService.addChannelMember(
@@ -262,7 +281,7 @@ export class RoomsController {
    * POST /api/rooms/:id/leave — Rời khỏi phòng
    */
   @Post(":id/leave")
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async leaveRoom(
     @Param("id") roomId: string,
     @Body("newOwnerId") newOwnerId: string | undefined,
@@ -271,7 +290,7 @@ export class RoomsController {
     const userId = req.user.id;
     // Kiểm tra quyền thành viên trước
     await this.roomsService.getRoomByIdForUser(roomId, userId);
-    return this.roomsService.leaveRoom(roomId, userId, newOwnerId);
+    await this.roomsService.leaveRoom(roomId, userId, newOwnerId);
   }
 
   /**
@@ -295,10 +314,13 @@ export class RoomsController {
    * DELETE /api/rooms/:id — Giải tán phòng họp (chủ phòng thực hiện)
    */
   @Delete(":id")
-  @HttpCode(HttpStatus.OK)
-  async disbandRoom(@Param("id") roomId: string, @Req() req: AuthenticatedRequest) {
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async disbandRoom(
+    @Param("id") roomId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.id;
-    return this.roomsService.disbandRoom(roomId, userId);
+    await this.roomsService.disbandRoom(roomId, userId);
   }
 
   // Hưng thêm vào, không đụng phần code bên dưới
@@ -307,9 +329,15 @@ export class RoomsController {
    * GET /api/rooms/:id/check-member — Kiểm tra thành viên có trong phòng không (bằng ID)
    */
   @Get(":id/check-member")
-  async checkMemberById(@Param("id") roomId: string, @Req() req: AuthenticatedRequest) {
+  async checkMemberById(
+    @Param("id") roomId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.id; // Lấy userId từ JWT token[cite: 9]
-    const isMember = await this.roomsService.checkUserInRoomById(roomId, userId);
+    const isMember = await this.roomsService.checkUserInRoomById(
+      roomId,
+      userId,
+    );
     return { isMember };
   }
 
@@ -317,9 +345,15 @@ export class RoomsController {
    * GET /api/rooms/code/:code/check-member — Kiểm tra thành viên có trong phòng không (bằng Code)
    */
   @Get("code/:code/check-member")
-  async checkMemberByCode(@Param("code") code: string, @Req() req: AuthenticatedRequest) {
+  async checkMemberByCode(
+    @Param("code") code: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.id; // Lấy userId từ JWT token[cite: 9]
-    const isMember = await this.roomsService.checkUserInRoomByCode(code, userId);
+    const isMember = await this.roomsService.checkUserInRoomByCode(
+      code,
+      userId,
+    );
     return { isMember };
   }
 }

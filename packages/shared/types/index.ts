@@ -51,6 +51,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Người dùng không tồn tại",
     statusCode: 404,
   },
+  ROOM_OR_CHANNEL_NOT_FOUND: {
+    code: 4041,
+    message: "Phòng hoặc kênh không tồn tại",
+    statusCode: 404,
+  },
   ACCOUNT_LOCKED: {
     code: 4031,
     message: "Tài khoản của bạn đã bị khóa",
@@ -80,11 +85,6 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     code: 4014,
     message: "Cuộc họp chưa bắt đầu hoặc đã kết thúc",
     statusCode: 401,
-  },
-  ROOM_OR_CHANNEL_NOT_FOUND: {
-    code: 4041,
-    message: "Phòng hoặc kênh không tồn tại",
-    statusCode: 404,
   },
   USER_EXISTED: {
     code: 4001,
@@ -134,6 +134,7 @@ export interface Platform {
 export interface Channel {
   _id?: string;
   name: string;
+  isPrivate: boolean;
   createdAt: string;
 }
 
@@ -152,7 +153,7 @@ export interface RoomResponse {
 
 export interface RoomMemberResponse {
   userId: string;
-  role: "owner" | "vice" | "member" | string;
+  role: "owner" | "admin" | "member" | string;
   displayRole?: string;
   status?: "ACTIVE" | "REMOVED" | "LEFT";
   joinedAt: string;

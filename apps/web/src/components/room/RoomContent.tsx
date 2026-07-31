@@ -112,11 +112,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     return rawMember?.role;
   })();
 
-  const isCurrentUserRoomLeader =
-    isCurrentUserOwner ||
-    currentUserRoomRole === "owner" ||
-    currentUserRoomRole === "teacher" ||
-    currentUserRoomRole === "leader";
+  const isCurrentUserRoomOwner =
+    isCurrentUserOwner || currentUserRoomRole === "owner";
 
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
@@ -126,18 +123,13 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   // 1. Phó nhóm cấp phòng (role "vice" ở cấp room)
   // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
   const isCurrentUserRoomVice =
-    !isCurrentUserRoomLeader &&
-    (currentUserRoomRole?.toLowerCase() === "vice" ||
-      currentUserRoomRole?.toLowerCase() === "vice_leader" ||
-      currentUserRoomRole?.toLowerCase() === "assistant" ||
-      currentUserRoomRole?.toLowerCase() === "admin" ||
+    !isCurrentUserRoomOwner &&
+    (currentUserRoomRole?.toLowerCase() === "admin" ||
       (currentChannel?.isPrivate !== true &&
-        (currentUserChannelRole?.toLowerCase() === "vice" ||
-          currentUserChannelRole?.toLowerCase() === "assistant" ||
-          currentUserChannelRole?.toLowerCase() === "vice_leader")));
+        currentUserChannelRole?.toLowerCase() === "admin"));
 
   const canUserManageChannel =
-    isCurrentUserRoomLeader ||
+    isCurrentUserRoomOwner ||
     isCurrentUserRoomVice ||
     currentUserChannelRole === "vice" ||
     currentUserChannelRole === "assistant";
@@ -535,23 +527,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                   ) : (
                     <div className="space-y-3">
                       {displayedMembers.map((member: any) => {
-                        // Dùng isCurrentUserRoomVice được tính ở component scope (reliable)
                         const isCurrentUserOwner =
                           room?.ownerId === userId ||
-                          currentUserRoomRole === "owner" ||
-                          currentUserRoomRole === "teacher" ||
-                          currentUserRoomRole === "leader";
-                        const isCurrentUserVice = isCurrentUserRoomVice;
+                          currentUserRoomRole === "owner";
                         const isSelf = member.userId === userId;
-
-                        console.log("[RoomContent Debug]", {
-                          userId,
-                          memberUserId: member.userId,
-                          currentUserRoomRole,
-                          isCurrentUserVice,
-                          memberRole: member.role,
-                          isOwner: room?.ownerId === userId,
-                        });
 
                         return (
                           <div
@@ -592,8 +571,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
                                   if (
                                     member.role === "owner" ||
-                                    member.role === "teacher" ||
-                                    member.role === "leader" ||
                                     member.userId === room?.ownerId
                                   ) {
                                     return (
@@ -604,10 +581,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                     );
                                   }
 
-                                  if (
-                                    tRole === "vice" ||
-                                    tRole === "assistant"
-                                  ) {
+                                  if (tRole === "admin") {
                                     return (
                                       <RoleBadge
                                         role={tRole}
@@ -682,11 +656,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                                 (m: any) =>
                                                   m.userId === member.userId,
                                               )?.role;
-                                            const isVice =
-                                              targetChannelRole === "vice" ||
-                                              targetChannelRole === "assistant";
+                                            const isAdmin =
+                                              targetChannelRole === "admin";
 
-                                            if (isVice) {
+                                            if (isAdmin) {
                                               return (
                                                 <button
                                                   onClick={async () => {
@@ -759,11 +732,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                                             currentChannelId,
                                                           targetUserId:
                                                             member.userId,
-                                                          role:
-                                                            room?.type ===
-                                                            "classroom"
-                                                              ? "assistant"
-                                                              : "vice",
+                                                          role: "admin",
                                                         },
                                                       ).unwrap();
                                                     }
@@ -862,14 +831,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                                     (member._id &&
                                                       m.userId === member._id),
                                                 )?.role;
-                                              const isTargetVice =
-                                                targetChannelRole === "vice" ||
-                                                targetChannelRole ===
-                                                  "assistant";
-                                              const isTargetRoomLeader =
+                                              const isTargetAdmin =
+                                                targetChannelRole === "admin";
+                                              const isTargetRoomOwner =
                                                 member.role === "owner" ||
-                                                member.role === "teacher" ||
-                                                member.role === "leader" ||
                                                 member.userId === room?.ownerId;
 
                                               const isTargetInPrivateChannel =
@@ -890,9 +855,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
                                               if (isTargetInPrivateChannel) {
                                                 if (
-                                                  !isCurrentUserRoomLeader &&
-                                                  (isTargetVice ||
-                                                    isTargetRoomLeader)
+                                                  !isCurrentUserRoomOwner &&
+                                                  (isTargetAdmin ||
+                                                    isTargetRoomOwner)
                                                 ) {
                                                   return null;
                                                 }
@@ -1029,17 +994,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                                 m.userId === member._id),
                                           )?.role;
 
-                                        const isTargetVice =
-                                          member.role === "vice" ||
-                                          member.role === "vice_leader" ||
-                                          member.role === "assistant" ||
+                                        const isTargetAdmin =
                                           member.role === "admin" ||
                                           (currentChannel?.isPrivate !== true &&
-                                            (targetChannelRole === "vice" ||
-                                              targetChannelRole ===
-                                                "assistant" ||
-                                              targetChannelRole ===
-                                                "vice_leader"));
+                                            targetChannelRole === "admin");
 
                                         const canRemove =
                                           isCurrentUserOwner ||
@@ -1047,9 +1005,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                                             member.userId !== room?.ownerId &&
                                             member.userId !== userId &&
                                             member.role !== "owner" &&
-                                            member.role !== "teacher" &&
-                                            member.role !== "leader" &&
-                                            !isTargetVice);
+                                            !isTargetAdmin);
 
                                         if (!canRemove) return null;
 

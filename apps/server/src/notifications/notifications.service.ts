@@ -87,9 +87,6 @@ export class NotificationsService {
       .to(`user_${payload.userId}`)
       .emit("receive_notifications", [newNotif]);
   }
-  catch(error) {
-    console.error(error);
-  }
 
   // Thông báo khi phòng bị báo cáo (Gửi cho chủ phòng)
   @OnEvent("notification.room_reported", { async: true })
