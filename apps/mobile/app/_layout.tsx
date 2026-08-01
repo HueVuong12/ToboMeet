@@ -15,14 +15,11 @@ import Toast from "react-native-toast-message";
 import { EventProvider } from "../providers/EventProvider";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GlobalSocketListeners } from "../providers/GlobalSocketListeners";
+import { registerGlobals } from "@livekit/react-native";
+import { Session } from "@supabase/supabase-js";
 
-// registerGlobals dynamically loaded to avoid Expo Go crash
-try {
-  const { registerGlobals } = require("@livekit/react-native");
-  registerGlobals();
-} catch (e) {
-  console.warn("LiveKit native globals not loaded in Expo Go mode:", e);
-}
+registerGlobals();
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -31,7 +28,7 @@ export default function RootLayout() {
   const navigationState = useRootNavigationState();
 
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   useEffect(() => {
@@ -87,7 +84,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: "#ffffff" }} // Đổi màu nền này cho khớp với màu chủ đạo của app bạn
+        style={{ flex: 1, backgroundColor: "#ffffff" }}
         edges={["bottom", "top"]}
       >
         <StoreProvider>

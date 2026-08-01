@@ -9,22 +9,32 @@ interface RoleBadgeProps {
   t: (key: string, options?: any) => string;
 }
 
-export default function RoleBadge({ role, displayRole, roomType, t }: RoleBadgeProps) {
+export default function RoleBadge({
+  role,
+  displayRole,
+  roomType,
+  t,
+}: RoleBadgeProps) {
   const normalizedRole = React.useMemo(() => {
     if (["owner", "teacher", "leader"].includes(role)) return "owner";
-    if (["vice", "vice_leader", "assistant", "admin"].includes(role)) return "vice";
+    if (["vice", "vice_leader", "assistant", "admin"].includes(role))
+      return "admin";
     return "member";
   }, [role]);
 
   const defaultText = React.useMemo(() => {
     if (displayRole) return displayRole;
     if (roomType === "classroom") {
-      if (normalizedRole === "owner") return t("room.role_teacher", { defaultValue: "Giảng viên" });
-      if (normalizedRole === "vice") return t("room.role_assistant", { defaultValue: "Ban cán sự" });
+      if (normalizedRole === "owner")
+        return t("room.role_teacher", { defaultValue: "Giảng viên" });
+      if (normalizedRole === "admin")
+        return t("room.role_assistant", { defaultValue: "Ban cán sự" });
       return t("room.role_student", { defaultValue: "Học viên" });
     } else {
-      if (normalizedRole === "owner") return t("room.role_leader", { defaultValue: "Trưởng nhóm" });
-      if (normalizedRole === "vice") return t("room.role_vice_leader", { defaultValue: "Phó nhóm" });
+      if (normalizedRole === "owner")
+        return t("room.role_leader", { defaultValue: "Trưởng nhóm" });
+      if (normalizedRole === "admin")
+        return t("room.role_vice_leader", { defaultValue: "Phó nhóm" });
       return t("room.role_member", { defaultValue: "Thành viên" });
     }
   }, [displayRole, normalizedRole, roomType, t]);
@@ -39,7 +49,7 @@ export default function RoleBadge({ role, displayRole, roomType, t }: RoleBadgeP
           </Text>
         </View>
       );
-    case "vice":
+    case "admin":
       return (
         <View className="flex-row items-center gap-1 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-full self-start">
           <Feather name="user-check" size={11} color="#2563eb" />

@@ -131,7 +131,7 @@ export interface Platform {
 }
 
 export interface ChannelResponse {
-  _id?: string;
+  _id: string;
   name: string;
   members?: ChannelMemberResponse[];
   isPrivate: boolean;

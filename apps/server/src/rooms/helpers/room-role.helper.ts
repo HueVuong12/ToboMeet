@@ -5,15 +5,15 @@ export function getDisplayRole(role: string, roomType: string): string {
   // Normalize legacy roles if present in old data
   let normalizedRole = role;
   if (["teacher", "leader"].includes(role)) normalizedRole = "owner";
-  else if (["assistant", "vice_leader", "admin"].includes(role))
-    normalizedRole = "vice";
+  else if (["assistant", "vice_leader", "vice", "admin"].includes(role))
+    normalizedRole = "admin";
   else if (["student"].includes(role)) normalizedRole = "member";
 
   if (roomType === "classroom") {
     switch (normalizedRole) {
       case "owner":
         return "Giảng viên";
-      case "vice":
+      case "admin":
         return "Ban cán sự";
       case "member":
       default:
@@ -24,7 +24,7 @@ export function getDisplayRole(role: string, roomType: string): string {
     switch (normalizedRole) {
       case "owner":
         return "Trưởng nhóm";
-      case "vice":
+      case "admin":
         return "Phó nhóm";
       case "member":
       default:

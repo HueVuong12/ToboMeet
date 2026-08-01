@@ -19,6 +19,7 @@ import {
   useCreateReportMutation,
   useGetReportSignedUrlMutation,
 } from "../../lib/redux/features/reports/reportsApi";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface EvidenceItem {
   url: string;
@@ -73,6 +74,8 @@ export default function ReportUserModal({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  const insets = useSafeAreaInsets();
+
   useEffect(() => {
     if (visible) {
       setReason("");
@@ -87,7 +90,9 @@ export default function ReportUserModal({
     if (evidences.length >= 5) {
       Alert.alert(
         t("common.notice", { defaultValue: "Thông báo" }),
-        t("room.evidence_max_reached", { defaultValue: "Đã đạt giới hạn tối đa 5 ảnh minh chứng." }),
+        t("room.evidence_max_reached", {
+          defaultValue: "Đã đạt giới hạn tối đa 5 ảnh minh chứng.",
+        }),
       );
       return;
     }
@@ -117,7 +122,8 @@ export default function ReportUserModal({
           if (newEvidences.length >= 5) break;
 
           const fileName =
-            asset.fileName || `evidence_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+            asset.fileName ||
+            `evidence_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
           const mimeType = asset.mimeType || "image/jpeg";
           const fileSize = asset.fileSize || 1024 * 1024;
 
@@ -169,7 +175,10 @@ export default function ReportUserModal({
       return;
     }
 
-    if (reason === "Khác" && (!description.trim() || description.trim().length < 10)) {
+    if (
+      reason === "Khác" &&
+      (!description.trim() || description.trim().length < 10)
+    ) {
       setValidationError(
         t("room.report_error_description_required", {
           defaultValue: "Vui lòng nhập mô tả chi tiết khi chọn lý do 'Khác'.",
@@ -199,8 +208,14 @@ export default function ReportUserModal({
       );
       onClose();
     } catch (err: unknown) {
-      const errorResponse = err as { data?: { message?: string }; message?: string };
-      const msg = errorResponse?.data?.message || errorResponse?.message || t("room.report_error_failed");
+      const errorResponse = err as {
+        data?: { message?: string };
+        message?: string;
+      };
+      const msg =
+        errorResponse?.data?.message ||
+        errorResponse?.message ||
+        t("room.report_error_failed");
       setValidationError(msg);
     }
   };
@@ -212,8 +227,16 @@ export default function ReportUserModal({
     (reason === "Khác" && description.trim().length < 10);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/60">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View
+        className="flex-1 justify-end bg-black/60"
+        style={{ paddingBottom: insets.bottom }}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           className="w-full bg-white rounded-t-3xl overflow-hidden max-h-[90%]"
@@ -222,11 +245,18 @@ export default function ReportUserModal({
           <View className="flex-row items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
             <View className="flex-1 pr-4">
               <Text className="text-xl font-bold text-slate-900">
-                {t("room.report_user_title", { defaultValue: "Báo cáo người dùng" })}
+                {t("room.report_user_title", {
+                  defaultValue: "Báo cáo người dùng",
+                })}
               </Text>
-              <Text className="text-xs text-slate-500 mt-1 font-medium" numberOfLines={1}>
+              <Text
+                className="text-xs text-slate-500 mt-1 font-medium"
+                numberOfLines={1}
+              >
                 {t("room.reported_user", { defaultValue: "Người dùng" })}:{" "}
-                <Text className="font-semibold text-slate-800">{reportedUserName}</Text>
+                <Text className="font-semibold text-slate-800">
+                  {reportedUserName}
+                </Text>
               </Text>
             </View>
 
@@ -239,7 +269,10 @@ export default function ReportUserModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            className="px-6 py-4"
+            showsVerticalScrollIndicator={false}
+          >
             {/* Guide message */}
             <Text className="text-sm text-slate-500 leading-relaxed mb-5">
               {t("room.report_user_desc", {
@@ -260,7 +293,10 @@ export default function ReportUserModal({
 
             {/* Reason Options */}
             <Text className="text-sm font-bold text-slate-700 mb-3">
-              {t("room.select_report_reason", { defaultValue: "Chọn lý do báo cáo" })} *
+              {t("room.select_report_reason", {
+                defaultValue: "Chọn lý do báo cáo",
+              })}{" "}
+              *
             </Text>
             <View className="flex-row flex-wrap gap-2 mb-5">
               {REASONS.map((r) => {
@@ -292,7 +328,9 @@ export default function ReportUserModal({
 
             {/* Detailed Description */}
             <Text className="text-sm font-bold text-slate-700 mb-2">
-              {t("room.report_description_label", { defaultValue: "Mô tả chi tiết" })}
+              {t("room.report_description_label", {
+                defaultValue: "Mô tả chi tiết",
+              })}
               {reason === "Khác" && " *"}
             </Text>
             <TextInput
