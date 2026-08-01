@@ -67,7 +67,9 @@ export default function Sidebar({
 
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
-  const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(null);
+  const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(
+    null,
+  );
   const [newChannelName, setNewChannelName] = useState("");
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,7 @@ export default function Sidebar({
   const [disbandRoom, { isLoading: isDisbanding }] = useDisbandRoomMutation();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  
+
   // State cho Báo cáo phòng
   const [showReportModal, setShowReportModal] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
@@ -135,8 +137,8 @@ export default function Sidebar({
       const parsedMsg = Array.isArray(rawMsg)
         ? rawMsg[0]
         : typeof rawMsg === "string"
-        ? rawMsg
-        : null;
+          ? rawMsg
+          : null;
       setInviteError(parsedMsg || t("invite_error_fallback"));
     }
   };
@@ -158,7 +160,9 @@ export default function Sidebar({
       }).unwrap();
       router.push("../dashboard");
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || t("leave_error_fallback"));
+      toast.error(
+        err?.data?.message || err?.message || t("leave_error_fallback"),
+      );
     }
   };
 
@@ -168,13 +172,16 @@ export default function Sidebar({
       setShowDisbandConfirm(false);
       router.push("../dashboard");
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Không thể giải tán phòng");
+      toast.error(
+        err?.data?.message || err?.message || "Không thể giải tán phòng",
+      );
     }
   };
 
   const isMeeting = room.type === "meeting";
-  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)?.role as string | undefined;
-  const isOwner = room.ownerId === userId || currentUserRole === "teacher" || currentUserRole === "leader" || currentUserRole === "owner";
+  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)
+    ?.role as string | undefined;
+  const isOwner = room.ownerId === userId || currentUserRole === "owner";
 
   const handleCreateChannel = async () => {
     if (!newChannelName.trim()) return;
@@ -356,9 +363,7 @@ export default function Sidebar({
               const canManageThisChannel =
                 isOwner ||
                 channel.members?.some(
-                  (m: any) =>
-                    m.userId === userId &&
-                    (m.role === "vice" || m.role === "assistant"),
+                  (m: any) => m.userId === userId && m.role === "admin",
                 );
 
               return (
@@ -379,9 +384,9 @@ export default function Sidebar({
                     className="flex items-center gap-2 min-w-0 flex-1 text-left"
                   >
                     {channel.isPrivate ? (
-                      <Lock className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
+                      <Lock className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                     ) : (
-                      <Hash className="w-4 h-4 flex-shrink-0 opacity-50" />
+                      <Hash className="w-4 h-4 shrink-0 opacity-50" />
                     )}
                     <span className="truncate">{channel.name}</span>
                   </button>
@@ -393,10 +398,12 @@ export default function Sidebar({
                         onClick={(e) => {
                           e.stopPropagation();
                           const chId = channel._id || channel.name;
-                          setOpenChannelMenuId(openChannelMenuId === chId ? null : chId);
+                          setOpenChannelMenuId(
+                            openChannelMenuId === chId ? null : chId,
+                          );
                         }}
                         title="Tùy chọn kênh"
-                        className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 opacity-70 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0"
+                        className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 opacity-70 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
@@ -560,10 +567,14 @@ export default function Sidebar({
                     </div>
                     <button
                       onClick={handleInviteUser}
-                      disabled={isInviting || (!selectedUser && !searchQuery.trim())}
+                      disabled={
+                        isInviting || (!selectedUser && !searchQuery.trim())
+                      }
                       className="px-5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
                     >
-                      {isInviting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {isInviting && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}
                       <span>{t("add_action")}</span>
                     </button>
                   </div>
@@ -618,20 +629,18 @@ export default function Sidebar({
                   {/* Phản hồi kết quả */}
                   {inviteError && (
                     <div className="flex items-center gap-1.5 mt-1 text-red-600 text-xs">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{inviteError}</span>
                     </div>
                   )}
                   {inviteSuccess && (
                     <div className="flex items-center gap-1.5 mt-1 text-emerald-600 text-xs font-semibold">
-                      <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 shrink-0" />
                       <span>{inviteSuccess}</span>
                     </div>
                   )}
                 </div>
               </div>
-
-
             </div>
           </div>,
           document.body,
@@ -702,19 +711,23 @@ export default function Sidebar({
                             }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center text-xs uppercase flex-shrink-0">
-                                {m.displayName?.substring(0, 2) || m.email?.substring(0, 2) || "U"}
+                              <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center text-xs uppercase shrink-0">
+                                {m.displayName?.substring(0, 2) ||
+                                  m.email?.substring(0, 2) ||
+                                  "U"}
                               </div>
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold truncate">
-                                  {m.displayName || m.email || t("anonymous_user")}
+                                  {m.displayName ||
+                                    m.email ||
+                                    t("anonymous_user")}
                                 </p>
                                 <p className="text-[10px] text-slate-400 truncate">
                                   {m.email || t("no_email")}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center justify-center w-4 h-4 rounded-full border border-slate-300 bg-white flex-shrink-0">
+                            <div className="flex items-center justify-center w-4 h-4 rounded-full border border-slate-300 bg-white shrink-0">
                               {selectedNewOwner === m.userId && (
                                 <div className="w-2.5 h-2.5 rounded-full bg-brand-600" />
                               )}
@@ -746,7 +759,7 @@ export default function Sidebar({
                 >
                   {t("cancel")}
                 </button>
-                
+
                 {isOwner ? (
                   otherMembers.length === 0 ? (
                     <button
@@ -754,7 +767,9 @@ export default function Sidebar({
                       disabled={isLeaving}
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
                     >
-                      {isLeaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {isLeaving && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}
                       {t("dissolve_room")}
                     </button>
                   ) : (
@@ -763,7 +778,9 @@ export default function Sidebar({
                       disabled={isLeaving || !selectedNewOwner}
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
                     >
-                      {isLeaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {isLeaving && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}
                       {t("transfer_and_leave")}
                     </button>
                   )
@@ -843,7 +860,7 @@ export default function Sidebar({
       {showToast &&
         isMounted &&
         createPortal(
-          <div className="fixed bottom-5 right-5 z-[100] bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="fixed bottom-5 right-5 z-100 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Check className="w-4 h-4 text-emerald-400" />
             <span>{toastMessage}</span>
           </div>,
@@ -867,11 +884,23 @@ export default function Sidebar({
                 description: reportData.description,
                 attachments: reportData.attachments,
               });
-              toast.success(t("report_room_success", { defaultValue: "Đã gửi báo cáo thành công." }));
+              toast.success(
+                t("report_room_success", {
+                  defaultValue: "Đã gửi báo cáo thành công.",
+                }),
+              );
               setShowReportModal(false);
             } catch (err: unknown) {
-              const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
-              const msg = errorObj?.response?.data?.message || errorObj?.message || t("report_room_error_failed", { defaultValue: "Không thể gửi báo cáo phòng" });
+              const errorObj = err as {
+                response?: { data?: { message?: string } };
+                message?: string;
+              };
+              const msg =
+                errorObj?.response?.data?.message ||
+                errorObj?.message ||
+                t("report_room_error_failed", {
+                  defaultValue: "Không thể gửi báo cáo phòng",
+                });
               toast.error(msg);
               throw err;
             } finally {

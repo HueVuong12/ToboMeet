@@ -56,7 +56,11 @@ export default function CreateChannelModal({
     setError(null);
 
     if (!channelName.trim()) {
-      setError(t("error_channel_name_required", { defaultValue: "Vui lòng nhập tên kênh" }));
+      setError(
+        t("error_channel_name_required", {
+          defaultValue: "Vui lòng nhập tên kênh",
+        }),
+      );
       return;
     }
 
@@ -68,7 +72,9 @@ export default function CreateChannelModal({
         initialMemberIds: isPrivate ? selectedMemberIds : [],
       }).unwrap();
 
-      toast.success(t("channel_created_success", { defaultValue: "Tạo kênh thành công" }));
+      toast.success(
+        t("channel_created_success", { defaultValue: "Tạo kênh thành công" }),
+      );
       onClose();
     } catch (err: any) {
       setError(err?.data?.message || err?.message || "Tạo kênh thất bại");
@@ -86,7 +92,7 @@ export default function CreateChannelModal({
   });
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4">
+    <div className="fixed inset-0 z-110 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4">
       <div
         className="absolute inset-0"
         onClick={() => {
@@ -112,13 +118,16 @@ export default function CreateChannelModal({
           {/* Tên Kênh */}
           <div>
             <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2">
-              {t("channel_name_label", { defaultValue: "Tên kênh" })} <span className="text-red-500">*</span>
+              {t("channel_name_label", { defaultValue: "Tên kênh" })}{" "}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={channelName}
               onChange={(e) => setChannelName(e.target.value)}
-              placeholder={t("channel_name_placeholder", { defaultValue: "Ví dụ: NodeJS, ReactJS, Bài tập..." })}
+              placeholder={t("channel_name_placeholder", {
+                defaultValue: "Ví dụ: NodeJS, ReactJS, Bài tập...",
+              })}
               maxLength={30}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 text-base font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
             />
@@ -127,7 +136,9 @@ export default function CreateChannelModal({
           {/* Quyền riêng tư của Kênh */}
           <div>
             <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2">
-              {t("channel_privacy_label", { defaultValue: "Quyền riêng tư của kênh" })}
+              {t("channel_privacy_label", {
+                defaultValue: "Quyền riêng tư của kênh",
+              })}
             </label>
             <div className="grid grid-cols-2 gap-4">
               <label
@@ -145,11 +156,16 @@ export default function CreateChannelModal({
                     onChange={() => setIsPrivate(false)}
                     className="w-4 h-4 text-brand-600 focus:ring-brand-500"
                   />
-                  <Globe className="w-5 h-5 text-brand-600 flex-shrink-0" />
-                  <span className="text-base font-bold">{t("channel_public", { defaultValue: "Công khai" })}</span>
+                  <Globe className="w-5 h-5 text-brand-600 shrink-0" />
+                  <span className="text-base font-bold">
+                    {t("channel_public", { defaultValue: "Công khai" })}
+                  </span>
                 </div>
                 <span className="text-xs text-slate-500 pl-6 leading-normal">
-                  {t("channel_public_desc", { defaultValue: "Tất cả thành viên trong phòng đều có quyền xem" })}
+                  {t("channel_public_desc", {
+                    defaultValue:
+                      "Tất cả thành viên trong phòng đều có quyền xem",
+                  })}
                 </span>
               </label>
 
@@ -168,11 +184,16 @@ export default function CreateChannelModal({
                     onChange={() => setIsPrivate(true)}
                     className="w-4 h-4 text-amber-600 focus:ring-amber-500"
                   />
-                  <Lock className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                  <span className="text-base font-bold">{t("channel_private", { defaultValue: "Riêng tư" })}</span>
+                  <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span className="text-base font-bold">
+                    {t("channel_private", { defaultValue: "Riêng tư" })}
+                  </span>
                 </div>
                 <span className="text-xs text-slate-500 pl-6 leading-normal">
-                  {t("channel_private_desc", { defaultValue: "Chỉ các thành viên được chỉ định mới truy cập được" })}
+                  {t("channel_private_desc", {
+                    defaultValue:
+                      "Chỉ các thành viên được chỉ định mới truy cập được",
+                  })}
                 </span>
               </label>
             </div>
@@ -182,7 +203,10 @@ export default function CreateChannelModal({
           {isPrivate && (
             <div className="space-y-3">
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                {t("channel_select_members", { defaultValue: "Thành viên được cấp quyền truy cập" })} ({selectedMemberIds.length})
+                {t("channel_select_members", {
+                  defaultValue: "Thành viên được cấp quyền truy cập",
+                })}{" "}
+                ({selectedMemberIds.length})
               </label>
 
               {/* Danh sách thẻ Chips đã chọn */}
@@ -200,14 +224,14 @@ export default function CreateChannelModal({
                           <img
                             src={member.avatarUrl}
                             alt={name}
-                            className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                            className="w-4 h-4 rounded-full object-cover shrink-0"
                           />
                         ) : (
-                          <div className="w-4 h-4 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-[9px] flex-shrink-0">
+                          <div className="w-4 h-4 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-[9px] shrink-0">
                             {name.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span className="truncate max-w-[160px]">{name}</span>
+                        <span className="truncate max-w-40">{name}</span>
                         <button
                           type="button"
                           onClick={() => handleToggleMember(id)}
@@ -227,7 +251,9 @@ export default function CreateChannelModal({
                   type="text"
                   value={memberSearchQuery}
                   onChange={(e) => setMemberSearchQuery(e.target.value)}
-                  placeholder={t("search_member_placeholder", { defaultValue: "Nhập email hoặc tên tài khoản..." })}
+                  placeholder={t("search_member_placeholder", {
+                    defaultValue: "Nhập email hoặc tên tài khoản...",
+                  })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all pr-8"
                 />
                 {memberSearchQuery && (
@@ -244,11 +270,15 @@ export default function CreateChannelModal({
               {/* Danh sách thành viên thỏa điều kiện lọc */}
               {eligibleMembers.length === 0 ? (
                 <p className="text-xs text-slate-400 italic p-4 bg-slate-50 rounded-xl border border-slate-150">
-                  {t("no_other_members", { defaultValue: "Chưa có thành viên nào khác trong phòng" })}
+                  {t("no_other_members", {
+                    defaultValue: "Chưa có thành viên nào khác trong phòng",
+                  })}
                 </p>
               ) : filteredMembers.length === 0 ? (
                 <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl border border-slate-150">
-                  {t("no_member_found", { defaultValue: "Không tìm thấy thành viên phù hợp" })}
+                  {t("no_member_found", {
+                    defaultValue: "Không tìm thấy thành viên phù hợp",
+                  })}
                 </p>
               ) : (
                 <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-slate-50/80 rounded-2xl border border-slate-200">
@@ -259,7 +289,9 @@ export default function CreateChannelModal({
                         key={m.userId}
                         onClick={() => handleToggleMember(m.userId)}
                         className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${
-                          isSelected ? "bg-amber-100/70 text-amber-900 font-bold shadow-2xs" : "hover:bg-slate-100 text-slate-700"
+                          isSelected
+                            ? "bg-amber-100/70 text-amber-900 font-bold shadow-2xs"
+                            : "hover:bg-slate-100 text-slate-700"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -267,11 +299,13 @@ export default function CreateChannelModal({
                             <img
                               src={m.avatarUrl}
                               alt={m.displayName || "Avatar"}
-                              className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0"
+                              className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
                             />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-brand-500 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                              {(m.displayName || m.email || "U").charAt(0).toUpperCase()}
+                            <div className="w-7 h-7 rounded-full bg-brand-500 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                              {(m.displayName || m.email || "U")
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
                           )}
                           <div className="flex flex-col min-w-0">
@@ -285,7 +319,9 @@ export default function CreateChannelModal({
                             )}
                           </div>
                         </div>
-                        {isSelected && <Check className="w-4 h-4 text-amber-600 flex-shrink-0 ml-2" />}
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-amber-600 shrink-0 ml-2" />
+                        )}
                       </div>
                     );
                   })}
@@ -315,7 +351,9 @@ export default function CreateChannelModal({
               className="flex-1 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-md shadow-brand-600/10"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{t("create_channel_action", { defaultValue: "Tạo kênh" })}</span>
+              <span>
+                {t("create_channel_action", { defaultValue: "Tạo kênh" })}
+              </span>
             </button>
           </div>
         </form>

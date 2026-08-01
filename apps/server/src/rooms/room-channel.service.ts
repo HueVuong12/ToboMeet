@@ -13,6 +13,7 @@ import { User, UserDocument } from "../users/schemas/user.schema";
 import { RoomsGateway } from "./rooms.gateway";
 import { mapToRoomResponse } from "./helpers/room.helper";
 import { RoomResponse } from "@tobomeet/shared/types";
+import { Channel } from "./schemas/channel.schema";
 
 @Injectable()
 export class RoomChannelService {
@@ -33,7 +34,7 @@ export class RoomChannelService {
     channelName: string,
     isPrivate: boolean = false,
     initialMemberIds: string[] = [],
-  ): Promise<Room> {
+  ): Promise<RoomResponse> {
     const room = await this.roomModel.findOne({
       _id: roomId,
       isDeleted: { $ne: true },
@@ -55,7 +56,7 @@ export class RoomChannelService {
       throw new BadRequestException("Tên kênh đã tồn tại");
     }
 
-    const newChannel: any = {
+    const newChannel: Channel = {
       name: channelName.trim(),
       isPrivate: !!isPrivate,
       createdAt: new Date(),
@@ -77,7 +78,7 @@ export class RoomChannelService {
     room.channels.push(newChannel);
     await room.save();
 
-    return room;
+    return mapToRoomResponse(room);
   }
 
   /**

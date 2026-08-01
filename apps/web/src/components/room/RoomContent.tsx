@@ -21,7 +21,7 @@ import { socket } from "@/lib/socket";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
-import PreviewModal from "./PreviewModal";
+import PreviewModal from "../meeting/PreviewModal";
 import ReportUserModal from "./ReportUserModal";
 import TransferOwnershipModal from "./TransferOwnershipModal";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
@@ -104,9 +104,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   )?.role;
 
   // Xác định Phó nhóm được phép xóa thành viên khỏi phòng:
-  // 1. Phó nhóm cấp phòng (role "vice" ở cấp room)
+  // 1. Phó nhóm cấp phòng (role "admin" ở cấp room)
   // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
-  const isCurrentUserRoomVice =
+  const isCurrentUserRoomAdmin =
     !isCurrentUserRoomOwner &&
     (currentUserRoomRole?.toLowerCase() === "admin" ||
       (currentChannel?.isPrivate !== true &&
@@ -114,9 +114,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   const canUserManageChannel =
     isCurrentUserRoomOwner ||
-    isCurrentUserRoomVice ||
-    currentUserChannelRole === "vice" ||
-    currentUserChannelRole === "assistant";
+    isCurrentUserRoomAdmin ||
+    currentUserChannelRole === "admin";
 
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: currentChannel?._id || "" },
@@ -261,7 +260,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       {/* ================= LEFT SIDEBAR (KÊNH) ================= */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-40 flex-shrink-0 transition-transform duration-300 ease-in-out
+          fixed inset-y-0 left-0 z-40 shrink-0 transition-transform duration-300 ease-in-out
           ${isLeftSidebarOpen ? "translate-x-0" : "-translate-x-full"}
           md:relative md:translate-x-0
         `}
@@ -286,7 +285,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       {/* ================= MAIN CONTENT (BẢNG TIN / POSTS) ================= */}
       <div className="flex-1 flex flex-col h-full relative min-w-0 bg-white">
         {/* Header Kênh (Giống Teams) */}
-        <header className="h-14 px-4 border-b border-slate-200 bg-white flex items-center justify-between z-10 flex-shrink-0">
+        <header className="h-14 px-4 border-b border-slate-200 bg-white flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-4">
             <button
               className="md:hidden p-1.5 -ml-1.5 hover:bg-slate-100 rounded-md text-slate-600"
@@ -431,7 +430,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         setIsRightSidebarOpen={setIsRightSidebarOpen}
         isCurrentUserOwner={isCurrentUserOwner}
         currentUserRoomRole={currentUserRoomRole}
-        isCurrentUserRoomVice={isCurrentUserRoomVice}
+        isCurrentUserRoomAdmin={isCurrentUserRoomAdmin}
         canUserManageChannel={canUserManageChannel}
         onReportUser={setMemberToReport}
         onTransferOwnership={setMemberToTransfer}
@@ -440,7 +439,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
       {/* Modal xác nhận xóa thành viên */}
       {memberToRemove && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-110 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 flex flex-col transform transition-all scale-100 duration-300">
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
@@ -482,7 +481,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               <button
                 disabled={isRemovingMember}
                 onClick={handleRemoveMember}
-                className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 rounded-xl transition-colors min-w-[120px]"
+                className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 rounded-xl transition-colors min-w-30"
               >
                 {isRemovingMember ? (
                   <>

@@ -8,24 +8,37 @@ interface RoleBadgeProps {
   roomType: "classroom" | "meeting" | string;
 }
 
-export default function RoleBadge({ role, displayRole, roomType }: RoleBadgeProps) {
+export default function RoleBadge({
+  role,
+  displayRole,
+  roomType,
+}: RoleBadgeProps) {
   const t = useTranslations("room");
 
-  // Normalize roles to owner, vice, member
+  // Normalize roles to owner, admin, member
   const normalizedRole = React.useMemo(() => {
     if (["owner", "teacher", "leader"].includes(role)) return "owner";
-    if (["vice", "vice_leader", "assistant", "admin"].includes(role)) return "vice";
+    if (["vice", "vice_leader", "assistant", "admin"].includes(role))
+      return "admin";
     return "member";
   }, [role]);
 
   const badgeText = React.useMemo(() => {
     if (roomType === "classroom") {
-      if (normalizedRole === "owner") return t("role_teacher", { defaultValue: displayRole || "Giảng viên" });
-      if (normalizedRole === "vice") return t("role_assistant", { defaultValue: displayRole || "Ban cán sự" });
+      if (normalizedRole === "owner")
+        return t("role_teacher", { defaultValue: displayRole || "Giảng viên" });
+      if (normalizedRole === "admin")
+        return t("role_assistant", {
+          defaultValue: displayRole || "Ban cán sự",
+        });
       return t("role_student", { defaultValue: displayRole || "Học viên" });
     } else {
-      if (normalizedRole === "owner") return t("role_leader", { defaultValue: displayRole || "Trưởng nhóm" });
-      if (normalizedRole === "vice") return t("role_vice_leader", { defaultValue: displayRole || "Phó nhóm" });
+      if (normalizedRole === "owner")
+        return t("role_leader", { defaultValue: displayRole || "Trưởng nhóm" });
+      if (normalizedRole === "admin")
+        return t("role_vice_leader", {
+          defaultValue: displayRole || "Phó nhóm",
+        });
       return t("role_member", { defaultValue: displayRole || "Thành viên" });
     }
   }, [displayRole, normalizedRole, roomType, t]);
@@ -38,7 +51,7 @@ export default function RoleBadge({ role, displayRole, roomType }: RoleBadgeProp
           {badgeText}
         </span>
       );
-    case "vice":
+    case "admin":
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm">
           <UserCheck className="w-3.5 h-3.5 text-blue-600" />

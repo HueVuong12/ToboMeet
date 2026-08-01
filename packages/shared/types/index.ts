@@ -130,10 +130,10 @@ export interface Platform {
   description: string;
 }
 
-// ─── Room ────────────────────────────────────────────────────────────────────
-export interface Channel {
+export interface ChannelResponse {
   _id?: string;
   name: string;
+  members?: ChannelMemberResponse[];
   isPrivate: boolean;
   createdAt: string;
 }
@@ -146,7 +146,7 @@ export interface RoomResponse {
   code: string;
   ownerId: string;
   members?: RoomMemberResponse[];
-  channels: Channel[];
+  channels: ChannelResponse[];
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +163,11 @@ export interface RoomMemberResponse {
   displayName?: string;
   avatarUrl?: string;
   email?: string;
+}
+
+export interface ChannelMemberResponse {
+  userId: string;
+  role: "owner" | "admin" | "member" | string;
 }
 
 export interface MeetingJoinResponse {

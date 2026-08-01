@@ -18,7 +18,7 @@ interface RoomRightSidebarProps {
   // Các cờ phân quyền
   isCurrentUserOwner: boolean;
   currentUserRoomRole: string | undefined;
-  isCurrentUserRoomVice: boolean;
+  isCurrentUserRoomAdmin: boolean;
   canUserManageChannel: boolean;
   // Các hàm callback
   onReportUser: (member: { userId: string; displayName: string }) => void;
@@ -40,7 +40,7 @@ export default function RoomRightSidebar({
   setIsRightSidebarOpen,
   isCurrentUserOwner,
   currentUserRoomRole,
-  isCurrentUserRoomVice,
+  isCurrentUserRoomAdmin,
   canUserManageChannel,
   onReportUser,
   onTransferOwnership,
@@ -226,8 +226,8 @@ export default function RoomRightSidebar({
                                     currentChannelId={currentChannelId}
                                     userId={userId}
                                     isCurrentUserOwner={isCurrentUserOwner}
-                                    isCurrentUserRoomVice={
-                                      isCurrentUserRoomVice
+                                    isCurrentUserRoomAdmin={
+                                      isCurrentUserRoomAdmin
                                     }
                                     canUserManageChannel={canUserManageChannel}
                                     onClose={() => setOpenMenuId(null)}

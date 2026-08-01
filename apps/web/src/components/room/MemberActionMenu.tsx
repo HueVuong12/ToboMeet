@@ -25,7 +25,7 @@ interface MemberActionMenuProps {
   currentChannelId: string;
   userId: string; // ID của người đang đăng nhập
   isCurrentUserOwner: boolean;
-  isCurrentUserRoomVice: boolean;
+  isCurrentUserRoomAdmin: boolean;
   canUserManageChannel: boolean;
   onClose: () => void;
   onReportUser: (member: { userId: string; displayName: string }) => void;
@@ -43,7 +43,7 @@ export default function MemberActionMenu({
   currentChannelId,
   userId,
   isCurrentUserOwner,
-  isCurrentUserRoomVice,
+  isCurrentUserRoomAdmin,
   canUserManageChannel,
   onClose,
   onReportUser,
@@ -176,7 +176,7 @@ export default function MemberActionMenu({
 
   const canRemoveFromRoom =
     isCurrentUserOwner ||
-    (isCurrentUserRoomVice &&
+    (isCurrentUserRoomAdmin &&
       member.userId !== room?.ownerId &&
       member.userId !== userId &&
       member.role !== "owner" &&
