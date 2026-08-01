@@ -133,29 +133,17 @@
       {
         "name": "Trình duyệt Web",
         "description": "Không cần cài đặt, mở trình duyệt là họp ngay",
-        "badges": [
-          "Chrome",
-          "Safari",
-          "Firefox",
-          "Edge"
-        ]
+        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
       },
       {
         "name": "Desktop App",
         "description": "Ứng dụng native hiệu năng cao, tích hợp hệ thống",
-        "badges": [
-          "Windows",
-          "macOS",
-          "Linux"
-        ]
+        "badges": ["Windows", "macOS", "Linux"]
       },
       {
         "name": "Di động",
         "description": "Họp mọi lúc mọi nơi, tối ưu cho màn hình nhỏ",
-        "badges": [
-          "iOS",
-          "Android"
-        ]
+        "badges": ["iOS", "Android"]
       }
     ]
   },
@@ -532,7 +520,7 @@
     "transfer_leader_title": "Chuyển quyền Trưởng nhóm",
     "transfer_modal_subtitle": "Xác nhận thay đổi quyền hạn quản lý",
     "transfer_modal_body": "Bạn có chắc chắn muốn chuyển quyền {role} cho {name}?",
-    "transfer_modal_warning": "⚠️ Sau khi xác nhận, bạn sẽ trở thành {role}.",
+    "transfer_modal_warning": "Sau khi xác nhận, bạn sẽ trở thành {role}.",
     "appoint_assistant": "Bổ nhiệm Ban cán sự",
     "revoke_assistant": "Thu hồi Ban cán sự",
     "appoint_teacher": "Bổ nhiệm Giảng viên",
@@ -545,7 +533,7 @@
     "toast_revoke_vice_leader": "{actor} đã thu hồi quyền Phó nhóm của {target}.",
     "toast_update_role_success": "Cập nhật vai trò thành công",
     "toast_transfer_success": "Chuyển quyền {role} thành công!",
-    "toast_transfer_new_owner": "🎉 Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!",
+    "toast_transfer_new_owner": "Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!",
     "toast_transfer_info": "Quyền quản lý phòng vừa được chuyển giao.",
     "remove_from_private_channel": "Xóa khỏi Kênh riêng tư",
     "add_to_private_channel": "Thêm vào Kênh riêng tư",

@@ -126,7 +126,7 @@ export const roomsApi = baseApi.injectEndpoints({
      * Cập nhật vai trò thành viên (Bổ nhiệm / Thu hồi)
      */
     updateMemberRole: builder.mutation<
-      { message: string; role: string },
+      void,
       { roomId: string; memberId: string; role: string }
     >({
       query: ({ roomId, memberId, role }) => ({
@@ -144,7 +144,7 @@ export const roomsApi = baseApi.injectEndpoints({
      * Chuyển quyền chủ phòng / Giảng viên / Trưởng nhóm
      */
     transferRoomOwnership: builder.mutation<
-      { message: string; newOwnerId: string },
+      void,
       { roomId: string; newOwnerId: string }
     >({
       query: ({ roomId, newOwnerId }) => ({

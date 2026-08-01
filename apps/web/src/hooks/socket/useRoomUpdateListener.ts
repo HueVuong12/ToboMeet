@@ -10,8 +10,12 @@ export function useRoomUpdateListener(roomId: string, userId: string) {
   const router = useRouter();
   const t = useTranslations("room");
 
-  const { removeMemberFromRoomCache, addMemberToRoomCache, invalidateRoomList, invalidateRoom } =
-    useRoomCacheManager();
+  const {
+    removeMemberFromRoomCache,
+    addMemberToRoomCache,
+    invalidateRoomList,
+    invalidateRoom,
+  } = useRoomCacheManager();
 
   useEffect(() => {
     if (!roomId || !userId) return;
@@ -49,9 +53,19 @@ export function useRoomUpdateListener(roomId: string, userId: string) {
           invalidateRoomList();
           invalidateRoom(roomId);
           if (data.newOwnerId === userId) {
-            toast.success(t("toast_transfer_new_owner", { role: "Leader", defaultValue: "🎉 Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!" }));
+            toast.success(
+              t("toast_transfer_new_owner", {
+                role: "Leader",
+                defaultValue:
+                  "Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!",
+              }),
+            );
           } else if (data.previousOwnerId !== userId) {
-            toast.info(t("toast_transfer_info", { defaultValue: "Quyền quản lý phòng vừa được chuyển giao." }));
+            toast.info(
+              t("toast_transfer_info", {
+                defaultValue: "Quyền quản lý phòng vừa được chuyển giao.",
+              }),
+            );
           }
           break;
 

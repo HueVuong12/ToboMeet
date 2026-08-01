@@ -2,13 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
-  roomsApi,
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
   useRemoveMemberMutation,
-  useUpdateChannelMemberRoleMutation,
-  useAddChannelMemberMutation,
-  useRemoveChannelMemberMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
 import {
@@ -16,16 +12,9 @@ import {
   Menu,
   X,
   Info,
-  MoreVertical,
   Video,
   ChevronDown,
   Calendar,
-  Search,
-  ShieldCheck,
-  UserCheck,
-  UserMinus,
-  UserPlus,
-  UserX,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { socket } from "@/lib/socket";
@@ -35,7 +24,6 @@ import { AppDispatch } from "@/lib/redux/store";
 import PreviewModal from "./PreviewModal";
 import ReportUserModal from "./ReportUserModal";
 import TransferOwnershipModal from "./TransferOwnershipModal";
-import RoleBadge from "./RoleBadge";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
 import {
   meetingsApi,
@@ -44,6 +32,7 @@ import {
 import { useMeetingDeviceStatus } from "@/hooks/useMeetingDeviceStatus";
 import { useMeetingLauncher } from "@/hooks/useMeetingLauncher";
 import NewsFeed from "./NewsFeed";
+import RoomRightSidebar from "./RoomRightSidebar";
 
 interface RoomContentProps {
   roomId: string;
@@ -64,14 +53,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   const [removeMember] = useRemoveMemberMutation();
-  const [updateChannelMemberRole] = useUpdateChannelMemberRoleMutation();
-  const [addChannelMember] = useAddChannelMemberMutation();
-  const [removeChannelMember] = useRemoveChannelMemberMutation();
   useRoomUpdateListener(roomId, userId);
 
   // Trạng thái Layout, Tìm kiếm & Quản lý Phân quyền
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [memberSearch, setMemberSearch] = useState("");
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
@@ -97,14 +81,14 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const isCurrentUserOwner = room?.ownerId === userId;
   // Tìm kiếm vai trò người dùng trong room members
   const currentUserRoomRole = (() => {
-    // 1. Tìm trong useGetRoomMembersQuery cache (đã chuẩn hóa)
+    // Tìm trong useGetRoomMembersQuery cache (đã chuẩn hóa)
     const normalizedMember = members?.find(
       (m: any) =>
         m.userId === userId || (m.supabaseId && m.supabaseId === userId),
     );
     if (normalizedMember) return normalizedMember.role;
 
-    // 2. Tìm trong room.members raw từ DB
+    // Tìm trong room.members raw từ DB
     const rawMember = room?.members?.find(
       (m: any) =>
         m.userId === userId || (m.supabaseId && m.supabaseId === userId),
@@ -436,620 +420,23 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         isJoining={isJoining}
       />
 
-      <aside
-        className={`
-          fixed inset-y-0 right-0 z-40 flex flex-col bg-white border-l border-slate-200 shadow-xl lg:shadow-none
-          transition-all duration-300 ease-in-out
-          
-          /* Mobile */
-          w-[300px] ${isRightSidebarOpen ? "translate-x-0" : "translate-x-full"}
-          
-          /* Desktop */
-          lg:relative lg:translate-x-0
-          ${isRightSidebarOpen ? "lg:w-[300px] lg:opacity-100" : "lg:w-0 lg:opacity-0 lg:border-none"}
-          overflow-hidden flex-shrink-0
-        `}
-      >
-        <div className="h-14 flex items-center justify-between px-5 border-b border-slate-200 min-w-[300px]">
-          <h2 className="text-sm font-bold text-slate-800">
-            {t("in_this_channel")}
-          </h2>
-          <button
-            onClick={() => setIsRightSidebarOpen(false)}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 min-w-[300px]">
-          {/* People Section */}
-          <div className="mb-6">
-            {(() => {
-              const displayedMembers = members.filter((member: any) => {
-                if (currentChannel?.isPrivate) {
-                  const isInPrivateChannel =
-                    member.userId === room?.ownerId ||
-                    currentChannel?.members?.some(
-                      (cm: any) =>
-                        (cm.userId === member.userId ||
-                          (member.supabaseId &&
-                            cm.userId === member.supabaseId) ||
-                          (member._id && cm.userId === member._id)) &&
-                        cm.isLeft !== true &&
-                        cm.status !== "REMOVED" &&
-                        cm.status !== "LEFT",
-                    );
-                  if (!isInPrivateChannel) return false;
-                }
-
-                if (!memberSearch.trim()) return true;
-                const query = memberSearch.trim().toLowerCase();
-                return (
-                  member.displayName?.toLowerCase().includes(query) ||
-                  member.email?.toLowerCase().includes(query)
-                );
-              });
-
-              return (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase">
-                      {t("people")} ({displayedMembers.length})
-                    </h3>
-                    <button className="text-xs font-medium text-brand-600 hover:underline">
-                      {t("view_all")}
-                    </button>
-                  </div>
-
-                  {/* Search Input */}
-                  <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      placeholder={t("search_member_placeholder", {
-                        defaultValue: "Nhập email hoặc tên người dùng...",
-                      })}
-                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                    />
-                  </div>
-
-                  {membersLoading ? (
-                    <div className="text-center text-slate-400 py-4 text-sm">
-                      {t("loading_title")}
-                    </div>
-                  ) : displayedMembers.length === 0 ? (
-                    <div className="text-center text-slate-400 py-4 text-sm">
-                      {t("empty")}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {displayedMembers.map((member: any) => {
-                        const isCurrentUserOwner =
-                          room?.ownerId === userId ||
-                          currentUserRoomRole === "owner";
-                        const isSelf = member.userId === userId;
-
-                        return (
-                          <div
-                            key={member.userId}
-                            className="group relative flex items-center gap-3 hover:bg-slate-50 p-2 rounded-lg transition-colors cursor-pointer"
-                          >
-                            {/* Avatar */}
-                            <div className="relative flex-shrink-0">
-                              {member.avatarUrl ? (
-                                <img
-                                  src={member.avatarUrl}
-                                  alt={member.displayName}
-                                  className="w-8 h-8 rounded-full object-cover border border-slate-200"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs uppercase">
-                                  {member.displayName?.charAt(0) || "?"}
-                                </div>
-                              )}
-                              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
-                            </div>
-
-                            {/* Text Info & Role Badge */}
-                            <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                              <p className="text-sm font-semibold text-slate-800 truncate">
-                                {member.displayName}
-                                {isSelf && (
-                                  <span className="text-slate-400 font-normal ml-1 text-xs">
-                                    ({t("you")})
-                                  </span>
-                                )}
-                              </p>
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {(() => {
-                                  const tRole = currentChannel?.members?.find(
-                                    (m: any) => m.userId === member.userId,
-                                  )?.role;
-
-                                  if (
-                                    member.role === "owner" ||
-                                    member.userId === room?.ownerId
-                                  ) {
-                                    return (
-                                      <RoleBadge
-                                        role={member.role}
-                                        roomType={room?.type || "meeting"}
-                                      />
-                                    );
-                                  }
-
-                                  if (tRole === "admin") {
-                                    return (
-                                      <RoleBadge
-                                        role={tRole}
-                                        roomType={room?.type || "meeting"}
-                                      />
-                                    );
-                                  }
-
-                                  return (
-                                    <RoleBadge
-                                      role="member"
-                                      roomType={room?.type || "meeting"}
-                                    />
-                                  );
-                                })()}
-                              </div>
-                            </div>
-
-                            {/* 3-DOTS ACTION MENU */}
-                            {!isSelf && (
-                              <div className="flex-shrink-0">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(
-                                      openMenuId === member.userId
-                                        ? null
-                                        : member.userId,
-                                    );
-                                  }}
-                                  className="p-1 rounded hover:bg-slate-200 text-slate-400 opacity-100 transition-opacity"
-                                >
-                                  <MoreVertical size={16} />
-                                </button>
-
-                                {/* DROPDOWN MENU */}
-                                {openMenuId === member.userId && (
-                                  <>
-                                    <div
-                                      className="fixed inset-0 z-40"
-                                      onClick={() => setOpenMenuId(null)}
-                                    />
-                                    <div className="absolute right-4 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 mt-1 text-xs">
-                                      <button
-                                        onClick={() => setOpenMenuId(null)}
-                                        className="w-full text-left px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                      >
-                                        {t("view_profile")}
-                                      </button>
-
-                                      <button
-                                        onClick={() => {
-                                          setMemberToReport({
-                                            userId: member.userId,
-                                            displayName:
-                                              member.displayName ||
-                                              "Người dùng",
-                                          });
-                                          setOpenMenuId(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                      >
-                                        {t("report_user")}
-                                      </button>
-
-                                      {/* THAO TÁC QUẢN LÝ DÀNH CHO OWNER */}
-                                      {isCurrentUserOwner && (
-                                        <>
-                                          {(() => {
-                                            const targetChannelRole =
-                                              currentChannel?.members?.find(
-                                                (m: any) =>
-                                                  m.userId === member.userId,
-                                              )?.role;
-                                            const isAdmin =
-                                              targetChannelRole === "admin";
-
-                                            if (isAdmin) {
-                                              return (
-                                                <button
-                                                  onClick={async () => {
-                                                    setOpenMenuId(null);
-                                                    try {
-                                                      if (currentChannelId) {
-                                                        await updateChannelMemberRole(
-                                                          {
-                                                            roomId,
-                                                            channelId:
-                                                              currentChannelId,
-                                                            targetUserId:
-                                                              member.userId,
-                                                            role: "member",
-                                                          },
-                                                        ).unwrap();
-                                                      }
-
-                                                      toast.success(
-                                                        room?.type ===
-                                                          "classroom"
-                                                          ? t(
-                                                              "toast_revoke_assistant_success",
-                                                              {
-                                                                defaultValue:
-                                                                  "Đã thu hồi Ban cán sự",
-                                                              },
-                                                            )
-                                                          : t(
-                                                              "toast_revoke_vice_leader_success",
-                                                              {
-                                                                defaultValue:
-                                                                  "Đã thu hồi Phó nhóm",
-                                                              },
-                                                            ),
-                                                      );
-                                                    } catch (err: any) {
-                                                      toast.error(
-                                                        err?.data?.message ||
-                                                          "Không thể thu hồi quyền",
-                                                      );
-                                                    }
-                                                  }}
-                                                  className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
-                                                >
-                                                  <UserCheck className="w-3.5 h-3.5" />
-                                                  {room?.type === "classroom"
-                                                    ? t("revoke_assistant", {
-                                                        defaultValue:
-                                                          "Thu hồi Ban cán sự",
-                                                      })
-                                                    : t("revoke_vice_leader", {
-                                                        defaultValue:
-                                                          "Thu hồi Phó nhóm",
-                                                      })}
-                                                </button>
-                                              );
-                                            }
-
-                                            return (
-                                              <button
-                                                onClick={async () => {
-                                                  setOpenMenuId(null);
-                                                  try {
-                                                    if (currentChannelId) {
-                                                      await updateChannelMemberRole(
-                                                        {
-                                                          roomId,
-                                                          channelId:
-                                                            currentChannelId,
-                                                          targetUserId:
-                                                            member.userId,
-                                                          role: "admin",
-                                                        },
-                                                      ).unwrap();
-                                                    }
-
-                                                    toast.success(
-                                                      room?.type === "classroom"
-                                                        ? t(
-                                                            "toast_appoint_assistant_success",
-                                                            {
-                                                              defaultValue:
-                                                                "Bổ nhiệm Ban cán sự thành công",
-                                                            },
-                                                          )
-                                                        : t(
-                                                            "toast_appoint_vice_leader_success",
-                                                            {
-                                                              defaultValue:
-                                                                "Bổ nhiệm Phó nhóm thành công",
-                                                            },
-                                                          ),
-                                                    );
-                                                  } catch (err: any) {
-                                                    const subTitle =
-                                                      room?.type === "classroom"
-                                                        ? t("role_assistant")
-                                                        : t("role_vice_leader");
-                                                    toast.error(
-                                                      err?.data?.message ||
-                                                        t(
-                                                          "toast_max_vice_leaders_reached",
-                                                          {
-                                                            role: subTitle,
-                                                            defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
-                                                          },
-                                                        ),
-                                                    );
-                                                  }
-                                                }}
-                                                className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                                              >
-                                                <UserCheck className="w-3.5 h-3.5" />
-                                                {room?.type === "classroom"
-                                                  ? t("appoint_assistant", {
-                                                      defaultValue:
-                                                        "Bổ nhiệm Ban cán sự",
-                                                    })
-                                                  : t("appoint_vice_leader", {
-                                                      defaultValue:
-                                                        "Bổ nhiệm Phó nhóm",
-                                                    })}
-                                              </button>
-                                            );
-                                          })()}
-
-                                          {/* Chuyển quyền Chủ phòng / Giảng viên / Trưởng nhóm */}
-                                          <button
-                                            onClick={() => {
-                                              setMemberToTransfer({
-                                                userId: member.userId,
-                                                displayName:
-                                                  member.displayName ||
-                                                  "Thành viên",
-                                              });
-                                              setOpenMenuId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
-                                          >
-                                            <ShieldCheck className="w-3.5 h-3.5" />
-                                            {room?.type === "classroom"
-                                              ? t("appoint_teacher", {
-                                                  defaultValue:
-                                                    "Bổ nhiệm Giảng viên",
-                                                })
-                                              : t("appoint_leader", {
-                                                  defaultValue:
-                                                    "Bổ nhiệm Trưởng nhóm",
-                                                })}
-                                          </button>
-                                        </>
-                                      )}
-
-                                      {/* THAO TÁC KÊNH RIÊNG TƯ (PRIVATE CHANNEL ACCESS) */}
-                                      {canUserManageChannel &&
-                                        member.userId !== room?.ownerId &&
-                                        currentChannel?.isPrivate && (
-                                          <div className="border-t border-slate-100 pt-1 mt-1">
-                                            {(() => {
-                                              const targetChannelRole =
-                                                currentChannel?.members?.find(
-                                                  (m: any) =>
-                                                    m.userId ===
-                                                      member.userId ||
-                                                    (member.supabaseId &&
-                                                      m.userId ===
-                                                        member.supabaseId) ||
-                                                    (member._id &&
-                                                      m.userId === member._id),
-                                                )?.role;
-                                              const isTargetAdmin =
-                                                targetChannelRole === "admin";
-                                              const isTargetRoomOwner =
-                                                member.role === "owner" ||
-                                                member.userId === room?.ownerId;
-
-                                              const isTargetInPrivateChannel =
-                                                currentChannel?.members?.some(
-                                                  (m: any) =>
-                                                    (m.userId ===
-                                                      member.userId ||
-                                                      (member.supabaseId &&
-                                                        m.userId ===
-                                                          member.supabaseId) ||
-                                                      (member._id &&
-                                                        m.userId ===
-                                                          member._id)) &&
-                                                    m.isLeft !== true &&
-                                                    m.status !== "REMOVED" &&
-                                                    m.status !== "LEFT",
-                                                );
-
-                                              if (isTargetInPrivateChannel) {
-                                                if (
-                                                  !isCurrentUserRoomOwner &&
-                                                  (isTargetAdmin ||
-                                                    isTargetRoomOwner)
-                                                ) {
-                                                  return null;
-                                                }
-
-                                                return (
-                                                  <button
-                                                    onClick={async () => {
-                                                      setOpenMenuId(null);
-                                                      try {
-                                                        const updatedRoom =
-                                                          await removeChannelMember(
-                                                            {
-                                                              roomId,
-                                                              channelId:
-                                                                currentChannelId,
-                                                              targetUserId:
-                                                                member.userId,
-                                                            },
-                                                          ).unwrap();
-                                                        if (updatedRoom) {
-                                                          dispatch(
-                                                            roomsApi.util.updateQueryData(
-                                                              "getRoomById",
-                                                              roomId,
-                                                              () => updatedRoom,
-                                                            ),
-                                                          );
-                                                        }
-                                                        toast.success(
-                                                          t(
-                                                            "toast_remove_from_private_channel_success",
-                                                            {
-                                                              defaultValue:
-                                                                "Đã xóa khỏi Kênh riêng tư",
-                                                            },
-                                                          ),
-                                                        );
-                                                      } catch (err: any) {
-                                                        toast.error(
-                                                          err?.data?.message ||
-                                                            t(
-                                                              "toast_remove_from_private_channel_error",
-                                                              {
-                                                                defaultValue:
-                                                                  "Không thể xóa khỏi Kênh riêng tư",
-                                                              },
-                                                            ),
-                                                        );
-                                                      }
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                                  >
-                                                    <UserMinus className="w-3.5 h-3.5" />
-                                                    {t(
-                                                      "remove_from_private_channel",
-                                                      {
-                                                        defaultValue:
-                                                          "Xóa khỏi Kênh riêng tư",
-                                                      },
-                                                    )}
-                                                  </button>
-                                                );
-                                              }
-
-                                              return (
-                                                <button
-                                                  onClick={async () => {
-                                                    setOpenMenuId(null);
-                                                    try {
-                                                      const updatedRoom =
-                                                        await addChannelMember({
-                                                          roomId,
-                                                          channelId:
-                                                            currentChannelId,
-                                                          targetUserId:
-                                                            member.userId,
-                                                        }).unwrap();
-                                                      if (updatedRoom) {
-                                                        dispatch(
-                                                          roomsApi.util.updateQueryData(
-                                                            "getRoomById",
-                                                            roomId,
-                                                            () => updatedRoom,
-                                                          ),
-                                                        );
-                                                      }
-                                                      toast.success(
-                                                        t(
-                                                          "toast_add_to_private_channel_success",
-                                                          {
-                                                            defaultValue:
-                                                              "Đã thêm vào Kênh riêng tư",
-                                                          },
-                                                        ),
-                                                      );
-                                                    } catch (err: any) {
-                                                      toast.error(
-                                                        err?.data?.message ||
-                                                          t(
-                                                            "toast_add_to_private_channel_error",
-                                                            {
-                                                              defaultValue:
-                                                                "Không thể thêm vào Kênh riêng tư",
-                                                            },
-                                                          ),
-                                                      );
-                                                    }
-                                                  }}
-                                                  className="w-full text-left px-4 py-2 font-semibold text-brand-600 hover:bg-brand-50 flex items-center gap-2"
-                                                >
-                                                  <UserPlus className="w-3.5 h-3.5" />
-                                                  {t("add_to_private_channel", {
-                                                    defaultValue:
-                                                      "Thêm vào Kênh riêng tư",
-                                                  })}
-                                                </button>
-                                              );
-                                            })()}
-                                          </div>
-                                        )}
-
-                                      {/* Xóa khỏi phòng:
-                                       - Trưởng phòng: xóa bất kỳ ai (trừ chính mình)
-                                       - Phó phòng: chỉ xóa thành viên thường, không xóa Trưởng/Phó khác */}
-                                      {(() => {
-                                        const targetChannelRole =
-                                          currentChannel?.members?.find(
-                                            (m: any) =>
-                                              m.userId === member.userId ||
-                                              (member.supabaseId &&
-                                                m.userId ===
-                                                  member.supabaseId) ||
-                                              (member._id &&
-                                                m.userId === member._id),
-                                          )?.role;
-
-                                        const isTargetAdmin =
-                                          member.role === "admin" ||
-                                          (currentChannel?.isPrivate !== true &&
-                                            targetChannelRole === "admin");
-
-                                        const canRemove =
-                                          isCurrentUserOwner ||
-                                          (isCurrentUserRoomVice &&
-                                            member.userId !== room?.ownerId &&
-                                            member.userId !== userId &&
-                                            member.role !== "owner" &&
-                                            !isTargetAdmin);
-
-                                        if (!canRemove) return null;
-
-                                        return (
-                                          <button
-                                            onClick={() => {
-                                              setMemberToRemove({
-                                                userId: member.userId,
-                                                displayName:
-                                                  member.displayName ||
-                                                  "Người dùng",
-                                              });
-                                              setOpenMenuId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2 font-semibold text-red-600 hover:bg-red-50 border-t border-slate-100 flex items-center gap-2"
-                                          >
-                                            <UserX className="w-3.5 h-3.5" />
-                                            {t("remove_from_room")}
-                                          </button>
-                                        );
-                                      })()}
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-
-          <hr className="border-slate-100 my-4" />
-
-          <div className="text-xs text-slate-500">
-            <p className="mb-2 font-semibold">{t("room_description_title")}</p>
-            <p>{t("room_description", { name: room.name })}</p>
-          </div>
-        </div>
-      </aside>
+      <RoomRightSidebar
+        room={room}
+        members={members}
+        membersLoading={membersLoading}
+        userId={userId}
+        currentChannel={currentChannel}
+        currentChannelId={currentChannelId}
+        isRightSidebarOpen={isRightSidebarOpen}
+        setIsRightSidebarOpen={setIsRightSidebarOpen}
+        isCurrentUserOwner={isCurrentUserOwner}
+        currentUserRoomRole={currentUserRoomRole}
+        isCurrentUserRoomVice={isCurrentUserRoomVice}
+        canUserManageChannel={canUserManageChannel}
+        onReportUser={setMemberToReport}
+        onTransferOwnership={setMemberToTransfer}
+        onRemoveMember={setMemberToRemove}
+      />
 
       {/* Modal xác nhận xóa thành viên */}
       {memberToRemove && (

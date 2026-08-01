@@ -21,6 +21,8 @@ import { CreateChannelDto } from "./dto/create-channel.dto";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { RoomRoleGuard } from "../core/guards/room-role.guard";
 import { Roles } from "../core/decorators/roles.decorator";
+import { RoomMemberService } from "./room-member.service";
+import { RoomChannelService } from "./room-channel.service";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -31,7 +33,11 @@ interface AuthenticatedRequest extends Request {
 @Controller("rooms")
 @UseGuards(SupabaseGuard)
 export class RoomsController {
-  constructor(private readonly roomsService: RoomsService) {}
+  constructor(
+    private readonly roomsService: RoomsService,
+    private readonly roomMemberService: RoomMemberService,
+    private readonly roomChannelService: RoomChannelService,
+  ) {}
 
   /**
    * POST /api/rooms — Tạo phòng mới
@@ -88,7 +94,7 @@ export class RoomsController {
     const userId = req.user.id;
     // Kiểm tra quyền thành viên trước
     await this.roomsService.getRoomByIdForUser(roomId, userId);
-    return this.roomsService.getRoomMembers(roomId);
+    return this.roomMemberService.getRoomMembers(roomId);
   }
 
   /**
@@ -102,7 +108,7 @@ export class RoomsController {
     @Req() req: AuthenticatedRequest,
   ) {
     const ownerId = req.user.id;
-    await this.roomsService.removeMember(roomId, targetUserId, ownerId);
+    await this.roomMemberService.removeMember(roomId, targetUserId, ownerId);
   }
 
   /**
@@ -119,7 +125,7 @@ export class RoomsController {
       throw new BadRequestException("Vai trò mới là bắt buộc");
     }
     const operatorId = req.user.id;
-    return this.roomsService.updateMemberRole(
+    return this.roomMemberService.updateMemberRole(
       roomId,
       targetUserId,
       newRole,
@@ -174,7 +180,7 @@ export class RoomsController {
       throw new BadRequestException("Tên kênh không được vượt quá 30 ký tự");
     }
     const userId = req.user.id;
-    return this.roomsService.addChannel(
+    return this.roomChannelService.addChannel(
       userId,
       roomId,
       dto.name,
@@ -198,7 +204,7 @@ export class RoomsController {
       throw new BadRequestException("Vai trò không được để trống");
     }
     const userId = req.user.id;
-    return this.roomsService.updateChannelMemberRole(
+    return this.roomChannelService.updateChannelMemberRole(
       userId,
       roomId,
       channelId,
@@ -224,7 +230,7 @@ export class RoomsController {
       );
     }
     const userId = req.user.id;
-    return this.roomsService.addChannelMember(
+    return this.roomChannelService.addChannelMember(
       userId,
       roomId,
       channelId,
@@ -243,7 +249,7 @@ export class RoomsController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
-    return this.roomsService.removeChannelMember(
+    return this.roomChannelService.removeChannelMember(
       userId,
       roomId,
       channelId,
@@ -266,7 +272,7 @@ export class RoomsController {
     }
     const userId = req.user.id;
     try {
-      return await this.roomsService.addMemberByEmailOrId(userId, roomId, {
+      return await this.roomMemberService.addMemberByEmailOrId(userId, roomId, {
         email,
         targetUserId,
       });

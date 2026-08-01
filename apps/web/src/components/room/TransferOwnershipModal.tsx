@@ -43,7 +43,7 @@ export default function TransferOwnershipModal({
 
   const handleConfirm = async () => {
     try {
-      const res = await transferOwnership({
+      await transferOwnership({
         roomId,
         newOwnerId: targetUserId,
       }).unwrap();
@@ -53,13 +53,16 @@ export default function TransferOwnershipModal({
           actor: "",
           role: roleName,
           target: targetUserName,
-          defaultValue: res.message || "Chuyển quyền thành công!",
-        })
+          defaultValue: "Chuyển quyền thành công!",
+        }),
       );
       onClose();
     } catch (err: any) {
       console.error("[TransferOwnershipModal] Transfer error:", err);
-      const msg = err?.data?.message || err?.message || "Không thể chuyển quyền. Vui lòng thử lại.";
+      const msg =
+        err?.data?.message ||
+        err?.message ||
+        "Không thể chuyển quyền. Vui lòng thử lại.";
       toast.error(msg);
     }
   };
@@ -72,13 +75,15 @@ export default function TransferOwnershipModal({
       >
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
             <ShieldAlert className="w-6 h-6 text-amber-600" />
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900">{title}</h3>
             <p className="text-xs text-slate-500 font-medium">
-              {t("transfer_modal_subtitle", { defaultValue: "Xác nhận thay đổi quyền hạn quản lý" })}
+              {t("transfer_modal_subtitle", {
+                defaultValue: "Xác nhận thay đổi quyền hạn quản lý",
+              })}
             </p>
           </div>
         </div>
@@ -95,7 +100,7 @@ export default function TransferOwnershipModal({
           <p className="text-xs text-amber-800 mt-2 font-medium">
             {t("transfer_modal_warning", {
               role: downgradedRoleName.toUpperCase(),
-              defaultValue: `⚠️ Sau khi xác nhận, bạn sẽ trở thành ${downgradedRoleName.toUpperCase()}.`,
+              defaultValue: `Sau khi xác nhận, bạn sẽ trở thành ${downgradedRoleName.toUpperCase()}.`,
             })}
           </p>
         </div>

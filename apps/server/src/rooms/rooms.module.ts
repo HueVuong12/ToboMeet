@@ -12,6 +12,8 @@ import { User, UserSchema } from "../users/schemas/user.schema";
 import { SupabaseModule } from "../supabase/supabase.module";
 import { MeetingsModule } from "../meetings/meetings.module";
 import { RoomsGateway } from "./rooms.gateway";
+import { RoomMemberService } from "./room-member.service";
+import { RoomChannelService } from "./room-channel.service";
 
 @Module({
   imports: [
@@ -25,7 +27,12 @@ import { RoomsGateway } from "./rooms.gateway";
     MeetingsModule,
   ],
   controllers: [RoomsController],
-  providers: [RoomsService, RoomsGateway],
-  exports: [RoomsService, RoomsGateway],
+  providers: [
+    RoomsService,
+    RoomMemberService,
+    RoomChannelService,
+    RoomsGateway,
+  ],
+  exports: [RoomsService, RoomMemberService, RoomChannelService, RoomsGateway],
 })
 export class RoomsModule {}
