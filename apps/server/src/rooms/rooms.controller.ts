@@ -229,7 +229,6 @@ export class RoomsController {
       roomId,
       channelId,
       targetUserId,
-      emailOrUsername,
     );
   }
 

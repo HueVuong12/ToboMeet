@@ -7,15 +7,6 @@ export class ChannelMember {
 
   @Prop({ required: true, default: "member" })
   role: string;
-
-  @Prop({ type: Boolean, default: false })
-  isLeft?: boolean;
-
-  @Prop({ type: String, default: "JOINED" })
-  status?: string;
-
-  @Prop({ type: Date })
-  leftAt?: Date;
 }
 
 export const ChannelMemberSchema = SchemaFactory.createForClass(ChannelMember);

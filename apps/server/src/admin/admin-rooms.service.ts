@@ -1,9 +1,21 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import { RoomReport, RoomReportDocument } from "../rooms/schemas/room-report.schema";
-import { RoomActivity, RoomActivityDocument } from "../rooms/schemas/room-activity.schema";
+import {
+  RoomReport,
+  RoomReportDocument,
+} from "../rooms/schemas/room-report.schema";
+import {
+  RoomActivity,
+  RoomActivityDocument,
+} from "../rooms/schemas/room-activity.schema";
 import { Meeting, MeetingDocument } from "../meetings/schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { MeetingsService } from "../meetings/meetings.service";
@@ -18,8 +30,10 @@ export class AdminRoomsService {
 
   constructor(
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
-    @InjectModel(RoomReport.name) private reportModel: Model<RoomReportDocument>,
-    @InjectModel(RoomActivity.name) private activityModel: Model<RoomActivityDocument>,
+    @InjectModel(RoomReport.name)
+    private reportModel: Model<RoomReportDocument>,
+    @InjectModel(RoomActivity.name)
+    private activityModel: Model<RoomActivityDocument>,
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly meetingsService: MeetingsService,
@@ -58,8 +72,14 @@ export class AdminRoomsService {
   async getStats() {
     const [total, active, disbanded] = await Promise.all([
       this.roomModel.countDocuments({ isDeleted: { $ne: true } }),
-      this.roomModel.countDocuments({ status: "active", isDeleted: { $ne: true } }),
-      this.roomModel.countDocuments({ status: "disbanded", isDeleted: { $ne: true } }),
+      this.roomModel.countDocuments({
+        status: "active",
+        isDeleted: { $ne: true },
+      }),
+      this.roomModel.countDocuments({
+        status: "disbanded",
+        isDeleted: { $ne: true },
+      }),
     ]);
 
     // Đếm số phòng bị báo cáo (có ít nhất 1 report)
@@ -97,14 +117,17 @@ export class AdminRoomsService {
     if (queryDto.q) {
       const q = queryDto.q.trim();
       // Tìm theo name hoặc code
-      const ownerIds = await this.userModel.find({
-        $or: [
-          { displayName: { $regex: q, $options: "i" } },
-          { email: { $regex: q, $options: "i" } },
-        ],
-      }).select("supabaseId").exec();
+      const ownerIds = await this.userModel
+        .find({
+          $or: [
+            { displayName: { $regex: q, $options: "i" } },
+            { email: { $regex: q, $options: "i" } },
+          ],
+        })
+        .select("supabaseId")
+        .exec();
 
-      const ownerSupabaseIds = ownerIds.map(u => u.supabaseId);
+      const ownerSupabaseIds = ownerIds.map((u) => u.supabaseId);
 
       filter.$or = [
         { name: { $regex: q, $options: "i" } },
@@ -127,15 +150,25 @@ export class AdminRoomsService {
     if (queryDto.timeRange && queryDto.timeRange !== "all") {
       const now = new Date();
       if (queryDto.timeRange === "today") {
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfToday = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
         filter.createdAt = { $gte: startOfToday };
       } else if (queryDto.timeRange === "7days") {
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         filter.createdAt = { $gte: sevenDaysAgo };
       } else if (queryDto.timeRange === "30days") {
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(
+          now.getTime() - 30 * 24 * 60 * 60 * 1000,
+        );
         filter.createdAt = { $gte: thirtyDaysAgo };
-      } else if (queryDto.timeRange === "custom" && queryDto.startDate && queryDto.endDate) {
+      } else if (
+        queryDto.timeRange === "custom" &&
+        queryDto.startDate &&
+        queryDto.endDate
+      ) {
         filter.createdAt = {
           $gte: new Date(queryDto.startDate),
           $lte: new Date(queryDto.endDate),
@@ -163,11 +196,13 @@ export class AdminRoomsService {
     ]);
 
     // Fetch owners' user details
-    const ownerIds = rooms.map(r => r.ownerId);
-    const users = await this.userModel.find({ supabaseId: { $in: ownerIds } }).exec();
+    const ownerIds = rooms.map((r) => r.ownerId);
+    const users = await this.userModel
+      .find({ supabaseId: { $in: ownerIds } })
+      .exec();
 
-    const roomsData = rooms.map(room => {
-      const owner = users.find(u => u.supabaseId === room.ownerId);
+    const roomsData = rooms.map((room) => {
+      const owner = users.find((u) => u.supabaseId === room.ownerId);
       return {
         id: room._id,
         name: room.name,
@@ -192,20 +227,26 @@ export class AdminRoomsService {
   }
 
   async getRoomDetails(roomId: string) {
-    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } }).exec();
+    const room = await this.roomModel
+      .findOne({ _id: roomId, isDeleted: { $ne: true } })
+      .exec();
     if (!room) {
       throw new NotFoundException("Phòng không tồn tại");
     }
 
     // Fetch owner details
-    const owner = await this.userModel.findOne({ supabaseId: room.ownerId }).exec();
+    const owner = await this.userModel
+      .findOne({ supabaseId: room.ownerId })
+      .exec();
 
     // Fetch all members' detailed info
-    const memberUserIds = room.members.map(m => m.userId);
-    const users = await this.userModel.find({ supabaseId: { $in: memberUserIds } }).exec();
+    const memberUserIds = room.members.map((m) => m.userId);
+    const users = await this.userModel
+      .find({ supabaseId: { $in: memberUserIds } })
+      .exec();
 
-    const membersList = room.members.map(member => {
-      const u = users.find(userItem => userItem.supabaseId === member.userId);
+    const membersList = room.members.map((member) => {
+      const u = users.find((userItem) => userItem.supabaseId === member.userId);
       return {
         userId: member.userId,
         role: member.role,
@@ -213,17 +254,19 @@ export class AdminRoomsService {
         displayName: u?.displayName || "Người dùng ẩn danh",
         email: u?.email || "",
         avatarUrl: u?.avatarUrl || "",
-        status: member.isLeft === true ? "Đã rời" : "Đang trong phòng", 
+        status: member.status === "left" ? "Đã rời" : "Đang trong phòng",
       };
     });
 
     // Fetch reports
     const reports = await this.reportModel.find({ roomId }).exec();
-    const reporterIds = reports.map(rep => rep.reporterId);
-    const reporters = await this.userModel.find({ supabaseId: { $in: reporterIds } }).exec();
-    
-    const reportsList = reports.map(rep => {
-      const reporter = reporters.find(u => u.supabaseId === rep.reporterId);
+    const reporterIds = reports.map((rep) => rep.reporterId);
+    const reporters = await this.userModel
+      .find({ supabaseId: { $in: reporterIds } })
+      .exec();
+
+    const reportsList = reports.map((rep) => {
+      const reporter = reporters.find((u) => u.supabaseId === rep.reporterId);
       return {
         id: rep._id,
         reporterName: reporter?.displayName || "Người dùng ẩn danh",
@@ -235,16 +278,24 @@ export class AdminRoomsService {
     });
 
     // Fetch activity log (timeline)
-    const activities = await this.activityModel.find({ roomId }).sort({ createdAt: 1 }).exec();
+    const activities = await this.activityModel
+      .find({ roomId })
+      .sort({ createdAt: 1 })
+      .exec();
 
     // Stats calculations
-    const totalParticipants = room.members?.filter(m => m.isLeft !== true).length || 0;
-    
+    const totalParticipants =
+      room.members?.filter((m) => m.status !== "left" && m.status !== "removed")
+        .length || 0;
+
     let onlineParticipants = 0;
     if (room.members && room.members.length > 0) {
       for (const m of room.members) {
-        if (m.isLeft !== true) {
-          const userSocketRoom = this.meetingsGateway.server?.sockets?.adapter?.rooms?.get(`user_${m.userId}`);
+        if (m.status !== "left" && m.status !== "removed") {
+          const userSocketRoom =
+            this.meetingsGateway.server?.sockets?.adapter?.rooms?.get(
+              `user_${m.userId}`,
+            );
           if (userSocketRoom && userSocketRoom.size > 0) {
             onlineParticipants++;
           }
@@ -253,10 +304,20 @@ export class AdminRoomsService {
     }
 
     const totalChannels = room.channels?.length || 0;
-    const totalMeetings = await this.meetingModel.countDocuments({ roomId }).exec() || 0;
-    const totalMessages = await this.activityModel.countDocuments({ roomId, type: "MESSAGE_SENT" }).exec() || 0;
-    const totalPolls = await this.activityModel.countDocuments({ roomId, type: "POLL_CREATED" }).exec() || 0;
-    const totalWhiteboards = await this.activityModel.countDocuments({ roomId, type: "WHITEBOARD_CREATED" }).exec() || 0;
+    const totalMeetings =
+      (await this.meetingModel.countDocuments({ roomId }).exec()) || 0;
+    const totalMessages =
+      (await this.activityModel
+        .countDocuments({ roomId, type: "MESSAGE_SENT" })
+        .exec()) || 0;
+    const totalPolls =
+      (await this.activityModel
+        .countDocuments({ roomId, type: "POLL_CREATED" })
+        .exec()) || 0;
+    const totalWhiteboards =
+      (await this.activityModel
+        .countDocuments({ roomId, type: "WHITEBOARD_CREATED" })
+        .exec()) || 0;
 
     const stats = {
       totalParticipants,
@@ -287,7 +348,9 @@ export class AdminRoomsService {
   }
 
   async disbandRoom(roomId: string, reason: string, adminEmail: string) {
-    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } }).exec();
+    const room = await this.roomModel
+      .findOne({ _id: roomId, isDeleted: { $ne: true } })
+      .exec();
     if (!room) {
       throw new NotFoundException("Phòng không tồn tại");
     }
@@ -299,7 +362,9 @@ export class AdminRoomsService {
     // 1. Kick all participants using LiveKit server SDK via meetingsService
     try {
       // Tìm các meeting đang hoạt động thuộc phòng này và kết thúc chúng
-      const activeMeetings = await this.meetingModel.find({ roomId: room._id.toString(), status: "ongoing" }).exec();
+      const activeMeetings = await this.meetingModel
+        .find({ roomId: room._id.toString(), status: "ongoing" })
+        .exec();
       for (const meeting of activeMeetings) {
         await this.meetingsService.endMeetingByCode(meeting.meetingCode);
       }
@@ -322,10 +387,16 @@ export class AdminRoomsService {
     });
 
     // 4. Log Audit Log
-    this.logAudit("DISBAND_ROOM", adminEmail, `Room: ${room.name} (${room.code}) - Reason: ${reason}`);
+    this.logAudit(
+      "DISBAND_ROOM",
+      adminEmail,
+      `Room: ${room.name} (${room.code}) - Reason: ${reason}`,
+    );
 
     // 5. Send Email to Host
-    const host = await this.userModel.findOne({ supabaseId: room.ownerId }).exec();
+    const host = await this.userModel
+      .findOne({ supabaseId: room.ownerId })
+      .exec();
     if (host && host.email) {
       try {
         const mailOptions = {
@@ -337,11 +408,13 @@ export class AdminRoomsService {
         };
         await this.transporter.sendMail(mailOptions);
       } catch (mailErr) {
-        console.error(`Không thể gửi email giải tán phòng đến ${host.email}:`, mailErr);
+        console.error(
+          `Không thể gửi email giải tán phòng đến ${host.email}:`,
+          mailErr,
+        );
       }
     }
 
     return { success: true, message: "Giải tán phòng họp thành công" };
   }
-
 }

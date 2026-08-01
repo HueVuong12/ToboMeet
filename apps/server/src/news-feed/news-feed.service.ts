@@ -60,21 +60,25 @@ const REVERSE_EMOJI_MAP: Record<string, string> = {
 export class NewsFeedService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<PostDocument>,
-    @InjectModel(Comment.name) private readonly commentModel: Model<CommentDocument>,
+    @InjectModel(Comment.name)
+    private readonly commentModel: Model<CommentDocument>,
     @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly meetingsGateway: MeetingsGateway,
     private readonly supabaseService: SupabaseService,
   ) {}
 
-  private getReactionStatsAndUserReaction(reactionsArray: PostReaction[], currentUserId: string) {
+  private getReactionStatsAndUserReaction(
+    reactionsArray: PostReaction[],
+    currentUserId: string,
+  ) {
     const statsMap: Record<string, number> = {};
     let userReactionEmoji: string | null = null;
 
     reactionsArray.forEach((r) => {
       const emoji = REVERSE_EMOJI_MAP[r.reaction] || r.reaction;
       statsMap[emoji] = (statsMap[emoji] || 0) + 1;
-      
+
       if (r.userId === currentUserId) {
         userReactionEmoji = emoji;
       }
@@ -97,19 +101,7 @@ export class NewsFeedService {
       throw new NotFoundException("Phòng họp không tồn tại");
     }
 
-    let isObjectId = false;
-    try {
-      isObjectId = Types.ObjectId.isValid(userId);
-    } catch (e) {}
-
-    const userDoc = await this.userModel
-      .findOne({
-        $or: [
-          { supabaseId: userId },
-          ...(isObjectId ? [{ _id: new Types.ObjectId(userId) }] : []),
-        ],
-      })
-      .exec();
+    const userDoc = await this.userModel.findOne({ supabaseId: userId }).exec();
 
     const allowedUserIds = new Set<string>([userId]);
     if (userDoc) {
@@ -118,10 +110,7 @@ export class NewsFeedService {
     }
 
     const member = room.members.find(
-      (m) =>
-        allowedUserIds.has(m.userId) &&
-        m.isLeft !== true &&
-        m.status === "ACTIVE",
+      (m) => allowedUserIds.has(m.userId) && m.status === "active",
     );
 
     if (!member) {
@@ -131,8 +120,15 @@ export class NewsFeedService {
     return { room, member, allowedUserIds };
   }
 
-  private async checkChannelAccess(roomId: string, channelId: string, userId: string) {
-    const { room, member, allowedUserIds } = await this.checkRoomMember(roomId, userId);
+  private async checkChannelAccess(
+    roomId: string,
+    channelId: string,
+    userId: string,
+  ) {
+    const { room, member, allowedUserIds } = await this.checkRoomMember(
+      roomId,
+      userId,
+    );
 
     if (allowedUserIds.has(room.ownerId)) {
       return { room, member };
@@ -144,16 +140,14 @@ export class NewsFeedService {
     }
 
     if (channel.isPrivate) {
-      const channelMember = channel.members?.find(
-        (m) =>
-          allowedUserIds.has(m.userId) &&
-          m.isLeft !== true &&
-          m.status !== "REMOVED" &&
-          m.status !== "LEFT",
+      const channelMember = channel.members?.find((m) =>
+        allowedUserIds.has(m.userId),
       );
 
       if (!channelMember) {
-        throw new ForbiddenException("Bạn không có quyền truy cập kênh riêng tư này");
+        throw new ForbiddenException(
+          "Bạn không có quyền truy cập kênh riêng tư này",
+        );
       }
     }
 
@@ -166,7 +160,9 @@ export class NewsFeedService {
   private async populateAuthors(items: PopulateItem[], roomId: string) {
     const room = await this.roomModel.findById(roomId);
     const authorIds = Array.from(new Set(items.map((item) => item.authorId)));
-    const users = await this.userModel.find({ supabaseId: { $in: authorIds } }).exec();
+    const users = await this.userModel
+      .find({ supabaseId: { $in: authorIds } })
+      .exec();
 
     return items.map((item) => {
       const itemObj = item.toObject ? item.toObject() : item;
@@ -188,7 +184,11 @@ export class NewsFeedService {
   /**
    * Lấy danh sách bài viết theo Kênh
    */
-  async getPosts(roomId: string, channelId: string, userId: string): Promise<unknown[]> {
+  async getPosts(
+    roomId: string,
+    channelId: string,
+    userId: string,
+  ): Promise<unknown[]> {
     await this.checkChannelAccess(roomId, channelId, userId);
 
     const posts = await this.postModel
@@ -198,16 +198,14 @@ export class NewsFeedService {
 
     // Lấy số lượng comment cho từng bài viết
     const populated = await this.populateAuthors(posts, roomId);
-    
+
     const postsWithCommentCount = await Promise.all(
       populated.map(async (post) => {
         const commentCount = await this.commentModel.countDocuments({
           postId: post._id,
         });
-        const { reactionStats, userReaction } = this.getReactionStatsAndUserReaction(
-          post.reactions || [],
-          userId,
-        );
+        const { reactionStats, userReaction } =
+          this.getReactionStatsAndUserReaction(post.reactions || [], userId);
         const postWithoutRawReactions = { ...post } as Partial<PopulatedPost>;
         delete postWithoutRawReactions.reactions;
         return {
@@ -228,8 +226,13 @@ export class NewsFeedService {
   async createPost(userId: string, dto: CreatePostDto) {
     await this.checkChannelAccess(dto.roomId, dto.channelId, userId);
 
-    if (!dto.content?.trim() && (!dto.attachments || dto.attachments.length === 0)) {
-      throw new BadRequestException("Nội dung bài viết hoặc tệp đính kèm là bắt buộc");
+    if (
+      !dto.content?.trim() &&
+      (!dto.attachments || dto.attachments.length === 0)
+    ) {
+      throw new BadRequestException(
+        "Nội dung bài viết hoặc tệp đính kèm là bắt buộc",
+      );
     }
 
     if (dto.attachments && dto.attachments.length > 10) {
@@ -256,7 +259,9 @@ export class NewsFeedService {
     delete postWithCount.reactions;
 
     // Phát sự kiện Realtime Socket.io cho tất cả thành viên trong phòng
-    this.meetingsGateway.server.to(`room_${dto.roomId}`).emit("post_created", postWithCount);
+    this.meetingsGateway.server
+      .to(`room_${dto.roomId}`)
+      .emit("post_created", postWithCount);
 
     return postWithCount;
   }
@@ -264,7 +269,12 @@ export class NewsFeedService {
   /**
    * Chỉnh sửa bài viết
    */
-  async updatePost(userId: string, postId: string, content: string, attachments?: PostAttachment[]) {
+  async updatePost(
+    userId: string,
+    postId: string,
+    content: string,
+    attachments?: PostAttachment[],
+  ) {
     const post = await this.postModel.findById(postId);
     if (!post || post.isDeleted) {
       throw new NotFoundException("Bài viết không tồn tại");
@@ -277,7 +287,9 @@ export class NewsFeedService {
     }
 
     if (!content?.trim() && (!attachments || attachments.length === 0)) {
-      throw new BadRequestException("Nội dung bài viết hoặc tệp đính kèm là bắt buộc");
+      throw new BadRequestException(
+        "Nội dung bài viết hoặc tệp đính kèm là bắt buộc",
+      );
     }
 
     post.content = content;
@@ -288,11 +300,11 @@ export class NewsFeedService {
     await post.save();
 
     const populated = (await this.populateAuthors([post], post.roomId))[0];
-    const commentCount = await this.commentModel.countDocuments({ postId: post._id });
-    const { reactionStats, userReaction } = this.getReactionStatsAndUserReaction(
-      post.reactions || [],
-      userId,
-    );
+    const commentCount = await this.commentModel.countDocuments({
+      postId: post._id,
+    });
+    const { reactionStats, userReaction } =
+      this.getReactionStatsAndUserReaction(post.reactions || [], userId);
     const postWithCount = {
       ...populated,
       commentsCount: commentCount,
@@ -301,7 +313,9 @@ export class NewsFeedService {
     } as Partial<PopulatedPost>;
     delete postWithCount.reactions;
 
-    this.meetingsGateway.server.to(`room_${post.roomId}`).emit("post_updated", postWithCount);
+    this.meetingsGateway.server
+      .to(`room_${post.roomId}`)
+      .emit("post_updated", postWithCount);
 
     return postWithCount;
   }
@@ -315,7 +329,11 @@ export class NewsFeedService {
       throw new NotFoundException("Bài viết không tồn tại");
     }
 
-    const { member } = await this.checkChannelAccess(post.roomId, post.channelId, userId);
+    const { member } = await this.checkChannelAccess(
+      post.roomId,
+      post.channelId,
+      userId,
+    );
     const isTeacher = member.role === "owner" || member.role === "admin";
 
     // Phân quyền: Tác giả bài viết hoặc Giáo viên (Owner/Admin) mới được xóa
@@ -326,7 +344,9 @@ export class NewsFeedService {
     post.isDeleted = true;
     await post.save();
 
-    this.meetingsGateway.server.to(`room_${post.roomId}`).emit("post_deleted", { postId });
+    this.meetingsGateway.server
+      .to(`room_${post.roomId}`)
+      .emit("post_deleted", { postId });
 
     return { success: true };
   }
@@ -365,17 +385,17 @@ export class NewsFeedService {
 
     await post.save();
 
-    const { reactionStats, userReaction } = this.getReactionStatsAndUserReaction(
-      post.reactions || [],
-      userId,
-    );
+    const { reactionStats, userReaction } =
+      this.getReactionStatsAndUserReaction(post.reactions || [], userId);
 
-    this.meetingsGateway.server.to(`room_${post.roomId}`).emit("post_reaction_updated", {
-      postId,
-      userId,
-      userReaction,
-      reactionStats,
-    });
+    this.meetingsGateway.server
+      .to(`room_${post.roomId}`)
+      .emit("post_reaction_updated", {
+        postId,
+        userId,
+        userReaction,
+        reactionStats,
+      });
 
     return {
       reactionStats,
@@ -413,8 +433,13 @@ export class NewsFeedService {
 
     await this.checkChannelAccess(post.roomId, post.channelId, userId);
 
-    if (!dto.content?.trim() && (!dto.attachments || dto.attachments.length === 0)) {
-      throw new BadRequestException("Nội dung bình luận hoặc tệp đính kèm là bắt buộc");
+    if (
+      !dto.content?.trim() &&
+      (!dto.attachments || dto.attachments.length === 0)
+    ) {
+      throw new BadRequestException(
+        "Nội dung bình luận hoặc tệp đính kèm là bắt buộc",
+      );
     }
 
     const comment = await this.commentModel.create({
@@ -429,7 +454,9 @@ export class NewsFeedService {
 
     const populated = (await this.populateAuthors([comment], post.roomId))[0];
 
-    this.meetingsGateway.server.to(`room_${post.roomId}`).emit("comment_created", populated);
+    this.meetingsGateway.server
+      .to(`room_${post.roomId}`)
+      .emit("comment_created", populated);
 
     return populated;
   }
@@ -447,7 +474,9 @@ export class NewsFeedService {
     await this.checkChannelAccess(post!.roomId, post!.channelId, userId);
 
     if (comment.authorId !== userId) {
-      throw new ForbiddenException("Bạn không có quyền chỉnh sửa bình luận này");
+      throw new ForbiddenException(
+        "Bạn không có quyền chỉnh sửa bình luận này",
+      );
     }
 
     if (!content?.trim()) {
@@ -460,7 +489,9 @@ export class NewsFeedService {
 
     const populated = (await this.populateAuthors([comment], post!.roomId))[0];
 
-    this.meetingsGateway.server.to(`room_${post!.roomId}`).emit("comment_updated", populated);
+    this.meetingsGateway.server
+      .to(`room_${post!.roomId}`)
+      .emit("comment_updated", populated);
 
     return populated;
   }
@@ -475,7 +506,11 @@ export class NewsFeedService {
     }
 
     const post = await this.postModel.findById(comment.postId);
-    const { member } = await this.checkChannelAccess(post!.roomId, post!.channelId, userId);
+    const { member } = await this.checkChannelAccess(
+      post!.roomId,
+      post!.channelId,
+      userId,
+    );
     const isTeacher = member.role === "owner" || member.role === "admin";
 
     // Phân quyền: Chủ bình luận hoặc Giáo viên mới được xóa
@@ -485,13 +520,17 @@ export class NewsFeedService {
 
     await this.commentModel.findByIdAndDelete(commentId);
     // Xóa luôn các phản hồi trực thuộc nếu đây là comment cha
-    await this.commentModel.deleteMany({ parentId: new Types.ObjectId(commentId) });
-
-    this.meetingsGateway.server.to(`room_${post!.roomId}`).emit("comment_deleted", {
-      commentId,
-      postId: comment.postId.toString(),
-      parentId: comment.parentId ? comment.parentId.toString() : null,
+    await this.commentModel.deleteMany({
+      parentId: new Types.ObjectId(commentId),
     });
+
+    this.meetingsGateway.server
+      .to(`room_${post!.roomId}`)
+      .emit("comment_deleted", {
+        commentId,
+        postId: comment.postId.toString(),
+        parentId: comment.parentId ? comment.parentId.toString() : null,
+      });
 
     return { success: true };
   }
@@ -513,7 +552,9 @@ export class NewsFeedService {
       throw new BadRequestException("Reaction type không hợp lệ");
     }
 
-    const existingIndex = comment.reactions.findIndex((r) => r.userId === userId);
+    const existingIndex = comment.reactions.findIndex(
+      (r) => r.userId === userId,
+    );
     if (existingIndex > -1) {
       if (comment.reactions[existingIndex].type === type) {
         comment.reactions.splice(existingIndex, 1);
@@ -526,11 +567,13 @@ export class NewsFeedService {
 
     await comment.save();
 
-    this.meetingsGateway.server.to(`room_${post!.roomId}`).emit("comment_reaction_updated", {
-      commentId,
-      postId: comment.postId.toString(),
-      reactions: comment.reactions,
-    });
+    this.meetingsGateway.server
+      .to(`room_${post!.roomId}`)
+      .emit("comment_reaction_updated", {
+        commentId,
+        postId: comment.postId.toString(),
+        reactions: comment.reactions,
+      });
 
     return comment.reactions;
   }
@@ -540,14 +583,16 @@ export class NewsFeedService {
    */
   private async ensureBucketExists(bucketName: string) {
     try {
-      const { data: buckets, error: listError } = await this.supabaseService.admin.storage.listBuckets();
+      const { data: buckets, error: listError } =
+        await this.supabaseService.admin.storage.listBuckets();
       if (listError) throw listError;
       const exists = buckets.some((b) => b.name === bucketName);
       if (!exists) {
-        const { error: createError } = await this.supabaseService.admin.storage.createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 50 * 1024 * 1024, // 50MB limit (compatible with Supabase free tier)
-        });
+        const { error: createError } =
+          await this.supabaseService.admin.storage.createBucket(bucketName, {
+            public: true,
+            fileSizeLimit: 50 * 1024 * 1024, // 50MB limit (compatible with Supabase free tier)
+          });
         if (createError) throw createError;
       }
     } catch (err) {
@@ -574,7 +619,9 @@ export class NewsFeedService {
       .createSignedUploadUrl(filePath);
 
     if (error) {
-      throw new BadRequestException(`Không thể tạo signed upload URL: ${error.message}`);
+      throw new BadRequestException(
+        `Không thể tạo signed upload URL: ${error.message}`,
+      );
     }
 
     const { data: publicUrlData } = this.supabaseService.admin.storage
@@ -597,7 +644,9 @@ export class NewsFeedService {
     await this.checkRoomMember(post.roomId, userId);
 
     const userIds = post.reactions.map((r) => r.userId);
-    const users = await this.userModel.find({ supabaseId: { $in: userIds } }).exec();
+    const users = await this.userModel
+      .find({ supabaseId: { $in: userIds } })
+      .exec();
     const room = await this.roomModel.findById(post.roomId);
 
     return post.reactions.map((r) => {

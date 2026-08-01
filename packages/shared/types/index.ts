@@ -155,7 +155,7 @@ export interface RoomMemberResponse {
   userId: string;
   role: "owner" | "admin" | "member" | string;
   displayRole?: string;
-  status?: "ACTIVE" | "REMOVED" | "LEFT";
+  status?: "active" | "removed" | "left";
   joinedAt: string;
   removedAt?: string;
   removedBy?: string;
