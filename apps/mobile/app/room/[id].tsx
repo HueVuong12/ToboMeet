@@ -23,6 +23,7 @@ import {
   useDisbandRoomMutation,
   useGetRoomMembersQuery,
   useRemoveMemberMutation,
+  useLeaveChannelMutation,
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
   useGetMeQuery,
@@ -142,6 +143,35 @@ export default function RoomDetailScreen() {
     selectedMemberForMenu?.userId,
   );
 
+  const handleLeaveChannel = (channel: ChannelResponse) => {
+    Alert.alert(
+      "Rời khỏi kênh",
+      `Bạn có chắc chắn muốn rời khỏi kênh #${channel.name}? Sau khi rời khỏi, bạn sẽ không còn truy cập được tin nhắn và các hoạt động trong kênh này.`,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Rời khỏi",
+          style: "destructive",
+          onPress: async () => {
+            if (!id || !channel._id) return;
+            try {
+              await leaveChannelMutation({
+                roomId: id,
+                channelId: channel._id,
+              }).unwrap();
+              Alert.alert("Thông báo", `Bạn đã rời khỏi kênh #${channel.name} thành công.`);
+            } catch (err: any) {
+              Alert.alert(
+                "Lỗi",
+                err?.data?.message || err?.message || "Không thể rời khỏi kênh. Vui lòng thử lại.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // Lấy trạng thái hiển thị UI (Nháy xanh nút họp, hiện thông báo đang trong phòng...)
   const { isJoinedOnThisDevice, activeMeeting } = useMeetingDeviceStatus(
     id,
@@ -156,7 +186,14 @@ export default function RoomDetailScreen() {
   });
 
   // Lắng nghe bất kì sự kiện nào trong room, đã refractor thành hook
-  useRoomUpdateListener(id, profile?.supabaseId);
+  useRoomUpdateListener(id, profile?.supabaseId, {
+    onUserLeftChannel: (leftChannelId) => {
+      if (activeChannelId === leftChannelId && room?.channels) {
+        const firstChannel = room.channels.find((c) => c._id !== leftChannelId);
+        setActiveChannelId(firstChannel?._id || null);
+      }
+    },
+  });
 
   // Lắng nghe sự kiện phòng họp của Kênh (Channel) hiện tại
   useEffect(() => {
@@ -584,6 +621,7 @@ export default function RoomDetailScreen() {
           setChannelToManage(channel);
           setShowAddPrivateChannelMemberModal(true);
         }}
+        onLeaveChannel={handleLeaveChannel}
         onOpenGroupActions={() => setShowGroupActionsModal(true)}
         onCopyLink={handleCopyLink}
         onGoBack={() => router.replace("/dashboard")}

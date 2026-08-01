@@ -276,8 +276,9 @@ export class RoomChannelService {
       existingRoomMember.status === "remove" ||
       existingRoomMember.status === "left"
     ) {
-      // Phục hồi trạng thái nếu đã từng rời/bị xóa khỏi phòng
+      // Phục hồi trạng thái nếu đã từng rời/bị xóa khỏi phòng và BẮT BUỘC reset role về 'member'
       existingRoomMember.status = "active";
+      existingRoomMember.role = "member";
       existingRoomMember.rejoinedAt = new Date();
       room.markModified("members");
     }
@@ -385,5 +386,107 @@ export class RoomChannelService {
       channelId,
       targetUserId,
     });
+  }
+
+  /**
+   * Thành viên / Phó nhóm chủ động rời khỏi kênh
+   */
+  async leaveChannel(
+    userId: string,
+    roomId: string,
+    channelId: string,
+  ): Promise<{ success: boolean }> {
+    const room = await this.roomModel.findOne({
+      _id: roomId,
+      isDeleted: { $ne: true },
+    });
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    // Trưởng nhóm (Owner) không được phép rời kênh
+    if (room.ownerId === userId) {
+      throw new ForbiddenException("Trưởng nhóm không thể rời khỏi kênh");
+    }
+
+    // Kiểm tra user có phải là thành viên active của phòng không
+    const roomMember = room.members?.find(
+      (m) =>
+        m.userId === userId &&
+        m.status !== "remove" &&
+        m.status !== "left",
+    );
+    if (!roomMember) {
+      throw new NotFoundException("Bạn không phải là thành viên của phòng này");
+    }
+
+    // Tìm kênh
+    const channelIndex = room.channels.findIndex(
+      (c) => c._id?.toString() === channelId,
+    );
+    if (channelIndex === -1) {
+      throw new NotFoundException("Kênh không tồn tại");
+    }
+
+    const channel = room.channels[channelIndex];
+
+    // Không cho phép rời kênh General (kênh đầu tiên / mặc định)
+    const isDefaultChannel = channelIndex === 0;
+    if (isDefaultChannel) {
+      throw new BadRequestException(
+        "Không thể rời khỏi kênh General (kênh mặc định của phòng)",
+      );
+    }
+
+    let memberCount: number;
+
+    if (channel.isPrivate) {
+      // === PRIVATE CHANNEL: hard-delete khỏi members[] ===
+      const existingIdx = channel.members?.findIndex(
+        (m) => m.userId === userId,
+      );
+      if (existingIdx === undefined || existingIdx === -1) {
+        throw new NotFoundException(
+          "Bạn không phải là thành viên của kênh riêng tư này",
+        );
+      }
+
+      channel.members!.splice(existingIdx, 1);
+      memberCount = channel.members!.length + 1; // +1 cho Owner luôn ngầm định
+
+    } else {
+      // === PUBLIC CHANNEL: Thêm userId vào leftMemberIds[] ===
+      if (!channel.leftMemberIds) {
+        channel.leftMemberIds = [];
+      }
+
+      if (channel.leftMemberIds.includes(userId)) {
+        throw new BadRequestException("Bạn đã rời khỏi kênh này rồi");
+      }
+
+      channel.leftMemberIds.push(userId);
+
+      // memberCount = thành viên active của phòng - số người đã rời kênh này
+      const activeMemberCount = room.members.filter(
+        (m) => m.status !== "remove" && m.status !== "left",
+      ).length;
+      memberCount = activeMemberCount - channel.leftMemberIds.length;
+    }
+
+    room.markModified("channels");
+    await room.save();
+
+    // Phát socket event realtime
+    this.roomsGateway?.notifyRoomUpdated(roomId, {
+      type: "channel_member_left",
+      roomId,
+      channelId,
+      userId,
+      memberCount,
+    });
+
+    this.logger.log(
+      `[leaveChannel] User ${userId} đã rời kênh ${channel.name} (${channel.isPrivate ? "private" : "public"}) trong phòng ${roomId}`,
+    );
+
+    return { success: true };
   }
 }

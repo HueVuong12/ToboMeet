@@ -258,6 +258,20 @@ export class RoomsController {
   }
 
   /**
+   * POST /api/rooms/:id/channels/:channelId/leave — Thành viên / Phó nhóm tự rời kênh
+   */
+  @Post(":id/channels/:channelId/leave")
+  @HttpCode(HttpStatus.OK)
+  async leaveChannel(
+    @Param("id") roomId: string,
+    @Param("channelId") channelId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.roomChannelService.leaveChannel(userId, roomId, channelId);
+  }
+
+  /**
    * POST /api/rooms/:id/members/invite — Thêm thành viên bằng email hoặc userId
    */
   @Post(":id/members/invite")

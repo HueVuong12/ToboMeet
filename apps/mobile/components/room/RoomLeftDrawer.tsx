@@ -14,6 +14,7 @@ interface RoomLeftDrawerProps {
   currentUserId: string | undefined;
   onAddChannel: () => void;
   onManagePrivateChannel: (channel: ChannelResponse) => void;
+  onLeaveChannel?: (channel: ChannelResponse) => void;
   onOpenGroupActions: () => void;
   onCopyLink: () => void;
   onGoBack: () => void;
@@ -29,6 +30,7 @@ export default function RoomLeftDrawer({
   currentUserId,
   onAddChannel,
   onManagePrivateChannel,
+  onLeaveChannel,
   onOpenGroupActions,
   onCopyLink,
   onGoBack,
@@ -123,12 +125,14 @@ export default function RoomLeftDrawer({
 
           {isChannelsExpanded && (
             <ScrollView>
-              {room.channels?.map((item) => {
+              {room.channels?.map((item, index) => {
                 const isActive = activeChannelId === item._id;
+                const isDefaultChannel = index === 0 || item.name === "General";
                 const isAdmin = item.members?.some(
                   (m) => m.userId === currentUserId && m.role === "admin",
                 );
                 const canManageThisChannel = isOwner || isAdmin;
+                const showThreeDots = (item.isPrivate && canManageThisChannel) || (!isOwner && !isDefaultChannel);
 
                 return (
                   <View
@@ -167,9 +171,32 @@ export default function RoomLeftDrawer({
                       </Text>
                     </TouchableOpacity>
 
-                    {item.isPrivate && canManageThisChannel && (
+                    {showThreeDots && (
                       <TouchableOpacity
-                        onPress={() => onManagePrivateChannel(item)}
+                        onPress={() => {
+                          const options: { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void }[] = [];
+
+                          if (item.isPrivate && canManageThisChannel) {
+                            options.push({
+                              text: "Thêm thành viên",
+                              onPress: () => onManagePrivateChannel(item),
+                            });
+                          }
+
+                          if (!isOwner && !isDefaultChannel && onLeaveChannel) {
+                            options.push({
+                              text: "Rời khỏi kênh",
+                              style: "destructive",
+                              onPress: () => onLeaveChannel(item),
+                            });
+                          }
+
+                          options.push({ text: "Hủy", style: "cancel" });
+
+                          import("react-native").then(({ Alert }) => {
+                            Alert.alert(`Kênh #${item.name}`, "Tùy chọn kênh", options);
+                          });
+                        }}
                         className="p-2.5 mr-1"
                       >
                         <Feather

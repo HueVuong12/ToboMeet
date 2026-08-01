@@ -70,10 +70,18 @@ export class RoomMemberService {
           u.supabaseId === member.userId || u._id.toString() === member.userId,
       );
 
+      // Đảm bảo DUY NHẤT room.ownerId mới có role === "owner"
+      const isActualOwner = member.userId === room.ownerId;
+      const effectiveRole = isActualOwner
+        ? "owner"
+        : member.role === "owner"
+          ? "member"
+          : member.role;
+
       return {
         userId: member.userId,
-        role: member.role,
-        displayRole: getDisplayRole(member.role, room.type),
+        role: effectiveRole,
+        displayRole: getDisplayRole(effectiveRole, room.type),
         status: member.status as "active" | "removed" | "left" | undefined,
         joinedAt: member.joinedAt.toISOString(), // Ép ngày thành string
         removedAt: member.removedAt?.toISOString(),
@@ -201,6 +209,7 @@ export class RoomMemberService {
       }
 
       room.members[previousMemberIdx].status = "active";
+      room.members[previousMemberIdx].role = "member"; // BẮT BUỘC reset role về 'member', không giữ role cũ
       room.members[previousMemberIdx].rejoinedAt = new Date();
       room.members[previousMemberIdx].userId = resolvedTargetId; // Đồng bộ hóa ID
       room.markModified("members");

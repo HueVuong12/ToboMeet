@@ -11,6 +11,7 @@ import {
   useInviteMemberMutation,
   useGetRoomMembersQuery,
   useDisbandRoomMutation,
+  useLeaveChannelMutation,
 } from "@/lib/redux/api/roomsApi";
 import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
 import {
@@ -67,6 +68,8 @@ export default function Sidebar({
 
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
+  const [channelToLeave, setChannelToLeave] = useState<any | null>(null);
+  const [leaveChannelMutation, { isLoading: isLeavingChannel }] = useLeaveChannelMutation();
   const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(
     null,
   );
@@ -358,13 +361,17 @@ export default function Sidebar({
 
         {channelsExpanded && (
           <div className="mt-1 px-2 space-y-0.5">
-            {room.channels.map((channel) => {
+            {room.channels.map((channel, index) => {
               const isActive = channel.name === activeChannel;
+              const isDefaultChannel = index === 0 || channel.name === "General";
               const canManageThisChannel =
                 isOwner ||
                 channel.members?.some(
                   (m: any) => m.userId === userId && m.role === "admin",
                 );
+
+              // Hiển thị 3-dot menu nếu: (1) là Owner/Admin có quyền quản lý private channel HOẶC (2) Không phải Owner và không phải kênh mặc định General
+              const showThreeDots = (channel.isPrivate && canManageThisChannel) || (!isOwner && !isDefaultChannel);
 
               return (
                 <div
@@ -391,7 +398,7 @@ export default function Sidebar({
                     <span className="truncate">{channel.name}</span>
                   </button>
 
-                  {channel.isPrivate && canManageThisChannel && (
+                  {showThreeDots && (
                     <div className="relative">
                       <button
                         type="button"
@@ -418,18 +425,35 @@ export default function Sidebar({
                             }}
                           />
                           <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenChannelMenuId(null);
-                                setChannelToManage(channel);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                            >
-                              <UserPlus className="w-3.5 h-3.5 text-slate-500" />
-                              <span>Thêm thành viên</span>
-                            </button>
+                            {channel.isPrivate && canManageThisChannel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChannelMenuId(null);
+                                  setChannelToManage(channel);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                              >
+                                <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Thêm thành viên</span>
+                              </button>
+                            )}
+
+                            {!isOwner && !isDefaultChannel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChannelMenuId(null);
+                                  setChannelToLeave(channel);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              >
+                                <LogOut className="w-3.5 h-3.5 text-red-500" />
+                                <span>Rời khỏi kênh</span>
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
@@ -921,6 +945,73 @@ export default function Sidebar({
           roomOwnerId={room.ownerId}
         />
       )}
+
+      {/* Modal Xác nhận Rời khỏi Kênh */}
+      {channelToLeave &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3.5 text-red-600">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <LogOut className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Rời khỏi kênh #{channelToLeave.name}?
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Xác nhận rời khỏi kênh
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Bạn có chắc chắn muốn rời khỏi kênh này? Sau khi rời khỏi, bạn sẽ không còn truy cập được tin nhắn, cuộc gọi và các hoạt động trong kênh.
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isLeavingChannel}
+                  onClick={() => setChannelToLeave(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={isLeavingChannel}
+                  onClick={async () => {
+                    try {
+                      await leaveChannelMutation({
+                        roomId: room._id,
+                        channelId: channelToLeave._id || channelToLeave.name,
+                      }).unwrap();
+                      toast.success(`Đã rời khỏi kênh #${channelToLeave.name}`);
+                      setChannelToLeave(null);
+                    } catch (err: any) {
+                      toast.error(
+                        err?.data?.message || err?.message || "Không thể rời khỏi kênh",
+                      );
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 active:scale-95 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isLeavingChannel ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang rời...</span>
+                    </>
+                  ) : (
+                    <span>Rời khỏi</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </aside>
   );
 }

@@ -7,12 +7,24 @@ import { useTranslation } from "react-i18next";
 import { socket } from "../../lib/socket";
 import { toast } from "../../lib/toast";
 
-export function useRoomUpdateListener(roomId: string, userId?: string) {
+interface UseRoomUpdateListenerOptions {
+  onUserLeftChannel?: (channelId: string) => void;
+}
+
+export function useRoomUpdateListener(
+  roomId: string,
+  userId?: string,
+  options?: UseRoomUpdateListenerOptions,
+) {
   const router = useRouter();
   const { t } = useTranslation();
 
-  const { removeMemberFromRoomCache, addMemberToRoomCache, invalidateRoomList, invalidateRoom } =
-    useRoomCacheManager();
+  const {
+    removeMemberFromRoomCache,
+    addMemberToRoomCache,
+    invalidateRoomList,
+    invalidateRoom,
+  } = useRoomCacheManager();
 
   useEffect(() => {
     if (!roomId || !userId) return;
@@ -48,6 +60,13 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
           }
           break;
 
+        case "member_left":
+          // Cập nhật realtime khi có thành viên chủ động rời phòng
+          removeMemberFromRoomCache(data.roomId, data.leftUserId);
+          invalidateRoom(roomId);
+          invalidateRoomList();
+          break;
+
         case "member_joined":
           // Thêm người dùng mới vào cache để Sidebar hiển thị lập tức
           if (data.member) {
@@ -62,10 +81,17 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
           if (data.newOwnerId === userId) {
             Alert.alert(
               t("common.notification", { defaultValue: "Thông báo" }),
-              t("room.toast_transfer_new_owner", { role: "Leader", defaultValue: "🎉 Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!" })
+              t("room.toast_transfer_new_owner", {
+                role: "Leader",
+                defaultValue: "🎉 Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!",
+              }),
             );
           } else if (data.previousOwnerId !== userId) {
-            toast.info(t("room.toast_transfer_info", { defaultValue: "Quyền quản lý phòng vừa được chuyển giao." }));
+            toast.info(
+              t("room.toast_transfer_info", {
+                defaultValue: "Quyền quản lý phòng vừa được chuyển giao.",
+              }),
+            );
           }
           break;
 
@@ -81,8 +107,20 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
             toast.info(
               t("room.toast_remove_from_private_channel_warning", {
                 defaultValue: "Bạn không còn quyền truy cập kênh riêng tư này.",
-              })
+              }),
             );
+          }
+          break;
+
+        case "channel_member_left":
+          invalidateRoomList();
+          invalidateRoom(roomId);
+
+          if (data.userId === userId) {
+            if (options?.onUserLeftChannel) {
+              options.onUserLeftChannel(data.channelId);
+            }
+            toast.success("Bạn đã rời khỏi kênh thành công.");
           }
           break;
 
@@ -99,5 +137,12 @@ export function useRoomUpdateListener(roomId: string, userId?: string) {
       socket.off("connect", joinRoomSocket);
       socket.off("room_updated", handleRoomUpdated);
     };
-  }, [roomId, userId, router, removeMemberFromRoomCache, addMemberToRoomCache]);
+  }, [
+    roomId,
+    userId,
+    router,
+    removeMemberFromRoomCache,
+    addMemberToRoomCache,
+    options?.onUserLeftChannel,
+  ]);
 }
