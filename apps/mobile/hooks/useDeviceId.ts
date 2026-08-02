@@ -33,7 +33,6 @@ export function useDeviceId() {
         setDeviceId(storedId);
       } catch (error) {
         console.error("Lỗi khi khởi tạo Device ID:", error);
-        // Fallback khẩn cấp nếu AsyncStorage bị crash
         setDeviceId(`temp_${Date.now()}`);
       }
     };

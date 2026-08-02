@@ -474,8 +474,10 @@ export class RoomChannelService {
     room.markModified("channels");
     await room.save();
 
-    // Phát socket event realtime
-    this.roomsGateway?.notifyRoomUpdated(roomId, {
+    // Phát socket event realtime:
+    // - Gọi socketsLeave(channelId) cho user vừa rời → không nhận thêm event của channel
+    // - Broadcast channel_member_left đến toàn bộ thành viên còn lại trong room
+    this.roomsGateway?.notifyUserLeftChannel(roomId, channelId, userId, {
       type: "channel_member_left",
       roomId,
       channelId,

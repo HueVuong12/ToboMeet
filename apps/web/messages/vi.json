@@ -425,7 +425,7 @@
     "copy_link": "Sao chép liên kết",
     "leave_room": "Rời phòng họp",
     "confirm_leave_title": "Xác nhận rời nhóm",
-    "confirm_leave_desc": "Bạn có chắc chắn muốn rời khỏi phòng họp/lớp học <strong2>{name}</strong2> không? Hành động này không thể hoàn tác.",
+    "confirm_leave_desc": "Bạn có chắc chắn muốn rời khỏi phòng <strong2>{name}</strong2> không? Hành động này không thể hoàn tác.",
     "owner_leave_title": "Rời và chuyển giao quyền",
     "owner_leave_no_members_desc": "Bạn là <strong1>Trưởng nhóm</strong1>. Nhóm này không còn thành viên nào khác để bàn giao quyền. Nếu rời nhóm, <strong2>{name}</strong2> sẽ bị giải tán hoàn toàn. Bạn có chắc chắn muốn giải tán phòng không?",
     "owner_leave_has_members_desc": "Bạn là <strong1>Trưởng nhóm</strong1>. Vui lòng chọn một thành viên bên dưới để bàn giao quyền Trưởng nhóm trước khi rời khỏi nhóm <strong2>{name}</strong2>:",
@@ -563,7 +563,17 @@
     "type_meeting": "Phòng họp",
     "type_classroom": "Phòng học",
     "confirm": "Xác nhận",
-    "toast_remove_from_private_channel_warning": "Bạn không còn quyền truy cập kênh riêng tư này."
+    "toast_remove_from_private_channel_warning": "Bạn không còn quyền truy cập kênh riêng tư này.",
+    "toast_leave_channel_success": "Bạn đã rời khỏi kênh thành công.",
+    "leave_channel": "Rời khỏi kênh",
+    "add_member_to_channel": "Thêm thành viên",
+    "leave_channel_confirm_title": "Rời khỏi kênh",
+    "leave_channel_confirm_subtitle": "Xác nhận rời khỏi kênh",
+    "leave_channel_confirm_desc": "Bạn có chắc chắn muốn rời khỏi kênh này? Sau khi rời bạn sẽ không còn quyền truy cập vào kênh riêng tư <strong>#{name}</strong>.",
+    "leave_channel_cancel": "Hủy",
+    "leave_channel_action": "Rời khỏi kênh",
+    "leave_channel_loading": "Đang rời...",
+    "leave_channel_error": "Không thể rời khỏi kênh"
   },
   "admin": {
     "title": "Tổng quan hệ thống",

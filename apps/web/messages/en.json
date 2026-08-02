@@ -450,7 +450,7 @@
     "copy_link": "Copy link",
     "leave_room": "Leave room",
     "confirm_leave_title": "Confirm leaving group",
-    "confirm_leave_desc": "Are you sure you want to leave the room/class <strong2>{name}</strong2>? This action cannot be undone.",
+    "confirm_leave_desc": "Are you sure you want to leave the room <strong2>{name}</strong2>? This action cannot be undone.",
     "owner_leave_title": "Leave and transfer ownership",
     "owner_leave_no_members_desc": "You are the <strong1>Owner</strong1>. This group has no other members to hand over ownership. If you leave, <strong2>{name}</strong2> will be dissolved completely. Are you sure you want to dissolve the room?",
     "owner_leave_has_members_desc": "You are the <strong1>Owner</strong1>. Please select a member below to transfer the Owner role before leaving the group <strong2>{name}</strong2>:",
@@ -588,7 +588,17 @@
     "type_meeting": "Meeting Room",
     "type_classroom": "Classroom",
     "confirm": "Confirm",
-    "toast_remove_from_private_channel_warning": "You no longer have access to this private channel."
+    "toast_remove_from_private_channel_warning": "You no longer have access to this private channel.",
+    "toast_leave_channel_success": "You have successfully left the channel.",
+    "leave_channel": "Leave Channel",
+    "add_member_to_channel": "Add Member",
+    "leave_channel_confirm_title": "Leave Channel",
+    "leave_channel_confirm_subtitle": "Confirm leaving channel",
+    "leave_channel_confirm_desc": "Are you sure you want to leave this channel? You will no longer have access to private channel <strong>#{name}</strong>.",
+    "leave_channel_cancel": "Cancel",
+    "leave_channel_action": "Leave Channel",
+    "leave_channel_loading": "Leaving...",
+    "leave_channel_error": "Unable to leave channel"
   },
   "admin": {
     "title": "System Overview",

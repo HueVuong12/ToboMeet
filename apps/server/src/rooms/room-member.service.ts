@@ -236,13 +236,27 @@ export class RoomMemberService {
       throw new BadRequestException("Không thể thêm thành viên vào phòng");
     }
 
+    const roomResponsePayload = mapToRoomResponse(room, resolvedTargetId);
+
+    // 1. Thông báo trực tiếp cho người được thêm (auto-join room_${roomId} + emit user_room_added)
+    this.roomsGateway?.notifyUserRoomAdded(
+      resolvedTargetId,
+      room._id.toString(),
+      roomResponsePayload,
+    );
+
+    // 2. Thông báo cho các thành viên hiện tại trong phòng
+    const addedMemberInfo = roomResponsePayload.members.find(
+      (m) => m.userId === resolvedTargetId,
+    );
     this.roomsGateway?.notifyRoomUpdated(room._id.toString(), {
       type: "member_added",
       addedUserId: resolvedTargetId,
+      member: addedMemberInfo,
       roomId: room._id.toString(),
     });
 
-    return mapToRoomResponse(room);
+    return roomResponsePayload;
   }
 
   /**

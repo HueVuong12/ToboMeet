@@ -77,12 +77,15 @@ export default function RoomDetailScreen() {
   const [leaveRoom] = useLeaveRoomMutation();
   const [disbandRoom] = useDisbandRoomMutation();
   const [removeMemberMutation] = useRemoveMemberMutation();
+  const [leaveChannelMutation, { isLoading: isLeavingChannel }] = useLeaveChannelMutation();
   const [channelToManage, setChannelToManage] =
     useState<ChannelResponse | null>(null);
   const [
     showAddPrivateChannelMemberModal,
     setShowAddPrivateChannelMemberModal,
   ] = useState(false);
+  // State cho Modal xác nhận rời kênh riêng tư
+  const [channelToLeave, setChannelToLeave] = useState<ChannelResponse | null>(null);
 
   // Member options menu & Report user state
   const [selectedMemberForMenu, setSelectedMemberForMenu] =
@@ -143,33 +146,28 @@ export default function RoomDetailScreen() {
     selectedMemberForMenu?.userId,
   );
 
+  // Mở Modal xác nhận rời kênh riêng tư (thay thế Alert.alert cũ)
   const handleLeaveChannel = (channel: ChannelResponse) => {
-    Alert.alert(
-      "Rời khỏi kênh",
-      `Bạn có chắc chắn muốn rời khỏi kênh #${channel.name}? Sau khi rời khỏi, bạn sẽ không còn truy cập được tin nhắn và các hoạt động trong kênh này.`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Rời khỏi",
-          style: "destructive",
-          onPress: async () => {
-            if (!id || !channel._id) return;
-            try {
-              await leaveChannelMutation({
-                roomId: id,
-                channelId: channel._id,
-              }).unwrap();
-              Alert.alert("Thông báo", `Bạn đã rời khỏi kênh #${channel.name} thành công.`);
-            } catch (err: any) {
-              Alert.alert(
-                "Lỗi",
-                err?.data?.message || err?.message || "Không thể rời khỏi kênh. Vui lòng thử lại.",
-              );
-            }
-          },
-        },
-      ],
-    );
+    setChannelToLeave(channel);
+  };
+
+  // Thực hiện rời kênh sau khi user xác nhận trong Modal
+  const confirmLeaveChannel = async () => {
+    if (!id || !channelToLeave?._id) return;
+    try {
+      await leaveChannelMutation({
+        roomId: id,
+        channelId: channelToLeave._id,
+      }).unwrap();
+      // Đóng modal — socket event channel_member_left sẽ xử lý switch channel
+      setChannelToLeave(null);
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      Alert.alert(
+        "Lỗi",
+        errorObj?.data?.message || errorObj?.message || "Không thể rời khỏi kênh. Vui lòng thử lại.",
+      );
+    }
   };
 
   // Lấy trạng thái hiển thị UI (Nháy xanh nút họp, hiện thông báo đang trong phòng...)
@@ -189,8 +187,9 @@ export default function RoomDetailScreen() {
   useRoomUpdateListener(id, profile?.supabaseId, {
     onUserLeftChannel: (leftChannelId) => {
       if (activeChannelId === leftChannelId && room?.channels) {
-        const firstChannel = room.channels.find((c) => c._id !== leftChannelId);
-        setActiveChannelId(firstChannel?._id || null);
+        // Ưu tiên chuyển về General (index 0), sau đó mới lấy kênh đầu tiên còn truy cập
+        const fallbackChannel = room.channels.find((c) => c._id !== leftChannelId);
+        setActiveChannelId(fallbackChannel?._id || null);
       }
     },
   });
@@ -721,12 +720,12 @@ export default function RoomDetailScreen() {
                 } else {
                   // Thành viên thường hoặc phòng chỉ có 1 mình chủ phòng -> rời thẳng
                   Alert.alert(
-                    t("room.confirm_title"),
-                    t("room.confirm_leave"),
+                    t("room.confirm_title", { defaultValue: "Xác nhận rời nhóm" }),
+                    `Bạn có chắc chắn muốn rời khỏi phòng ${room.name} không? Hành động này không thể hoàn tác.`,
                     [
-                      { text: t("room.cancel"), style: "cancel" },
+                      { text: t("room.cancel", { defaultValue: "Hủy bỏ" }), style: "cancel" },
                       {
-                        text: t("room.leave_room"),
+                        text: t("room.leave_room", { defaultValue: "Xác nhận rời phòng" }),
                         style: "destructive",
                         onPress: () => handleLeaveRoom(),
                       },
@@ -1057,6 +1056,65 @@ export default function RoomDetailScreen() {
           handleJoinMeeting(false, config);
         }}
       />
+      {/* Modal Xác nhận Rời khỏi Kênh riêng tư */}
+      <Modal
+        visible={!!channelToLeave}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isLeavingChannel && setChannelToLeave(null)}
+      >
+        <View
+          style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.6)" }}
+          className="justify-center items-center px-4"
+        >
+          <View className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            {/* Icon + Tiêu đề */}
+            <View className="flex-row items-center gap-3.5 mb-4">
+              <View className="w-10 h-10 rounded-xl bg-red-50 items-center justify-center shrink-0">
+                <Feather name="log-out" size={20} color="#DC2626" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-bold text-slate-900 text-base">
+                  Rời khỏi kênh #{channelToLeave?.name}?
+                </Text>
+                <Text className="text-xs text-slate-400 mt-0.5">Xác nhận rời khỏi kênh</Text>
+              </View>
+            </View>
+
+            {/* Nội dung mô tả */}
+            <Text className="text-sm text-slate-600 leading-6 mb-5">
+              Bạn có chắc chắn muốn rời khỏi kênh này? Sau khi rời bạn sẽ không còn
+              quyền truy cập vào kênh riêng tư{" "}
+              <Text className="font-bold text-slate-800">#{channelToLeave?.name}</Text>.
+            </Text>
+
+            {/* Nút hành động */}
+            <View className="flex-row justify-end gap-3">
+              <TouchableOpacity
+                disabled={isLeavingChannel}
+                onPress={() => setChannelToLeave(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 active:bg-slate-200"
+              >
+                <Text className="text-sm font-semibold text-slate-600">Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                disabled={isLeavingChannel}
+                onPress={confirmLeaveChannel}
+                className="px-4 py-2.5 rounded-xl bg-red-600 active:bg-red-700 flex-row items-center gap-2"
+                style={{ opacity: isLeavingChannel ? 0.6 : 1 }}
+              >
+                {isLeavingChannel && (
+                  <ActivityIndicator size="small" color="#fff" />
+                )}
+                <Text className="text-sm font-semibold text-white">
+                  {isLeavingChannel ? "Đang rời..." : "Rời khỏi kênh"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </KeyboardAvoidingView>
   );
 }
