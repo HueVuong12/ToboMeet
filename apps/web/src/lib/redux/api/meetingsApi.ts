@@ -119,6 +119,22 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    updateApprovalPermission: builder.mutation<
+      void,
+      {
+        roomId: string;
+        channelId: string;
+        code: string;
+        permission: "admin_only" | "member_and_admin" | "everyone";
+      }
+    >({
+      query: ({ roomId, channelId, code, permission }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/approval-permission`,
+        method: "PATCH",
+        data: { permission },
+      }),
+    }),
+
     removeParticipant: builder.mutation<
       void,
       { roomId: string; channelId: string; code: string; identity: string }
@@ -168,6 +184,7 @@ export const {
   useLazyGetMemberStatusQuery,
   useToggleWaitingRoomStatusMutation,
   useToggleMeetingChatMutation,
+  useUpdateApprovalPermissionMutation,
   useRemoveParticipantMutation,
   useApproveParticipantMutation,
   useMuteParticipantMutation,

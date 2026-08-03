@@ -36,6 +36,7 @@ export default function ParticipantList({
     displayParticipants,
     waitingParticipants,
     isLocalAdmin,
+    canApprove,
     kickingUserId,
     renameState,
     setRenameState,
@@ -49,7 +50,7 @@ export default function ParticipantList({
   return (
     <div className="flex flex-col h-full">
       {/* ================= THANH ĐIỀU HƯỚNG TABS (CHỈ DÀNH CHO ADMIN) ================= */}
-      {isLocalAdmin && (
+      {canApprove && (
         <div className="flex p-1 bg-[#1a1a1a] rounded-lg mb-3 mx-1 border border-[#333]">
           <button
             onClick={() => setActiveListTab("joined")}
@@ -80,7 +81,7 @@ export default function ParticipantList({
 
       <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar pb-32 px-1">
         {/* ================= KHU VỰC PHÒNG CHỜ ================= */}
-        {isLocalAdmin && activeListTab === "waiting" && (
+        {canApprove && activeListTab === "waiting" && (
           <div className="animate-fade-in">
             {waitingParticipants.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 opacity-60">
@@ -167,10 +168,10 @@ export default function ParticipantList({
         )}
 
         {/* ================= KHU VỰC TRONG PHÒNG CHÍNH ================= */}
-        {(!isLocalAdmin || activeListTab === "joined") && (
+        {(!canApprove || activeListTab === "joined") && (
           <div className="animate-fade-in">
             {/* Header cho người dùng không phải Admin (Vì họ không thấy Tab) */}
-            {!isLocalAdmin && (
+            {!canApprove && (
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Đang tham gia

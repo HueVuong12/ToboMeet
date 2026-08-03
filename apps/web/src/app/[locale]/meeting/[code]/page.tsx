@@ -232,26 +232,43 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
     };
   }, [room]);
 
-  // Hiện thị giao diện sảnh chờ nếu trạng thái là "waiting"
+  // Hiện thị giao diện sảnh chờ mới nếu trạng thái là "waiting"
   if (participantStatus === "waiting") {
     return (
       <div className="min-h-screen bg-[#111] flex flex-col items-center justify-center p-4 transition-all duration-500 animate-fade-in">
-        <div className="w-24 h-24 mb-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center relative">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-amber-500/20 animate-ping"></span>
-          <Clock className="w-10 h-10 text-amber-500 relative z-10" />
+        {/* CSS Keyframes cho hiệu ứng dấu 3 chấm nhảy mượt mà */}
+        <style>{`
+          @keyframes bounce-dot {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+            40% { transform: translateY(-6px); opacity: 1; }
+          }
+          .animate-dot-1 { animation: bounce-dot 1.4s infinite ease-in-out both; animation-delay: -0.32s; }
+          .animate-dot-2 { animation: bounce-dot 1.4s infinite ease-in-out both; animation-delay: -0.16s; }
+          .animate-dot-3 { animation: bounce-dot 1.4s infinite ease-in-out both; }
+        `}</style>
+
+        {/* Khối chứa Text và Dấu chấm */}
+        <div className="flex items-end mb-3">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-wide">
+            Vui lòng chờ
+          </h1>
+          <div className="flex space-x-1.5 ml-3 mb-1.5 lg:mb-2 lg:ml-4">
+            <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-1"></span>
+            <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-2"></span>
+            <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-3"></span>
+          </div>
         </div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-3 tracking-wide">
-          Vui lòng chờ
-        </h1>
-        <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-8">
+
+        <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-8 mt-2">
           Chủ phòng đã nhận được yêu cầu tham gia của bạn. Bạn sẽ tự động được
           đưa vào cuộc họp ngay khi chủ phòng phê duyệt.
         </p>
+
         <button
           onClick={handleDisconnect}
           className="px-6 py-2.5 bg-[#222] hover:bg-[#333] text-gray-300 rounded-xl text-sm font-medium transition-colors border border-[#333] hover:text-white"
         >
-          Rời khỏi phòng chờ
+          Rời phòng
         </button>
       </div>
     );

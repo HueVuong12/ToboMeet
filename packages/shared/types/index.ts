@@ -167,7 +167,7 @@ export interface RoomMemberResponse {
 
 export interface ChannelMemberResponse {
   userId: string;
-  role: "owner" | "admin" | "member" | string;
+  role: "admin" | "member";
 }
 
 export interface MeetingJoinResponse {

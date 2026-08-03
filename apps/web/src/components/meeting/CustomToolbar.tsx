@@ -24,6 +24,8 @@ import {
   Loader2,
   ShieldAlert,
   ShieldCheck,
+  UserCog,
+  ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -62,6 +64,8 @@ export default function CustomToolbar({
   // State quản lý loading cho Cam/Mic
   const [isMicLoading, setIsMicLoading] = useState(false);
   const [isCamLoading, setIsCamLoading] = useState(false);
+  // State điều khiển hiển thị Submenu của quyền duyệt
+  const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
 
   const [isCopied, setIsCopied] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -96,8 +100,10 @@ export default function CustomToolbar({
     isHost,
     isChatEnabled,
     isWaitingRoomEnabled,
+    approvalPermission,
     handleToggleChat,
     handleToggleWaitingRoom,
+    handleUpdateApprovalPermission,
   } = useRoomSettings({
     roomId,
     channelId,
@@ -285,7 +291,7 @@ export default function CustomToolbar({
                 className="fixed inset-0 z-40"
                 onClick={() => setIsMoreMenuOpen(false)}
               ></div>
-              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-56 bg-[#222] border border-[#333] rounded shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-56 bg-[#222] border border-[#333] rounded shadow-2xl py-1.5 backdrop-blur-xl">
                 <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#333] mb-1">
                   Tùy chọn chung
                 </div>
@@ -378,6 +384,83 @@ export default function CustomToolbar({
                         />
                       </div>
                     </div>
+
+                    {/* --- Submenu: Chỉ định ai có thể duyệt --- */}
+                    {isWaitingRoomEnabled && (
+                      <div
+                        className="relative"
+                        onMouseEnter={() => setIsApprovalSubmenuOpen(true)}
+                        onMouseLeave={() => setIsApprovalSubmenuOpen(false)}
+                      >
+                        <div className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer">
+                          <div className="flex items-center gap-2.5">
+                            <UserCog size={16} className="text-slate-500" />
+                            <span>Ai có thể duyệt</span>
+                          </div>
+                          <ChevronRight size={16} className="text-slate-500" />
+                        </div>
+
+                        {isApprovalSubmenuOpen && (
+                          <div className="absolute left-full bottom-0 ml-1 w-48 bg-[#222] border border-[#333] rounded-lg shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateApprovalPermission("admin_only");
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                            >
+                              <Check
+                                size={14}
+                                className={
+                                  approvalPermission === "admin_only"
+                                    ? "opacity-100 text-emerald-400"
+                                    : "opacity-0"
+                                }
+                              />
+                              <span>Chỉ Quản trị viên</span>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateApprovalPermission(
+                                  "member_and_admin",
+                                );
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                            >
+                              <Check
+                                size={14}
+                                className={
+                                  approvalPermission === "member_and_admin"
+                                    ? "opacity-100 text-emerald-400"
+                                    : "opacity-0"
+                                }
+                              />
+                              <span>Thành viên</span>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateApprovalPermission("everyone");
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                            >
+                              <Check
+                                size={14}
+                                className={
+                                  approvalPermission === "everyone"
+                                    ? "opacity-100 text-emerald-400"
+                                    : "opacity-0"
+                                }
+                              />
+                              <span>Tất cả mọi người</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

@@ -1,5 +1,9 @@
 // src/meetings/meetings.service.ts
-import { Injectable, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
@@ -140,8 +144,31 @@ export class MeetingsService {
     // Chỉ dùng đúng userId làm định danh duy nhất
     const uniqueIdentity = userId;
 
-    const userInRoom = room.members.find((m) => m.userId === userId);
-    const userRole = userInRoom ? userInRoom.role : "guest";
+    // Phân quyền theo kênh
+    const currentChannel = room.channels.find(
+      (c) => c._id?.toString() === channelId.toString(),
+    );
+
+    const isRoomOwner = room.ownerId === userId;
+    const roomMember = room.members.find(
+      (m) => m.userId === userId && m.status === "active",
+    );
+    const isRoomLeader =
+      isRoomOwner || (roomMember && roomMember.role === "owner");
+    const channelMember = currentChannel?.members?.find(
+      (m) => m.userId === userId,
+    );
+
+    let userRole = "guest";
+
+    if (isRoomLeader) {
+      userRole = "owner"; // Chủ phòng có đặc quyền ở mọi kênh
+    } else if (channelMember) {
+      userRole = channelMember.role; // Lấy role riêng được set trong kênh (vd: admin)
+    } else if (currentChannel && !currentChannel.isPrivate && roomMember) {
+      userRole = roomMember.role; // Kênh public: Kế thừa role từ cấp phòng
+    }
+
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
     // Kiểm tra xem phòng chờ (Waiting Room) có đang bật hay không
@@ -167,9 +194,9 @@ export class MeetingsService {
     const at = new AccessToken(apiKey, apiSecret, {
       identity: uniqueIdentity,
       name: finalDisplayName,
-      ttl: "5m", // Token chỉ có hiệu lực 5 phút
+      ttl: "5m",
       metadata: JSON.stringify({
-        deviceId: deviceId, // xác định thiết bị nào đang trong cuộc họp
+        deviceId: deviceId,
         avatarUrl: avatarUrl,
         hasAdminPowers: hasAdminPowers,
         role: userRole,
@@ -184,10 +211,6 @@ export class MeetingsService {
       canSubscribe: !isWaiting, // Khóa stream (bị mù/điếc) nếu đang chờ
       canUpdateOwnMetadata: true, // Cho phép cập nhật metadata của chính mình (ví dụ: đổi tên hiển thị)
     });
-
-    const currentChannel = room.channels.find(
-      (c) => c._id.toString() === channelId.toString(),
-    );
 
     return {
       token: await at.toJwt(),
@@ -279,13 +302,87 @@ export class MeetingsService {
   /**
    * Duyệt người dùng từ phòng chờ vào phòng chính
    */
-  async approveParticipant(meetingCode: string, participantIdentity: string) {
+  async approveParticipant(
+    requesterId: string,
+    meetingCode: string,
+    participantIdentity: string,
+  ) {
     if (!this.livekitRoomService) {
       throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+    if (!meeting) {
+      throw new NotFoundException("Không tìm thấy cuộc họp");
+    }
+
+    const room = await this.roomModel.findById(meeting.roomId).exec();
+    if (!room) {
+      throw new NotFoundException("Không tìm thấy phòng");
+    }
+
+    const channel = room.channels.find(
+      (c) => c._id?.toString() === meeting.channelId.toString(),
+    );
+    if (!channel) {
+      throw new NotFoundException("Không tìm thấy kênh");
+    }
+
+    // Xác định role của requester (người đang gửi yêu cầu duyệt) để kiểm tra quyền
+    const isRoomOwner = room.ownerId === requesterId;
+    const roomMember = room.members.find((m) => m.userId === requesterId);
+    const channelMember = channel.members?.find(
+      (m) => m.userId === requesterId,
+    );
+
+    let requesterRole = "guest";
+    if (isRoomOwner) {
+      requesterRole = "owner";
+    } else if (channelMember) {
+      requesterRole = channelMember.role; // admin hoặc member của kênh private/public
+    } else if (!channel.isPrivate && roomMember) {
+      requesterRole = roomMember.role; // Kế thừa role cấp phòng nếu là kênh public
+    }
+
+    // Lấy thông tin quyền duyệt từ metadata của phòng LiveKit để kiểm tra xem requester có quyền duyệt hay không
+    let approvalPermission = "admin_only"; // Mặc định nếu chưa setup
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        const meta = JSON.parse(rooms[0].metadata);
+        if (meta.approvalPermission) {
+          approvalPermission = meta.approvalPermission;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi parse metadata phòng khi check quyền", e);
+    }
+
+    let hasPermission = false;
+
+    // Owner và Admin LUÔN CÓ QUYỀN
+    if (requesterRole === "owner" || requesterRole === "admin") {
+      hasPermission = true;
+    }
+    // Nếu phòng setup cho mọi người (everyone)
+    else if (approvalPermission === "everyone") {
+      hasPermission = true;
+    }
+    // Nếu phòng setup cho member_and_admin và người này là member
+    else if (
+      approvalPermission === "member_and_admin" &&
+      requesterRole === "member"
+    ) {
+      hasPermission = true;
+    }
+
+    if (!hasPermission) {
+      throw new AppException(ErrorCode.INVALID_PERMISSION);
+    }
+
     try {
       if (participantIdentity === "all") {
+        // Logic duyệt tất cả người dùng đang chờ
         const participants =
           await this.livekitRoomService.listParticipants(meetingCode);
 
@@ -346,6 +443,49 @@ export class MeetingsService {
       throw new BadRequestException("Không thể duyệt người dùng này");
     }
   }
+
+  /**
+   * Cập nhật cấu hình: Ai có quyền duyệt người từ phòng chờ
+   * @param permission "admin_only" | "member_and_admin" | "everyone"
+   */
+  async updateApprovalPermission(
+    meetingCode: string,
+    permission: "admin_only" | "member_and_admin" | "everyone",
+  ) {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      let currentMeta = {};
+
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        try {
+          currentMeta = JSON.parse(rooms[0].metadata);
+        } catch (e) {
+          console.error("Lỗi parse metadata phòng", e);
+        }
+      }
+
+      // Gộp thuộc tính quyền duyệt mới vào metadata cũ
+      const metadataString = JSON.stringify({
+        ...currentMeta,
+        approvalPermission: permission,
+      });
+
+      console.log("Cập nhật quyền duyệt thành:", metadataString);
+
+      await this.livekitRoomService.updateRoomMetadata(
+        meetingCode,
+        metadataString,
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật quyền duyệt:", error);
+      throw new BadRequestException("Không thể cập nhật cấu hình quyền duyệt");
+    }
+  }
+
   /**
    * Kiểm tra xem thiết bị hiện tại có đang nằm trong cuộc họp của kênh này không.
    */
@@ -421,7 +561,9 @@ export class MeetingsService {
       return { isMember: false, roomId: null };
     }
 
-    const userInRoom = room.members.find((m) => m.userId === userId);
+    const userInRoom = room.members.find(
+      (m) => m.userId === userId && m.status === "active",
+    );
     const isMember = !!userInRoom;
 
     return {
@@ -617,7 +759,18 @@ export class MeetingsService {
     }
 
     try {
-      const metadataString = JSON.stringify({ isChatEnabled });
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      let currentMeta = {};
+
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        try {
+          currentMeta = JSON.parse(rooms[0].metadata);
+        } catch (e) {
+          console.error("Lỗi parse metadata phòng", e);
+        }
+      }
+
+      const metadataString = JSON.stringify({ ...currentMeta, isChatEnabled });
 
       await this.livekitRoomService.updateRoomMetadata(
         meetingCode,

@@ -15,9 +15,9 @@ import {
 } from "@nestjs/common";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
-import { RoomRoleGuard } from "../core/guards/room-role.guard";
 import { Roles } from "../core/decorators/roles.decorator";
 import { JoinMeetingDto } from "./dtos/join-meeting.dto";
+import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -36,8 +36,8 @@ export class MeetingsController {
    */
   @Post("join")
   @Roles("owner", "admin", "member")
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
-  async joinMeeting(
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
+  async joinOrCreateMeeting(
     @Param("id") roomId: string,
     @Param("channelId") channelId: string,
     @Body() body: JoinMeetingDto,
@@ -77,12 +77,12 @@ export class MeetingsController {
 
   /**
    * PUT /api/rooms/:id/channels/:channelId/meetings/:code/chat-status
-   * Bật/tắt tính năng chat trong cuộc họp (Chỉ Chủ phòng hoặc Admin)
+   * Bật/tắt tính năng chat trong cuộc họp (Chỉ Chủ phòng hoặc Admin trong kênh)
    */
   @Put(":code/chat-status")
   @Roles("owner", "admin")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
   async toggleChat(
     @Param("code") meetingCode: string,
     @Body() body: { isChatEnabled: boolean },
@@ -97,7 +97,7 @@ export class MeetingsController {
   @Patch(":code/waiting-room-status")
   @Roles("owner", "admin")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
   async toggleWaitingRoom(
     @Param("code") meetingCode: string,
     @Body() body: { isWaitingRoomEnabled: boolean },
@@ -113,16 +113,37 @@ export class MeetingsController {
    * Phê duyệt người dùng từ phòng chờ vào cuộc họp chính
    */
   @Patch(":code/participants/:identity/approve")
-  @Roles("owner", "admin")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  @UseGuards(SupabaseGuard)
   async approveParticipant(
+    @Req() req: AuthenticatedRequest,
     @Param("code") meetingCode: string,
-    @Param("identity") participantIdentity: string,
+    @Param("identity") participantIdentity: string, // người đang chờ được phê duyệt
   ) {
+    const requesterId = req.user.id; // người duyệt
     await this.meetingsService.approveParticipant(
+      requesterId,
       meetingCode,
       participantIdentity,
+    );
+  }
+
+  /**
+   * PATCH /api/rooms/:id/channels/:channelId/meetings/:code/approval-permission
+   * Thay đổi thiết lập ai được phép duyệt vào phòng
+   */
+  @Patch(":code/approval-permission")
+  @Roles("owner", "admin")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
+  async updateApprovalPermission(
+    @Param("code") meetingCode: string,
+    @Body()
+    body: { permission: "admin_only" | "member_and_admin" | "everyone" },
+  ) {
+    await this.meetingsService.updateApprovalPermission(
+      meetingCode,
+      body.permission,
     );
   }
 
@@ -146,7 +167,7 @@ export class MeetingsController {
   @Delete(":code/participants/:identity")
   @Roles("owner", "admin")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
   async removeParticipant(
     @Param("code") meetingCode: string,
     @Param("identity") participantIdentity: string,
@@ -164,7 +185,7 @@ export class MeetingsController {
   @Put(":code/participants/:identity/mute")
   @Roles("owner", "admin")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
   async muteParticipant(
     @Param("code") meetingCode: string,
     @Param("identity") participantIdentity: string,

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   useToggleMeetingChatMutation,
   useToggleWaitingRoomStatusMutation,
+  useUpdateApprovalPermissionMutation,
 } from "@/lib/redux/api/meetingsApi";
 
 export function useRoomSettings({
@@ -20,9 +21,15 @@ export function useRoomSettings({
 
   const [toggleChatApi] = useToggleMeetingChatMutation();
   const [toggleWaitingRoomApi] = useToggleWaitingRoomStatusMutation(); // API bật/tắt phòng chờ
+  const [updateApprovalPermissionApi] = useUpdateApprovalPermissionMutation(); // Khởi tạo mutation
 
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
+
+  // State quản lý quyền duyệt
+  const [approvalPermission, setApprovalPermission] = useState<
+    "admin_only" | "member_and_admin" | "everyone"
+  >("admin_only");
 
   // Kiểm tra quyền Chủ phòng/Admin
   let isHost = false;
@@ -46,6 +53,9 @@ export function useRoomSettings({
       }
       if (typeof meta.isWaitingRoomEnabled === "boolean") {
         setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
+      }
+      if (typeof meta.approvalPermission === "string") {
+        setApprovalPermission(meta.approvalPermission); // Parse metadata quyền duyệt
       }
     } catch (e) {}
   }, [roomMetadata]);
@@ -92,12 +102,36 @@ export function useRoomSettings({
     }
   };
 
+  // Hàm xử lý đổi quyền duyệt
+  const handleUpdateApprovalPermission = async (
+    permission: "admin_only" | "member_and_admin" | "everyone",
+  ) => {
+    const oldState = approvalPermission;
+    setApprovalPermission(permission); // Optimistic UI
+
+    try {
+      await updateApprovalPermissionApi({
+        roomId,
+        channelId,
+        code: meetingCode,
+        permission: permission,
+      }).unwrap();
+    } catch (error: any) {
+      if (error?.code === 4032 || error?.status === 403) {
+        toast.error("Bạn không đủ quyền thực hiện chức năng này");
+      } else toast.error("Chưa thể thực hiện thao tác này");
+      setApprovalPermission(oldState); // Rollback
+    }
+  };
+
   return {
     isChatEnabled,
     canChat,
     isWaitingRoomEnabled,
+    approvalPermission,
     isHost,
     handleToggleChat,
     handleToggleWaitingRoom,
+    handleUpdateApprovalPermission,
   };
 }

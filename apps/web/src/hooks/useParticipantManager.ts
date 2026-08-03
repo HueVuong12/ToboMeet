@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   useParticipants,
   useLocalParticipant,
+  useRoomInfo,
 } from "@livekit/components-react";
 import { useHandRaise } from "@/hooks/useHandRaise";
 import {
@@ -23,6 +24,7 @@ export function useParticipantManager({
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
+  const { metadata: roomMetadata } = useRoomInfo();
 
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipantApi] = useMuteParticipantMutation();
@@ -35,14 +37,42 @@ export function useParticipantManager({
     newName: string;
   } | null>(null);
 
-  // Phân tích quyền (Admin/Owner)
-  let localRole = "member";
+  // Phân tích Role của bản thân
+  let localRole = "guest";
   try {
     if (localParticipant.metadata) {
-      localRole = JSON.parse(localParticipant.metadata).role || "member";
+      localRole = JSON.parse(localParticipant.metadata).role || "guest";
     }
   } catch (error) {}
   const isLocalAdmin = localRole === "owner" || localRole === "admin";
+
+  console.log("useParticipantManager: localRole", localRole, roomMetadata);
+
+  // Phân tích Quyền Duyệt từ Room Metadata
+  let approvalPermission = "admin_only";
+  let isWaitingRoomEnabled = false;
+  try {
+    if (roomMetadata) {
+      const roomMeta = JSON.parse(roomMetadata);
+      approvalPermission = roomMeta.approvalPermission || "admin_only";
+      isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
+    }
+  } catch (error) {}
+
+  // AI CÓ QUYỀN DUYỆT?
+  let canApprove = false;
+  if (isWaitingRoomEnabled) {
+    if (isLocalAdmin) {
+      canApprove = true; // Admin/Owner luôn có quyền
+    } else if (approvalPermission === "everyone") {
+      canApprove = true; // Mọi người đều có quyền
+    } else if (
+      approvalPermission === "member_and_admin" &&
+      localRole === "member"
+    ) {
+      canApprove = true; // Thành viên cũng có quyền
+    }
+  }
 
   // Lọc ra danh sách ĐANG CHỜ (waiting)
   const waitingParticipants = participants.filter((p) => {
@@ -182,6 +212,7 @@ export function useParticipantManager({
     displayParticipants, // Những người đã duyệt
     waitingParticipants, // Nhóm Đang chờ
     isLocalAdmin,
+    canApprove,
     kickingUserId,
     renameState,
     setRenameState,

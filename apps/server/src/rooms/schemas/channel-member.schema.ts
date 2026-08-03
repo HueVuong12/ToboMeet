@@ -5,7 +5,11 @@ export class ChannelMember {
   @Prop({ required: true })
   userId: string;
 
-  @Prop({ required: true, default: "member" })
+  @Prop({
+    required: true,
+    enum: ["admin", "member"], // Không lưu owner trong channel.members vì owner có quyền cao nhất, không cần lưu
+    default: "member",
+  })
   role: string;
 }
 
