@@ -12,8 +12,8 @@ import {
   Info,
 } from "lucide-react";
 import { ChatMessage } from "@tobomeet/shared/types";
-import { useChatStatus } from "@/hooks/useChatStatus";
 import { useChatManager } from "@/hooks/useChatManager";
+import { useRoomSettings } from "@/hooks/useRoomSettings";
 
 interface MeetingChatProps {
   messages: ChatMessage[];
@@ -30,7 +30,7 @@ export default function MeetingChat({
   roomId,
   channelId,
 }: MeetingChatProps) {
-  const { canChat } = useChatStatus({ roomId, channelId, meetingCode });
+  const { canChat } = useRoomSettings({ roomId, channelId, meetingCode });
   const {
     localParticipant,
     otherParticipants,

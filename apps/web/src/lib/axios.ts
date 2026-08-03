@@ -2,6 +2,7 @@ import { ApiResponse } from "@tobomeet/shared/types";
 import axios, { AxiosError } from "axios";
 import { createClient } from "@/lib/supabase/client";
 
+// Tuyệt đối không đụng file này nữa
 export const axiosInstance = axios.create({
   baseURL: "/api",
 });
@@ -47,8 +48,8 @@ axiosInstance.interceptors.response.use(
 
     // Nếu tài khoản bị khóa hoặc phiên bị thu hồi từ xa (401 / 403)
     if (
-      (error.response?.status === 401 ||
-        (error.response?.status === 403 && response?.code === 4031)) &&
+      error.response?.status === 403 &&
+      response?.code === 4031 &&
       !isLoggingOut
     ) {
       doClientLogout();

@@ -1,18 +1,7 @@
 // CustomVideoGrid.tsx
-import {
-  TrackReferenceOrPlaceholder,
-  useTracks,
-  useRoomContext,
-} from "@livekit/components-react";
-import { RemoteTrackPublication, RoomEvent, Track } from "livekit-client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import CustomTileWrapper from "./CustomTileWrapper";
 import { useSelectiveSubscription } from "@/hooks/useSelectiveSubscription";
-
-function makeKey(identity: string, source: Track.Source) {
-  return `${identity}|${source}`;
-}
 
 export default function CustomVideoGrid() {
   const { tracks, pages, currentPage, setCurrentPage, isMobile } =

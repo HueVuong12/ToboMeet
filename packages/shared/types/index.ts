@@ -234,3 +234,11 @@ export interface RoomMemberStatus {
   isMember: boolean;
   roomId?: string;
 }
+
+export interface ParticipantMetadata {
+  deviceId: string; // xác định thiết bị nào đang trong cuộc họp
+  avatarUrl: string;
+  hasAdminPowers: boolean;
+  role: "owner" | "admin" | "member" | "guest";
+  status: "joined" | "waiting";
+}

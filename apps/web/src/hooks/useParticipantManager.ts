@@ -8,6 +8,7 @@ import { useHandRaise } from "@/hooks/useHandRaise";
 import {
   useMuteParticipantMutation,
   useRemoveParticipantMutation,
+  useApproveParticipantMutation,
 } from "@/lib/redux/api/meetingsApi";
 
 export function useParticipantManager({
@@ -22,10 +23,11 @@ export function useParticipantManager({
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
+
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipantApi] = useMuteParticipantMutation();
+  const [approveParticipantApi] = useApproveParticipantMutation(); // Khởi tạo mutation
 
-  // State quản lý việc kick và đổi tên
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
   const [kickingUserId, setKickingUserId] = useState<string | null>(null);
   const [renameState, setRenameState] = useState<{
@@ -42,9 +44,30 @@ export function useParticipantManager({
   } catch (error) {}
   const isLocalAdmin = localRole === "owner" || localRole === "admin";
 
-  // Lọc và sắp xếp người tham gia (ưu tiên giơ tay)
+  // Lọc ra danh sách ĐANG CHỜ (waiting)
+  const waitingParticipants = participants.filter((p) => {
+    if (kickedUsers.includes(p.identity)) return false;
+    try {
+      if (p.metadata) {
+        const meta = JSON.parse(p.metadata);
+        return meta.status === "waiting";
+      }
+    } catch (e) {}
+    return false;
+  });
+
+  // Lọc ra danh sách ĐÃ VÀO PHÒNG (joined/owner)
   const displayParticipants = participants
-    .filter((p) => !kickedUsers.includes(p.identity))
+    .filter((p) => {
+      if (kickedUsers.includes(p.identity)) return false;
+      try {
+        if (p.metadata) {
+          const meta = JSON.parse(p.metadata);
+          return meta.status !== "waiting"; // Bỏ qua những người đang chờ
+        }
+      } catch (e) {}
+      return true;
+    })
     .sort((a, b) => {
       const stateA = getHandState(a);
       const stateB = getHandState(b);
@@ -57,7 +80,27 @@ export function useParticipantManager({
       return 0;
     });
 
-  // Xoá người dùng khỏi cuộc họp
+  // Hàm duyệt người dùng
+  const handleApprove = async (identity: string, name: string) => {
+    const isAll = identity === "all";
+
+    toast.promise(
+      approveParticipantApi({
+        roomId: roomId!,
+        channelId: channelId!,
+        code: meetingCode!,
+        identity,
+      }).unwrap(),
+      {
+        loading: isAll ? "Đang duyệt tất cả..." : `Đang duyệt ${name}...`,
+        success: isAll
+          ? "Đã duyệt tất cả vào phòng"
+          : `Đã duyệt ${name} vào phòng`,
+        error: isAll ? "Không thể duyệt tất cả" : "Không thể duyệt người này",
+      },
+    );
+  };
+
   const handleRemove = async (identity: string) => {
     const participant = participants.find((p) => p.identity === identity);
     if (!participant) return;
@@ -100,7 +143,6 @@ export function useParticipantManager({
     );
   };
 
-  // Tắt Mic/Cam của thành viên khác
   const handleMute = async (
     identity: string,
     name: string,
@@ -124,7 +166,6 @@ export function useParticipantManager({
     );
   };
 
-  // Hàm xử lý đổi tên
   const handleRenameSubmit = async () => {
     if (!renameState || !renameState.newName.trim()) return;
     try {
@@ -137,8 +178,9 @@ export function useParticipantManager({
   };
 
   return {
-    localParticipant, // Người dùng hiện tại (chính mình) trong cuộc họp
-    displayParticipants, // Danh sách thành viên đã lọc ra và sắp xếp
+    localParticipant,
+    displayParticipants, // Những người đã duyệt
+    waitingParticipants, // Nhóm Đang chờ
     isLocalAdmin,
     kickingUserId,
     renameState,
@@ -146,6 +188,7 @@ export function useParticipantManager({
     handleRemove,
     handleMute,
     handleRenameSubmit,
+    handleApprove,
     getHandState,
   };
 }

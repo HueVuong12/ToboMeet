@@ -1,12 +1,19 @@
 // src/app/[locale]/meeting/[code]/page.tsx
 "use client";
 
-import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
+import {
+  LiveKitRoom,
+  RoomAudioRenderer,
+  useRoomContext,
+} from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
-import { Loader2, LogOut, Smartphone } from "lucide-react";
+import { Clock, Loader2, LogOut, Smartphone } from "lucide-react";
 import { useMeetingSession } from "@/hooks/useMeetingSession";
 import MeetingLobby from "@/components/meeting/MeetingLobby";
+import { useEffect, useState } from "react";
+import { RoomEvent } from "livekit-client";
+import { toast } from "sonner";
 
 export default function MeetingPage() {
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
@@ -154,13 +161,109 @@ export default function MeetingPage() {
       onDisconnected={handleDisconnect}
     >
       <RoomAudioRenderer volume={1.0} />
-      <MeetingRoomContent
-        channelName={meetingData.channelName}
-        roomId={meetingData.roomId}
-        channelId={meetingData.channelId}
+      <RoomContentGuard
+        meetingData={meetingData}
         meetingCode={meetingCode}
+        handleDisconnect={handleDisconnect}
       />
     </LiveKitRoom>
+  );
+}
+
+function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
+  const room = useRoomContext();
+
+  // Lấy trạng thái NGAY LẬP TỨC từ JWT Token (Không chờ LiveKit connect)
+  const [participantStatus, setParticipantStatus] = useState(() => {
+    try {
+      const base64Url = meetingData.token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        window
+          .atob(base64)
+          .split("")
+          .map(function (c) {
+            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+          })
+          .join(""),
+      );
+      const payload = JSON.parse(jsonPayload);
+
+      if (payload.metadata) {
+        const meta = JSON.parse(payload.metadata);
+        return meta.status || "joined";
+      }
+    } catch (e) {
+      console.error("Lỗi parse JWT:", e);
+    }
+    return "joined";
+  });
+
+  // Lắng nghe sự kiện Metadata bị thay đổi (Khi Chủ phòng bấm Duyệt)
+  useEffect(() => {
+    const handleMetadataChanged = (
+      prevMetadata: string | undefined, // Đây là Metadata CŨ trước khi thay đổi
+      participant: any, // Object participant chứa Metadata MỚI
+    ) => {
+      // Chỉ update UI nếu người bị thay đổi metadata chính là User hiện tại
+      if (participant.identity === room.localParticipant?.identity) {
+        try {
+          if (participant.metadata) {
+            const meta = JSON.parse(participant.metadata);
+
+            if (meta.status && meta.status === "joined") {
+              toast.success("Chủ phòng đã phê duyệt bạn vào cuộc họp.");
+            }
+
+            if (meta.status) {
+              setParticipantStatus(meta.status);
+            }
+          }
+        } catch (e) {
+          console.error("Lỗi parse metadata:", e);
+        }
+      }
+    };
+
+    room.on(RoomEvent.ParticipantMetadataChanged, handleMetadataChanged);
+
+    return () => {
+      room.off(RoomEvent.ParticipantMetadataChanged, handleMetadataChanged);
+    };
+  }, [room]);
+
+  // Hiện thị giao diện sảnh chờ nếu trạng thái là "waiting"
+  if (participantStatus === "waiting") {
+    return (
+      <div className="min-h-screen bg-[#111] flex flex-col items-center justify-center p-4 transition-all duration-500 animate-fade-in">
+        <div className="w-24 h-24 mb-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center relative">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-amber-500/20 animate-ping"></span>
+          <Clock className="w-10 h-10 text-amber-500 relative z-10" />
+        </div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-3 tracking-wide">
+          Vui lòng chờ
+        </h1>
+        <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-8">
+          Chủ phòng đã nhận được yêu cầu tham gia của bạn. Bạn sẽ tự động được
+          đưa vào cuộc họp ngay khi chủ phòng phê duyệt.
+        </p>
+        <button
+          onClick={handleDisconnect}
+          className="px-6 py-2.5 bg-[#222] hover:bg-[#333] text-gray-300 rounded-xl text-sm font-medium transition-colors border border-[#333] hover:text-white"
+        >
+          Rời khỏi phòng chờ
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <MeetingRoomContent
+      channelName={meetingData.channelName}
+      roomId={meetingData.roomId}
+      channelId={meetingData.channelId}
+      meetingCode={meetingCode}
+    />
   );
 }
 

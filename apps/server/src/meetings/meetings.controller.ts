@@ -11,6 +11,7 @@ import {
   Delete,
   Get,
   Put,
+  Patch,
 } from "@nestjs/common";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -74,6 +75,10 @@ export class MeetingsController {
     );
   }
 
+  /**
+   * PUT /api/rooms/:id/channels/:channelId/meetings/:code/chat-status
+   * Bật/tắt tính năng chat trong cuộc họp (Chỉ Chủ phòng hoặc Admin)
+   */
   @Put(":code/chat-status")
   @Roles("owner", "admin")
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -83,6 +88,42 @@ export class MeetingsController {
     @Body() body: { isChatEnabled: boolean },
   ) {
     await this.meetingsService.toggleRoomChat(meetingCode, body.isChatEnabled);
+  }
+
+  /**
+   * PATCH /api/rooms/:id/channels/:channelId/meetings/:code/waiting-room-status
+   * Bật/tắt tính năng phòng chờ
+   */
+  @Patch(":code/waiting-room-status")
+  @Roles("owner", "admin")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async toggleWaitingRoom(
+    @Param("code") meetingCode: string,
+    @Body() body: { isWaitingRoomEnabled: boolean },
+  ) {
+    await this.meetingsService.toggleWaitingRoom(
+      meetingCode,
+      body.isWaitingRoomEnabled,
+    );
+  }
+
+  /**
+   * PATCH /api/rooms/:id/channels/:channelId/meetings/:code/participants/:identity/approve
+   * Phê duyệt người dùng từ phòng chờ vào cuộc họp chính
+   */
+  @Patch(":code/participants/:identity/approve")
+  @Roles("owner", "admin")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async approveParticipant(
+    @Param("code") meetingCode: string,
+    @Param("identity") participantIdentity: string,
+  ) {
+    await this.meetingsService.approveParticipant(
+      meetingCode,
+      participantIdentity,
+    );
   }
 
   /**

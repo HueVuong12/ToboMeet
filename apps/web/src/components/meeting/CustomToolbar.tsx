@@ -1,5 +1,5 @@
-import { useChatStatus } from "@/hooks/useChatStatus";
 import { useHandRaise } from "@/hooks/useHandRaise";
+import { useRoomSettings } from "@/hooks/useRoomSettings";
 import {
   useLocalParticipant,
   useRoomContext,
@@ -22,6 +22,8 @@ import {
   VideoIcon,
   VideoOff,
   Loader2,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -89,8 +91,14 @@ export default function CustomToolbar({
     }
   };
 
-  // Hook quản lý Chat
-  const { isHost, isChatEnabled, handleToggleChat } = useChatStatus({
+  // Lấy trạng thái Chat và Phòng chờ từ hook useRoomSettings
+  const {
+    isHost,
+    isChatEnabled,
+    isWaitingRoomEnabled,
+    handleToggleChat,
+    handleToggleWaitingRoom,
+  } = useRoomSettings({
     roomId,
     channelId,
     meetingCode,
@@ -300,27 +308,76 @@ export default function CustomToolbar({
                     <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#333] bg-[#333]">
                       Công cụ Quản trị
                     </div>
-                    <button
-                      onClick={() => {
+
+                    {/* --- Switch Bật/tắt Chat --- */}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation(); // Ngăn sự kiện click làm đóng menu
                         handleToggleChat();
-                        setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
-                        isChatEnabled
-                          ? "text-red-400 hover:bg-red-500/15"
-                          : "text-emerald-400 hover:bg-emerald-500/15"
-                      }`}
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
                     >
-                      {isChatEnabled ? (
-                        <>
-                          <Lock size={16} /> Khóa Chat
-                        </>
-                      ) : (
-                        <>
-                          <Unlock size={16} /> Mở Chat
-                        </>
-                      )}
-                    </button>
+                      <div className="flex items-center gap-2.5">
+                        <MessageSquare
+                          size={16}
+                          className={
+                            isChatEnabled
+                              ? "text-emerald-400"
+                              : "text-slate-500"
+                          }
+                        />
+                        <span>Cho phép Chat</span>
+                      </div>
+                      {/* UI Công tắc (Switch) cho Chat */}
+                      <div
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            isChatEnabled ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* --- Switch Bật/tắt Phòng chờ --- */}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation(); // Ngăn sự kiện click làm đóng menu
+                        handleToggleWaitingRoom();
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ShieldCheck
+                          size={16}
+                          className={
+                            isWaitingRoomEnabled
+                              ? "text-amber-400"
+                              : "text-slate-500"
+                          }
+                        />
+                        <span>Phòng chờ</span>
+                      </div>
+                      {/* UI Công tắc (Switch) cho Phòng chờ */}
+                      <div
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          isWaitingRoomEnabled
+                            ? "bg-emerald-500"
+                            : "bg-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            isWaitingRoomEnabled
+                              ? "translate-x-4"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </div>
+                    </div>
                   </>
                 )}
               </div>
