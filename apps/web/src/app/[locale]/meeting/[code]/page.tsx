@@ -8,12 +8,13 @@ import {
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
-import { Clock, Loader2, LogOut, Smartphone } from "lucide-react";
+import { Loader2, Smartphone } from "lucide-react";
 import { useMeetingSession } from "@/hooks/useMeetingSession";
 import MeetingLobby from "@/components/meeting/MeetingLobby";
 import { useEffect, useState } from "react";
 import { RoomEvent } from "livekit-client";
 import { toast } from "sonner";
+import { useParticipantManager } from "@/hooks/useParticipantManager";
 
 export default function MeetingPage() {
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
@@ -92,12 +93,6 @@ export default function MeetingPage() {
   if (isDisconnecting) {
     return (
       <div className="flex flex-col h-screen items-center justify-center bg-[#111] text-white space-y-6 transition-opacity duration-500">
-        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 mb-2">
-          <LogOut className="text-red-500 animate-pulse" size={32} />
-        </div>
-        <h2 className="text-2xl font-semibold tracking-tight text-gray-200">
-          Đang rời cuộc họp
-        </h2>
         <p className="text-gray-400 text-sm flex items-center gap-2">
           <Loader2 className="animate-spin text-gray-500" size={16} />
           Đang dọn dẹp...
@@ -173,7 +168,12 @@ export default function MeetingPage() {
 function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
   const room = useRoomContext();
 
-  // Lấy trạng thái NGAY LẬP TỨC từ JWT Token (Không chờ LiveKit connect)
+  const { displayParticipants } = useParticipantManager({
+    roomId: meetingData.roomId,
+    channelId: meetingData.channelId,
+    meetingCode: meetingCode,
+  });
+
   const [participantStatus, setParticipantStatus] = useState(() => {
     try {
       const base64Url = meetingData.token.split(".")[1];
@@ -199,13 +199,11 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
     return "joined";
   });
 
-  // Lắng nghe sự kiện Metadata bị thay đổi (Khi Chủ phòng bấm Duyệt)
   useEffect(() => {
     const handleMetadataChanged = (
-      prevMetadata: string | undefined, // Đây là Metadata CŨ trước khi thay đổi
-      participant: any, // Object participant chứa Metadata MỚI
+      prevMetadata: string | undefined,
+      participant: any,
     ) => {
-      // Chỉ update UI nếu người bị thay đổi metadata chính là User hiện tại
       if (participant.identity === room.localParticipant?.identity) {
         try {
           if (participant.metadata) {
@@ -232,11 +230,9 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
     };
   }, [room]);
 
-  // Hiện thị giao diện sảnh chờ mới nếu trạng thái là "waiting"
   if (participantStatus === "waiting") {
     return (
       <div className="min-h-screen bg-[#111] flex flex-col items-center justify-center p-4 transition-all duration-500 animate-fade-in">
-        {/* CSS Keyframes cho hiệu ứng dấu 3 chấm nhảy mượt mà */}
         <style>{`
           @keyframes bounce-dot {
             0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -247,7 +243,6 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
           .animate-dot-3 { animation: bounce-dot 1.4s infinite ease-in-out both; }
         `}</style>
 
-        {/* Khối chứa Text và Dấu chấm */}
         <div className="flex items-end mb-3">
           <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-wide">
             Vui lòng chờ
@@ -259,16 +254,74 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
           </div>
         </div>
 
-        <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-8 mt-2">
+        <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-4 mt-2">
           Chủ phòng đã nhận được yêu cầu tham gia của bạn. Bạn sẽ tự động được
-          đưa vào cuộc họp ngay khi chủ phòng phê duyệt.
+          đưa vào cuộc họp ngay khi được phê duyệt.
         </p>
+
+        {/* HIỂN THỊ TỐI ĐA 5 NGƯỜI */}
+        {displayParticipants.length > 0 ? (
+          <div className="w-full max-w-lg mb-8 bg-[#1a1a1a] rounded-2xl p-5 border border-[#333] shadow-xl">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5 text-center">
+              Đang trong cuộc họp
+            </h3>
+
+            <div className="flex flex-wrap justify-center gap-4">
+              {displayParticipants.slice(0, 5).map((p) => {
+                let avatarUrl = "";
+                try {
+                  if (p.metadata) {
+                    const meta = JSON.parse(p.metadata);
+                    avatarUrl = meta.avatarUrl;
+                  }
+                } catch (e) {}
+
+                return (
+                  <div
+                    key={p.identity}
+                    className="flex flex-col items-center gap-2 w-16 group"
+                  >
+                    <div className="relative">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={p.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-[#333] group-hover:border-brand-500 transition-colors"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 border-2 border-[#333] group-hover:border-brand-500 transition-colors uppercase">
+                          {p.name?.charAt(0) || "?"}
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1a1a1a] rounded-full"></div>
+                    </div>
+                    <span className="text-[10px] text-slate-300 text-center truncate w-full px-1">
+                      {p.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DÒNG CHỮ HIỂN THỊ SỐ NGƯỜI CÒN LẠI */}
+            {displayParticipants.length > 5 && (
+              <div className="mt-5 text-center text-xs font-medium text-slate-400">
+                ...và {displayParticipants.length - 5} người đang ở trong cuộc
+                họp
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 text-center mb-4">
+            Không có ai trong cuộc họp
+          </p>
+        )}
 
         <button
           onClick={handleDisconnect}
           className="px-6 py-2.5 bg-[#222] hover:bg-[#333] text-gray-300 rounded-xl text-sm font-medium transition-colors border border-[#333] hover:text-white"
         >
-          Rời phòng
+          Rời phòng chờ
         </button>
       </div>
     );
