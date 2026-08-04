@@ -1,12 +1,18 @@
+// hooks/useParticipantManager.ts
 import { useState } from "react";
 import { Alert } from "react-native";
-import { useLocalParticipant, useParticipants } from "@livekit/react-native";
+import {
+  useLocalParticipant,
+  useParticipants,
+  useRoomInfo,
+} from "@livekit/react-native";
 import { Participant } from "livekit-client";
 import { useHandRaise } from "./useHandRaise";
 import { toast } from "../lib/toast";
 import {
   useRemoveParticipantMutation,
-  useMuteParticipantMutation, // Nhớ import hàm mutation vừa tạo ở Bước 1
+  useMuteParticipantMutation,
+  useApproveParticipantMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
 
 export function useParticipantManager({
@@ -21,9 +27,11 @@ export function useParticipantManager({
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
+  const { metadata: roomMetadata } = useRoomInfo();
 
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipant] = useMuteParticipantMutation();
+  const [approveParticipantApi] = useApproveParticipantMutation();
 
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
   const [kickingUserId, setKickingUserId] = useState<string | null>(null);
@@ -32,23 +40,77 @@ export function useParticipantManager({
     newName: string;
   } | null>(null);
 
-  // Kiểm tra quyền (Admin/Owner)
-  let localRole = "member";
+  // Phân tích Role của bản thân (Tương tự Web)
+  let localRole = "guest";
   try {
     if (localParticipant.metadata) {
-      localRole = JSON.parse(localParticipant.metadata).role || "member";
+      localRole = JSON.parse(localParticipant.metadata).role || "guest";
     }
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error("Lỗi phân tích Role của bản thân:", error);
   }
   const isLocalAdmin = localRole === "owner" || localRole === "admin";
 
-  // Lọc và sắp xếp người giơ tay
+  // Phân tích Quyền Duyệt từ Room Metadata
+  let approvalPermission = "admin_only";
+  let isWaitingRoomEnabled = false;
+  try {
+    if (roomMetadata) {
+      const roomMeta = JSON.parse(roomMetadata);
+      approvalPermission = roomMeta.approvalPermission || "admin_only";
+      isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
+    }
+  } catch (error) {
+    console.error("Lỗi phân tích Room Metadata:", error);
+  }
+
+  // AI CÓ QUYỀN DUYỆT?
+  let canApprove = false;
+  if (isWaitingRoomEnabled) {
+    if (isLocalAdmin) {
+      canApprove = true;
+    } else if (approvalPermission === "everyone") {
+      canApprove = true;
+    } else if (
+      approvalPermission === "member_and_admin" &&
+      localRole === "member"
+    ) {
+      canApprove = true;
+    }
+  }
+
+  // Lọc ra danh sách ĐANG CHỜ (waiting)
+  const waitingParticipants = participants.filter((p) => {
+    if (kickedUsers.includes(p.identity)) return false;
+    try {
+      if (p.metadata) {
+        const meta = JSON.parse(p.metadata);
+        return meta.status === "waiting";
+      }
+    } catch (e) {
+      console.error("Lỗi phân tích metadata của người tham gia:", e);
+    }
+    return false;
+  });
+
+  // Lọc ra danh sách ĐÃ VÀO PHÒNG (joined/owner)
   const displayParticipants = participants
-    .filter((p) => !kickedUsers.includes(p.identity))
+    .filter((p) => {
+      if (kickedUsers.includes(p.identity)) return false;
+      try {
+        if (p.metadata) {
+          const meta = JSON.parse(p.metadata);
+          return meta.status !== "waiting";
+        }
+      } catch (e) {
+        console.error("Lỗi phân tích metadata của người tham gia:", e);
+      }
+      return true;
+    })
     .sort((a, b) => {
       const stateA = getHandState(a);
       const stateB = getHandState(b);
+
       if (stateA.isRaised && stateB.isRaised) {
         return parseInt(stateA.raisedAt) - parseInt(stateB.raisedAt);
       }
@@ -56,6 +118,26 @@ export function useParticipantManager({
       if (stateB.isRaised) return 1;
       return 0;
     });
+
+  // Hàm duyệt người dùng (Dùng toast của React Native)
+  const handleApprove = async (identity: string, name: string) => {
+    const isAll = identity === "all";
+
+    try {
+      toast.success(isAll ? "Đang duyệt tất cả..." : `Đang duyệt ${name}...`);
+      await approveParticipantApi({
+        roomId,
+        channelId,
+        code: meetingCode,
+        identity,
+      }).unwrap();
+    } catch (error) {
+      console.error("Lỗi duyệt người dùng:", error);
+      toast.error(
+        isAll ? "Không thể duyệt tất cả" : "Không thể duyệt người này",
+      );
+    }
+  };
 
   // Xử lý Đuổi
   const handleRemove = (participant: Participant) => {
@@ -129,6 +211,8 @@ export function useParticipantManager({
   return {
     localParticipant,
     displayParticipants,
+    waitingParticipants,
+    canApprove,
     isLocalAdmin,
     kickingUserId,
     renameState,
@@ -136,6 +220,7 @@ export function useParticipantManager({
     handleRemove,
     handleRenameSubmit,
     handleMute,
+    handleApprove,
     getHandState,
   };
 }

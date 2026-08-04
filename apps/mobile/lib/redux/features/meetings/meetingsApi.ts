@@ -87,6 +87,55 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Bật/tắt chế độ phòng chờ
+    toggleWaitingRoomStatus: builder.mutation<
+      void,
+      {
+        roomId: string;
+        channelId: string;
+        meetingCode: string;
+        isWaitingRoomEnabled: boolean;
+      }
+    >({
+      query: ({ roomId, channelId, meetingCode, isWaitingRoomEnabled }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${meetingCode}/waiting-room-status`,
+        method: "PATCH",
+        data: { isWaitingRoomEnabled },
+      }),
+    }),
+
+    // Duyệt người dùng từ phòng chờ vào cuộc họp chính
+    approveParticipant: builder.mutation<
+      void,
+      {
+        roomId: string;
+        channelId: string;
+        code: string;
+        identity: string | "all"; // Hỗ trợ duyệt tất cả người chờ bằng cách truyền 'all'
+      }
+    >({
+      query: ({ roomId, channelId, code, identity }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}/approve`,
+        method: "PATCH",
+      }),
+    }),
+
+    updateApprovalPermission: builder.mutation<
+      void,
+      {
+        roomId: string;
+        channelId: string;
+        code: string;
+        permission: "admin_only" | "member_and_admin" | "everyone";
+      }
+    >({
+      query: ({ roomId, channelId, code, permission }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/approval-permission`,
+        method: "PATCH",
+        data: { permission },
+      }),
+    }),
+
     removeParticipant: builder.mutation<
       void,
       { roomId: string; channelId: string; code: string; identity: string }
@@ -135,6 +184,9 @@ export const {
   useGetActiveMeetingQuery,
   useGetDeviceStatusQuery,
   useToggleMeetingChatMutation,
+  useToggleWaitingRoomStatusMutation,
+  useApproveParticipantMutation,
+  useUpdateApprovalPermissionMutation,
   useRemoveParticipantMutation,
   useMuteParticipantMutation,
   useGeneratePresignedUploadUrlMutation,

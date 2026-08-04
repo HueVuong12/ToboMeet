@@ -12,8 +12,8 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { toast } from "../../lib/toast";
 import { useHandRaise } from "../../hooks/useHandRaise";
-import { useChatStatus } from "../../hooks/useChatStatus";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRoomSettings } from "../../hooks/useRoomSettings";
 
 export default function MobileToolbar({
   initialFacingMode,
@@ -36,7 +36,15 @@ export default function MobileToolbar({
     useLocalParticipant();
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
-  const { isHost, isChatEnabled, handleToggleChat } = useChatStatus({
+  const {
+    isHost,
+    isChatEnabled,
+    isWaitingRoomEnabled,
+    approvalPermission,
+    handleToggleChat,
+    handleToggleWaitingRoom,
+    handleUpdateApprovalPermission,
+  } = useRoomSettings({
     roomId,
     channelId,
     meetingCode,
@@ -47,6 +55,7 @@ export default function MobileToolbar({
   );
 
   const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false); // Quản lý mở/đóng submenu quyền duyệt
 
   const toggleMic = () =>
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
@@ -79,6 +88,30 @@ export default function MobileToolbar({
     alignItems: "center" as const,
     backgroundColor: "transparent",
   });
+
+  // UI Component: Nút Switch tùy chỉnh để giống với giao diện Web
+  const CustomSwitch = ({ value }: { value: boolean }) => (
+    <View
+      style={{
+        width: 44,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: value ? "#10b981" : "#4b5563",
+        justifyContent: "center",
+        paddingHorizontal: 2,
+      }}
+    >
+      <View
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          backgroundColor: "#fff",
+          alignSelf: value ? "flex-end" : "flex-start",
+        }}
+      />
+    </View>
+  );
 
   return (
     <>
@@ -268,9 +301,10 @@ export default function MobileToolbar({
           }}
           onPress={() => setShowAdminMenu(false)}
         >
-          <View
+          <TouchableOpacity
+            activeOpacity={1}
             style={{
-              backgroundColor: "#222", // Đổi màu nền menu sang xám đậm
+              backgroundColor: "#222",
               padding: 20,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
@@ -297,42 +331,230 @@ export default function MobileToolbar({
                 textTransform: "uppercase",
               }}
             >
-              Công cụ Quản trị
+              Bảo mật phòng họp
             </Text>
 
+            {/* --- Switch Bật/Tắt Chat --- */}
             <TouchableOpacity
-              onPress={() => {
-                handleToggleChat();
-                setShowAdminMenu(false);
-              }}
+              onPress={handleToggleChat}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
+                justifyContent: "space-between",
                 paddingVertical: 14,
                 paddingHorizontal: 12,
-                backgroundColor: "#111", // Nền nút đen tuyền
+                backgroundColor: "#111",
                 borderRadius: 8,
                 borderWidth: 1,
                 borderColor: "#333",
+                marginBottom: 8,
               }}
             >
-              <Feather
-                name={isChatEnabled ? "lock" : "unlock"}
-                size={20}
-                color={isChatEnabled ? "#ef4444" : "#10b981"}
-              />
-              <Text
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Feather
+                  name="message-square"
+                  size={20}
+                  color={isChatEnabled ? "#10b981" : "#6b7280"}
+                />
+                <Text
+                  style={{
+                    color: "#d1d5db",
+                    marginLeft: 12,
+                    fontSize: 14,
+                    fontWeight: "500",
+                  }}
+                >
+                  Cho phép Chat
+                </Text>
+              </View>
+              <CustomSwitch value={isChatEnabled} />
+            </TouchableOpacity>
+
+            {/* --- Switch Bật/Tắt Phòng chờ --- */}
+            <TouchableOpacity
+              onPress={handleToggleWaitingRoom}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 12,
+                backgroundColor: "#111",
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#333",
+                marginBottom: 8,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Feather
+                  name="shield"
+                  size={20}
+                  color={isWaitingRoomEnabled ? "#f59e0b" : "#6b7280"}
+                />
+                <Text
+                  style={{
+                    color: "#d1d5db",
+                    marginLeft: 12,
+                    fontSize: 14,
+                    fontWeight: "500",
+                  }}
+                >
+                  Phòng chờ
+                </Text>
+              </View>
+              <CustomSwitch value={isWaitingRoomEnabled} />
+            </TouchableOpacity>
+
+            {/* --- Submenu: Chỉ định ai có thể duyệt --- */}
+            {isWaitingRoomEnabled && (
+              <View
                 style={{
-                  color: isChatEnabled ? "#ef4444" : "#10b981",
-                  marginLeft: 12,
-                  fontSize: 14,
-                  fontWeight: "600",
+                  backgroundColor: "#111",
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: "#333",
+                  overflow: "hidden",
                 }}
               >
-                {isChatEnabled ? "Khóa Chat với mọi người" : "Mở Chat"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  onPress={() =>
+                    setIsApprovalSubmenuOpen(!isApprovalSubmenuOpen)
+                  }
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingVertical: 14,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Feather name="user-check" size={20} color="#6b7280" />
+                    <Text
+                      style={{
+                        color: "#d1d5db",
+                        marginLeft: 12,
+                        fontSize: 14,
+                        fontWeight: "500",
+                      }}
+                    >
+                      Ai có thể duyệt
+                    </Text>
+                  </View>
+                  <Feather
+                    name={
+                      isApprovalSubmenuOpen ? "chevron-down" : "chevron-right"
+                    }
+                    size={20}
+                    color="#6b7280"
+                  />
+                </TouchableOpacity>
+
+                {/* Danh sách xổ xuống */}
+                {isApprovalSubmenuOpen && (
+                  <View
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: "#333",
+                      backgroundColor: "#1a1a1a",
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleUpdateApprovalPermission("admin_only")
+                      }
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                      }}
+                    >
+                      <Feather
+                        name="check"
+                        size={16}
+                        color={
+                          approvalPermission === "admin_only"
+                            ? "#10b981"
+                            : "transparent"
+                        }
+                      />
+                      <Text
+                        style={{
+                          color: "#d1d5db",
+                          marginLeft: 12,
+                          fontSize: 13,
+                        }}
+                      >
+                        Chỉ Quản trị viên
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleUpdateApprovalPermission("member_and_admin")
+                      }
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                      }}
+                    >
+                      <Feather
+                        name="check"
+                        size={16}
+                        color={
+                          approvalPermission === "member_and_admin"
+                            ? "#10b981"
+                            : "transparent"
+                        }
+                      />
+                      <Text
+                        style={{
+                          color: "#d1d5db",
+                          marginLeft: 12,
+                          fontSize: 13,
+                        }}
+                      >
+                        Thành viên
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleUpdateApprovalPermission("everyone")}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                      }}
+                    >
+                      <Feather
+                        name="check"
+                        size={16}
+                        color={
+                          approvalPermission === "everyone"
+                            ? "#10b981"
+                            : "transparent"
+                        }
+                      />
+                      <Text
+                        style={{
+                          color: "#d1d5db",
+                          marginLeft: 12,
+                          fontSize: 13,
+                        }}
+                      >
+                        Tất cả mọi người
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </>

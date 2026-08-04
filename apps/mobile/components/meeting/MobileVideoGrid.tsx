@@ -1,11 +1,4 @@
-// MobileVideoGrid.tsx
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -13,169 +6,15 @@ import {
   FlatList,
   Dimensions,
 } from "react-native";
-
-import {
-  useTracks,
-  useRoomContext,
-  TrackReference,
-} from "@livekit/components-react";
-import { RemoteTrackPublication, RoomEvent, Track } from "livekit-client";
+import { TrackReference } from "@livekit/components-react";
 import ParticipantTile from "./ParticipantTile";
+import { useSelectiveSubscription } from "../../hooks/useSelectiveSubscription";
 
 const { width: windowWidth } = Dimensions.get("window");
 
-function chunkArray<T>(array: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
-  }
-  return result;
-}
-
-function makeKey(identity: string, source: Track.Source) {
-  return `${identity}|${source}`;
-}
-
 export default function MobileVideoGrid() {
-  const [currentPage, setCurrentPage] = useState(0);
-  const room = useRoomContext();
-
-  // Chỉ lưu desired keys hiện tại (dùng để so sánh nhanh)
-  const lastDesiredRef = useRef<Set<string>>(new Set());
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const tracks = useTracks(
-    [
-      { source: Track.Source.Camera, withPlaceholder: true },
-      { source: Track.Source.ScreenShare, withPlaceholder: false },
-    ],
-    { onlySubscribed: false },
-  );
-
-  // Xây dựng pages
-  const pages = useMemo(() => {
-    const screenShareTracks = tracks.filter(
-      (t) => t.source === Track.Source.ScreenShare,
-    );
-    const cameraTracks = tracks.filter((t) => t.source === Track.Source.Camera);
-
-    cameraTracks.sort((a, b) => {
-      if (a.participant.isLocal && !b.participant.isLocal) return -1;
-      if (!a.participant.isLocal && b.participant.isLocal) return 1;
-      return a.participant.identity.localeCompare(b.participant.identity);
-    });
-
-    const cameraPages = chunkArray(cameraTracks, 4);
-    const newPages: { type: "screenshare" | "camera"; items: any[] }[] = [];
-
-    screenShareTracks.forEach((trackRef) =>
-      newPages.push({ type: "screenshare", items: [trackRef] }),
-    );
-    cameraPages.forEach((chunk) =>
-      newPages.push({ type: "camera", items: chunk }),
-    );
-
-    return newPages;
-  }, [tracks]);
-
-  // Áp dụng subscription – chỉ khi intent thực sự khác
-  const applySubscriptions = useCallback(
-    (desiredKeys: Set<string>) => {
-      // So sánh Set nhanh: nếu giống hệt thì bỏ qua
-      if (
-        desiredKeys.size === lastDesiredRef.current.size &&
-        [...desiredKeys].every((k) => lastDesiredRef.current.has(k))
-      ) {
-        return;
-      }
-
-      lastDesiredRef.current = desiredKeys;
-
-      room.remoteParticipants.forEach((participant) => {
-        [Track.Source.Camera, Track.Source.ScreenShare].forEach((source) => {
-          const pub = participant.getTrackPublication(source) as
-            | RemoteTrackPublication
-            | undefined;
-
-          if (!pub || typeof pub.setSubscribed !== "function") return;
-
-          const key = makeKey(participant.identity, source);
-          const shouldSubscribe = desiredKeys.has(key);
-
-          // QUAN TRỌNG: dùng isDesired (intent), KHÔNG dùng isSubscribed
-          if (pub.isDesired !== shouldSubscribe) {
-            pub.setSubscribed(shouldSubscribe);
-            console.log(
-              `[Reconciliation] ${shouldSubscribe ? "🟢 SUB" : "🔴 UNSUB"} → ${key}`,
-            );
-          }
-        });
-      });
-    },
-    [room],
-  );
-
-  // Debounced apply
-  const scheduleApply = useCallback(
-    (desiredKeys: Set<string>) => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      // Chỉ apply sau khi người dùng dừng vuốt 220ms
-      debounceTimerRef.current = setTimeout(() => {
-        applySubscriptions(desiredKeys);
-      }, 220);
-    },
-    [applySubscriptions],
-  );
-
-  // Effect chính – chạy khi currentPage hoặc pages đổi
-  useEffect(() => {
-    if (!pages.length) return;
-
-    const activeItems = pages[currentPage]?.items ?? [];
-    const desired = new Set<string>(
-      activeItems.map((t: any) => makeKey(t.participant.identity, t.source)),
-    );
-
-    scheduleApply(desired);
-
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [currentPage, pages, scheduleApply]);
-
-  // Listener nhẹ – chỉ bắt track mới thuộc trang đang xem
-  useEffect(() => {
-    const onTrackPublished = (
-      publication: RemoteTrackPublication,
-      participant: any,
-    ) => {
-      if (
-        publication.source !== Track.Source.Camera &&
-        publication.source !== Track.Source.ScreenShare
-      ) {
-        return;
-      }
-
-      const key = makeKey(participant.identity, publication.source);
-
-      // Chỉ subscribe nếu track này thuộc desired hiện tại
-      if (lastDesiredRef.current.has(key) && !publication.isDesired) {
-        publication.setSubscribed(true);
-        console.log(`[TrackPublished] 🟢 SUB immediate → ${key}`);
-      }
-    };
-
-    room.on(RoomEvent.TrackPublished, onTrackPublished);
-
-    return () => {
-      room.off(RoomEvent.TrackPublished, onTrackPublished);
-    };
-  }, [room]);
+  const { tracks, pages, currentPage, setCurrentPage } =
+    useSelectiveSubscription();
 
   const renderPage = useCallback(({ item }: { item: any }) => {
     const isScreenShare = item.type === "screenshare";
@@ -183,39 +22,25 @@ export default function MobileVideoGrid() {
 
     return (
       <View
-        style={{
-          width: windowWidth,
-          flex: 1,
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignContent: "center",
-          justifyContent: "center",
-        }}
+        style={{ width: windowWidth }} // Giữ lại inline style cho windowWidth để FlatList chia trang chính xác
+        className="flex-1 flex-row flex-wrap content-center justify-center"
       >
         {item.items.map((trackRef: TrackReference) => {
-          let itemStyle: any = {
-            borderWidth: 1,
-            borderColor: "#000",
-            backgroundColor: "#111",
-          };
+          // Tính toán class NativeWind thay cho style object
+          let itemClass = "border border-black bg-[#111]";
 
           if (isScreenShare || tracksCount === 1) {
-            itemStyle = {
-              ...itemStyle,
-              width: "100%",
-              height: "100%",
-              borderWidth: 0,
-            };
+            itemClass = "w-full h-full border-0 bg-[#111]";
           } else if (tracksCount === 2) {
-            itemStyle = { ...itemStyle, width: "100%", height: "50%" };
+            itemClass += " w-full h-1/2";
           } else {
-            itemStyle = { ...itemStyle, width: "50%", height: "50%" };
+            itemClass += " w-1/2 h-1/2";
           }
 
           return (
             <View
               key={`${trackRef.participant.identity}_${trackRef.source}`}
-              style={itemStyle}
+              className={itemClass}
             >
               <ParticipantTile trackRef={trackRef} />
             </View>
@@ -227,16 +52,9 @@ export default function MobileVideoGrid() {
 
   if (tracks.length === 0) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#000",
-        }}
-      >
+      <View className="flex-1 justify-center items-center bg-black">
         <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={{ color: "#9ca3af", marginTop: 12 }}>
+        <Text className="text-gray-400 mt-3">
           Đang đợi người khác tham gia...
         </Text>
       </View>
@@ -244,7 +62,7 @@ export default function MobileVideoGrid() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#000" }}>
+    <View className="flex-1 bg-black">
       <FlatList
         data={pages}
         horizontal
@@ -264,31 +82,15 @@ export default function MobileVideoGrid() {
         removeClippedSubviews={true}
       />
 
+      {/* Chấm tròn phân trang (Pagination Dots) */}
       {pages.length > 1 && (
-        <View
-          style={{
-            position: "absolute",
-            bottom: 20,
-            flexDirection: "row",
-            justifyContent: "center",
-            alignItems: "center",
-            alignSelf: "center",
-            backgroundColor: "rgba(0,0,0,0.4)",
-            paddingVertical: 6,
-            paddingHorizontal: 8,
-            borderRadius: 16,
-          }}
-        >
+        <View className="absolute bottom-5 flex-row justify-center items-center self-center bg-black/40 py-1.5 px-2 rounded-2xl">
           {pages.map((_, index) => (
             <View
               key={index}
-              style={{
-                width: currentPage === index ? 16 : 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: currentPage === index ? "#3b82f6" : "#666",
-                marginHorizontal: 3,
-              }}
+              className={`h-1.5 rounded-full mx-1 ${
+                currentPage === index ? "w-4 bg-blue-500" : "w-1.5 bg-[#666]"
+              }`}
             />
           ))}
         </View>

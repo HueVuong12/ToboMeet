@@ -15,8 +15,8 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useChatStatus } from "../../hooks/useChatStatus";
 import { useChatManager } from "../../hooks/useChatManager";
+import { useRoomSettings } from "../../hooks/useRoomSettings";
 
 export default function MobileChatModal({
   visible,
@@ -34,7 +34,7 @@ export default function MobileChatModal({
   const insets = useSafeAreaInsets();
 
   // Hook Quyền Chat
-  const { canChat } = useChatStatus({ roomId, channelId, meetingCode });
+  const { canChat } = useRoomSettings({ roomId, channelId, meetingCode });
 
   // Hook Logic Chat (Nhắn tin riêng, Reply, React, Files...)
   const {

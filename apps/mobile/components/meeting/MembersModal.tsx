@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Image,
@@ -14,7 +14,6 @@ import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-// COMPONENT: DANH SÁCH THÀNH VIÊN (BOTTOM SHEET)
 export default function MembersModal({
   visible,
   onClose,
@@ -31,9 +30,16 @@ export default function MembersModal({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [openActionId, setOpenActionId] = useState<string | null>(null);
+
+  const [activeListTab, setActiveListTab] = useState<"joined" | "waiting">(
+    "joined",
+  );
+
   const {
     localParticipant,
     displayParticipants,
+    waitingParticipants,
+    canApprove,
     isLocalAdmin,
     kickingUserId,
     renameState,
@@ -41,8 +47,15 @@ export default function MembersModal({
     handleRemove,
     handleRenameSubmit,
     handleMute,
+    handleApprove,
     getHandState,
   } = useParticipantManager({ roomId, channelId, meetingCode });
+
+  useEffect(() => {
+    if (!canApprove && activeListTab === "waiting") {
+      setActiveListTab("joined");
+    }
+  }, [canApprove, activeListTab]);
 
   return (
     <Modal
@@ -52,432 +65,369 @@ export default function MembersModal({
       onRequestClose={onClose}
     >
       <View
+        className="flex-1 justify-end bg-black/50"
         style={{
-          flex: 1,
-          justifyContent: "flex-end",
-          backgroundColor: "rgba(0,0,0,0.5)",
-          paddingTop: Math.max(insets.top, 20), // Đẩy xuống khỏi tai thỏ/camera đục lỗ
-          paddingBottom: Math.max(insets.bottom, 20), // Đẩy lên khỏi phím điều hướng
+          paddingTop: Math.max(insets.top, 20),
+          paddingBottom: Math.max(insets.bottom, 20),
         }}
       >
         <TouchableOpacity
           activeOpacity={1}
           onPress={onClose}
-          style={{ flex: 1 }}
+          className="flex-1"
         />
 
         {/* Khung Modal Thành Viên */}
-        <View
-          style={{
-            backgroundColor: "#111",
-            height: "75%",
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            padding: 20,
-            borderTopWidth: 1,
-            borderColor: "#333",
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 15,
-              paddingBottom: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "#222",
-            }}
-          >
-            <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
+        <View className="bg-[#111] h-[75%] rounded-t-3xl p-5 border-t border-[#333]">
+          <View className="flex-row justify-between items-center mb-4 pb-4 border-b border-[#222]">
+            <Text className="text-white text-lg font-bold">
               {t("meeting_modal.title", { defaultValue: "Thành viên" })}
             </Text>
-            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+            <TouchableOpacity onPress={onClose} className="p-1">
               <Feather name="x" size={20} color="#94a3b8" />
             </TouchableOpacity>
           </View>
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 5,
-            }}
-          >
-            <Text
-              style={{
-                color: "#9ca3af",
-                fontSize: 12,
-                fontWeight: "bold",
-                textTransform: "uppercase",
-              }}
-            >
-              {t("meeting_modal.joining", { defaultValue: "Đang tham gia" })}
-            </Text>
-            <View
-              style={{
-                backgroundColor: "#222",
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: "#333",
-              }}
-            >
-              <Text
-                style={{ color: "#d1d5db", fontSize: 12, fontWeight: "bold" }}
+          {/* ================= THANH ĐIỀU HƯỚNG TABS ================= */}
+          {canApprove && (
+            <View className="flex-row bg-[#1a1a1a] rounded-xl p-1 mb-4 border border-[#333]">
+              <TouchableOpacity
+                onPress={() => setActiveListTab("joined")}
+                className={`flex-1 py-2.5 rounded-lg items-center ${
+                  activeListTab === "joined" ? "bg-[#333]" : "bg-transparent"
+                }`}
               >
-                {t("meeting_modal.people_count", {
-                  count: displayParticipants.length,
-                  defaultValue: `${displayParticipants.length} người`,
-                })}
-              </Text>
+                <Text
+                  className={`text-[13px] font-semibold ${
+                    activeListTab === "joined" ? "text-white" : "text-gray-400"
+                  }`}
+                >
+                  Đã tham gia ({displayParticipants.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setActiveListTab("waiting")}
+                className={`flex-1 py-2.5 rounded-lg items-center ${
+                  activeListTab === "waiting" ? "bg-[#333]" : "bg-transparent"
+                }`}
+              >
+                <Text
+                  className={`text-[13px] font-semibold ${
+                    activeListTab === "waiting" ? "text-white" : "text-gray-400"
+                  }`}
+                >
+                  Chờ duyệt{" "}
+                  {waitingParticipants.length > 0
+                    ? `(${waitingParticipants.length})`
+                    : ""}
+                </Text>
+              </TouchableOpacity>
             </View>
+          )}
+
+          {/* ================= HEADER SỐ LƯỢNG NGƯỜI ================= */}
+          <View className="flex-row justify-between items-center mb-2.5">
+            <Text className="text-gray-400 text-xs font-bold uppercase">
+              {activeListTab === "waiting"
+                ? "Đang chờ vào phòng"
+                : "Đang tham gia"}
+            </Text>
+
+            {activeListTab === "waiting" && waitingParticipants.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => handleApprove("all", "Tất cả")}
+                className="bg-amber-500/15 px-3 py-1.5 rounded-lg"
+              >
+                <Text className="text-amber-500 text-xs font-bold">
+                  Duyệt tất cả
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View className="bg-[#222] px-2.5 py-1 rounded-xl border border-[#333]">
+                <Text className="text-gray-300 text-xs font-bold">
+                  {activeListTab === "waiting"
+                    ? waitingParticipants.length
+                    : displayParticipants.length}{" "}
+                  người
+                </Text>
+              </View>
+            )}
           </View>
 
-          <FlatList
-            data={displayParticipants}
-            keyExtractor={(p) => p.identity}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item: p }) => {
-              const isMe = p.identity === localParticipant.identity;
-              const isMuted = !p.isMicrophoneEnabled;
-              const showMenuButton = isMe || isLocalAdmin; // Chỉ hiện 3 chấm nếu là mình hoặc là Admin
-              const { isRaised } = getHandState(p);
-
-              let avatarUrl = "";
-              let role = "member";
-              try {
-                if (p.metadata) {
-                  const meta = JSON.parse(p.metadata);
-                  avatarUrl = meta.avatarUrl;
-                  role = meta.role || "member";
-                }
-              } catch (e) {
-                console.error("Lỗi parse metadata:", e);
+          {/* ================= KHU VỰC PHÒNG CHỜ VÀ PHÒNG CHÍNH ================= */}
+          {activeListTab === "waiting" && waitingParticipants.length === 0 ? (
+            <View className="flex-1 justify-center items-center opacity-60">
+              <Feather
+                name="clock"
+                size={40}
+                color="#64748b"
+                className="mb-3"
+              />
+              <Text className="text-gray-400 text-sm">
+                Không có ai ở phòng chờ
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={
+                activeListTab === "waiting"
+                  ? waitingParticipants
+                  : displayParticipants
               }
+              keyExtractor={(p) => p.identity}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item: p }) => {
+                const isMe = p.identity === localParticipant.identity;
+                const isMuted = !p.isMicrophoneEnabled;
+                const showMenuButton = isMe || isLocalAdmin;
+                const { isRaised } = getHandState(p);
 
-              return (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingVertical: 12,
-                    gap: 12,
-                  }}
-                >
-                  {/* Avatar */}
-                  <View style={{ position: "relative" }}>
-                    {avatarUrl ? (
-                      <Image
-                        source={{ uri: avatarUrl }}
-                        style={{ width: 40, height: 40, borderRadius: 20 }}
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 20,
-                          backgroundColor: "#222",
-                          borderWidth: 1,
-                          borderColor: "#333",
-                          justifyContent: "center",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: "#60a5fa",
-                            fontWeight: "bold",
-                            fontSize: 16,
-                          }}
-                        >
-                          {p.name?.charAt(0).toUpperCase() || "?"}
-                        </Text>
-                      </View>
-                    )}
-                    <View
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        right: 0,
-                        width: 12,
-                        height: 12,
-                        backgroundColor: "#22c55e",
-                        borderRadius: 6,
-                        borderWidth: 2,
-                        borderColor: "#1e293b",
-                      }}
-                    />
-                  </View>
+                let avatarUrl = "";
+                let role = "member";
+                try {
+                  if (p.metadata) {
+                    const meta = JSON.parse(p.metadata);
+                    avatarUrl = meta.avatarUrl;
+                    role = meta.role || "member";
+                  }
+                } catch (e) {
+                  console.error("Lỗi parse metadata:", e);
+                }
 
-                  {/* Info */}
-                  <View style={{ flex: 1, justifyContent: "center" }}>
-                    <Text
-                      style={{
-                        color: "#e2e8f0",
-                        fontSize: 15,
-                        fontWeight: "600",
-                      }}
-                      numberOfLines={1}
-                    >
-                      {p.name}
-                      {isMe && (
-                        <Text style={{ color: "#64748b", fontWeight: "400" }}>
-                          {" "}
-                          (Bạn)
-                        </Text>
+                return (
+                  <View className="flex-row items-center py-3 gap-3">
+                    {/* Avatar */}
+                    <View className="relative">
+                      {avatarUrl ? (
+                        <Image
+                          source={{ uri: avatarUrl }}
+                          className="w-10 h-10 rounded-full"
+                        />
+                      ) : (
+                        <View className="w-10 h-10 rounded-full bg-[#222] border border-[#333] justify-center items-center">
+                          <Text className="text-blue-400 font-bold text-base">
+                            {p.name?.charAt(0).toUpperCase() || "?"}
+                          </Text>
+                        </View>
                       )}
-                    </Text>
-                    {role !== "member" && (
-                      <Text
-                        style={{
-                          color: role === "owner" ? "#fbbf24" : "#60a5fa",
-                          fontSize: 10,
-                          fontWeight: "bold",
-                          textTransform: "uppercase",
-                          marginTop: 2,
-                        }}
-                      >
-                        {role === "owner" ? "Chủ phòng" : "Quản trị viên"}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Actions */}
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {/* HIỆN ICON BÀN TAY NẾU ĐANG GIƠ TAY */}
-                    {isRaised && (
-                      <Ionicons name="hand-left" size={14} color="#fbbf24" />
-                    )}
-
-                    <View
-                      style={{
-                        padding: 6,
-                        borderRadius: 8,
-                        backgroundColor: isMuted
-                          ? "rgba(239, 68, 68, 0.1)"
-                          : "transparent",
-                      }}
-                    >
-                      <Feather
-                        name={isMuted ? "mic-off" : "mic"}
-                        size={14}
-                        color={isMuted ? "#ef4444" : "#94a3b8"}
-                      />
+                      {activeListTab === "joined" && (
+                        <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800" />
+                      )}
                     </View>
 
-                    {/* Nút 3 chấm / Loading Spinner */}
-                    {kickingUserId === p.identity ? (
-                      <ActivityIndicator
-                        size="small"
-                        color="#ef4444"
-                        style={{ padding: 4 }}
-                      />
-                    ) : (
-                      showMenuButton && (
+                    {/* Info */}
+                    <View className="flex-1 justify-center">
+                      <Text
+                        className="text-slate-200 text-[15px] font-semibold"
+                        numberOfLines={1}
+                      >
+                        {p.name}
+                        {isMe && (
+                          <Text className="text-slate-500 font-normal">
+                            {" "}
+                            (Bạn)
+                          </Text>
+                        )}
+                      </Text>
+                      {activeListTab === "joined" ? (
+                        role !== "member" && (
+                          <Text
+                            className={`text-[10px] font-bold uppercase mt-0.5 ${
+                              role === "owner"
+                                ? "text-amber-400"
+                                : "text-blue-400"
+                            }`}
+                          >
+                            {role === "owner" ? "Chủ phòng" : "Quản trị viên"}
+                          </Text>
+                        )
+                      ) : (
+                        <Text className="text-amber-500 text-[11px] mt-0.5">
+                          Đang yêu cầu tham gia...
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Actions */}
+                    {activeListTab === "waiting" ? (
+                      <View className="flex-row gap-2.5">
                         <TouchableOpacity
-                          onPress={() =>
-                            setOpenActionId(
-                              openActionId === p.identity ? null : p.identity,
-                            )
-                          }
-                          style={{ padding: 8 }}
+                          onPress={() => handleRemove(p)}
+                          className="p-2 bg-red-500/15 rounded-lg"
                         >
                           <Feather
-                            name="more-vertical"
+                            name="user-minus"
                             size={16}
-                            color="#94a3b8"
+                            color="#ef4444"
                           />
                         </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-
-                  {/* Dropdown Menu */}
-                  {openActionId === p.identity && (
-                    <View
-                      style={{
-                        position: "absolute",
-                        right: 30,
-                        top: 40,
-                        backgroundColor: "#222",
-                        borderRadius: 12,
-                        padding: 4,
-                        borderWidth: 1,
-                        borderColor: "#333",
-                        zIndex: 999,
-                      }}
-                    >
-                      {/* Nút Đổi Tên */}
-                      {isMe && (
                         <TouchableOpacity
-                          onPress={() => {
-                            setRenameState({
-                              isOpen: true,
-                              newName: p.name || "",
-                            });
-                            setOpenActionId(null);
-                          }}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            paddingVertical: 12,
-                            paddingHorizontal: 16,
-                            gap: 10,
-                          }}
+                          onPress={() =>
+                            handleApprove(p.identity, p.name || "Người dùng")
+                          }
+                          className="p-2 bg-amber-500/15 rounded-lg"
                         >
-                          <Feather name="edit-2" size={16} color="white" />
-                          <Text style={{ color: "white", fontSize: 14 }}>
-                            Đổi tên
-                          </Text>
+                          <Feather name="check" size={16} color="#f59e0b" />
                         </TouchableOpacity>
-                      )}
+                      </View>
+                    ) : (
+                      <View className="flex-row items-center gap-2">
+                        {isRaised && (
+                          <Ionicons
+                            name="hand-left"
+                            size={14}
+                            color="#fbbf24"
+                          />
+                        )}
 
-                      {/* Các Nút Admin */}
-                      {isLocalAdmin && !isMe && (
-                        <>
-                          {/* Nút Tắt Mic */}
-                          {p.isMicrophoneEnabled && (
-                            <TouchableOpacity
-                              onPress={() => {
-                                handleMute(
-                                  p.identity,
-                                  p.name || "Thành viên",
-                                  "audio",
-                                );
-                                setOpenActionId(null);
-                              }}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                paddingVertical: 12,
-                                paddingHorizontal: 16,
-                                gap: 10,
-                              }}
-                            >
-                              <Feather name="mic-off" size={16} color="white" />
-                              <Text style={{ color: "white", fontSize: 14 }}>
-                                Tắt Mic
-                              </Text>
-                            </TouchableOpacity>
-                          )}
+                        <View
+                          className={`p-1.5 rounded-lg ${isMuted ? "bg-red-500/10" : "bg-transparent"}`}
+                        >
+                          <Feather
+                            name={isMuted ? "mic-off" : "mic"}
+                            size={14}
+                            color={isMuted ? "#ef4444" : "#94a3b8"}
+                          />
+                        </View>
 
-                          {/* Nút Tắt Cam */}
-                          {p.isCameraEnabled && (
+                        {kickingUserId === p.identity ? (
+                          <ActivityIndicator
+                            size="small"
+                            color="#ef4444"
+                            className="p-1"
+                          />
+                        ) : (
+                          showMenuButton && (
                             <TouchableOpacity
-                              onPress={() => {
-                                handleMute(
-                                  p.identity,
-                                  p.name || "Thành viên",
-                                  "video",
-                                );
-                                setOpenActionId(null);
-                              }}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                paddingVertical: 12,
-                                paddingHorizontal: 16,
-                                gap: 10,
-                              }}
+                              onPress={() =>
+                                setOpenActionId(
+                                  openActionId === p.identity
+                                    ? null
+                                    : p.identity,
+                                )
+                              }
+                              className="p-2"
                             >
                               <Feather
-                                name="video-off"
+                                name="more-vertical"
                                 size={16}
-                                color="white"
+                                color="#94a3b8"
                               />
-                              <Text style={{ color: "white", fontSize: 14 }}>
-                                Tắt Camera
+                            </TouchableOpacity>
+                          )
+                        )}
+                      </View>
+                    )}
+
+                    {/* Dropdown Menu (Chỉ hiện khi ở tab Joined) */}
+                    {activeListTab === "joined" &&
+                      openActionId === p.identity && (
+                        <View className="absolute right-8 top-10 bg-[#222] rounded-xl p-1 border border-[#333] z-50">
+                          {isMe && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setRenameState({
+                                  isOpen: true,
+                                  newName: p.name || "",
+                                });
+                                setOpenActionId(null);
+                              }}
+                              className="flex-row items-center py-3 px-4 gap-2.5"
+                            >
+                              <Feather name="edit-2" size={16} color="white" />
+                              <Text className="text-white text-sm">
+                                Đổi tên
                               </Text>
                             </TouchableOpacity>
                           )}
 
-                          {/* Phân cách UI */}
-                          {(p.isMicrophoneEnabled || p.isCameraEnabled) && (
-                            <View
-                              style={{
-                                height: 1,
-                                backgroundColor: "rgba(255,255,255,0.1)",
-                                marginHorizontal: 8,
-                              }}
-                            />
-                          )}
+                          {isLocalAdmin && !isMe && (
+                            <>
+                              {p.isMicrophoneEnabled && (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    handleMute(
+                                      p.identity,
+                                      p.name || "Thành viên",
+                                      "audio",
+                                    );
+                                    setOpenActionId(null);
+                                  }}
+                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                >
+                                  <Feather
+                                    name="mic-off"
+                                    size={16}
+                                    color="white"
+                                  />
+                                  <Text className="text-white text-sm">
+                                    Tắt Mic
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
 
-                          {/* Nút Đuổi */}
-                          <TouchableOpacity
-                            onPress={() => {
-                              handleRemove(p);
-                              setOpenActionId(null);
-                            }}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              paddingVertical: 12,
-                              paddingHorizontal: 16,
-                              gap: 10,
-                            }}
-                          >
-                            <Feather
-                              name="user-minus"
-                              size={16}
-                              color="#ef4444"
-                            />
-                            <Text style={{ color: "#ef4444", fontSize: 14 }}>
-                              Đuổi khỏi phòng
-                            </Text>
-                          </TouchableOpacity>
-                        </>
+                              {p.isCameraEnabled && (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    handleMute(
+                                      p.identity,
+                                      p.name || "Thành viên",
+                                      "video",
+                                    );
+                                    setOpenActionId(null);
+                                  }}
+                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                >
+                                  <Feather
+                                    name="video-off"
+                                    size={16}
+                                    color="white"
+                                  />
+                                  <Text className="text-white text-sm">
+                                    Tắt Camera
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+
+                              {(p.isMicrophoneEnabled || p.isCameraEnabled) && (
+                                <View className="h-[1px] bg-white/10 mx-2" />
+                              )}
+
+                              <TouchableOpacity
+                                onPress={() => {
+                                  handleRemove(p);
+                                  setOpenActionId(null);
+                                }}
+                                className="flex-row items-center py-3 px-4 gap-2.5"
+                              >
+                                <Feather
+                                  name="user-minus"
+                                  size={16}
+                                  color="#ef4444"
+                                />
+                                <Text className="text-red-500 text-sm">
+                                  Đuổi khỏi phòng
+                                </Text>
+                              </TouchableOpacity>
+                            </>
+                          )}
+                        </View>
                       )}
-                    </View>
-                  )}
-                </View>
-              );
-            }}
-          />
+                  </View>
+                );
+              }}
+            />
+          )}
         </View>
       </View>
 
-      {/* ==========================================
-          MODAL ĐỔI TÊN NỔI LÊN TRÊN CÙNG
-      ========================================== */}
+      {/* Modal đổi tên */}
       {renameState?.isOpen && (
         <Modal visible transparent animationType="fade">
-          <View
-            style={{
-              flex: 1,
-              justifyContent: "center",
-              alignItems: "center",
-              backgroundColor: "rgba(0,0,0,0.6)",
-              padding: 20,
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: "#111",
-                width: "100%",
-                borderRadius: 24,
-                padding: 24,
-                borderWidth: 1,
-                borderColor: "#333",
-              }}
-            >
-              <Text
-                style={{
-                  color: "white",
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  marginBottom: 16,
-                }}
-              >
+          <View className="flex-1 justify-center items-center bg-black/60 p-5">
+            <View className="bg-[#111] w-full rounded-3xl p-6 border border-[#333]">
+              <Text className="text-white text-lg font-bold mb-4">
                 Đổi tên hiển thị
               </Text>
 
@@ -488,53 +438,25 @@ export default function MembersModal({
                 }
                 placeholder="Nhập tên mới..."
                 placeholderTextColor="#6b7280"
-                style={{
-                  backgroundColor: "#222",
-                  color: "#d1d5db",
-                  padding: 16,
-                  borderRadius: 12,
-                  fontSize: 16,
-                  marginBottom: 24,
-                  borderWidth: 1,
-                  borderColor: "#333",
-                }}
+                className="bg-[#222] text-gray-300 p-4 rounded-xl text-base mb-6 border border-[#333]"
                 autoFocus
               />
 
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 12,
-                }}
-              >
+              <View className="flex-row justify-end gap-3">
                 <TouchableOpacity
                   onPress={() => setRenameState(null)}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 20,
-                    borderRadius: 12,
-                  }}
+                  className="py-3 px-5 rounded-xl"
                 >
-                  <Text style={{ color: "#94a3b8", fontWeight: "bold" }}>
-                    Hủy
-                  </Text>
+                  <Text className="text-slate-400 font-bold">Hủy</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRenameSubmit}
                   disabled={!renameState.newName.trim()}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 20,
-                    borderRadius: 12,
-                    backgroundColor: renameState.newName.trim()
-                      ? "#3b82f6"
-                      : "#1e40af",
-                  }}
+                  className={`py-3 px-5 rounded-xl ${
+                    renameState.newName.trim() ? "bg-blue-500" : "bg-blue-900"
+                  }`}
                 >
-                  <Text style={{ color: "white", fontWeight: "bold" }}>
-                    Lưu thay đổi
-                  </Text>
+                  <Text className="text-white font-bold">Lưu thay đổi</Text>
                 </TouchableOpacity>
               </View>
             </View>
