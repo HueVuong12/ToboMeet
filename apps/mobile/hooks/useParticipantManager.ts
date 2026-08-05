@@ -14,6 +14,11 @@ import {
   useMuteParticipantMutation,
   useApproveParticipantMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
+import {
+  useTransferRoomOwnershipMutation,
+  useUpdateChannelMemberRoleMutation,
+} from "../lib/redux/features/rooms/roomsApi";
+import { useTranslation } from "react-i18next";
 
 export function useParticipantManager({
   roomId,
@@ -24,6 +29,7 @@ export function useParticipantManager({
   channelId: string;
   meetingCode: string;
 }) {
+  const { t } = useTranslation("room");
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
@@ -32,6 +38,8 @@ export function useParticipantManager({
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipant] = useMuteParticipantMutation();
   const [approveParticipantApi] = useApproveParticipantMutation();
+  const [updateRoleApi] = useUpdateChannelMemberRoleMutation();
+  const [transferOwnership] = useTransferRoomOwnershipMutation();
 
   const [kickedUsers, setKickedUsers] = useState<string[]>([]);
   const [kickingUserId, setKickingUserId] = useState<string | null>(null);
@@ -49,25 +57,34 @@ export function useParticipantManager({
   } catch (error) {
     console.error("Lỗi phân tích Role của bản thân:", error);
   }
-  const isLocalAdmin = localRole === "owner" || localRole === "admin";
+  const canManageParticipants = localRole === "owner" || localRole === "admin";
+  const isLocalAdmin = localRole === "admin";
+  const isLocalOwner = localRole === "owner";
 
   // Phân tích Quyền Duyệt từ Room Metadata
   let approvalPermission = "admin_only";
   let isWaitingRoomEnabled = false;
+  let roomType: "meeting" | "classroom" = "meeting";
   try {
     if (roomMetadata) {
       const roomMeta = JSON.parse(roomMetadata);
       approvalPermission = roomMeta.approvalPermission || "admin_only";
       isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
+      roomType = roomMeta.roomType || "meeting";
     }
   } catch (error) {
     console.error("Lỗi phân tích Room Metadata:", error);
   }
 
+  const roleName =
+    roomType === "classroom"
+      ? t("role_teacher", { defaultValue: "Giáo viên" })
+      : t("role_leader", { defaultValue: "Trưởng nhóm" });
+
   // AI CÓ QUYỀN DUYỆT?
   let canApprove = false;
   if (isWaitingRoomEnabled) {
-    if (isLocalAdmin) {
+    if (canManageParticipants) {
       canApprove = true;
     } else if (approvalPermission === "everyone") {
       canApprove = true;
@@ -174,6 +191,120 @@ export function useParticipantManager({
     );
   };
 
+  const handleUpdateRole = async (
+    targetUserId: string,
+    role: "admin" | "member",
+  ) => {
+    if (!channelId || !roomId) return;
+
+    try {
+      await updateRoleApi({
+        roomId: roomId,
+        channelId: channelId,
+        targetUserId: targetUserId,
+        role,
+      }).unwrap();
+
+      if (role === "admin") {
+        toast.success(
+          roomType === "classroom"
+            ? t("toast_appoint_assistant_success", {
+                defaultValue: "Bổ nhiệm Ban cán sự thành công",
+              })
+            : t("toast_appoint_vice_leader_success", {
+                defaultValue: "Bổ nhiệm Phó nhóm thành công",
+              }),
+        );
+      } else {
+        toast.success(
+          roomType === "classroom"
+            ? t("toast_revoke_assistant_success", {
+                defaultValue: "Đã thu hồi Ban cán sự",
+              })
+            : t("toast_revoke_vice_leader_success", {
+                defaultValue: "Đã thu hồi Phó nhóm",
+              }),
+        );
+      }
+    } catch (err: any) {
+      if (role === "admin") {
+        const subTitle =
+          roomType === "classroom"
+            ? t("role_assistant")
+            : t("role_vice_leader");
+        toast.error(
+          err?.data?.message ||
+            t("toast_max_vice_leaders_reached", {
+              role: subTitle,
+              defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
+            }),
+        );
+      } else {
+        toast.error(err?.data?.message || "Không thể thu hồi quyền");
+      }
+    }
+  };
+
+  const handleTransferOwnership = (
+    targetUserId: string,
+    targetUserName: string,
+  ) => {
+    if (!channelId || !roomId) return;
+
+    Alert.alert(
+      t("transfer_modal_title", {
+        defaultValue: "Xác nhận chuyển quyền",
+      }),
+      t("transfer_modal_body", {
+        role: roleName,
+        name: targetUserName,
+        defaultValue: `Bạn có chắc chắn muốn chuyển quyền ${roleName} cho ${targetUserName}?`,
+      }),
+      [
+        {
+          text: t("cancel", { defaultValue: "Hủy" }),
+          style: "cancel",
+        },
+        {
+          text: t("confirm", { defaultValue: "Xác nhận" }),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await transferOwnership({
+                roomId,
+                newOwnerId: targetUserId,
+              }).unwrap();
+
+              toast.success(
+                t("toast_transfer_success", {
+                  actor: "",
+                  role:
+                    roomType === "classroom"
+                      ? t("role_teacher")
+                      : t("role_leader"),
+                  target: targetUserName,
+                  defaultValue: "Chuyển quyền thành công!",
+                }),
+              );
+            } catch (err: any) {
+              console.error("[TransferOwnership] Transfer error:", err);
+
+              const msg =
+                err?.data?.message ||
+                err?.message ||
+                "Không thể chuyển quyền. Vui lòng thử lại.";
+
+              toast.error(msg);
+            }
+          },
+        },
+      ],
+      {
+        cancelable: true,
+      },
+    );
+  };
+
   // Xử lý Đổi tên
   const handleRenameSubmit = async () => {
     if (!renameState || !renameState.newName.trim()) return;
@@ -213,13 +344,17 @@ export function useParticipantManager({
     displayParticipants,
     waitingParticipants,
     canApprove,
+    canManageParticipants,
     isLocalAdmin,
+    isLocalOwner,
     kickingUserId,
     renameState,
     setRenameState,
     handleRemove,
     handleRenameSubmit,
     handleMute,
+    handleUpdateRole,
+    handleTransferOwnership,
     handleApprove,
     getHandState,
   };

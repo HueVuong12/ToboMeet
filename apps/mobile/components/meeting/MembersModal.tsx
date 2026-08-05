@@ -43,13 +43,16 @@ export default function MembersModal({
     displayParticipants,
     waitingParticipants,
     canApprove,
-    isLocalAdmin,
+    isLocalOwner,
+    canManageParticipants,
     kickingUserId,
     renameState,
     setRenameState,
     handleRemove,
     handleRenameSubmit,
     handleMute,
+    handleTransferOwnership,
+    handleUpdateRole,
     handleApprove,
     getHandState,
   } = useParticipantManager({ roomId, channelId, meetingCode });
@@ -183,7 +186,7 @@ export default function MembersModal({
               renderItem={({ item: p }) => {
                 const isMe = p.identity === localParticipant.identity;
                 const isMuted = !p.isMicrophoneEnabled;
-                const showMenuButton = isMe || isLocalAdmin;
+                const showMenuButton = isMe || canManageParticipants;
                 const { isRaised } = getHandState(p);
 
                 let avatarUrl = "";
@@ -351,7 +354,79 @@ export default function MembersModal({
                             </TouchableOpacity>
                           )}
 
-                          {isLocalAdmin && !isMe && (
+                          {/* MENU DÀNH CHO OWNER (ĐỔI QUYỀN / CHUYỂN QUYỀN) */}
+                          {isLocalOwner && !isMe && role !== "guest" && (
+                            <>
+                              {role === "admin" ? (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    handleUpdateRole(p.identity, "member");
+                                    setOpenActionId(null);
+                                  }}
+                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                >
+                                  <Feather
+                                    name="user-check"
+                                    size={16}
+                                    color="white"
+                                  />
+                                  <Text className="text-white text-sm">
+                                    Thu hồi{" "}
+                                    {roomType === "classroom"
+                                      ? "Ban cán sự"
+                                      : "Phó phòng"}
+                                  </Text>
+                                </TouchableOpacity>
+                              ) : (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    handleUpdateRole(p.identity, "admin");
+                                    setOpenActionId(null);
+                                  }}
+                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                >
+                                  <Feather
+                                    name="user-check"
+                                    size={16}
+                                    color="white"
+                                  />
+                                  <Text className="text-white text-sm">
+                                    Bổ nhiệm{" "}
+                                    {roomType === "classroom"
+                                      ? "Ban cán sự"
+                                      : "Phó phòng"}
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+
+                              <TouchableOpacity
+                                onPress={() => {
+                                  handleTransferOwnership(
+                                    p.identity,
+                                    p.name || "Thành viên",
+                                  );
+                                  setOpenActionId(null);
+                                }}
+                                className="flex-row items-center py-3 px-4 gap-2.5 border-t border-[#444]"
+                              >
+                                <Feather
+                                  name="shield"
+                                  size={16}
+                                  color="white"
+                                />
+                                <Text className="text-white text-sm">
+                                  Chuyển quyền{" "}
+                                  {roomType === "classroom"
+                                    ? "Giáo viên"
+                                    : "Chủ phòng"}
+                                </Text>
+                              </TouchableOpacity>
+
+                              <View className="h-[1px] bg-white/10 mx-2" />
+                            </>
+                          )}
+
+                          {canManageParticipants && !isMe && (
                             <>
                               {p.isMicrophoneEnabled && (
                                 <TouchableOpacity

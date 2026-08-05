@@ -39,10 +39,7 @@ export function useRoomSettings({
   try {
     if (localParticipant?.metadata) {
       const userMeta = JSON.parse(localParticipant.metadata);
-      isHost =
-        userMeta.hasAdminPowers === true ||
-        userMeta.role === "owner" ||
-        userMeta.role === "admin";
+      isHost = userMeta.role === "owner" || userMeta.role === "admin";
     }
   } catch (e) {}
 

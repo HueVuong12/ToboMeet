@@ -77,7 +77,7 @@ export function useParticipantManager({
   // AI CÓ QUYỀN DUYỆT?
   let canApprove = false;
   if (isWaitingRoomEnabled) {
-    if (isLocalAdmin) {
+    if (canManageParticipants) {
       canApprove = true; // Admin/Owner luôn có quyền
     } else if (approvalPermission === "everyone") {
       canApprove = true; // Mọi người đều có quyền
