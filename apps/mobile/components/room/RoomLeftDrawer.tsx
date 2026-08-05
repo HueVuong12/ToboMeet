@@ -14,6 +14,7 @@ interface RoomLeftDrawerProps {
   currentUserId: string | undefined;
   onAddChannel: () => void;
   onManagePrivateChannel: (channel: ChannelResponse) => void;
+  onLeaveChannel?: (channel: ChannelResponse) => void;
   onOpenGroupActions: () => void;
   onCopyLink: () => void;
   onGoBack: () => void;
@@ -29,6 +30,7 @@ export default function RoomLeftDrawer({
   currentUserId,
   onAddChannel,
   onManagePrivateChannel,
+  onLeaveChannel,
   onOpenGroupActions,
   onCopyLink,
   onGoBack,
@@ -123,12 +125,26 @@ export default function RoomLeftDrawer({
 
           {isChannelsExpanded && (
             <ScrollView>
-              {room.channels?.map((item) => {
+              {room.channels?.map((item, index) => {
                 const isActive = activeChannelId === item._id;
+                const isDefaultChannel = index === 0 || item.name === "General";
                 const isAdmin = item.members?.some(
                   (m) => m.userId === currentUserId && m.role === "admin",
                 );
                 const canManageThisChannel = isOwner || isAdmin;
+                // isChannelMember: user có trong members[] của Private channel không
+                // (Owner không cần check vì có quyền ngầm định)
+                const isChannelMember = item.isPrivate
+                  ? item.members?.some((m) => m.userId === currentUserId) ?? false
+                  : false;
+
+                // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
+                // - Owner/Admin: có quyền quản lý (Thêm thành viên)
+                // - Member: là thành viên của kênh (Rời khỏi kênh)
+                // Kênh công khai không có menu 3-dot theo spec
+                const showThreeDots =
+                  item.isPrivate && !isDefaultChannel &&
+                  (canManageThisChannel || isChannelMember);
 
                 return (
                   <View
@@ -167,9 +183,34 @@ export default function RoomLeftDrawer({
                       </Text>
                     </TouchableOpacity>
 
-                    {item.isPrivate && canManageThisChannel && (
+                    {showThreeDots && (
                       <TouchableOpacity
-                        onPress={() => onManagePrivateChannel(item)}
+                        onPress={() => {
+                          const options: { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void }[] = [];
+
+                          if (item.isPrivate && canManageThisChannel) {
+                            options.push({
+                              text: "Thêm thành viên",
+                              onPress: () => onManagePrivateChannel(item),
+                            });
+                          }
+
+                          // Rời khỏi kênh: chỉ cho Private channel, không phải Owner,
+                          // và user thực sự là member của kênh đó
+                          if (item.isPrivate && !isOwner && !isDefaultChannel && isChannelMember && onLeaveChannel) {
+                            options.push({
+                              text: "Rời khỏi kênh",
+                              style: "destructive",
+                              onPress: () => onLeaveChannel(item),
+                            });
+                          }
+
+                          options.push({ text: "Hủy", style: "cancel" });
+
+                          import("react-native").then(({ Alert }) => {
+                            Alert.alert(`Kênh #${item.name}`, "Tùy chọn kênh", options);
+                          });
+                        }}
                         className="p-2.5 mr-1"
                       >
                         <Feather

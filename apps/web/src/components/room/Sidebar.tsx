@@ -11,6 +11,7 @@ import {
   useInviteMemberMutation,
   useGetRoomMembersQuery,
   useDisbandRoomMutation,
+  useLeaveChannelMutation,
 } from "@/lib/redux/api/roomsApi";
 import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
 import {
@@ -67,6 +68,8 @@ export default function Sidebar({
 
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
+  const [channelToLeave, setChannelToLeave] = useState<any | null>(null);
+  const [leaveChannelMutation, { isLoading: isLeavingChannel }] = useLeaveChannelMutation();
   const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(
     null,
   );
@@ -358,13 +361,27 @@ export default function Sidebar({
 
         {channelsExpanded && (
           <div className="mt-1 px-2 space-y-0.5">
-            {room.channels.map((channel) => {
+            {room.channels.map((channel, index) => {
               const isActive = channel.name === activeChannel;
+              const isDefaultChannel = index === 0 || channel.name === "General";
               const canManageThisChannel =
                 isOwner ||
                 channel.members?.some(
                   (m: any) => m.userId === userId && m.role === "admin",
                 );
+              // isChannelMember: user có trong members[] của Private channel không
+              // (Owner không cần check vì có quyền ngầm định)
+              const isChannelMember = channel.isPrivate
+                ? channel.members?.some((m: any) => m.userId === userId) ?? false
+                : false;
+
+              // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
+              // - Owner/Admin có quyền quản lý (Thêm thành viên)
+              // - Member là thành viên của kênh (Rời khỏi kênh)
+              // Kênh công khai không có menu 3-dot theo spec
+              const showThreeDots =
+                channel.isPrivate && !isDefaultChannel &&
+                (canManageThisChannel || isChannelMember);
 
               return (
                 <div
@@ -391,7 +408,7 @@ export default function Sidebar({
                     <span className="truncate">{channel.name}</span>
                   </button>
 
-                  {channel.isPrivate && canManageThisChannel && (
+                  {showThreeDots && (
                     <div className="relative">
                       <button
                         type="button"
@@ -418,18 +435,36 @@ export default function Sidebar({
                             }}
                           />
                           <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenChannelMenuId(null);
-                                setChannelToManage(channel);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                            >
-                              <UserPlus className="w-3.5 h-3.5 text-slate-500" />
-                              <span>Thêm thành viên</span>
-                            </button>
+                            {channel.isPrivate && canManageThisChannel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChannelMenuId(null);
+                                  setChannelToManage(channel);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                              >
+                                <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                                <span>{t("add_member_to_channel")}</span>
+                              </button>
+                            )}
+
+                            {/* Nút Rời khỏi kênh: chỉ hiện với Private channel, không phải Owner, user là member */}
+                            {channel.isPrivate && !isOwner && !isDefaultChannel && isChannelMember && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChannelMenuId(null);
+                                  setChannelToLeave(channel);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              >
+                                <LogOut className="w-3.5 h-3.5 text-red-500" />
+                                <span>{t("leave_channel")}</span>
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
@@ -921,6 +956,76 @@ export default function Sidebar({
           roomOwnerId={room.ownerId}
         />
       )}
+
+      {/* Modal Xác nhận Rời khỏi Kênh */}
+      {channelToLeave &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3.5 text-red-600">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <LogOut className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    {t("leave_channel_confirm_title")} #{channelToLeave.name}?
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {t("leave_channel_confirm_subtitle")}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {t.rich("leave_channel_confirm_desc", {
+                  name: channelToLeave.name,
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                })}
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isLeavingChannel}
+                  onClick={() => setChannelToLeave(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  {t("leave_channel_cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isLeavingChannel}
+                  onClick={async () => {
+                    try {
+                      await leaveChannelMutation({
+                        roomId: room._id,
+                        channelId: channelToLeave._id || channelToLeave.name,
+                      }).unwrap();
+                      toast.success(`${t("toast_leave_channel_success")}`);
+                      setChannelToLeave(null);
+                    } catch (err: any) {
+                      toast.error(
+                        err?.data?.message || err?.message || t("leave_channel_error"),
+                      );
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 active:scale-95 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isLeavingChannel ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{t("leave_channel_loading")}</span>
+                    </>
+                  ) : (
+                    <span>{t("leave_channel_action")}</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </aside>
   );
 }

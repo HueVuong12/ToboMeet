@@ -1,6 +1,9 @@
 import React, { useEffect, createContext, useContext, useRef } from "react";
 import { socket } from "../lib/socket";
 import { AppState, AppStateStatus } from "react-native";
+import { useDispatch } from "react-redux";
+import { roomsApi } from "../lib/redux/features/rooms/roomsApi";
+import { toast } from "../lib/toast";
 
 const EventContext = createContext<unknown>(null);
 
@@ -11,6 +14,7 @@ export function EventProvider({
   userId?: string;
   children: React.ReactNode;
 }) {
+  const dispatch = useDispatch();
   const appState = useRef(AppState.currentState);
 
   // Quản lý trạng thái Socket theo vòng đời của App (AppState)
@@ -64,10 +68,20 @@ export function EventProvider({
     // Lắng nghe mỗi khi mạng chập chờn hoặc server restart xong
     socket.on("connect", handleConnect);
 
+    // Lắng nghe sự kiện khi chính mình được thêm vào phòng họp mới
+    const handleUserRoomAdded = (data: any) => {
+      if (!data) return;
+      dispatch(roomsApi.util.invalidateTags(["Room"]));
+      toast.info(`Bạn vừa được thêm vào phòng "${data.room?.name || "mới"}"`);
+    };
+
+    socket.on("user_room_added", handleUserRoomAdded);
+
     return () => {
       socket.off("connect", handleConnect);
+      socket.off("user_room_added", handleUserRoomAdded);
     };
-  }, [userId]);
+  }, [userId, dispatch]);
 
   return <EventContext.Provider value={{}}>{children}</EventContext.Provider>;
 }

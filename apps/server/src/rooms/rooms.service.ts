@@ -94,8 +94,8 @@ export class RoomsService {
       .sort({ updatedAt: -1 })
       .exec();
 
-    // Map qua toàn bộ mảng
-    return rooms.map((room) => mapToRoomResponse(room));
+    // Map qua toàn bộ mảng, truyền userId để filter channels đã rời
+    return rooms.map((room) => mapToRoomResponse(room, userId));
   }
 
   /**
@@ -308,6 +308,7 @@ export class RoomsService {
 
     if (previousMemberIndex !== -1) {
       room.members[previousMemberIndex].status = "active";
+      room.members[previousMemberIndex].role = "member"; // BẮT BUỘC reset role về 'member'
       room.members[previousMemberIndex].rejoinedAt = new Date();
       room.members[previousMemberIndex].userId = resolvedUserId; // Đồng bộ hóa ID
 
@@ -372,10 +373,13 @@ export class RoomsService {
     // Tìm index của người rời đi (phải đảm bảo họ đang active)
     const memberIdx = room.members.findIndex(
       (m) =>
-        m.userId === userId && m.status !== "remove" && m.status !== "left",
+        m.userId === userId &&
+        m.status !== "removed" &&
+        m.status !== "remove" &&
+        m.status !== "left",
     );
     if (memberIdx === -1) {
-      throw new BadRequestException(ErrorCode.NOT_A_MEMBER);
+      throw new BadRequestException("Bạn không còn là thành viên của phòng này");
     }
 
     const member = room.members[memberIdx];
@@ -383,7 +387,10 @@ export class RoomsService {
     if (member.role === "owner") {
       // Lọc ra những người CÒN ĐANG HOẠT ĐỘNG trong phòng (bỏ qua những người đã rời/bị xoá)
       const activeMembers = room.members.filter(
-        (m) => m.status !== "remove" && m.status !== "left",
+        (m) =>
+          m.status !== "removed" &&
+          m.status !== "remove" &&
+          m.status !== "left",
       );
 
       // Trường hợp 1: Phòng chỉ có duy nhất chủ phòng ĐANG HOẠT ĐỘNG -> Giải tán phòng
@@ -396,18 +403,19 @@ export class RoomsService {
 
       // Trường hợp 2: Có thành viên khác nhưng chưa chỉ định người kế nhiệm
       if (!newOwnerId) {
-        throw new BadRequestException(ErrorCode.FORBIDDEN_ACTION); // Cần chỉ định Owner mới
+        throw new BadRequestException("Vui lòng chỉ định Trưởng nhóm mới trước khi rời phòng");
       }
 
       // Kiểm tra người nhận quyền có tồn tại và đang active không
       const newOwnerIndex = room.members.findIndex(
         (m) =>
           m.userId === newOwnerId &&
+          m.status !== "removed" &&
           m.status !== "remove" &&
           m.status !== "left",
       );
       if (newOwnerIndex === -1) {
-        throw new BadRequestException(ErrorCode.USER_NOT_FOUND);
+        throw new BadRequestException("Người dùng nhận quyền không tồn tại hoặc không còn trong phòng");
       }
 
       // Thực hiện chuyển giao quyền sở hữu
@@ -543,7 +551,7 @@ export class RoomsService {
     return !!isExist;
   }
 
-  async getRoomByIdForUser(roomId: string, userId: string): Promise<Room> {
+  async getRoomByIdForUser(roomId: string, userId: string): Promise<RoomResponse> {
     const room = await this.roomModel.findOne({
       _id: roomId,
       isDeleted: { $ne: true },
@@ -576,15 +584,8 @@ export class RoomsService {
       throw new ForbiddenException("Bạn không còn là thành viên của phòng này");
     }
 
-    // Nếu không phải là Chủ phòng (Owner), chỉ trả về các Kênh Công khai (isPrivate !== true)
-    // hoặc Kênh Riêng tư mà người dùng được cấp quyền tham gia trong channel.members (và chưa bị xóa/rời đi)
-    if (!allowedUserIds.has(room.ownerId) && room.channels) {
-      room.channels = room.channels.filter(
-        (c) =>
-          !c.isPrivate || c.members?.some((m) => allowedUserIds.has(m.userId)),
-      );
-    }
-
-    return room;
+    // Sử dụng mapToRoomResponse với forUserId để tự động filter channels
+    // (public channels ẩn nếu user trong leftMemberIds, private channels ẩn nếu không trong members[])
+    return mapToRoomResponse(room, userId);
   }
 }

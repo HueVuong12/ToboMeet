@@ -6,7 +6,16 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRoomCacheManager } from "../useRoomCacheManager";
 
-export function useRoomUpdateListener(roomId: string, userId: string) {
+interface UseRoomUpdateListenerOptions {
+  /** Callback khi user hiện tại vừa rời kênh thành công — để component switch sang kênh khác */
+  onUserLeftChannel?: (channelId: string) => void;
+}
+
+export function useRoomUpdateListener(
+  roomId: string,
+  userId: string,
+  options?: UseRoomUpdateListenerOptions,
+) {
   const router = useRouter();
   const t = useTranslations("room");
 
@@ -39,6 +48,13 @@ export function useRoomUpdateListener(roomId: string, userId: string) {
         case "member_removed":
           // Xóa thành viên khỏi danh sách hiển thị
           removeMemberFromRoomCache(data.roomId, data.removedUserId);
+          break;
+
+        case "member_left":
+          // Cập nhật realtime khi có thành viên chủ động rời phòng
+          removeMemberFromRoomCache(data.roomId, data.leftUserId);
+          invalidateRoom(roomId);
+          invalidateRoomList();
           break;
 
         case "member_joined":
@@ -81,6 +97,24 @@ export function useRoomUpdateListener(roomId: string, userId: string) {
           }
           break;
 
+        case "channel_member_left":
+          // Cập nhật cache phòng để sidebar tự loại bỏ kênh đã rời
+          invalidateRoom(roomId);
+          invalidateRoomList();
+
+          if (data.userId === userId) {
+            // Chính user vừa rời kênh → callback để component switch sang kênh khác
+            if (options?.onUserLeftChannel) {
+              options.onUserLeftChannel(data.channelId);
+            }
+            toast.success(
+              t("toast_leave_channel_success", {
+                defaultValue: "Bạn đã rời khỏi kênh thành công.",
+              }),
+            );
+          }
+          break;
+
         case "member_role_updated":
           invalidateRoomList();
           invalidateRoom(roomId);
@@ -99,5 +133,12 @@ export function useRoomUpdateListener(roomId: string, userId: string) {
       socket.off("connect", joinRoomSocket);
       socket.off("room_updated", handleRoomUpdated);
     };
-  }, [roomId, userId, router, removeMemberFromRoomCache, addMemberToRoomCache]);
+  }, [
+    roomId,
+    userId,
+    router,
+    removeMemberFromRoomCache,
+    addMemberToRoomCache,
+    options?.onUserLeftChannel,
+  ]);
 }

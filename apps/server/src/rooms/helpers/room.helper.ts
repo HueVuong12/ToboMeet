@@ -3,7 +3,16 @@ import { RoomMember } from "../schemas/room-member.schema";
 import { RoomDocument } from "../schemas/room.schema";
 import { getDisplayRole } from "./room-role.helper";
 
-export function mapToRoomResponse(room: RoomDocument): RoomResponse {
+/**
+ * Map room document to RoomResponse.
+ * @param room - The room document.
+ * @param forUserId - Optional: filter channels visible to this user only.
+ *                   Owner luôn thấy tất cả kênh.
+ */
+export function mapToRoomResponse(
+  room: RoomDocument,
+  forUserId?: string,
+): RoomResponse {
   const plainRoom = room.toObject?.() ?? room;
 
   const safeToIsoString = (value: unknown): string => {
@@ -22,12 +31,39 @@ export function mapToRoomResponse(room: RoomDocument): RoomResponse {
         (member: RoomMember) =>
           member.status !== "remove" && member.status !== "left",
       )
-      .map((member: RoomMember) => ({
-        userId: member.userId,
-        role: member.role,
-        displayRole: getDisplayRole(member.role ?? "member", plainRoom.type),
-        joinedAt: safeToIsoString(member.joinedAt),
-      })) ?? [];
+      .map((member: RoomMember) => {
+        // Đảm bảo DUY NHẤT room.ownerId mang role 'owner'
+        const isActualOwner = member.userId === plainRoom.ownerId;
+        const effectiveRole = isActualOwner
+          ? "owner"
+          : member.role === "owner"
+            ? "member"
+            : (member.role ?? "member");
+
+        return {
+          userId: member.userId,
+          role: effectiveRole,
+          displayRole: getDisplayRole(effectiveRole, plainRoom.type),
+          joinedAt: safeToIsoString(member.joinedAt),
+        };
+      }) ?? [];
+
+  const isOwner = forUserId && plainRoom.ownerId === forUserId;
+
+  // Filter channels visible to the requesting user
+  const filteredChannels =
+    plainRoom.channels?.filter((channel: any) => {
+      // Owner luôn thấy tất cả kênh
+      if (!forUserId || isOwner) return true;
+
+      if (channel.isPrivate) {
+        // Private: user phải có trong members[]
+        return channel.members?.some((m: any) => m.userId === forUserId);
+      } else {
+        // Public: user không được có trong leftMemberIds[]
+        return !channel.leftMemberIds?.includes(forUserId);
+      }
+    }) ?? [];
 
   return {
     _id: plainRoom._id?.toString() ?? "",
@@ -36,12 +72,13 @@ export function mapToRoomResponse(room: RoomDocument): RoomResponse {
     code: plainRoom.code ?? "",
     ownerId: plainRoom.ownerId ?? "",
     channels:
-      plainRoom.channels?.map((channel: any) => {
+      filteredChannels.map((channel: any) => {
         if (channel.isPrivate) {
           return {
             ...channel,
             _id: channel._id?.toString() ?? "",
             members: channel.members ?? [],
+            leftMemberIds: undefined, // Không expose ra ngoài client
           };
         }
 
@@ -59,6 +96,7 @@ export function mapToRoomResponse(room: RoomDocument): RoomResponse {
             userId: member.userId,
             role: memberRoles.get(member.userId) ?? "member",
           })),
+          leftMemberIds: undefined, // Không expose ra ngoài client
         };
       }) ?? [],
     members: activeRoomMembers,

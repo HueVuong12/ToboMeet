@@ -70,10 +70,18 @@ export class RoomMemberService {
           u.supabaseId === member.userId || u._id.toString() === member.userId,
       );
 
+      // Đảm bảo DUY NHẤT room.ownerId mới có role === "owner"
+      const isActualOwner = member.userId === room.ownerId;
+      const effectiveRole = isActualOwner
+        ? "owner"
+        : member.role === "owner"
+          ? "member"
+          : member.role;
+
       return {
         userId: member.userId,
-        role: member.role,
-        displayRole: getDisplayRole(member.role, room.type),
+        role: effectiveRole,
+        displayRole: getDisplayRole(effectiveRole, room.type),
         status: member.status as "active" | "removed" | "left" | undefined,
         joinedAt: member.joinedAt.toISOString(), // Ép ngày thành string
         removedAt: member.removedAt?.toISOString(),
@@ -201,6 +209,7 @@ export class RoomMemberService {
       }
 
       room.members[previousMemberIdx].status = "active";
+      room.members[previousMemberIdx].role = "member"; // BẮT BUỘC reset role về 'member', không giữ role cũ
       room.members[previousMemberIdx].rejoinedAt = new Date();
       room.members[previousMemberIdx].userId = resolvedTargetId; // Đồng bộ hóa ID
       room.markModified("members");
@@ -227,13 +236,27 @@ export class RoomMemberService {
       throw new BadRequestException("Không thể thêm thành viên vào phòng");
     }
 
+    const roomResponsePayload = mapToRoomResponse(room, resolvedTargetId);
+
+    // 1. Thông báo trực tiếp cho người được thêm (auto-join room_${roomId} + emit user_room_added)
+    this.roomsGateway?.notifyUserRoomAdded(
+      resolvedTargetId,
+      room._id.toString(),
+      roomResponsePayload,
+    );
+
+    // 2. Thông báo cho các thành viên hiện tại trong phòng
+    const addedMemberInfo = roomResponsePayload.members.find(
+      (m) => m.userId === resolvedTargetId,
+    );
     this.roomsGateway?.notifyRoomUpdated(room._id.toString(), {
       type: "member_added",
       addedUserId: resolvedTargetId,
+      member: addedMemberInfo,
       roomId: room._id.toString(),
     });
 
-    return mapToRoomResponse(room);
+    return roomResponsePayload;
   }
 
   /**

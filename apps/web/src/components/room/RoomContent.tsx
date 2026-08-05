@@ -53,7 +53,16 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   const [removeMember] = useRemoveMemberMutation();
-  useRoomUpdateListener(roomId, userId);
+  useRoomUpdateListener(roomId, userId, {
+    onUserLeftChannel: (leftChannelId) => {
+      // Khi user vừa rời kênh, nếu đang ở kênh đó thì switch về General / kênh đầu tiên
+      const leftChannelObj = room?.channels?.find((c: any) => (c._id || c.id) === leftChannelId);
+      if (leftChannelObj && leftChannelObj.name === activeChannel) {
+        const firstChannel = room?.channels?.find((c: any) => (c._id || c.id) !== leftChannelId);
+        setActiveChannel(firstChannel?.name || "General");
+      }
+    },
+  });
 
   // Trạng thái Layout, Tìm kiếm & Quản lý Phân quyền
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
@@ -95,6 +104,16 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     );
     return rawMember?.role;
   })();
+
+  // Navigation Guard: Nếu kênh hiện tại không còn thuộc room.channels (do bị xóa hoặc vừa rời), tự động switch về kênh đầu tiên
+  useEffect(() => {
+    if (room?.channels && room.channels.length > 0) {
+      const channelExists = room.channels.some((c: any) => c.name === activeChannel);
+      if (!channelExists) {
+        setActiveChannel(room.channels[0].name || "General");
+      }
+    }
+  }, [room?.channels, activeChannel]);
 
   const isCurrentUserRoomOwner =
     isCurrentUserOwner || currentUserRoomRole === "owner";

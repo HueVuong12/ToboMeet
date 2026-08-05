@@ -231,6 +231,20 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
+
+    leaveChannel: builder.mutation<
+      { success: boolean },
+      { roomId: string; channelId: string }
+    >({
+      query: ({ roomId, channelId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/leave`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
   }),
 
   overrideExisting: true,
@@ -255,4 +269,5 @@ export const {
   useUpdateChannelMemberRoleMutation,
   useAddChannelMemberMutation,
   useRemoveChannelMemberMutation,
+  useLeaveChannelMutation,
 } = roomsApi;
