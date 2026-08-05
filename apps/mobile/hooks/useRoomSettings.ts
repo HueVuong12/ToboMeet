@@ -13,8 +13,8 @@ export function useRoomSettings({
   channelId,
   meetingCode,
 }: {
-  roomId: string;
-  channelId: string;
+  roomId?: string;
+  channelId?: string;
   meetingCode: string;
 }) {
   const { localParticipant } = useLocalParticipant();
@@ -29,6 +29,7 @@ export function useRoomSettings({
   const [approvalPermission, setApprovalPermission] = useState<
     "admin_only" | "member_and_admin" | "everyone"
   >("admin_only");
+  const [roomType, setRoomType] = useState<"meeting" | "classroom">("meeting");
 
   // Kiểm tra quyền Chủ phòng/Admin
   let isHost = false;
@@ -56,6 +57,9 @@ export function useRoomSettings({
       if (typeof meta.approvalPermission === "string") {
         setApprovalPermission(meta.approvalPermission);
       }
+      if (typeof meta.roomType === "string") {
+        setRoomType(meta.roomType as "meeting" | "classroom");
+      }
     } catch (e) {}
   }, [roomMetadata]);
 
@@ -64,6 +68,8 @@ export function useRoomSettings({
   const handleToggleChat = async () => {
     const newState = !isChatEnabled;
     setIsChatEnabled(newState); // Optimistic UI
+
+    if (!roomId || !channelId) return; // Không thực hiện nếu không có roomId hoặc channelId
 
     try {
       await toggleChatApi({
@@ -83,6 +89,8 @@ export function useRoomSettings({
   const handleToggleWaitingRoom = async () => {
     const newState = !isWaitingRoomEnabled;
     setIsWaitingRoomEnabled(newState); // Optimistic UI
+
+    if (!roomId || !channelId) return; // Không thực hiện nếu không có roomId hoặc channelId
 
     try {
       await toggleWaitingRoomApi({
@@ -105,6 +113,8 @@ export function useRoomSettings({
     const oldState = approvalPermission;
     setApprovalPermission(permission); // Optimistic UI
 
+    if (!roomId || !channelId) return; // Không thực hiện nếu không có roomId hoặc channelId
+
     try {
       await updateApprovalPermissionApi({
         roomId,
@@ -125,6 +135,7 @@ export function useRoomSettings({
     canChat,
     isWaitingRoomEnabled,
     approvalPermission,
+    roomType,
     isHost,
     handleToggleChat,
     handleToggleWaitingRoom,

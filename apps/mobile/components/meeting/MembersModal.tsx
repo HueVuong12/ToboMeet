@@ -13,6 +13,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useRoomSettings } from "../../hooks/useRoomSettings";
 
 export default function MembersModal({
   visible,
@@ -34,6 +35,8 @@ export default function MembersModal({
   const [activeListTab, setActiveListTab] = useState<"joined" | "waiting">(
     "joined",
   );
+
+  const { roomType } = useRoomSettings({ meetingCode });
 
   const {
     localParticipant,
@@ -189,10 +192,22 @@ export default function MembersModal({
                   if (p.metadata) {
                     const meta = JSON.parse(p.metadata);
                     avatarUrl = meta.avatarUrl;
-                    role = meta.role || "member";
+                    role = meta.role || "guest";
                   }
                 } catch (e) {
                   console.error("Lỗi parse metadata:", e);
+                }
+
+                // Xác định text chức danh hiển thị dựa theo roomType
+                let roleText = "";
+                if (role === "owner") {
+                  roleText =
+                    roomType === "classroom" ? "Giảng viên" : "Chủ phòng";
+                } else if (role === "admin") {
+                  roleText =
+                    roomType === "classroom" ? "Ban cán sự" : "Phó phòng";
+                } else if (role === "guest") {
+                  roleText = "Người ngoài";
                 }
 
                 return (
@@ -232,14 +247,8 @@ export default function MembersModal({
                       </Text>
                       {activeListTab === "joined" ? (
                         role !== "member" && (
-                          <Text
-                            className={`text-[10px] font-bold uppercase mt-0.5 ${
-                              role === "owner"
-                                ? "text-amber-400"
-                                : "text-blue-400"
-                            }`}
-                          >
-                            {role === "owner" ? "Chủ phòng" : "Quản trị viên"}
+                          <Text className="text-[11px] font-semibold mt-0.5 text-slate-400">
+                            {roleText}
                           </Text>
                         )
                       ) : (

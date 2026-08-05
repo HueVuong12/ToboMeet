@@ -7,13 +7,14 @@ import {
   useUpdateApprovalPermissionMutation,
 } from "@/lib/redux/api/meetingsApi";
 
+// Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
 export function useRoomSettings({
   roomId,
   channelId,
   meetingCode,
 }: {
-  roomId: string;
-  channelId: string;
+  roomId?: string;
+  channelId?: string;
   meetingCode: string;
 }) {
   const { localParticipant } = useLocalParticipant();
@@ -25,6 +26,8 @@ export function useRoomSettings({
 
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
+
+  const [roomType, setRoomType] = useState<"meeting" | "classroom">("meeting");
 
   // State quản lý quyền duyệt
   const [approvalPermission, setApprovalPermission] = useState<
@@ -57,6 +60,9 @@ export function useRoomSettings({
       if (typeof meta.approvalPermission === "string") {
         setApprovalPermission(meta.approvalPermission); // Parse metadata quyền duyệt
       }
+      if (typeof meta.roomType === "string") {
+        setRoomType(meta.roomType as "meeting" | "classroom");
+      }
     } catch (e) {}
   }, [roomMetadata]);
 
@@ -66,6 +72,9 @@ export function useRoomSettings({
   const handleToggleChat = async () => {
     const newState = !isChatEnabled;
     setIsChatEnabled(newState); // Optimistic UI
+
+    // API không trả về roomId và channelId cho người dùng không có trong phòng
+    if (!roomId || !channelId) return;
 
     try {
       await toggleChatApi({
@@ -86,6 +95,9 @@ export function useRoomSettings({
   const handleToggleWaitingRoom = async () => {
     const newState = !isWaitingRoomEnabled;
     setIsWaitingRoomEnabled(newState); // Optimistic UI
+
+    // API không trả về roomId và channelId cho người dùng không có trong phòng
+    if (!roomId || !channelId) return;
 
     try {
       await toggleWaitingRoomApi({
@@ -109,6 +121,9 @@ export function useRoomSettings({
     const oldState = approvalPermission;
     setApprovalPermission(permission); // Optimistic UI
 
+    // API không trả về roomId và channelId cho người dùng không có trong phòng
+    if (!roomId || !channelId) return;
+
     try {
       await updateApprovalPermissionApi({
         roomId,
@@ -129,6 +144,7 @@ export function useRoomSettings({
     canChat,
     isWaitingRoomEnabled,
     approvalPermission,
+    roomType,
     isHost,
     handleToggleChat,
     handleToggleWaitingRoom,

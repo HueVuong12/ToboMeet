@@ -1,4 +1,5 @@
 import { useParticipantManager } from "@/hooks/useParticipantManager";
+import { useRoomSettings } from "@/hooks/useRoomSettings";
 import {
   Crown,
   Edit2,
@@ -22,7 +23,7 @@ export default function ParticipantList({
 }: {
   roomId: string | null;
   channelId: string | null;
-  meetingCode: string | null;
+  meetingCode: string;
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -30,6 +31,8 @@ export default function ParticipantList({
   const [activeListTab, setActiveListTab] = useState<"joined" | "waiting">(
     "joined",
   );
+
+  const { roomType } = useRoomSettings({ meetingCode: meetingCode });
 
   const {
     localParticipant,
@@ -197,6 +200,18 @@ export default function ParticipantList({
               const isMe = p.identity === localParticipant.identity;
               const hasMenuOptions = isMe || isLocalAdmin;
 
+              // Xác định text chức danh hiển thị dựa theo roomType
+              let roleText = "";
+              if (role === "owner") {
+                roleText =
+                  roomType === "classroom" ? "Giảng viên" : "Chủ phòng";
+              } else if (role === "admin") {
+                roleText =
+                  roomType === "classroom" ? "Ban cán sự" : "Phó phòng";
+              } else if (role === "guest") {
+                roleText = "Người ngoài";
+              }
+
               return (
                 <div
                   key={p.identity}
@@ -227,22 +242,10 @@ export default function ParticipantList({
                       )}
                     </span>
 
-                    {role !== "member" && (
-                      <div className="flex items-center mt-0.5">
-                        {role === "owner" ? (
-                          <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-400">
-                            <Crown size={11} /> Chủ phòng
-                          </span>
-                        ) : role === "admin" ? (
-                          <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-blue-400">
-                            <Shield size={11} /> Phó phòng
-                          </span>
-                        ) : role === "stranger" ? (
-                          <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                            Người ngoài
-                          </span>
-                        ) : null}
-                      </div>
+                    {role !== "member" && roleText && (
+                      <span className="text-[11px] text-slate-400 mt-0.5">
+                        {roleText}
+                      </span>
                     )}
                   </div>
 

@@ -126,7 +126,26 @@ export class MeetingsService {
       });
     }
 
-    const isMeetingStarting = this.isRoomActive(meeting.meetingCode);
+    let livekitRoom = await this.isRoomActive(meeting.meetingCode);
+    const isMeetingStarting = !livekitRoom;
+
+    // Khởi tạo phòng ngay lập tức (eager init) với metadata mặc định
+    if (!livekitRoom && this.livekitRoomService) {
+      try {
+        livekitRoom = await this.livekitRoomService.createRoom({
+          name: meeting.meetingCode,
+          emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
+          metadata: JSON.stringify({
+            roomType: room.type, // classroom | meeting
+            isWaitingRoomEnabled: false,
+            isChatEnabled: true,
+            approvalPermission: "admin_only",
+          }),
+        });
+      } catch (e) {
+        console.error("Lỗi Eager Init phòng LiveKit:", e);
+      }
+    }
 
     // Chỉ thông báo lần đầu khi phòng chưa active
     if (isMeetingStarting) {
@@ -173,17 +192,12 @@ export class MeetingsService {
 
     // Kiểm tra xem phòng chờ (Waiting Room) có đang bật hay không
     let isWaitingRoomEnabled = false;
-    if (this.livekitRoomService) {
+    if (livekitRoom && livekitRoom.metadata) {
       try {
-        const rooms = await this.livekitRoomService.listRooms([
-          meeting.meetingCode,
-        ]);
-        if (rooms && rooms.length > 0 && rooms[0].metadata) {
-          const roomMeta = JSON.parse(rooms[0].metadata);
-          isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
-        }
+        const roomMeta = JSON.parse(livekitRoom.metadata);
+        isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
       } catch (e) {
-        console.error("Không thể lấy thông tin metadata của phòng LiveKit", e);
+        console.error("Không thể parse metadata của phòng LiveKit", e);
       }
     }
 
@@ -675,8 +689,8 @@ export class MeetingsService {
       };
     }
 
-    const isActuallyOngoing = await this.isRoomActive(meeting.meetingCode);
-
+    const isActuallyOngoing = !!(await this.isRoomActive(meeting.meetingCode));
+    
     return {
       isOngoing: isActuallyOngoing,
       meetingCode: meeting.meetingCode,
@@ -834,27 +848,19 @@ export class MeetingsService {
     }
   }
 
-  async isRoomActive(meetingCode: string): Promise<boolean> {
-    let isActuallyOngoing = false;
-
+  async isRoomActive(meetingCode: string): Promise<any | null> {
     if (this.livekitRoomService) {
       try {
         const rooms = await this.livekitRoomService.listRooms([meetingCode]);
 
-        // Nếu mảng trả về có chứa phòng, nghĩa là phòng THỰC SỰ ĐANG TỒN TẠI
+        // Trả về object phòng của LiveKit để tái sử dụng metadata, tránh gọi 2 lần
         if (rooms && rooms.length > 0) {
-          isActuallyOngoing = true;
-        } else {
-          // Trả về mảng rỗng nghĩa là phòng đã bị xóa / chưa được tạo
-          isActuallyOngoing = false;
+          return rooms[0];
         }
       } catch (error) {
-        console.log(error);
-        // Lỗi thường do LiveKit đã giải tán phòng khi trống
-        isActuallyOngoing = false;
+        console.log("Lỗi kiểm tra phòng LiveKit:", error);
       }
     }
-
-    return isActuallyOngoing;
+    return null;
   }
 }
