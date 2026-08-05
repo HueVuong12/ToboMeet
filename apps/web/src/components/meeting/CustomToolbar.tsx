@@ -212,7 +212,7 @@ export default function CustomToolbar({
               className={activeTab === "people" ? "text-brand-400" : ""}
             />
             {/* Badge hiển thị số lượng thành viên */}
-            <span className="absolute -top-1 -right-3.5 inline-flex items-center justify-center px-1 min-w-[16px] h-[16px] text-[9px] font-bold text-white bg-slate-600 rounded-full border-[1.5px] border-[#111]">
+            <span className="absolute -top-1 -right-3.5 inline-flex items-center justify-center px-1 min-w-4 h-4 text-[9px] font-bold text-white bg-slate-600 rounded-full border-[1.5px] border-[#111]">
               {participants.length}
             </span>
           </div>
@@ -272,7 +272,7 @@ export default function CustomToolbar({
           </span>
         </button>
 
-        {/* Nút Quản lý & Option */}
+        {/* Nút Tuỳ chọn */}
         <div className="relative h-full flex">
           <button
             onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
@@ -280,7 +280,7 @@ export default function CustomToolbar({
           >
             <MoreVertical size={20} />
             <span className="text-[10px] mt-1 hidden sm:block font-medium">
-              Quản lý
+              Tuỳ chọn
             </span>
           </button>
 

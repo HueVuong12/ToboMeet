@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -22,6 +24,7 @@ import { RoomsGateway } from "./rooms.gateway";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { normalizeRole } from "./helpers/room-role.helper";
 import { mapToRoomResponse } from "./helpers/room.helper";
+import { MeetingsService } from "../meetings/meetings.service";
 
 /*
   Covention (tuân thủ tuyệt đối, không được cãi, nếu có làm khác thì cảnh báo ngay lập tức):
@@ -38,6 +41,8 @@ export class RoomsService {
     private eventEmitter: EventEmitter2,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @Inject(forwardRef(() => MeetingsService))
+    private readonly meetingsService: MeetingsService,
     @InjectModel(RoomActivity.name)
     private activityModel: Model<RoomActivityDocument>,
     private readonly roomsGateway: RoomsGateway,
@@ -179,6 +184,41 @@ export class RoomsService {
       this.userModel.findOne({ supabaseId: newOwnerId }),
       room.save(),
     ]);
+
+    // Đồng bộ nếu đang có cuộc họp đang diễn ra
+    try {
+      if (room.channels && Array.isArray(room.channels)) {
+        const syncPromises = [];
+        room.channels.forEach((channel) => {
+          const channelIdStr = channel._id.toString();
+
+          // Nâng quyền người nhận lên thành "owner"
+          syncPromises.push(
+            this.meetingsService.updateParticipantRole(
+              roomId,
+              channelIdStr,
+              newOwnerId,
+              "owner",
+            ),
+          );
+
+          // Hạ quyền người chuyển (chủ cũ) xuống thành "member"
+          syncPromises.push(
+            this.meetingsService.updateParticipantRole(
+              roomId,
+              channelIdStr,
+              operatorId,
+              "member",
+            ),
+          );
+        });
+
+        await Promise.allSettled(syncPromises);
+      }
+    } catch (e) {
+      console.error("Lỗi đồng bộ role chuyển quyền vào meeting:", e);
+    }
+    // ==========================================
 
     const opName = operatorUser?.displayName || "Người dùng";
     const newOwnerName = newOwnerUser?.displayName || "Thành viên";

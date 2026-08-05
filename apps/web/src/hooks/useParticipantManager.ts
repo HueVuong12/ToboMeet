@@ -46,8 +46,6 @@ export function useParticipantManager({
   } catch (error) {}
   const isLocalAdmin = localRole === "owner" || localRole === "admin";
 
-  console.log("useParticipantManager: localRole", localRole, roomMetadata);
-
   // Phân tích Quyền Duyệt từ Room Metadata
   let approvalPermission = "admin_only";
   let isWaitingRoomEnabled = false;

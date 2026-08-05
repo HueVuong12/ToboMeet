@@ -176,7 +176,7 @@ export default function ParticipantList({
             {/* Header cho người dùng không phải Admin (Vì họ không thấy Tab) */}
             {!canApprove && (
               <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-400 tracking-wider">
                   Đang tham gia
                 </span>
                 <span className="text-xs font-bold bg-[#333] text-slate-300 px-2 py-1 rounded-full">

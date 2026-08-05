@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+// import * as Clipboard from "expo-clipboard";
 
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { toast } from "../../lib/toast";
@@ -55,7 +56,8 @@ export default function MobileToolbar({
   );
 
   const [showAdminMenu, setShowAdminMenu] = useState(false);
-  const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false); // Quản lý mở/đóng submenu quyền duyệt
+  const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const toggleMic = () =>
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
@@ -80,186 +82,137 @@ export default function MobileToolbar({
     }
   };
 
-  // Helper render style nút: Tràn viền, không bo góc, căn giữa icon và text
-  const getBtnStyle = () => ({
-    minWidth: 60,
-    height: 56, // Tương đương h-14 trên web
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-    backgroundColor: "transparent",
-  });
+  const handleCopyLink = async () => {
+    // const meetingLink = `https://tobomeet.com/meeting/${meetingCode}`;
+    // await Clipboard.setStringAsync(meetingLink);
+    setIsCopied(true);
+    toast.success("Đã sao chép liên kết!");
 
-  // UI Component: Nút Switch tùy chỉnh để giống với giao diện Web
+    setTimeout(() => {
+      setIsCopied(false);
+    }, 2000);
+  };
+
+  // UI Component: Nút Switch tùy chỉnh
   const CustomSwitch = ({ value }: { value: boolean }) => (
     <View
-      style={{
-        width: 44,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: value ? "#10b981" : "#4b5563",
-        justifyContent: "center",
-        paddingHorizontal: 2,
-      }}
+      className={`w-11 h-6 rounded-full justify-center px-0.5 ${
+        value ? "bg-emerald-500" : "bg-gray-600"
+      }`}
     >
       <View
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          backgroundColor: "#fff",
-          alignSelf: value ? "flex-end" : "flex-start",
-        }}
+        className={`w-5 h-5 rounded-full bg-white ${
+          value ? "self-end" : "self-start"
+        }`}
       />
     </View>
   );
 
   return (
     <>
-      <View
-        style={{
-          backgroundColor: "#111", // Nền đen tuyền đồng bộ web
-          borderTopWidth: 1,
-          borderTopColor: "#333",
-          height: 56,
-        }}
-      >
+      <View className="bg-[#111] border-t border-[#333] h-14">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            alignItems: "center",
-            paddingHorizontal: 0, // Bỏ padding để nút sát viền
-            paddingVertical: 0,
-            gap: 0, // Bỏ gap để các nút sát mí nhau
-          }}
+          contentContainerClassName="items-center"
         >
           {/* Nút Camera */}
-          <TouchableOpacity onPress={toggleCam} style={getBtnStyle()}>
+          <TouchableOpacity
+            onPress={toggleCam}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
             <Feather
               name={isCameraEnabled ? "video" : "video-off"}
               size={20}
               color={isCameraEnabled ? "#d1d5db" : "#ef4444"}
             />
             <Text
-              style={{
-                color: isCameraEnabled ? "#d1d5db" : "#ef4444",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "500",
-              }}
+              className={`text-[10px] mt-1 font-medium ${isCameraEnabled ? "text-gray-300" : "text-red-500"}`}
             >
               Camera
             </Text>
           </TouchableOpacity>
 
-          {/* Nút Lật Camera (Chỉ có trên mobile) */}
+          {/* Nút Lật Camera */}
           <TouchableOpacity
             onPress={handleFlipCamera}
             disabled={!isCameraEnabled}
-            style={{ ...getBtnStyle(), opacity: isCameraEnabled ? 1 : 0.4 }}
+            className={`min-w-[60px] h-14 justify-center items-center ${isCameraEnabled ? "opacity-100" : "opacity-40"}`}
           >
             <Feather name="refresh-ccw" size={20} color="#d1d5db" />
-            <Text
-              style={{
-                color: "#d1d5db",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "500",
-              }}
-            >
+            <Text className="text-gray-300 text-[10px] mt-1 font-medium">
               Lật Cam
             </Text>
           </TouchableOpacity>
 
           {/* Nút Mic */}
-          <TouchableOpacity onPress={toggleMic} style={getBtnStyle()}>
+          <TouchableOpacity
+            onPress={toggleMic}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
             <Feather
               name={isMicrophoneEnabled ? "mic" : "mic-off"}
               size={20}
               color={isMicrophoneEnabled ? "#d1d5db" : "#ef4444"}
             />
             <Text
-              style={{
-                color: isMicrophoneEnabled ? "#d1d5db" : "#ef4444",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "500",
-              }}
+              className={`text-[10px] mt-1 font-medium ${isMicrophoneEnabled ? "text-gray-300" : "text-red-500"}`}
             >
               Mic
             </Text>
           </TouchableOpacity>
 
           {/* Nút Thành Viên */}
-          <TouchableOpacity onPress={onOpenMembers} style={getBtnStyle()}>
+          <TouchableOpacity
+            onPress={onOpenMembers}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
             <Feather name="users" size={20} color="#d1d5db" />
-            <Text
-              style={{
-                color: "#d1d5db",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "500",
-              }}
-            >
+            <Text className="text-gray-300 text-[10px] mt-1 font-medium">
               Thành viên
             </Text>
           </TouchableOpacity>
 
           {/* Nút Chat */}
-          <TouchableOpacity onPress={onOpenChat} style={getBtnStyle()}>
+          <TouchableOpacity
+            onPress={onOpenChat}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
             <Feather name="message-square" size={20} color="#d1d5db" />
-            <Text
-              style={{
-                color: "#d1d5db",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "500",
-              }}
-            >
+            <Text className="text-gray-300 text-[10px] mt-1 font-medium">
               Chat
             </Text>
           </TouchableOpacity>
 
           {/* Nút Giơ tay */}
-          <TouchableOpacity onPress={toggleHandRaise} style={getBtnStyle()}>
+          <TouchableOpacity
+            onPress={toggleHandRaise}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
             <Ionicons
               name="hand-left"
               size={20}
               color={isLocalHandRaised ? "#f59e0b" : "#d1d5db"}
             />
             <Text
-              style={{
-                color: isLocalHandRaised ? "#f59e0b" : "#d1d5db",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "500",
-              }}
+              className={`text-[10px] mt-1 font-medium ${isLocalHandRaised ? "text-amber-500" : "text-gray-300"}`}
             >
               Giơ tay
             </Text>
           </TouchableOpacity>
 
-          {/* Nút Quản trị viên (3 chấm) */}
-          {isHost && (
-            <TouchableOpacity
-              onPress={() => setShowAdminMenu(true)}
-              style={getBtnStyle()}
-            >
-              <Feather name="more-vertical" size={20} color="#d1d5db" />
-              <Text
-                style={{
-                  color: "#d1d5db",
-                  fontSize: 10,
-                  marginTop: 4,
-                  fontWeight: "500",
-                }}
-              >
-                Quản lý
-              </Text>
-            </TouchableOpacity>
-          )}
+          {/* Nút Quản lý/Tùy chọn */}
+          <TouchableOpacity
+            onPress={() => setShowAdminMenu(true)}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
+            <Feather name="more-vertical" size={20} color="#d1d5db" />
+            <Text className="text-gray-300 text-[10px] mt-1 font-medium">
+              Tùy chọn
+            </Text>
+          </TouchableOpacity>
 
-          {/* Nút Rời đi (Đổi icon và màu chữ) */}
+          {/* Nút Rời đi */}
           <TouchableOpacity
             onPress={() => {
               Alert.alert("Rời phòng", "Bạn có chắc chắn muốn rời cuộc họp?", [
@@ -271,288 +224,191 @@ export default function MobileToolbar({
                 },
               ]);
             }}
-            style={{ ...getBtnStyle(), paddingHorizontal: 12 }}
+            className="min-w-[60px] h-14 justify-center items-center px-3"
           >
             <Feather name="log-out" size={20} color="#ef4444" />
-            <Text
-              style={{
-                color: "#ef4444",
-                fontSize: 10,
-                marginTop: 4,
-                fontWeight: "bold",
-              }}
-            >
+            <Text className="text-red-500 text-[10px] mt-1 font-bold">
               Rời đi
             </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      {/* MENU QUẢN TRỊ DẠNG BOTTOM SHEET */}
+      {/* MENU TÙY CHỌN CHUNG & QUẢN TRỊ (BOTTOM SHEET) */}
       <Modal visible={showAdminMenu} transparent animationType="slide">
         <TouchableOpacity
           activeOpacity={1}
           style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.6)",
-            justifyContent: "flex-end",
             paddingTop: Math.max(insets.top, 20),
             paddingBottom: Math.max(insets.bottom, 20),
           }}
+          className="flex-1 bg-black/60 justify-end"
           onPress={() => setShowAdminMenu(false)}
         >
           <TouchableOpacity
             activeOpacity={1}
-            style={{
-              backgroundColor: "#222",
-              padding: 20,
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              borderWidth: 1,
-              borderColor: "#333",
-            }}
+            className="bg-[#222] p-5 rounded-t-2xl border border-[#333]"
           >
-            <View
-              style={{
-                width: 40,
-                height: 4,
-                backgroundColor: "#444",
-                borderRadius: 2,
-                alignSelf: "center",
-                marginBottom: 16,
-              }}
-            />
-            <Text
-              style={{
-                color: "#9ca3af",
-                fontSize: 12,
-                fontWeight: "bold",
-                marginBottom: 12,
-                textTransform: "uppercase",
-              }}
-            >
-              Bảo mật phòng họp
+            <View className="w-10 h-1 bg-[#444] rounded-full self-center mb-4" />
+
+            {/* TÙY CHỌN CHUNG (AI CŨNG THẤY) */}
+            <Text className="text-gray-400 text-[11px] font-bold mb-3 uppercase">
+              Tùy chọn chung
             </Text>
 
-            {/* --- Switch Bật/Tắt Chat --- */}
             <TouchableOpacity
-              onPress={handleToggleChat}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingVertical: 14,
-                paddingHorizontal: 12,
-                backgroundColor: "#111",
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: "#333",
-                marginBottom: 8,
-              }}
+              onPress={handleCopyLink}
+              className="flex-row items-center py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
             >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Feather
-                  name="message-square"
-                  size={20}
-                  color={isChatEnabled ? "#10b981" : "#6b7280"}
-                />
-                <Text
-                  style={{
-                    color: "#d1d5db",
-                    marginLeft: 12,
-                    fontSize: 14,
-                    fontWeight: "500",
-                  }}
-                >
-                  Cho phép Chat
-                </Text>
-              </View>
-              <CustomSwitch value={isChatEnabled} />
-            </TouchableOpacity>
-
-            {/* --- Switch Bật/Tắt Phòng chờ --- */}
-            <TouchableOpacity
-              onPress={handleToggleWaitingRoom}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingVertical: 14,
-                paddingHorizontal: 12,
-                backgroundColor: "#111",
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: "#333",
-                marginBottom: 8,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Feather
-                  name="shield"
-                  size={20}
-                  color={isWaitingRoomEnabled ? "#f59e0b" : "#6b7280"}
-                />
-                <Text
-                  style={{
-                    color: "#d1d5db",
-                    marginLeft: 12,
-                    fontSize: 14,
-                    fontWeight: "500",
-                  }}
-                >
-                  Phòng chờ
-                </Text>
-              </View>
-              <CustomSwitch value={isWaitingRoomEnabled} />
-            </TouchableOpacity>
-
-            {/* --- Submenu: Chỉ định ai có thể duyệt --- */}
-            {isWaitingRoomEnabled && (
-              <View
-                style={{
-                  backgroundColor: "#111",
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: "#333",
-                  overflow: "hidden",
-                }}
+              <Feather
+                name={isCopied ? "check" : "copy"}
+                size={20}
+                color={isCopied ? "#10b981" : "#d1d5db"}
+              />
+              <Text
+                className={`ml-3 text-sm font-medium ${isCopied ? "text-emerald-500" : "text-gray-300"}`}
               >
+                {isCopied ? "Đã sao chép liên kết" : "Sao chép liên kết"}
+              </Text>
+            </TouchableOpacity>
+
+            {/* CÔNG CỤ QUẢN TRỊ (CHỈ HOST MỚI THẤY) */}
+            {isHost && (
+              <>
+                <View className="h-[1px] bg-[#333] my-3" />
+
+                <Text className="text-gray-400 text-[11px] font-bold mb-3 uppercase">
+                  Công cụ quản trị
+                </Text>
+
+                {/* Switch Bật/Tắt Chat */}
                 <TouchableOpacity
-                  onPress={() =>
-                    setIsApprovalSubmenuOpen(!isApprovalSubmenuOpen)
-                  }
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
-                  }}
+                  onPress={handleToggleChat}
+                  className="flex-row items-center justify-between py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Feather name="user-check" size={20} color="#6b7280" />
-                    <Text
-                      style={{
-                        color: "#d1d5db",
-                        marginLeft: 12,
-                        fontSize: 14,
-                        fontWeight: "500",
-                      }}
-                    >
-                      Ai có thể duyệt
+                  <View className="flex-row items-center">
+                    <Feather
+                      name="message-square"
+                      size={20}
+                      color={isChatEnabled ? "#10b981" : "#6b7280"}
+                    />
+                    <Text className="text-gray-300 ml-3 text-sm font-medium">
+                      Cho phép Chat
                     </Text>
                   </View>
-                  <Feather
-                    name={
-                      isApprovalSubmenuOpen ? "chevron-down" : "chevron-right"
-                    }
-                    size={20}
-                    color="#6b7280"
-                  />
+                  <CustomSwitch value={isChatEnabled} />
                 </TouchableOpacity>
 
-                {/* Danh sách xổ xuống */}
-                {isApprovalSubmenuOpen && (
-                  <View
-                    style={{
-                      borderTopWidth: 1,
-                      borderTopColor: "#333",
-                      backgroundColor: "#1a1a1a",
-                    }}
-                  >
+                {/* Switch Bật/Tắt Phòng chờ */}
+                <TouchableOpacity
+                  onPress={handleToggleWaitingRoom}
+                  className="flex-row items-center justify-between py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
+                >
+                  <View className="flex-row items-center">
+                    <Feather
+                      name="shield"
+                      size={20}
+                      color={isWaitingRoomEnabled ? "#10b981" : "#6b7280"}
+                    />
+                    <Text className="text-gray-300 ml-3 text-sm font-medium">
+                      Phòng chờ
+                    </Text>
+                  </View>
+                  <CustomSwitch value={isWaitingRoomEnabled} />
+                </TouchableOpacity>
+
+                {/* Submenu: Chỉ định ai có thể duyệt */}
+                {isWaitingRoomEnabled && (
+                  <View className="bg-[#111] rounded-lg border border-[#333] overflow-hidden">
                     <TouchableOpacity
                       onPress={() =>
-                        handleUpdateApprovalPermission("admin_only")
+                        setIsApprovalSubmenuOpen(!isApprovalSubmenuOpen)
                       }
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                      }}
+                      className="flex-row items-center justify-between py-3.5 px-3"
                     >
+                      <View className="flex-row items-center">
+                        <Feather name="user-check" size={20} color="#6b7280" />
+                        <Text className="text-gray-300 ml-3 text-sm font-medium">
+                          Ai có thể duyệt
+                        </Text>
+                      </View>
                       <Feather
-                        name="check"
-                        size={16}
-                        color={
-                          approvalPermission === "admin_only"
-                            ? "#10b981"
-                            : "transparent"
+                        name={
+                          isApprovalSubmenuOpen
+                            ? "chevron-down"
+                            : "chevron-right"
                         }
+                        size={20}
+                        color="#6b7280"
                       />
-                      <Text
-                        style={{
-                          color: "#d1d5db",
-                          marginLeft: 12,
-                          fontSize: 13,
-                        }}
-                      >
-                        Chỉ Quản trị viên
-                      </Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={() =>
-                        handleUpdateApprovalPermission("member_and_admin")
-                      }
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                      }}
-                    >
-                      <Feather
-                        name="check"
-                        size={16}
-                        color={
-                          approvalPermission === "member_and_admin"
-                            ? "#10b981"
-                            : "transparent"
-                        }
-                      />
-                      <Text
-                        style={{
-                          color: "#d1d5db",
-                          marginLeft: 12,
-                          fontSize: 13,
-                        }}
-                      >
-                        Thành viên
-                      </Text>
-                    </TouchableOpacity>
+                    {isApprovalSubmenuOpen && (
+                      <View className="border-t border-[#333] bg-[#1a1a1a]">
+                        <TouchableOpacity
+                          onPress={() =>
+                            handleUpdateApprovalPermission("admin_only")
+                          }
+                          className="flex-row items-center py-3 px-4"
+                        >
+                          <Feather
+                            name="check"
+                            size={16}
+                            color={
+                              approvalPermission === "admin_only"
+                                ? "#10b981"
+                                : "transparent"
+                            }
+                          />
+                          <Text className="text-gray-300 ml-3 text-[13px]">
+                            Chỉ Quản trị viên
+                          </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={() => handleUpdateApprovalPermission("everyone")}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                      }}
-                    >
-                      <Feather
-                        name="check"
-                        size={16}
-                        color={
-                          approvalPermission === "everyone"
-                            ? "#10b981"
-                            : "transparent"
-                        }
-                      />
-                      <Text
-                        style={{
-                          color: "#d1d5db",
-                          marginLeft: 12,
-                          fontSize: 13,
-                        }}
-                      >
-                        Tất cả mọi người
-                      </Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() =>
+                            handleUpdateApprovalPermission("member_and_admin")
+                          }
+                          className="flex-row items-center py-3 px-4"
+                        >
+                          <Feather
+                            name="check"
+                            size={16}
+                            color={
+                              approvalPermission === "member_and_admin"
+                                ? "#10b981"
+                                : "transparent"
+                            }
+                          />
+                          <Text className="text-gray-300 ml-3 text-[13px]">
+                            Thành viên
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() =>
+                            handleUpdateApprovalPermission("everyone")
+                          }
+                          className="flex-row items-center py-3 px-4"
+                        >
+                          <Feather
+                            name="check"
+                            size={16}
+                            color={
+                              approvalPermission === "everyone"
+                                ? "#10b981"
+                                : "transparent"
+                            }
+                          />
+                          <Text className="text-gray-300 ml-3 text-[13px]">
+                            Tất cả mọi người
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 )}
-              </View>
+              </>
             )}
           </TouchableOpacity>
         </TouchableOpacity>

@@ -76,8 +76,13 @@ function MeetingRoomContent({
         try {
           if (participant.metadata) {
             const meta = JSON.parse(participant.metadata);
+            const prevMeta = prevMetadata ? JSON.parse(prevMetadata) : null;
 
-            if (meta.status && meta.status === "joined") {
+            if (
+              meta.status &&
+              meta.status === "joined" &&
+              prevMeta?.status !== "joined" // Chỉ thông báo khi trạng thái thay đổi từ "waiting" sang "joined"
+            ) {
               toast.success("Chủ phòng đã phê duyệt bạn vào cuộc họp.");
             }
 

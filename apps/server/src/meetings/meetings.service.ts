@@ -690,7 +690,7 @@ export class MeetingsService {
     }
 
     const isActuallyOngoing = !!(await this.isRoomActive(meeting.meetingCode));
-    
+
     return {
       isOngoing: isActuallyOngoing,
       meetingCode: meeting.meetingCode,
@@ -832,14 +832,59 @@ export class MeetingsService {
 
   // utils, helpers
 
+  /**
+   * Đồng bộ cập nhật Role của người dùng trực tiếp trong cuộc họp đang diễn ra
+   */
+  async updateParticipantRole(
+    roomId: string,
+    channelId: string,
+    participantIdentity: string,
+    newRole: "owner" | "admin" | "member" | "guest",
+  ) {
+    if (!this.livekitRoomService) return;
+
+    const meeting = await this.meetingModel
+      .findOne({ roomId, channelId })
+      .exec();
+    if (!meeting) return;
+    const hasAdminPowers = newRole === "owner" || newRole === "admin";
+
+    try {
+      // Lấy thông tin người dùng từ phòng LiveKit
+      const participant = await this.livekitRoomService.getParticipant(
+        meeting.meetingCode,
+        participantIdentity,
+      );
+
+      // Nếu người dùng đang có mặt trong phòng, tiến hành cập nhật Metadata
+      if (participant && participant.metadata) {
+        const meta: ParticipantMetadata = JSON.parse(participant.metadata);
+
+        // Cập nhật role mới
+        meta.role = newRole;
+        meta.hasAdminPowers = hasAdminPowers;
+
+        // Ghi đè lại Metadata lên LiveKit Server
+        await this.livekitRoomService.updateParticipant(
+          meeting.meetingCode,
+          participantIdentity,
+          JSON.stringify(meta),
+        );
+      }
+    } catch (error) {
+      // Bỏ qua lỗi nếu người dùng không có mặt trong phòng lúc này
+      console.log(
+        `Người dùng ${participantIdentity} không trực tuyến trong phòng họp. ${error}`,
+      );
+    }
+  }
+
   async endMeetingByCode(meetingCode: string) {
     const meeting = await this.meetingModel.findOne({
       meetingCode,
     });
 
     if (meeting) {
-      console.log(`Đã đóng cuộc họp: ${meetingCode}`);
-
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
         isOngoing: false,

@@ -2,6 +2,8 @@
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -14,6 +16,7 @@ import { RoomsGateway } from "./rooms.gateway";
 import { mapToRoomResponse } from "./helpers/room.helper";
 import { RoomResponse } from "@tobomeet/shared/types";
 import { Channel } from "./schemas/channel.schema";
+import { MeetingsService } from "../meetings/meetings.service";
 
 @Injectable()
 export class RoomChannelService {
@@ -22,6 +25,8 @@ export class RoomChannelService {
   constructor(
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @Inject(forwardRef(() => MeetingsService))
+    private readonly meetingsService: MeetingsService,
     private readonly roomsGateway: RoomsGateway,
   ) {}
 
@@ -192,6 +197,19 @@ export class RoomChannelService {
 
     room.markModified("channels");
     await room.save();
+
+    // Đồng bộ role vào cuộc họp nếu đang diễn ra (nếu có)
+    try {
+      await this.meetingsService.updateParticipantRole(
+        roomId,
+        channelId,
+        targetUserId,
+        newRole,
+      );
+    } catch (e) {
+      this.logger.error("Lỗi đồng bộ role vào meeting:", e);
+    }
+    // ==========================================
 
     this.roomsGateway?.notifyRoomUpdated(roomId, {
       type: "member_role_updated",
