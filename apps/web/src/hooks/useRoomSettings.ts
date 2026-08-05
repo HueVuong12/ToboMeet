@@ -15,7 +15,7 @@ export function useRoomSettings({
 }: {
   roomId?: string;
   channelId?: string;
-  meetingCode: string;
+  meetingCode?: string;
 }) {
   const { localParticipant } = useLocalParticipant();
   const { metadata: roomMetadata } = useRoomInfo();
@@ -74,7 +74,7 @@ export function useRoomSettings({
     setIsChatEnabled(newState); // Optimistic UI
 
     // API không trả về roomId và channelId cho người dùng không có trong phòng
-    if (!roomId || !channelId) return;
+    if (!roomId || !channelId || !meetingCode) return;
 
     try {
       await toggleChatApi({
@@ -97,7 +97,7 @@ export function useRoomSettings({
     setIsWaitingRoomEnabled(newState); // Optimistic UI
 
     // API không trả về roomId và channelId cho người dùng không có trong phòng
-    if (!roomId || !channelId) return;
+    if (!roomId || !channelId || !meetingCode) return;
 
     try {
       await toggleWaitingRoomApi({
@@ -122,7 +122,7 @@ export function useRoomSettings({
     setApprovalPermission(permission); // Optimistic UI
 
     // API không trả về roomId và channelId cho người dùng không có trong phòng
-    if (!roomId || !channelId) return;
+    if (!roomId || !channelId || !meetingCode) return;
 
     try {
       await updateApprovalPermissionApi({

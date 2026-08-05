@@ -12,6 +12,8 @@ import {
   UserMinus,
   VideoOff,
   Clock,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -38,13 +40,17 @@ export default function ParticipantList({
     localParticipant,
     displayParticipants,
     waitingParticipants,
+    canManageParticipants,
     isLocalAdmin,
+    isLocalOwner,
     canApprove,
     kickingUserId,
     renameState,
     setRenameState,
     handleRemove,
     handleMute,
+    handleUpdateRole,
+    handleTransferOwnership,
     handleRenameSubmit,
     handleApprove,
     getHandState,
@@ -82,7 +88,7 @@ export default function ParticipantList({
         </div>
       )}
 
-      <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar pb-32 px-1">
+      <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar pb-64 px-1">
         {/* ================= KHU VỰC PHÒNG CHỜ ================= */}
         {canApprove && activeListTab === "waiting" && (
           <div className="animate-fade-in">
@@ -198,7 +204,7 @@ export default function ParticipantList({
               } catch (error) {}
 
               const isMe = p.identity === localParticipant.identity;
-              const hasMenuOptions = isMe || isLocalAdmin;
+              const hasMenuOptions = isMe || canManageParticipants;
 
               // Xác định text chức danh hiển thị dựa theo roomType
               let roleText = "";
@@ -310,7 +316,57 @@ export default function ParticipantList({
                                 </button>
                               )}
 
-                              {isLocalAdmin && !isMe && (
+                              {/* MENU DÀNH CHO OWNER (ĐỔI QUYỀN / CHUYỂN QUYỀN) */}
+                              {isLocalOwner && !isMe && role !== "guest" && (
+                                <>
+                                  {role === "admin" ? (
+                                    <button
+                                      onClick={() => {
+                                        handleUpdateRole(p.identity, "member");
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                    >
+                                      <UserCheck size={15} /> Thu hồi{" "}
+                                      {roomType === "classroom"
+                                        ? "Ban cán sự"
+                                        : "Phó phòng"}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        handleUpdateRole(p.identity, "admin");
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                    >
+                                      <UserCheck size={15} /> Bổ nhiệm{" "}
+                                      {roomType === "classroom"
+                                        ? "Ban cán sự"
+                                        : "Phó phòng"}
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => {
+                                      handleTransferOwnership(
+                                        p.identity,
+                                        p.name || "Thành viên",
+                                      );
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors border-t border-[#444]"
+                                  >
+                                    <ShieldCheck size={15} /> Chuyển quyền{" "}
+                                    {roomType === "classroom"
+                                      ? "Giáo viên"
+                                      : "Chủ phòng"}
+                                  </button>
+                                  <div className="border-b border-[#444] mb-1" />
+                                </>
+                              )}
+
+                              {canManageParticipants && !isMe && (
                                 <>
                                   {p.isMicrophoneEnabled && (
                                     <button
@@ -371,7 +427,7 @@ export default function ParticipantList({
       {/* Render Modal Đổi Tên bằng Portal */}
       {renameState?.isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4">
             <div className="bg-[#222] border border-[#333] rounded-xl shadow-2xl w-full max-w-sm p-6">
               <h3 className="text-lg font-semibold text-white mb-4 tracking-wide">
                 Đổi tên hiển thị
