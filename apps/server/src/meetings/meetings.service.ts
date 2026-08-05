@@ -8,7 +8,12 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
-import { AccessToken, RoomServiceClient, TrackType } from "livekit-server-sdk";
+import {
+  AccessToken,
+  RoomServiceClient,
+  TrackType,
+  Room as LiveKitRoom,
+} from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import {
   ErrorCode,
@@ -839,7 +844,7 @@ export class MeetingsService {
     roomId: string,
     channelId: string,
     participantIdentity: string,
-    newRole: "owner" | "admin" | "member" | "guest",
+    newRole: "admin" | "member" | "owner",
   ) {
     if (!this.livekitRoomService) return;
 
@@ -847,7 +852,7 @@ export class MeetingsService {
       .findOne({ roomId, channelId })
       .exec();
     if (!meeting) return;
-    const hasAdminPowers = newRole === "owner" || newRole === "admin";
+    const hasAdminPowers = newRole === "admin";
 
     try {
       // Lấy thông tin người dùng từ phòng LiveKit
@@ -893,7 +898,7 @@ export class MeetingsService {
     }
   }
 
-  async isRoomActive(meetingCode: string): Promise<any | null> {
+  async isRoomActive(meetingCode: string): Promise<LiveKitRoom | null> {
     if (this.livekitRoomService) {
       try {
         const rooms = await this.livekitRoomService.listRooms([meetingCode]);

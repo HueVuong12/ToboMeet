@@ -106,7 +106,10 @@ export default function ParticipantList({
             ) : (
               <div className="flex flex-col gap-1 w-full">
                 {/* NÚT DUYỆT TẤT CẢ */}
-                <div className="flex w-full justify-end px-1 pb-1">
+                <div className="flex w-full justify-between px-1 pb-1">
+                  <p className="text-xs text-slate-400">
+                    Mọi người
+                  </p>
                   <button
                     onClick={() => handleApprove("all", "Tất cả")}
                     className="text-xs text-amber-500 hover:text-amber-400 font-medium px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors"
@@ -300,7 +303,7 @@ export default function ParticipantList({
                               className="fixed inset-0 z-40"
                               onClick={() => setOpenMenuId(null)}
                             ></div>
-                            <div className="absolute right-4 top-6 z-50 w-44 bg-[#2a2a2a] border border-[#444] rounded-lg shadow-xl overflow-hidden backdrop-blur-xl">
+                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-50 origin-top-right bg-[#222] border border-[#333] rounded py-1 shadow-2xl backdrop-blur-xl">
                               {isMe && (
                                 <button
                                   onClick={() => {
@@ -310,13 +313,13 @@ export default function ParticipantList({
                                     });
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                  className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                 >
                                   <Edit2 size={15} /> Đổi tên
                                 </button>
                               )}
 
-                              {/* MENU DÀNH CHO OWNER (ĐỔI QUYỀN / CHUYỂN QUYỀN) */}
+                              {/* MENU DÀNH CHO OWNER */}
                               {isLocalOwner && !isMe && role !== "guest" && (
                                 <>
                                   {role === "admin" ? (
@@ -325,7 +328,7 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "member");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
                                       <UserCheck size={15} /> Thu hồi{" "}
                                       {roomType === "classroom"
@@ -338,7 +341,7 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "admin");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
                                       <UserCheck size={15} /> Bổ nhiệm{" "}
                                       {roomType === "classroom"
@@ -355,17 +358,18 @@ export default function ParticipantList({
                                       );
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors border-t border-[#444]"
+                                    className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                   >
                                     <ShieldCheck size={15} /> Chuyển quyền{" "}
                                     {roomType === "classroom"
                                       ? "Giáo viên"
                                       : "Chủ phòng"}
                                   </button>
-                                  <div className="border-b border-[#444] mb-1" />
+                                  <div className="h-px bg-[#444] my-1 mx-2" />
                                 </>
                               )}
 
+                              {/* CÁC THAO TÁC QUẢN LÝ CHUNG */}
                               {canManageParticipants && !isMe && (
                                 <>
                                   {p.isMicrophoneEnabled && (
@@ -378,7 +382,7 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
                                       <MicOff size={15} /> Tắt Mic
                                     </button>
@@ -394,7 +398,7 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
                                       <VideoOff size={15} /> Tắt Camera
                                     </button>
@@ -405,7 +409,7 @@ export default function ParticipantList({
                                       handleRemove(p.identity);
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/15 hover:text-red-300 flex items-center gap-2.5 transition-colors"
+                                    className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-3 transition-colors whitespace-nowrap"
                                   >
                                     <UserMinus size={15} /> Xoá khỏi phòng
                                   </button>

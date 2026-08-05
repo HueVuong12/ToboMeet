@@ -197,7 +197,7 @@ export class RoomsController {
     @Param("id") roomId: string,
     @Param("channelId") channelId: string,
     @Param("targetUserId") targetUserId: string,
-    @Body("role") role: string,
+    @Body("role") role: 'member' | 'admin',
     @Req() req: AuthenticatedRequest,
   ) {
     if (!role) {

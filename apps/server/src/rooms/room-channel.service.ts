@@ -135,7 +135,7 @@ export class RoomChannelService {
     roomId: string,
     channelId: string,
     targetUserId: string,
-    newRole: string,
+    newRole: 'admin' | 'member',
   ): Promise<RoomResponse> {
     const room = await this.roomModel.findOne({
       _id: roomId,
