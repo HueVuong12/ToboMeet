@@ -8,6 +8,7 @@ import {
   Query,
   Put,
   Body,
+  BadRequestException,
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -84,14 +85,36 @@ export class UsersController {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(" ")[1] || "";
     const userAgent = (req.headers["user-agent"] as string) || "";
-    return this.usersService.revokeOtherSessions(userId, token, userAgent);
+    // Lấy socketId của thiết bị hiện tại để server exclude khi emit force_logout
+    const currentSocketId = (req.headers["x-socket-id"] as string) || "";
+    return this.usersService.revokeOtherSessions(userId, token, userAgent, currentSocketId);
   }
 
   @UseGuards(SupabaseGuard)
   @Delete("me/sessions/:id")
   async revokeSession(@Param("id") sessionId: string, @Request() req) {
     const userId = req.user.id;
-    return this.usersService.revokeSession(userId, sessionId);
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(" ")[1] || "";
+    const userAgent = (req.headers["user-agent"] as string) || "";
+    return this.usersService.revokeSession(userId, sessionId, token, userAgent);
+  }
+
+  /**
+   * Proxy Nominatim reverse geocoding — gọi từ server để tránh CORS và rate-limit browser.
+   * Public endpoint: geocoding là data công khai, không cần auth.
+   */
+  @Get("geo/reverse")
+  async reverseGeocode(
+    @Query("lat") latStr: string,
+    @Query("lon") lonStr: string,
+  ) {
+    const lat = parseFloat(latStr);
+    const lon = parseFloat(lonStr);
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      throw new BadRequestException("lat/lon không hợp lệ");
+    }
+    return this.usersService.reverseGeocode(lat, lon);
   }
 
   @UseGuards(SupabaseGuard)

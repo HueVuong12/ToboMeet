@@ -7,6 +7,7 @@ import {
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
   useUpdateCurrentSessionLocationMutation,
+  useLazyReverseGeocodeQuery,
   UserSession
 } from "@/lib/redux/api/usersApi";
 import {
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { useConfirm } from "@/providers/ConfirmProvider";
 import { toast } from "sonner";
+import { socket } from "@/lib/socket";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -236,50 +238,42 @@ function DeviceListItem({
   const relativeTime = getRelativeTime(session.updatedAt, currentLocale);
 
   const [updateLocation] = useUpdateCurrentSessionLocationMutation();
+  const [triggerReverseGeocode] = useLazyReverseGeocodeQuery();
   const [gpsLocation, setGpsLocation] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isCurrent || typeof window === "undefined" || !("geolocation" in navigator)) return;
 
     let isMounted = true;
-    const timeoutId = setTimeout(() => {}, 4000);
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        clearTimeout(timeoutId);
         if (!isMounted) return;
         try {
           const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=vi`,
-            { headers: { "User-Agent": "ToBoMeet-Web" } }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const addr = data.address || {};
-            const city = addr.city || addr.town || addr.state || addr.province || "";
-            const country = addr.country || "";
-            if (city && country) {
-              setGpsLocation(`${city}, ${country}`);
-              updateLocation({ city, country }).unwrap().catch(() => {});
-            } else if (country) {
-              setGpsLocation(country);
-              updateLocation({ city: "", country }).unwrap().catch(() => {});
-            }
+          // Gọi backend proxy — không gọi Nominatim trực tiếp từ browser
+          const result = await triggerReverseGeocode({ lat: latitude, lon: longitude }).unwrap();
+          if (!isMounted) return;
+          const { city, country } = result;
+          if (city && country) {
+            setGpsLocation(`${city}, ${country}`);
+            updateLocation({ city, country }).unwrap().catch(() => {});
+          } else if (country) {
+            setGpsLocation(country);
+            updateLocation({ city: "", country }).unwrap().catch(() => {});
           }
         } catch {}
       },
       () => {
-        clearTimeout(timeoutId);
+        // User từ chối GPS — bỏ qua
       },
       { enableHighAccuracy: false, timeout: 4000 }
     );
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
-  }, [isCurrent, updateLocation]);
+  }, [isCurrent, updateLocation, triggerReverseGeocode]);
 
   const displayName =
     session.deviceName ||
@@ -403,6 +397,18 @@ export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
   const isRevoking = isRevokingSingle || isRevokingOthers;
   const [showAllLoggedOut, setShowAllLoggedOut] = useState(false);
 
+  // Lắng nghe sự kiện socket để tự động cập nhật danh sách thiết bị
+  useEffect(() => {
+    const handleSessionListChanged = () => {
+      refetch();
+    };
+
+    socket.on("session_list_changed", handleSessionListChanged);
+    return () => {
+      socket.off("session_list_changed", handleSessionListChanged);
+    };
+  }, [refetch]);
+
   const handleRevokeSession = (sessionId: string) => {
     confirm({
       title: t("devices.logout_device"),
@@ -427,7 +433,12 @@ export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
       confirmText: t("devices.logout"),
       onConfirm: async () => {
         try {
-          await revokeOtherSessions().unwrap();
+          // Lấy socketId của thiết bị hiện tại để server exclude khi emit force_logout
+          // socket.id chỉ có giá trị khi socket đang connected
+          const currentSocketId = socket.connected ? (socket.id ?? "") : "";
+          await revokeOtherSessions({ socketId: currentSocketId }).unwrap();
+          toast.success(t("devices.logout_others_success") || "Đã đăng xuất khỏi tất cả các thiết bị khác.");
+          // Chỉ refetch sau khi backend xác nhận thành công
           refetch();
         } catch (err) {
           toast.error(t("devices.logout_failed"));

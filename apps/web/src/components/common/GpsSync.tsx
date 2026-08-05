@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useUpdateCurrentSessionLocationMutation } from "@/lib/redux/api/usersApi";
+import { useEffect, useState } from "react";
+import { useUpdateCurrentSessionLocationMutation, useLazyReverseGeocodeQuery } from "@/lib/redux/api/usersApi";
 import { socket } from "@/lib/socket";
 import { createClient } from "@/lib/supabase/client";
 import { doClientLogout } from "@/lib/axios";
@@ -35,10 +35,38 @@ async function extractClientSessionId(token: string): Promise<string> {
 
 export function GpsSync() {
   const [updateLocation] = useUpdateCurrentSessionLocationMutation();
+  const [triggerReverseGeocode] = useLazyReverseGeocodeQuery();
 
-  // Lắng nghe sự kiện thu hồi phiên từ xa qua Socket.io
+  // Track trạng thái đăng nhập để không gọi API khi chưa login
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  // Kiểm tra session một lần khi mount
   useEffect(() => {
-    const handleSessionRevoked = async (data?: { sessionId?: string; revokedSessionIds?: string[] }) => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session?.user);
+    }).catch(() => {
+      setIsLoggedIn(false);
+    });
+
+    // Lắng nghe thay đổi auth state để cập nhật kịp thời
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session?.user);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Lắng nghe sự kiện thu hồi phiên đơn lẻ (revokeSession - logout 1 thiết bị cụ thể)
+  // Lưu ý: force_logout (Đăng xuất tất cả) được xử lý bởi useForceLogoutSocket hook
+  useEffect(() => {
+    // Chỉ lắng nghe socket khi đã đăng nhập
+    if (!isLoggedIn) return;
+
+    const handleSessionRevoked = async (data?: { sessionId?: string }) => {
+      // Chỉ xử lý khi có sessionId đơn lẻ (không phải từ LOGOUT_ALL)
+      if (!data?.sessionId) return;
+
       try {
         const supabase = createClient();
         const {
@@ -50,30 +78,14 @@ export function GpsSync() {
 
         const currentSid = await extractClientSessionId(token);
 
-        const isRevokedSingle = Boolean(
-          data?.sessionId &&
-            (data.sessionId === currentSid || data.sessionId === session?.user?.id),
-        );
-        const isRevokedList = Boolean(
-          Array.isArray(data?.revokedSessionIds) &&
-            (data.revokedSessionIds.includes(currentSid) ||
-              data.revokedSessionIds.includes(session?.user?.id || "")),
-        );
+        // Chỉ logout nếu sessionId bị revoke CHÍNH XÁC là session của thiết bị này
+        const isCurrentSession =
+          data.sessionId === currentSid ||
+          data.sessionId === session?.user?.id;
 
-        if (isRevokedSingle || isRevokedList) {
+        if (isCurrentSession) {
           await doClientLogout();
-          return;
         }
-
-        // 🟢 Kiểm tra 2 Lớp (Double Check 401): Gửi request nhẹ tới Backend để xác minh phiên
-        try {
-          const res = await fetch("/api/users/me/sessions", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.status === 401) {
-            await doClientLogout();
-          }
-        } catch {}
       } catch {}
     };
 
@@ -81,48 +93,44 @@ export function GpsSync() {
     return () => {
       socket.off("session_revoked", handleSessionRevoked);
     };
-  }, []);
+  }, [isLoggedIn]);
 
+  // Lấy vị trí GPS và cập nhật lên server — CHỈ khi đã đăng nhập
   useEffect(() => {
+    // Guard: không gọi API nếu chưa xác định trạng thái login hoặc chưa login
+    if (isLoggedIn !== true) return;
     if (typeof window === "undefined" || !("geolocation" in navigator)) return;
 
     let isMounted = true;
-    const timeoutId = setTimeout(() => {}, 5000);
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        clearTimeout(timeoutId);
         if (!isMounted) return;
         try {
           const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=vi`,
-            { headers: { "User-Agent": "ToBoMeet-Web" } }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const addr = data.address || {};
-            const city = addr.city || addr.town || addr.state || addr.province || "";
-            const country = addr.country || "";
-            if (city && country) {
-              updateLocation({ city, country }).unwrap().catch(() => {});
-            } else if (country) {
-              updateLocation({ city: "", country }).unwrap().catch(() => {});
-            }
+          // Gọi backend proxy thay vì Nominatim trực tiếp
+          const result = await triggerReverseGeocode({ lat: latitude, lon: longitude }).unwrap();
+          if (!isMounted) return;
+          const { city, country } = result;
+          if (city && country) {
+            updateLocation({ city, country }).unwrap().catch(() => {});
+          } else if (country) {
+            updateLocation({ city: "", country }).unwrap().catch(() => {});
           }
-        } catch {}
+        } catch {
+          // Bỏ qua lỗi geocoding — không critical
+        }
       },
       () => {
-        clearTimeout(timeoutId);
+        // User từ chối hoặc không có GPS — bỏ qua
       },
       { enableHighAccuracy: false, timeout: 5000 }
     );
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
-  }, [updateLocation]);
+  }, [isLoggedIn, updateLocation, triggerReverseGeocode]);
 
   return null;
 }

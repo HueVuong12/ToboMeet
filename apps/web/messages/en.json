@@ -397,6 +397,7 @@
       "login_method_prefix": "Signed in with ",
       "logout_all": "Sign out all",
       "logout_all_confirm": "Are you sure you want to sign out all other devices? Your current device will not be affected.",
+      "logout_others_success": "Successfully logged out of all other devices.",
       "logout": "Sign out",
       "logout_device": "Sign out this device",
       "confirm_logout": "Are you sure you want to sign out of this device?",

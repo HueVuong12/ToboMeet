@@ -52,11 +52,15 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ["UserSessions"],
     }),
 
-    revokeOtherSessions: builder.mutation<{ success: boolean; message: string }, void>({
-      query: () => ({
-        url: "/users/me/sessions/others",
-        method: "DELETE",
-      }),
+    revokeOtherSessions: builder.mutation<{ success: boolean; message: string }, { socketId?: string } | void>({
+      query: (arg) => {
+        const socketId = arg && (arg as { socketId?: string }).socketId;
+        return {
+          url: "/users/me/sessions/others",
+          method: "DELETE",
+          ...(socketId ? { headers: { "X-Socket-Id": socketId } } : {}),
+        };
+      },
       invalidatesTags: ["UserSessions"],
     }),
 
@@ -76,6 +80,14 @@ export const usersApi = baseApi.injectEndpoints({
         params: { q: query },
       }),
     }),
+
+    reverseGeocode: builder.query<{ city: string; country: string }, { lat: number; lon: number }>({
+      query: ({ lat, lon }) => ({
+        url: "/users/geo/reverse",
+        method: "GET",
+        params: { lat, lon },
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -87,4 +99,5 @@ export const {
   useUpdateCurrentSessionLocationMutation,
   useSearchUsersQuery,
   useLazySearchUsersQuery,
+  useLazyReverseGeocodeQuery,
 } = usersApi;

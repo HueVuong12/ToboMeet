@@ -46,11 +46,15 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["UserSessions"],
     }),
-    revokeOtherSessions: builder.mutation<void, void>({
-      query: () => ({
-        url: "/users/me/sessions/others",
-        method: "DELETE",
-      }),
+    revokeOtherSessions: builder.mutation<void, { socketId?: string } | void>({
+      query: (arg) => {
+        const socketId = arg && (arg as { socketId?: string }).socketId;
+        return {
+          url: "/users/me/sessions/others",
+          method: "DELETE",
+          ...(socketId ? { headers: { "X-Socket-Id": socketId } } : {}),
+        };
+      },
       invalidatesTags: ["UserSessions"],
     }),
   }),

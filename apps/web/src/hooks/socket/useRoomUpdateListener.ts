@@ -5,6 +5,9 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRoomCacheManager } from "../useRoomCacheManager";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/lib/redux/store";
+import { channelFilesApi } from "@/lib/redux/api/channelFilesApi";
 
 interface UseRoomUpdateListenerOptions {
   /** Callback khi user hiện tại vừa rời kênh thành công — để component switch sang kênh khác */
@@ -25,6 +28,7 @@ export function useRoomUpdateListener(
     invalidateRoomList,
     invalidateRoom,
   } = useRoomCacheManager();
+  const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
     if (!roomId || !userId) return;
@@ -118,6 +122,19 @@ export function useRoomUpdateListener(
         case "member_role_updated":
           invalidateRoomList();
           invalidateRoom(roomId);
+          break;
+
+        case "channel_file_uploaded":
+        case "channel_file_renamed":
+        case "channel_file_deleted":
+          // Invalidate ChannelFile RTK Query cache để danh sách tệp tự làm mới realtime
+          if (data.channelId) {
+            dispatch(
+              channelFilesApi.util.invalidateTags([
+                { type: "ChannelFile", id: data.channelId },
+              ])
+            );
+          }
           break;
 
         default:

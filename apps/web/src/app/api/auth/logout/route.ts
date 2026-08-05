@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     "vi";
 
   // Đăng xuất khỏi Supabase (xoá session cookie)
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
 
   // Redirect về trang login với locale đúng
   const loginUrl = new URL(`/${locale}/login`, request.url);

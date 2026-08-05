@@ -372,6 +372,7 @@
       "login_method_prefix": "Đăng nhập bằng ",
       "logout_all": "Đăng xuất tất cả",
       "logout_all_confirm": "Bạn có chắc chắn muốn đăng xuất tất cả thiết bị khác không? Thiết bị hiện tại của bạn sẽ không bị ảnh hưởng.",
+      "logout_others_success": "Đã đăng xuất khỏi tất cả các thiết bị khác thành công.",
       "logout": "Đăng xuất",
       "logout_device": "Đăng xuất thiết bị này",
       "confirm_logout": "Bạn có chắc chắn muốn đăng xuất thiết bị này không?",

@@ -37,6 +37,18 @@ async function handleProxy(
     headers.set("Authorization", `Bearer ${session.access_token}`);
   }
 
+  // Forward x-socket-id
+  const socketId = request.headers.get("x-socket-id");
+  if (socketId) {
+    headers.set("x-socket-id", socketId);
+  }
+
+  // Forward user-agent
+  const userAgent = request.headers.get("user-agent");
+  if (userAgent) {
+    headers.set("user-agent", userAgent);
+  }
+
   // Body
   let body: BodyInit | undefined = undefined;
 

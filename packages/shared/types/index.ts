@@ -234,3 +234,18 @@ export interface RoomMemberStatus {
   isMember: boolean;
   roomId?: string;
 }
+
+export interface ChannelFileResponse {
+  _id: string;
+  roomId: string;
+  channelId: string;
+  uploadedBy: string;
+  uploadedByName: string;
+  fileName: string;
+  storagePath: string;
+  publicUrl: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+  updatedAt: string;
+}

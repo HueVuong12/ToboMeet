@@ -14,7 +14,8 @@ import { Feather } from "@expo/vector-icons";
 import { useAddChannelMemberMutation } from "../../lib/redux/features/rooms/roomsApi";
 import { useSearchUsersQuery } from "../../lib/redux/features/users/usersApi";
 import { toast } from "../../lib/toast";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { UserResponse } from "@tobomeet/shared/types";
+
 
 interface AddPrivateChannelMemberModalProps {
   visible: boolean;
@@ -36,12 +37,11 @@ export default function AddPrivateChannelMemberModal({
   channel,
 }: AddPrivateChannelMemberModalProps) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const [addChannelMember, { isLoading: isSubmitting }] = useAddChannelMemberMutation();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: searchResults = [], isFetching: isSearching } = useSearchUsersQuery(
@@ -79,7 +79,7 @@ export default function AddPrivateChannelMemberModal({
 
     try {
       const targetId = selectedUser
-        ? selectedUser.supabaseId || selectedUser._id || selectedUser.id
+        ? selectedUser.supabaseId || selectedUser._id
         : undefined;
       const queryStr = selectedUser
         ? selectedUser.email || selectedUser.displayName
@@ -96,13 +96,14 @@ export default function AddPrivateChannelMemberModal({
       setSearchQuery("");
       setSelectedUser(null);
       onClose();
-    } catch (err: any) {
-      const rawMsg = err?.data?.message || err?.message;
+    } catch (err) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      const rawMsg = errorObj?.data?.message || errorObj?.message;
       setError(rawMsg || t("room.invite_error_fallback", { defaultValue: "Không thể thêm thành viên vào kênh" }));
     }
   };
 
-  const isUserAlreadyInChannel = (user: any) => {
+  const isUserAlreadyInChannel = (user: UserResponse) => {
     return channel.members?.some(
       (cm) =>
         cm.userId === (user.supabaseId || user._id) &&

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { router } from "expo-router";
 import { toast } from "../../lib/toast";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { socket } from "../../lib/socket";
 
 type Tab = "language" | "devices";
 
@@ -53,6 +54,18 @@ export default function SettingsScreen() {
   const [revokeSession, { isLoading: isRevokingSingle }] = useRevokeSessionMutation();
   const [revokeOtherSessions, { isLoading: isRevokingOthers }] = useRevokeOtherSessionsMutation();
   const isRevoking = isRevokingSingle || isRevokingOthers;
+
+  // Lắng nghe sự kiện socket để tự động cập nhật danh sách thiết bị
+  useEffect(() => {
+    const handleSessionListChanged = () => {
+      refetch();
+    };
+
+    socket.on("session_list_changed", handleSessionListChanged);
+    return () => {
+      socket.off("session_list_changed", handleSessionListChanged);
+    };
+  }, [refetch]);
 
   const handleLanguageChange = async (newLocale: "vi" | "en") => {
     if (i18n.language.startsWith(newLocale)) return;
@@ -98,7 +111,12 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await revokeOtherSessions().unwrap();
+              // Lấy socketId của thiết bị hiện tại để server exclude khi emit force_logout
+              // socket.id chỉ có giá trị khi socket đang connected
+              const currentSocketId = socket.connected ? (socket.id ?? "") : "";
+              await revokeOtherSessions({ socketId: currentSocketId }).unwrap();
+              toast.success("Đã đăng xuất khỏi tất cả các thiết bị khác.");
+              // Chỉ refetch sau khi backend xác nhận thành công
               refetch();
             } catch (err) {
               console.error(err);
@@ -112,7 +130,7 @@ export default function SettingsScreen() {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
       router.replace("/(auth)/login");
     } catch (error) {
@@ -337,6 +355,23 @@ export default function SettingsScreen() {
                   </View>
                 ))
               )}
+
+              {/* Nút Đăng xuất tất cả – chỉ hiển khi có thiết bị khác */}
+              {sessions &&
+                !isSessionsLoading &&
+                sessions.some((s) => !s.isCurrent) && (
+                  <TouchableOpacity
+                    onPress={handleRevokeAll}
+                    disabled={isRevoking}
+                    className="mt-4 w-full flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-red-50 border border-red-100 active:opacity-70"
+                    style={{ opacity: isRevoking ? 0.5 : 1 }}
+                  >
+                    <Feather name="log-out" size={16} color="#EF4444" />
+                    <Text className="text-red-500 font-bold text-sm">
+                      Đăng xuất tất cả thiết bị khác
+                    </Text>
+                  </TouchableOpacity>
+                )}
             </View>
           </View>
         )}

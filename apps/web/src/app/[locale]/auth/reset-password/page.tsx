@@ -44,7 +44,7 @@ export default function ResetPasswordPage() {
       } else {
         setSuccess(true);
         // Đăng xuất để xóa session hiện tại sau khi đổi mật khẩu
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         setTimeout(() => {
           router.push("/login");
         }, 3000);

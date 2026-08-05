@@ -6,6 +6,9 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { socket } from "../../lib/socket";
 import { toast } from "../../lib/toast";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../lib/redux/store";
+import { channelFilesApi } from "../../lib/redux/api/channelFilesApi";
 
 interface UseRoomUpdateListenerOptions {
   onUserLeftChannel?: (channelId: string) => void;
@@ -25,6 +28,7 @@ export function useRoomUpdateListener(
     invalidateRoomList,
     invalidateRoom,
   } = useRoomCacheManager();
+  const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
     if (!roomId || !userId) return;
@@ -41,13 +45,28 @@ export function useRoomUpdateListener(
     if (socket.connected) joinRoomSocket();
     socket.on("connect", joinRoomSocket);
 
-    const handleRoomUpdated = (data: any) => {
+    const handleRoomUpdated = (data: {
+      type: string;
+      roomId: string;
+      removedUserId?: string;
+      roomName?: string;
+      room?: { name: string };
+      leftUserId?: string;
+      member?: { displayName: string };
+      newOwnerId?: string;
+      previousOwnerId?: string;
+      targetUserId?: string;
+      userId?: string;
+      channelId?: string;
+    }) => {
       if (!data || !data.type) return;
 
       switch (data.type) {
         case "member_removed":
           // Xóa thành viên khỏi danh sách hiển thị
-          removeMemberFromRoomCache(data.roomId, data.removedUserId);
+          if (data.removedUserId) {
+            removeMemberFromRoomCache(data.roomId, data.removedUserId);
+          }
           if (data.removedUserId === userId) {
             const title = t("common.notification", { defaultValue: "Thông báo" });
             const roomName = data.roomName || data.room?.name || "phòng họp";
@@ -62,7 +81,9 @@ export function useRoomUpdateListener(
 
         case "member_left":
           // Cập nhật realtime khi có thành viên chủ động rời phòng
-          removeMemberFromRoomCache(data.roomId, data.leftUserId);
+          if (data.leftUserId) {
+            removeMemberFromRoomCache(data.roomId, data.leftUserId);
+          }
           invalidateRoom(roomId);
           invalidateRoomList();
           break;
@@ -117,10 +138,22 @@ export function useRoomUpdateListener(
           invalidateRoom(roomId);
 
           if (data.userId === userId) {
-            if (options?.onUserLeftChannel) {
+            if (options?.onUserLeftChannel && data.channelId) {
               options.onUserLeftChannel(data.channelId);
             }
             toast.success("Bạn đã rời khỏi kênh thành công.");
+          }
+          break;
+
+        case "channel_file_uploaded":
+        case "channel_file_renamed":
+        case "channel_file_deleted":
+          if (data.channelId) {
+            dispatch(
+              channelFilesApi.util.invalidateTags([
+                { type: "ChannelFile", id: data.channelId },
+              ])
+            );
           }
           break;
 

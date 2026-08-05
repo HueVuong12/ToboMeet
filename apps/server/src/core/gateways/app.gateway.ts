@@ -46,7 +46,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     client.join(`user_${userId}`);
-    console.log(`[Socket] Client ${client.id} registered as User: ${userId}`);
+    const rooms = Array.from(client.rooms);
+    console.log(`[Socket] Client ${client.id} joined user_${userId}. Active rooms: [${rooms.join(", ")}]`);
 
     try {
       // Khi người dùng online lại, kiểm tra xem có thông báo nào chưa gửi không

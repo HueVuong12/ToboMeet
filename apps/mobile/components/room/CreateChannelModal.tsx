@@ -16,12 +16,13 @@ import { Feather } from "@expo/vector-icons";
 import { useAddChannelMutation } from "../../lib/redux/features/rooms/roomsApi";
 import { toast } from "../../lib/toast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RoomMemberResponse } from "@tobomeet/shared/types";
 
 interface CreateChannelModalProps {
   visible: boolean;
   onClose: () => void;
   roomId: string;
-  roomMembers: any[];
+  roomMembers: RoomMemberResponse[];
   currentUserId: string;
 }
 
@@ -79,8 +80,9 @@ export default function CreateChannelModal({
 
       toast.success(t("room.channel_created_success", { defaultValue: "Tạo kênh thành công" }));
       onClose();
-    } catch (err: any) {
-      const rawMsg = err?.data?.message || err?.message;
+    } catch (err) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      const rawMsg = errorObj?.data?.message || errorObj?.message;
       setError(rawMsg || "Tạo kênh thất bại");
     }
   };
