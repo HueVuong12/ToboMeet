@@ -56,10 +56,16 @@ export class UsersController {
     const token = authHeader?.split(" ")[1];
     const userAgent = (req.headers["user-agent"] as string) || "";
     const clientIp = this.getClientIp(req);
+    const deviceHeaders = {
+      deviceName: req.headers["x-device-name"] as string,
+      deviceModel: req.headers["x-device-model"] as string,
+      deviceBrand: req.headers["x-device-brand"] as string,
+      deviceOS: req.headers["x-device-os"] as string,
+    };
 
     if (token) {
       // Gọi không đồng bộ (bất đồng bộ chạy nền) để không làm chậm request getMe chính
-      this.usersService.registerOrUpdateSession(userId, token, userAgent, clientIp).catch(() => {});
+      this.usersService.registerOrUpdateSession(userId, token, userAgent, clientIp, deviceHeaders).catch(() => {});
     }
 
     return userDoc;
@@ -73,8 +79,14 @@ export class UsersController {
     const token = authHeader?.split(" ")[1];
     const userAgent = (req.headers["user-agent"] as string) || "";
     const clientIp = this.getClientIp(req);
+    const deviceHeaders = {
+      deviceName: req.headers["x-device-name"] as string,
+      deviceModel: req.headers["x-device-model"] as string,
+      deviceBrand: req.headers["x-device-brand"] as string,
+      deviceOS: req.headers["x-device-os"] as string,
+    };
 
-    return this.usersService.getUserSessions(userId, token, userAgent, clientIp);
+    return this.usersService.getUserSessions(userId, token, userAgent, clientIp, deviceHeaders);
   }
 
   @UseGuards(SupabaseGuard)

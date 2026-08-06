@@ -153,7 +153,14 @@
       "method_google": "Google",
       "method_otp": "OTP code",
       "method_qr": "QR code",
-      "login_method_prefix": "Signed in with "
+      "login_method_prefix": "Signed in with ",
+      "device_android": "Android Device",
+      "device_iphone": "iPhone",
+      "device_ipad": "iPad",
+      "device_windows": "Windows PC",
+      "device_macos": "macOS Device",
+      "device_linux": "Linux Device",
+      "device_web_browser": "Web Browser"
     }
   },
   "room": {

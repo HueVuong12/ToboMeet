@@ -8,6 +8,7 @@ export interface UserSession {
   isp?: string;
   ip?: string;
   ipAddress?: string | null;
+  deviceName?: string;
   os: string;
   browser: string;
   isMobile: boolean;

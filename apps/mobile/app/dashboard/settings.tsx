@@ -8,6 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { useTranslation } from "react-i18next";
+import { TFunction } from "i18next";
 import { Feather } from "@expo/vector-icons";
 import {
   useGetSessionsQuery,
@@ -67,13 +68,42 @@ function getRelativeTime(dateStr: string, locale: string): string {
   }
 }
 
-function getMethodName(method: string | undefined, t: any) {
+function getMethodName(method: string | undefined, t: TFunction) {
   if (!method) return t("settings.devices.method_password") || "Mật khẩu";
   const m = method.toLowerCase();
   if (m === "google" || m === "oauth") return t("settings.devices.method_google") || "Google";
   if (m === "otp") return t("settings.devices.method_otp") || "Mã OTP";
   if (m === "qr") return t("settings.devices.method_qr") || "Mã QR";
   return t("settings.devices.method_password") || "Mật khẩu";
+}
+
+function translateDeviceName(name: string | undefined, t: TFunction): string {
+  if (!name) return "Không rõ";
+  const nameLower = name.toLowerCase().trim();
+  
+  if (nameLower === "android device" || nameLower === "android") {
+    return t("settings.devices.device_android") || "Thiết bị Android";
+  }
+  if (nameLower === "iphone") {
+    return t("settings.devices.device_iphone") || "iPhone";
+  }
+  if (nameLower === "ipad") {
+    return t("settings.devices.device_ipad") || "iPad";
+  }
+  if (nameLower === "windows pc" || nameLower === "windows") {
+    return t("settings.devices.device_windows") || "Máy tính Windows";
+  }
+  if (nameLower === "macos" || nameLower === "macintosh" || nameLower === "macbook") {
+    return t("settings.devices.device_macos") || "Máy tính macOS";
+  }
+  if (nameLower === "linux") {
+    return t("settings.devices.device_linux") || "Máy tính Linux";
+  }
+  if (nameLower === "trình duyệt web" || nameLower === "trìnhduyệtweb" || nameLower === "browser") {
+    return t("settings.devices.device_web_browser") || "Trình duyệt Web";
+  }
+  
+  return name;
 }
 
 export default function SettingsScreen() {
@@ -257,7 +287,13 @@ export default function SettingsScreen() {
           <View className="flex-1 min-w-0">
             <View className="flex-row items-center gap-2 flex-wrap">
               <Text className="font-bold text-slate-800 text-sm truncate">
-                {`${(session.browser || "Browser").replace(/\s+/g, "")}-${(session.os || "OS").replace(/\s+/g, "")}`}
+                {translateDeviceName(
+                  session.deviceName ||
+                    (session.browser && session.os && session.os !== "Không rõ"
+                      ? `${session.browser} - ${session.os}`
+                      : session.browser || "Không rõ"),
+                  t
+                )}
               </Text>
               {session.isCurrent && (
                 <View className="px-2 py-0.5 rounded-full bg-green-50 border border-green-200">

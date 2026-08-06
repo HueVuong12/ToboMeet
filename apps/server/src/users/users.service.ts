@@ -327,6 +327,12 @@ export class UsersService {
     currentToken: string,
     userAgent: string,
     clientIp: string,
+    deviceHeaders?: {
+      deviceName?: string;
+      deviceModel?: string;
+      deviceBrand?: string;
+      deviceOS?: string;
+    }
   ): Promise<void> {
     if (!currentToken || !userId) return;
     try {
@@ -340,6 +346,33 @@ export class UsersService {
       }
 
       const uaInfo = this.parseUserAgent(userAgent);
+      let deviceName = uaInfo.deviceName;
+      let os = uaInfo.os;
+      let browser = uaInfo.browser;
+      let isMobile = uaInfo.isMobile;
+      let isDesktop = uaInfo.isDesktop;
+
+      if (deviceHeaders) {
+        const { deviceOS, deviceName: hName, deviceModel: hModel } = deviceHeaders;
+        if (deviceOS) {
+          os = deviceOS;
+          if (deviceOS === "iOS" || deviceOS === "Android") {
+            browser = "ToboMeet Mobile";
+            isMobile = true;
+            isDesktop = false;
+          }
+        }
+        
+        const genericOSNames = ["iphone", "ipad", "android", "device"];
+        if (hName && hName.trim() && !genericOSNames.includes(hName.toLowerCase().trim())) {
+          deviceName = hName.trim();
+        } else if (hModel && hModel.trim()) {
+          deviceName = hModel.trim();
+        } else if (deviceOS) {
+          deviceName = deviceOS;
+        }
+      }
+
       const cleanIp = this.getRealIpAddress(clientIp) || "127.0.0.1";
       const geo = await this.getGeolocation(cleanIp);
 
@@ -396,15 +429,15 @@ export class UsersService {
         ip: cleanIp,
         ipAddress,
         userAgent,
-        deviceName: uaInfo.deviceName,
-        os: uaInfo.os,
-        browser: uaInfo.browser,
+        deviceName,
+        os,
+        browser,
         city: geo.city || "",
         country: geo.country || "Không xác định",
         isp: geo.isp || "",
         loginMethod,
-        isMobile: uaInfo.isMobile,
-        isDesktop: uaInfo.isDesktop,
+        isMobile,
+        isDesktop,
         updatedAt: new Date(),
       };
 
@@ -436,12 +469,18 @@ export class UsersService {
     currentToken: string,
     userAgent: string = "",
     clientIp: string = "",
+    deviceHeaders?: {
+      deviceName?: string;
+      deviceModel?: string;
+      deviceBrand?: string;
+      deviceOS?: string;
+    }
   ): Promise<SessionsResult> {
     const currentSessionId = this.extractSessionId(currentToken, userAgent);
 
     // Tự động đồng bộ/cập nhật session hiện tại vào MongoDB
     if (currentSessionId) {
-      await this.registerOrUpdateSession(userId, currentToken, userAgent, clientIp);
+      await this.registerOrUpdateSession(userId, currentToken, userAgent, clientIp, deviceHeaders);
     }
 
     // Sync ngầm danh sách phiên đăng nhập với Supabase

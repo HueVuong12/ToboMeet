@@ -1,8 +1,16 @@
 import { ApiResponse } from "@tobomeet/shared/types";
 import axios, { AxiosError } from "axios";
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.200:3001/api";
+let Device: any = null;
+try {
+  Device = require("expo-device");
+} catch (err) {
+  console.warn("Failed to load expo-device native module:", err);
+}
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.65:3001/api";
 console.log("[axios] API baseURL:", API_BASE_URL);
 
 export const axiosInstance = axios.create({
@@ -67,9 +75,20 @@ axiosInstance.interceptors.request.use(
 
       const token = session?.access_token;
 
-      // Tự động đính kèm Token
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Tự động đính kèm Token & thông tin thiết bị
+      if (config.headers) {
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        const defaultOS = Platform.OS === "ios" ? "iOS" : "Android";
+        const defaultBrand = Platform.OS === "ios" ? "Apple" : "";
+        const defaultModel = Platform.OS === "ios" ? "iPhone" : "Android Device";
+        const defaultName = Platform.OS === "ios" ? "iPhone" : "Android";
+
+        config.headers["x-device-name"] = Device?.deviceName || defaultName;
+        config.headers["x-device-model"] = Device?.modelName || defaultModel;
+        config.headers["x-device-brand"] = Device?.brand || defaultBrand;
+        config.headers["x-device-os"] = Device?.osName || defaultOS;
       }
     } catch (error) {
       console.error("Lỗi khi lấy/gia hạn token:", error);
