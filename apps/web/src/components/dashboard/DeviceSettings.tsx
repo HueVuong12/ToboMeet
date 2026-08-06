@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   useGetSessionsQuery,
+  useGetLoggedOutSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
   useUpdateCurrentSessionLocationMutation,
@@ -396,6 +397,32 @@ export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
   const [revokeOtherSessions, { isLoading: isRevokingOthers }] = useRevokeOtherSessionsMutation();
   const isRevoking = isRevokingSingle || isRevokingOthers;
   const [showAllLoggedOut, setShowAllLoggedOut] = useState(false);
+  const [loggedOutPage, setLoggedOutPage] = useState(1);
+  const [allLoggedOutSessions, setAllLoggedOutSessions] = useState<UserSession[]>([]);
+
+  const { data: loggedOutData, isFetching: isLoggedOutFetching } = useGetLoggedOutSessionsQuery(
+    { page: loggedOutPage, limit: 10 },
+    { skip: !showAllLoggedOut }
+  );
+
+  useEffect(() => {
+    if (loggedOutData?.sessions) {
+      setAllLoggedOutSessions((prev) => {
+        const existingIds = new Set(prev.map((s) => s.id));
+        const newSessions = loggedOutData.sessions.filter((s) => !existingIds.has(s.id));
+        if (loggedOutPage === 1) {
+          return loggedOutData.sessions;
+        }
+        return [...prev, ...newSessions];
+      });
+    }
+  }, [loggedOutData, loggedOutPage]);
+
+  useEffect(() => {
+    if (showAllLoggedOut) {
+      setLoggedOutPage(1);
+    }
+  }, [showAllLoggedOut]);
 
   // Lắng nghe sự kiện socket để tự động cập nhật danh sách thiết bị
   useEffect(() => {
@@ -454,8 +481,10 @@ export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
   const hasOthers = otherSessions.length > 0;
 
   const displayedLoggedOut = showAllLoggedOut 
-    ? recentlyLoggedOut 
-    : recentlyLoggedOut.slice(0, 5);
+    ? allLoggedOutSessions 
+    : recentlyLoggedOut;
+
+  const hasMoreLoggedOut = loggedOutData ? allLoggedOutSessions.length < loggedOutData.total : false;
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
@@ -534,33 +563,53 @@ export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
               )}
             </div>
 
-            {recentlyLoggedOut.length > 0 && (
-              <div className="py-4">
-                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                  {t("devices.section_logged_out")}
-                </h4>
-                <div className="flex flex-col divide-y divide-slate-100/50">
-                  {displayedLoggedOut.map((session) => (
-                    <DeviceListItem
-                      key={session.id}
-                      session={session}
-                      isRevoking={isRevoking}
-                      currentLocale={currentLocale}
-                      t={t}
-                    />
-                  ))}
-                </div>
+            <div className="py-4">
+              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                {t("devices.section_logged_out")}
+              </h4>
+              {recentlyLoggedOut.length > 0 ? (
+                <>
+                  <div className="flex flex-col divide-y divide-slate-100/50">
+                    {displayedLoggedOut.map((session) => (
+                      <DeviceListItem
+                        key={session.id}
+                        session={session}
+                        isRevoking={isRevoking}
+                        currentLocale={currentLocale}
+                        t={t}
+                      />
+                    ))}
+                  </div>
 
-                {recentlyLoggedOut.length > 5 && !showAllLoggedOut && (
-                  <button
-                    onClick={() => setShowAllLoggedOut(true)}
-                    className="w-full mt-3 py-2 text-center text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
-                  >
-                    {t("devices.view_all_logged_out", { count: recentlyLoggedOut.length })}
-                  </button>
-                )}
-              </div>
-            )}
+                  {!showAllLoggedOut && (sessions?.totalLoggedOut ?? 0) > 5 && (
+                    <button
+                      onClick={() => setShowAllLoggedOut(true)}
+                      className="w-full mt-3 py-2 text-center text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                    >
+                      {t("devices.view_all_logged_out", { count: sessions?.totalLoggedOut ?? 0 })}
+                    </button>
+                  )}
+
+                  {showAllLoggedOut && hasMoreLoggedOut && (
+                    <button
+                      onClick={() => setLoggedOutPage((p) => p + 1)}
+                      disabled={isLoggedOutFetching}
+                      className="w-full mt-3 py-2 text-center text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors disabled:opacity-50"
+                    >
+                      {isLoggedOutFetching
+                        ? (currentLocale === "vi" ? "Đang tải..." : "Loading...")
+                        : (currentLocale === "vi" ? "Tải thêm" : "Load more")}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="py-3 text-xs text-slate-400">
+                  {currentLocale === "vi"
+                    ? "Chưa có thiết bị nào đã đăng xuất gần đây."
+                    : "No recently signed out devices."}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -15,7 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { AppGateway } from "../core/gateways/app.gateway";
 import { createHash } from "crypto";
 
-interface MappedSession {
+export interface MappedSession {
   id: string;
   /** Địa chỉ IP của phiên đăng nhập */
   ip: string;
@@ -38,6 +38,7 @@ interface MappedSession {
   isGps?: boolean;
   createdAt: string;
   updatedAt: string;
+  loggedOutAt?: string;
 }
 
 
@@ -421,6 +422,13 @@ export class UsersService {
       await this.registerOrUpdateSession(userId, currentToken, userAgent, clientIp);
     }
 
+    // Sync ngầm danh sách phiên đăng nhập với Supabase
+    if (userId) {
+      this.syncUserSessionsWithSupabase(userId).catch((err) => {
+        this.logger.error("Lỗi khi chạy ngầm syncUserSessionsWithSupabase: " + String(err));
+      });
+    }
+
     try {
       const dbSessions = await this.sessionModel
         .find({ userId, isRevoked: { $ne: true } })
@@ -452,7 +460,38 @@ export class UsersService {
 
       const currentDevice = mapped.find((s) => s.isCurrent) ?? null;
       const otherDevices = mapped.filter((s) => !s.isCurrent);
-      return { currentDevice, otherDevices, recentlyLoggedOut: [], totalLoggedOut: 0 };
+
+      // Lấy tối đa 5 thiết bị đã đăng xuất gần nhất
+      const loggedOutDbSessions = await this.sessionModel
+        .find({ userId, isRevoked: true })
+        .sort({ revokedAt: -1, updatedAt: -1 })
+        .limit(5)
+        .lean()
+        .exec();
+
+      const recentlyLoggedOut: MappedSession[] = loggedOutDbSessions.map((s) => ({
+        id: s.sessionId,
+        ip: s.ip === "127.0.0.1" && process.env.NODE_ENV === "production" ? "Không rõ" : s.ip || "Không rõ",
+        ipAddress: s.ipAddress || null,
+        deviceName: s.deviceName,
+        os: s.os,
+        browser: s.browser,
+        loginMethod: s.loginMethod || "password",
+        isMobile: !!s.isMobile,
+        isDesktop: !!s.isDesktop,
+        isCurrent: false,
+        isGps: !!s.isGps,
+        city: s.city || "",
+        country: s.country || "Không xác định",
+        isp: s.isp || "",
+        createdAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString(),
+        loggedOutAt: s.revokedAt ? s.revokedAt.toISOString() : (s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString()),
+      }));
+
+      const totalLoggedOut = await this.sessionModel.countDocuments({ userId, isRevoked: true }).exec();
+
+      return { currentDevice, otherDevices, recentlyLoggedOut, totalLoggedOut };
     } catch (err) {
       this.logger.error("Lỗi khi đọc sessions từ MongoDB: " + String(err));
       return { currentDevice: null, otherDevices: [], recentlyLoggedOut: [], totalLoggedOut: 0 };
@@ -835,5 +874,107 @@ export class UsersService {
     }
 
     return { deviceName, os, browser, isMobile, isDesktop };
+  }
+
+  /**
+   * Đồng bộ ngầm danh sách session của người dùng với Supabase Admin API.
+   * Chuyển các session không còn tồn tại trên Supabase thành isRevoked: true.
+   */
+  async syncUserSessionsWithSupabase(userId: string): Promise<void> {
+    try {
+      const res = await fetch(
+        `${this.supabaseUrl}/auth/v1/admin/users/${userId}/sessions`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.supabaseServiceKey}`,
+            apikey: this.supabaseServiceKey,
+          },
+        },
+      );
+      if (!res.ok) {
+        this.logger.warn(`Không thể lấy danh sách sessions từ Supabase: HTTP ${res.status}`);
+        return;
+      }
+      const supabaseSessions = await res.json();
+      if (!Array.isArray(supabaseSessions)) return;
+
+      const activeSessionIds = supabaseSessions.map((s: any) => s.id);
+
+      // Tìm những session trong DB đang đánh dấu active nhưng thực tế không còn trên Supabase
+      const expiredDbSessions = await this.sessionModel
+        .find({
+          userId,
+          isRevoked: { $ne: true },
+          sessionId: { $nin: activeSessionIds },
+        })
+        .lean()
+        .exec();
+
+      if (expiredDbSessions.length > 0) {
+        const expiredIds = expiredDbSessions.map((s) => s.sessionId);
+        await this.sessionModel.updateMany(
+          { sessionId: { $in: expiredIds } },
+          { $set: { isRevoked: true, revokedAt: new Date() } }
+        );
+        this.logger.log(
+          `Đã đồng bộ và đánh dấu ${expiredIds.length} session hết hạn/bị buộc đăng xuất.`
+        );
+
+        // Bắn WebSocket thông báo danh sách session thay đổi
+        try {
+          if (this.appGateway?.server) {
+            this.appGateway.server.to(`user_${userId}`).emit("session_list_changed");
+          }
+        } catch (wsErr) {
+          this.logger.error("Lỗi khi bắn WebSocket thông báo session list changed lúc đồng bộ: " + String(wsErr));
+        }
+      }
+    } catch (err) {
+      this.logger.error("Lỗi khi đồng bộ sessions với Supabase: " + String(err));
+    }
+  }
+
+  /**
+   * Lấy danh sách toàn bộ thiết bị đã đăng xuất của user có hỗ trợ phân trang.
+   */
+  async getLoggedOutSessions(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    try {
+      const dbSessions = await this.sessionModel
+        .find({ userId, isRevoked: true })
+        .sort({ revokedAt: -1, updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec();
+
+      const sessions: MappedSession[] = dbSessions.map((s) => ({
+        id: s.sessionId,
+        ip: s.ip === "127.0.0.1" && process.env.NODE_ENV === "production" ? "Không rõ" : s.ip || "Không rõ",
+        ipAddress: s.ipAddress || null,
+        deviceName: s.deviceName,
+        os: s.os,
+        browser: s.browser,
+        loginMethod: s.loginMethod || "password",
+        isMobile: !!s.isMobile,
+        isDesktop: !!s.isDesktop,
+        isCurrent: false,
+        isGps: !!s.isGps,
+        city: s.city || "",
+        country: s.country || "Không xác định",
+        isp: s.isp || "",
+        createdAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString(),
+        loggedOutAt: s.revokedAt ? s.revokedAt.toISOString() : (s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString()),
+      }));
+
+      const total = await this.sessionModel.countDocuments({ userId, isRevoked: true }).exec();
+
+      return { sessions, total, page, limit };
+    } catch (err) {
+      this.logger.error("Lỗi khi đọc logged out sessions từ MongoDB: " + String(err));
+      return { sessions: [], total: 0, page, limit };
+    }
   }
 }

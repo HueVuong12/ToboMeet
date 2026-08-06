@@ -44,6 +44,15 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["UserSessions"],
     }),
 
+    getLoggedOutSessions: builder.query<{ sessions: UserSession[]; total: number; page: number; limit: number }, { page: number; limit: number }>({
+      query: ({ page, limit }) => ({
+        url: "/users/me/sessions/logged-out",
+        method: "GET",
+        params: { page, limit },
+      }),
+      providesTags: ["UserSessions"],
+    }),
+
     revokeSession: builder.mutation<{ success: boolean; message: string }, string>({
       query: (sessionId) => ({
         url: `/users/me/sessions/${sessionId}`,
@@ -94,6 +103,8 @@ export const usersApi = baseApi.injectEndpoints({
 
 export const {
   useGetSessionsQuery,
+  useGetLoggedOutSessionsQuery,
+  useLazyGetLoggedOutSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
   useUpdateCurrentSessionLocationMutation,

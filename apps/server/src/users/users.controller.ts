@@ -77,6 +77,19 @@ export class UsersController {
     return this.usersService.getUserSessions(userId, token, userAgent, clientIp);
   }
 
+  @UseGuards(SupabaseGuard)
+  @Get("me/sessions/logged-out")
+  async getLoggedOutSessions(
+    @Request() req,
+    @Query("page") pageStr?: string,
+    @Query("limit") limitStr?: string
+  ) {
+    const userId = req.user.id;
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 10;
+    return this.usersService.getLoggedOutSessions(userId, page, limit);
+  }
+
 
   @UseGuards(SupabaseGuard)
   @Delete("me/sessions/others")
