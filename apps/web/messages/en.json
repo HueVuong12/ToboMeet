@@ -414,6 +414,7 @@
       "method_password": "Password",
       "method_google": "Google",
       "method_otp": "OTP code",
+      "method_qr": "QR code",
       "unknown": "Unknown",
       "cancel": "Cancel"
     }

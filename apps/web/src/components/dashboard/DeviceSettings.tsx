@@ -126,6 +126,8 @@ function getMethodName(method: string | undefined, t: ReturnType<typeof useTrans
   if (!method) return t("devices.method_password");
   const m = method.toLowerCase();
   if (m === "google" || m === "oauth") return t("devices.method_google");
+  if (m === "otp") return t("devices.method_otp");
+  if (m === "qr") return t("devices.method_qr");
   return t("devices.method_password");
 }
 

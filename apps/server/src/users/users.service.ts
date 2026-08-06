@@ -355,15 +355,37 @@ export class UsersService {
         // ignore payload parsing failure
       }
 
-      const amr: Array<{ method: string }> = Array.isArray(payload.amr) ? payload.amr : [];
-      const appMetadata = payload.app_metadata as { provider?: string } | undefined;
-      const provider: string = (appMetadata?.provider || "").toLowerCase();
+      const amr: any[] = Array.isArray(payload.amr) ? payload.amr : [];
+      const methods: string[] = amr
+        .map((a) => {
+          if (typeof a === "string") return a;
+          if (a && typeof a === "object" && typeof a.method === "string") return a.method;
+          return "";
+        })
+        .filter(Boolean);
+
       let loginMethod = "password";
 
-      if (provider === "google" || amr.some((a) => a.method === "oauth")) {
-        loginMethod = "google";
+      if (methods.length > 0) {
+        if (methods.includes("oauth")) {
+          loginMethod = "google";
+        } else if (methods.includes("password")) {
+          loginMethod = "password";
+        } else if (methods.includes("otp")) {
+          loginMethod = "otp";
+        } else if (methods.includes("qr")) {
+          loginMethod = "qr";
+        } else {
+          loginMethod = methods[0];
+        }
       } else {
-        loginMethod = "password";
+        const appMetadata = payload.app_metadata as { provider?: string } | undefined;
+        const provider: string = (appMetadata?.provider || "").toLowerCase();
+        if (provider === "google") {
+          loginMethod = "google";
+        } else {
+          loginMethod = "password";
+        }
       }
 
       const ipAddress = this.getRealIpAddress(clientIp);

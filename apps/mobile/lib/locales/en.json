@@ -143,7 +143,17 @@
       "active": "Active now",
       "logged_in_at": "Logged in: ",
       "confirm_logout": "Are you sure you want to log out of this device?",
-      "logout_failed": "Unable to log out of the device. Please try again."
+      "logout_failed": "Unable to log out of the device. Please try again.",
+      "section_current": "This device",
+      "section_others": "Other signed-in devices",
+      "section_logged_out": "Recently signed out devices",
+      "view_all_logged_out": "View all signed out devices ({{count}})",
+      "empty_logged_out": "No recently signed out devices.",
+      "method_password": "Password",
+      "method_google": "Google",
+      "method_otp": "OTP code",
+      "method_qr": "QR code",
+      "login_method_prefix": "Signed in with "
     }
   },
   "room": {

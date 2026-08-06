@@ -141,7 +141,17 @@
       "active": "Đang hoạt động",
       "logged_in_at": "Đăng nhập: ",
       "confirm_logout": "Bạn có chắc chắn muốn đăng xuất tài khoản khỏi thiết bị này?",
-      "logout_failed": "Không thể đăng xuất thiết bị. Vui lòng thử lại."
+      "logout_failed": "Không thể đăng xuất thiết bị. Vui lòng thử lại.",
+      "section_current": "Thiết bị này",
+      "section_others": "Thiết bị khác đang đăng nhập",
+      "section_logged_out": "Thiết bị đã đăng xuất gần đây",
+      "view_all_logged_out": "Xem tất cả thiết bị đã đăng xuất ({{count}})",
+      "empty_logged_out": "Chưa có thiết bị nào đã đăng xuất gần đây.",
+      "method_password": "Mật khẩu",
+      "method_google": "Google",
+      "method_otp": "Mã OTP",
+      "method_qr": "Mã QR",
+      "login_method_prefix": "Đăng nhập bằng "
     }
   },
   "room": {

@@ -389,6 +389,7 @@
       "method_password": "Mật khẩu",
       "method_google": "Google",
       "method_otp": "Mã OTP",
+      "method_qr": "Mã QR",
       "unknown": "Không rõ",
       "cancel": "Hủy"
     }
