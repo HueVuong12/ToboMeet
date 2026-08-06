@@ -36,7 +36,18 @@ export default function DashboardLayout() {
         }}
       />
 
-      {/* Tab 2: Ánh xạ vào file settings.tsx (sắp tạo) */}
+      {/* Tab 2: Ánh xạ vào file calendar.tsx */}
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: "Lịch",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Tab 3: Ánh xạ vào file settings.tsx */}
       <Tabs.Screen
         name="settings"
         options={{
