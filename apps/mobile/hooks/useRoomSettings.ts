@@ -29,7 +29,6 @@ export function useRoomSettings({
   const [approvalPermission, setApprovalPermission] = useState<
     "admin_only" | "member_and_admin" | "everyone"
   >("admin_only");
-  const [roomType, setRoomType] = useState<"meeting" | "classroom">("meeting");
 
   // Kiểm tra quyền Chủ phòng/Admin
   let isHost = false;
@@ -53,9 +52,6 @@ export function useRoomSettings({
       }
       if (typeof meta.approvalPermission === "string") {
         setApprovalPermission(meta.approvalPermission);
-      }
-      if (typeof meta.roomType === "string") {
-        setRoomType(meta.roomType as "meeting" | "classroom");
       }
     } catch (e) {}
   }, [roomMetadata]);
@@ -132,7 +128,6 @@ export function useRoomSettings({
     canChat,
     isWaitingRoomEnabled,
     approvalPermission,
-    roomType,
     isHost,
     handleToggleChat,
     handleToggleWaitingRoom,

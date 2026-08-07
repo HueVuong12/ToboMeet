@@ -47,31 +47,13 @@ export class RoomsController {
     @Body() dto: CreateRoomDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    console.log(
-      `[RoomsController] Yêu cầu tạo phòng từ userId: ${req.user?.id}`,
-      dto,
-    );
-    if (!dto.name || !dto.type) {
-      throw new BadRequestException("Tên phòng và loại phòng là bắt buộc");
-    }
-
-    if (!["meeting", "classroom"].includes(dto.type)) {
-      throw new BadRequestException(
-        "Loại phòng phải là 'meeting' hoặc 'classroom'",
-      );
+    if (!dto.name) {
+      throw new BadRequestException("Tên phòng là bắt buộc");
     }
 
     const userId = req.user.id;
-    try {
-      const result = await this.roomsService.createRoom(userId, dto);
-      console.log(
-        `[RoomsController] Tạo phòng THÀNH CÔNG, code: ${result.code}`,
-      );
-      return result;
-    } catch (err) {
-      console.error(`[RoomsController] Tạo phòng THẤT BẠI:`, err);
-      throw err;
-    }
+    const result = await this.roomsService.createRoom(userId, dto);
+    return result;
   }
 
   /**
@@ -197,7 +179,7 @@ export class RoomsController {
     @Param("id") roomId: string,
     @Param("channelId") channelId: string,
     @Param("targetUserId") targetUserId: string,
-    @Body("role") role: 'member' | 'admin',
+    @Body("role") role: "member" | "admin",
     @Req() req: AuthenticatedRequest,
   ) {
     if (!role) {

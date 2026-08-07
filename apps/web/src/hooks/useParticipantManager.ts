@@ -59,20 +59,15 @@ export function useParticipantManager({
   // Phân tích Room Metadata
   let approvalPermission = "admin_only";
   let isWaitingRoomEnabled = false;
-  let roomType: "meeting" | "classroom" = "meeting";
   try {
     if (roomMetadata) {
       const roomMeta = JSON.parse(roomMetadata);
       approvalPermission = roomMeta.approvalPermission || "admin_only";
       isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
-      roomType = roomMeta.roomType || "meeting";
     }
   } catch (error) {}
 
-  const roleName =
-    roomType === "classroom"
-      ? t("role_teacher", { defaultValue: "Giáo viên" })
-      : t("role_leader", { defaultValue: "Trưởng nhóm" });
+  const roleName = t("role_leader", { defaultValue: "Trưởng nhóm" });
 
   // AI CÓ QUYỀN DUYỆT?
   let canApprove = false;
@@ -204,31 +199,20 @@ export function useParticipantManager({
 
       if (role === "admin") {
         toast.success(
-          roomType === "classroom"
-            ? t("toast_appoint_assistant_success", {
-                defaultValue: "Bổ nhiệm Ban cán sự thành công",
-              })
-            : t("toast_appoint_vice_leader_success", {
-                defaultValue: "Bổ nhiệm Phó nhóm thành công",
-              }),
+          t("toast_appoint_vice_leader_success", {
+            defaultValue: "Bổ nhiệm Phó nhóm thành công",
+          }),
         );
       } else {
         toast.success(
-          roomType === "classroom"
-            ? t("toast_revoke_assistant_success", {
-                defaultValue: "Đã thu hồi Ban cán sự",
-              })
-            : t("toast_revoke_vice_leader_success", {
-                defaultValue: "Đã thu hồi Phó nhóm",
-              }),
+          t("toast_revoke_vice_leader_success", {
+            defaultValue: "Đã thu hồi Phó nhóm",
+          }),
         );
       }
     } catch (err: any) {
       if (role === "admin") {
-        const subTitle =
-          roomType === "classroom"
-            ? t("role_assistant")
-            : t("role_vice_leader");
+        const subTitle = t("role_vice_leader");
         toast.error(
           err?.data?.message ||
             t("toast_max_vice_leaders_reached", {
@@ -267,10 +251,7 @@ export function useParticipantManager({
               toast.success(
                 t("toast_transfer_success", {
                   actor: "",
-                  role:
-                    roomType === "classroom"
-                      ? t("role_teacher")
-                      : t("role_leader"),
+                  role: t("role_leader"),
                   target: targetUserName,
                   defaultValue: "Chuyển quyền thành công!",
                 }),

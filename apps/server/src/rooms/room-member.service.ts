@@ -17,7 +17,6 @@ import {
   RoomActivity,
   RoomActivityDocument,
 } from "./schemas/room-activity.schema";
-import { getDisplayRole } from "./helpers/room-role.helper";
 import { mapToRoomResponse } from "./helpers/room.helper";
 
 @Injectable()
@@ -81,7 +80,6 @@ export class RoomMemberService {
       return {
         userId: member.userId,
         role: effectiveRole,
-        displayRole: getDisplayRole(effectiveRole, room.type),
         status: member.status as "active" | "removed" | "left" | undefined,
         joinedAt: member.joinedAt.toISOString(), // Ép ngày thành string
         removedAt: member.removedAt?.toISOString(),
@@ -376,7 +374,7 @@ export class RoomMemberService {
     targetUserId: string,
     newRole: string,
     operatorId: string,
-  ): Promise<{ message: string; role: string; displayRole: string }> {
+  ): Promise<{ message: string; role: string }> {
     const room = await this.roomModel.findOne({
       _id: roomId,
       isDeleted: { $ne: true },
@@ -455,12 +453,11 @@ export class RoomMemberService {
 
     const opName = operatorUser?.displayName || "Người dùng";
     const tarName = targetUser?.displayName || "Thành viên";
-    const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
 
     const message =
       newRole === "admin"
-        ? `${opName} đã bổ nhiệm ${tarName} làm ${subTitle}.`
-        : `${opName} đã thu hồi quyền ${subTitle} của ${tarName}.`;
+        ? `${opName} đã bổ nhiệm ${tarName} làm Phó phòng.`
+        : `${opName} đã thu hồi quyền Phó phòng của ${tarName}.`;
 
     await this.activityModel.create({
       roomId,
@@ -474,24 +471,19 @@ export class RoomMemberService {
         oldRole,
         newRole,
         details: message,
-        roomType: room.type,
       },
     });
-
-    const displayRole = getDisplayRole(newRole, room.type);
 
     this.roomsGateway.notifyRoomUpdated(roomId, {
       type: "member_role_updated",
       roomId,
       targetUserId,
       newRole,
-      displayRole,
     });
 
     return {
       message,
       role: newRole,
-      displayRole,
     };
   }
 }

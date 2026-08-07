@@ -1,4 +1,12 @@
-import { Injectable, Inject, forwardRef, BadRequestException, NotFoundException, ConflictException, ForbiddenException } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import * as nodemailer from "nodemailer";
@@ -24,7 +32,9 @@ export class AdminService {
     private configService: ConfigService,
   ) {
     const supabaseUrl = this.configService.get<string>("SUPABASE_URL");
-    const supabaseServiceRole = this.configService.get<string>("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseServiceRole = this.configService.get<string>(
+      "SUPABASE_SERVICE_ROLE_KEY",
+    );
     this.supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
       auth: {
         autoRefreshToken: false,
@@ -35,7 +45,6 @@ export class AdminService {
 
   logEmailDebug(message: string, error?: unknown) {
     try {
-
       const logPath = path.join(process.cwd(), "debug_email.log");
       const time = new Date().toISOString();
       let logMsg = `[${time}] ${message}\n`;
@@ -50,10 +59,9 @@ export class AdminService {
     }
   }
 
-
   async getDashboardStats() {
     const totalUsers = await this.userModel.countDocuments().exec();
-    
+
     // Đếm lượng socket connected thực tế làm online users
     const onlineUsers = this.meetingsGateway.server?.engine?.clientsCount || 0;
 
@@ -79,12 +87,15 @@ export class AdminService {
       const doc = m as unknown as Record<string, unknown>;
       const updatedAt = doc.updatedAt as Date | undefined;
       const createdAt = doc.createdAt as Date | undefined;
-      const durationSeconds = (((updatedAt?.getTime()) || 0) - ((createdAt?.getTime()) || 0)) / 1000;
+      const durationSeconds =
+        ((updatedAt?.getTime() || 0) - (createdAt?.getTime() || 0)) / 1000;
       totalDurationMinutes += durationSeconds / 60;
     });
 
     const averageMeetingDuration =
-      endedMeetings.length > 0 ? Math.round(totalDurationMinutes / endedMeetings.length) : 0;
+      endedMeetings.length > 0
+        ? Math.round(totalDurationMinutes / endedMeetings.length)
+        : 0;
 
     // Lấy dữ liệu biểu đồ lượt sử dụng theo ngày (365 ngày gần nhất để hỗ trợ bộ lọc lên tới 1 năm ở frontend)
     const oneYearAgo = new Date();
@@ -154,15 +165,16 @@ export class AdminService {
     };
   }
 
-  async getUsersList(searchQuery?: string, page: number = 1, limit: number = 10) {
+  async getUsersList(
+    searchQuery?: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
     const filter: Record<string, unknown> = {};
 
     if (searchQuery && searchQuery.trim()) {
       const searchRegex = new RegExp(searchQuery.trim(), "i");
-      filter.$or = [
-        { email: searchRegex },
-        { displayName: searchRegex },
-      ];
+      filter.$or = [{ email: searchRegex }, { displayName: searchRegex }];
     }
 
     const total = await this.userModel.countDocuments(filter).exec();
@@ -181,14 +193,22 @@ export class AdminService {
         let lockedUntil = u.lockedUntil;
 
         // Tự động mở khóa (self-healing) nếu thời hạn khóa đã hết
-        if (currentStatus === "BLOCKED" && u.lockType === "TEMPORARY" && u.lockedUntil && new Date() >= u.lockedUntil) {
+        if (
+          currentStatus === "BLOCKED" &&
+          u.lockType === "TEMPORARY" &&
+          u.lockedUntil &&
+          new Date() >= u.lockedUntil
+        ) {
           try {
-            await this.unlockUserAccount(u._id.toString(), "System (Self-healing)");
+            await this.unlockUserAccount(
+              u._id.toString(),
+              "System (Self-healing)",
+            );
             currentStatus = "ACTIVE";
             lockType = null;
             lockedUntil = null;
           } catch (e) {
-            this.logEmailDebug(`Lỗi tự động mở khóa khi duyệt danh sách: ${e.message}`);
+            this.logEmailDebug(`Lỗi tự động mở khóa khi duyệt danh sách: ${e}`);
           }
         }
 
@@ -218,7 +238,7 @@ export class AdminService {
           lockHistory: u.lockHistory || [],
           createdAt: (u as unknown as Record<string, unknown>).createdAt,
         };
-      })
+      }),
     );
 
     return {
@@ -230,19 +250,27 @@ export class AdminService {
     };
   }
 
-  async createUserAccount(email: string, password?: string, displayName?: string, role?: string) {
+  async createUserAccount(
+    email: string,
+    password?: string,
+    displayName?: string,
+    role?: string,
+  ) {
     const normalizedEmail = email.trim().toLowerCase();
 
     // 1. Kiểm tra Email tồn tại trong MongoDB trước để tránh gọi API Supabase không cần thiết
-    const existingUser = await this.userModel.findOne({
-      email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") }
-    }).exec();
+    const existingUser = await this.userModel
+      .findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") },
+      })
+      .exec();
     if (existingUser) {
       throw new ConflictException("Email đã tồn tại.");
     }
 
     // 2. Chuẩn bị mật khẩu
-    const finalPassword = (password && password.trim()) ? password.trim() : "12345678";
+    const finalPassword =
+      password && password.trim() ? password.trim() : "12345678";
 
     // 3. Tạo tài khoản trên Supabase Auth
     const { data: supabaseUser, error: supabaseError } =
@@ -252,16 +280,22 @@ export class AdminService {
         email_confirm: true,
         role: role || "user",
         app_metadata: { role: role || "user" },
-        user_metadata: { displayName: displayName || normalizedEmail.split("@")[0] },
+        user_metadata: {
+          displayName: displayName || normalizedEmail.split("@")[0],
+        },
       });
 
     if (supabaseError || !supabaseUser?.user) {
       const errMsg = supabaseError?.message || "";
-      if (errMsg.includes("already registered") || errMsg.includes("already exists")) {
+      if (
+        errMsg.includes("already registered") ||
+        errMsg.includes("already exists")
+      ) {
         throw new ConflictException("Email đã tồn tại.");
       }
       throw new BadRequestException(
-        "Không thể tạo tài khoản trên Supabase: " + (supabaseError?.message || "Lỗi không xác định")
+        "Không thể tạo tài khoản trên Supabase: " +
+          (supabaseError?.message || "Lỗi không xác định"),
       );
     }
 
@@ -289,12 +323,20 @@ export class AdminService {
     } catch (dbError) {
       // Rollback: Xóa tài khoản trên Supabase nếu lưu DB lỗi
       await this.supabaseAdmin.auth.admin.deleteUser(supabaseId);
-      throw new BadRequestException("Lỗi lưu trữ dữ liệu MongoDB: " + dbError.message);
+      throw new BadRequestException("Lỗi lưu trữ dữ liệu MongoDB: " + dbError);
     }
   }
 
-  async updateUserAccount(id: string, displayName: string, role: string, status?: string, adminEmail?: string) {
-    this.logEmailDebug(`[Debug] Cập nhật thông tin tài khoản (bởi ${adminEmail || "admin"}): id=${id}, role=${role}, status=${status || "N/A"}`);
+  async updateUserAccount(
+    id: string,
+    displayName: string,
+    role: string,
+    status?: string,
+    adminEmail?: string,
+  ) {
+    this.logEmailDebug(
+      `[Debug] Cập nhật thông tin tài khoản (bởi ${adminEmail || "admin"}): id=${id}, role=${role}, status=${status || "N/A"}`,
+    );
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException("Người dùng không tồn tại");
@@ -305,15 +347,15 @@ export class AdminService {
     await user.save();
 
     // Cập nhật vai trò (role) lên Supabase
-    const { error: roleError } = await this.supabaseAdmin.auth.admin.updateUserById(
-      user.supabaseId,
-      {
+    const { error: roleError } =
+      await this.supabaseAdmin.auth.admin.updateUserById(user.supabaseId, {
         role: role,
-        app_metadata: { role: role }
-      }
-    );
+        app_metadata: { role: role },
+      });
     if (roleError) {
-      this.logEmailDebug(`Lỗi cập nhật role sang Supabase: ${roleError.message}`);
+      this.logEmailDebug(
+        `Lỗi cập nhật role sang Supabase: ${roleError.message}`,
+      );
     }
 
     return {
@@ -327,19 +369,23 @@ export class AdminService {
     };
   }
 
-
-
   async sendLockEmail(email: string) {
     const host = this.configService.get<string>("SMTP_HOST");
     const port = this.configService.get<number>("SMTP_PORT") || 587;
     const user = this.configService.get<string>("SMTP_USER");
     const pass = this.configService.get<string>("SMTP_PASS");
-    const from = this.configService.get<string>("SMTP_FROM") || '"ToboMeet Support" <noreply@tobomeet.com>';
+    const from =
+      this.configService.get<string>("SMTP_FROM") ||
+      '"ToboMeet Support" <noreply@tobomeet.com>';
 
-    this.logEmailDebug(`[SMTP Config] host=${host || 'missing'}, port=${port}, user=${user || 'missing'}, pass=${pass ? '***' : 'missing'}`);
+    this.logEmailDebug(
+      `[SMTP Config] host=${host || "missing"}, port=${port}, user=${user || "missing"}, pass=${pass ? "***" : "missing"}`,
+    );
 
     if (!host || !user || !pass) {
-      throw new Error("Cấu hình SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) bị thiếu trong file .env của server.");
+      throw new Error(
+        "Cấu hình SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) bị thiếu trong file .env của server.",
+      );
     }
 
     const transporter = nodemailer.createTransport({
@@ -372,12 +418,18 @@ Trân trọng,
     const port = this.configService.get<number>("SMTP_PORT") || 587;
     const user = this.configService.get<string>("SMTP_USER");
     const pass = this.configService.get<string>("SMTP_PASS");
-    const from = this.configService.get<string>("SMTP_FROM") || '"ToboMeet Support" <noreply@tobomeet.com>';
+    const from =
+      this.configService.get<string>("SMTP_FROM") ||
+      '"ToboMeet Support" <noreply@tobomeet.com>';
 
-    this.logEmailDebug(`[SMTP Config] host=${host || 'missing'}, port=${port}, user=${user || 'missing'}, pass=${pass ? '***' : 'missing'}`);
+    this.logEmailDebug(
+      `[SMTP Config] host=${host || "missing"}, port=${port}, user=${user || "missing"}, pass=${pass ? "***" : "missing"}`,
+    );
 
     if (!host || !user || !pass) {
-      throw new Error("Cấu hình SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) bị thiếu trong file .env của server.");
+      throw new Error(
+        "Cấu hình SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) bị thiếu trong file .env của server.",
+      );
     }
 
     const transporter = nodemailer.createTransport({
@@ -410,19 +462,22 @@ Trân trọng,
     const lowercase = "abcdefghijklmnopqrstuvwxyz";
     const numbers = "0123456789";
     const symbols = "!@#$%^&*()_+";
-    
+
     let password = "";
     password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
     password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
     password += numbers.charAt(Math.floor(Math.random() * numbers.length));
     password += symbols.charAt(Math.floor(Math.random() * symbols.length));
-    
+
     const allChars = uppercase + lowercase + numbers + symbols;
     for (let i = 0; i < 6; i++) {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
-    
-    return password.split('').sort(() => 0.5 - Math.random()).join('');
+
+    return password
+      .split("")
+      .sort(() => 0.5 - Math.random())
+      .join("");
   }
 
   async sendResetPasswordEmail(email: string, newPassword: string) {
@@ -430,9 +485,13 @@ Trân trọng,
     const port = this.configService.get<number>("SMTP_PORT") || 587;
     const user = this.configService.get<string>("SMTP_USER");
     const pass = this.configService.get<string>("SMTP_PASS");
-    const from = this.configService.get<string>("SMTP_FROM") || '"ToboMeet Support" <noreply@tobomeet.com>';
+    const from =
+      this.configService.get<string>("SMTP_FROM") ||
+      '"ToboMeet Support" <noreply@tobomeet.com>';
 
-    this.logEmailDebug(`[SMTP Config] host=${host || 'missing'}, port=${port}, user=${user || 'missing'}, pass=${pass ? '***' : 'missing'}`);
+    this.logEmailDebug(
+      `[SMTP Config] host=${host || "missing"}, port=${port}, user=${user || "missing"}, pass=${pass ? "***" : "missing"}`,
+    );
 
     if (!host || !user || !pass) {
       throw new Error("Cấu hình SMTP bị thiếu.");
@@ -475,39 +534,51 @@ Trân trọng,
     }
 
     // Kiểm tra trạng thái khóa từ Supabase Auth
-    const { data: { user: sbUser }, error: getSbError } = await this.supabaseAdmin.auth.admin.getUserById(user.supabaseId);
+    const {
+      data: { user: sbUser },
+      error: getSbError,
+    } = await this.supabaseAdmin.auth.admin.getUserById(user.supabaseId);
     if (getSbError || !sbUser) {
-      throw new BadRequestException("Không tìm thấy tài khoản tương ứng trên Supabase");
+      throw new BadRequestException(
+        "Không tìm thấy tài khoản tương ứng trên Supabase",
+      );
     }
 
-    const isLocked = sbUser.banned_until && new Date(sbUser.banned_until) > new Date();
+    const isLocked =
+      sbUser.banned_until && new Date(sbUser.banned_until) > new Date();
     if (isLocked) {
-      throw new ForbiddenException("Tài khoản này đang bị khóa. Vui lòng mở khóa trước khi đặt lại mật khẩu.");
+      throw new ForbiddenException(
+        "Tài khoản này đang bị khóa. Vui lòng mở khóa trước khi đặt lại mật khẩu.",
+      );
     }
 
     // Sinh mật khẩu ngẫu nhiên
     const randomPassword = this.generateRandomPassword();
 
     // Cập nhật trực tiếp mật khẩu người dùng trên Supabase qua Admin Auth API
-    const { error: resetError } = await this.supabaseAdmin.auth.admin.updateUserById(
-      user.supabaseId,
-      { password: randomPassword }
-    );
+    const { error: resetError } =
+      await this.supabaseAdmin.auth.admin.updateUserById(user.supabaseId, {
+        password: randomPassword,
+      });
 
     if (resetError) {
-      throw new BadRequestException("Không thể đặt lại mật khẩu: " + resetError.message);
+      throw new BadRequestException(
+        "Không thể đặt lại mật khẩu: " + resetError.message,
+      );
     }
 
     // Gửi email tùy chỉnh qua SMTP
     try {
       await this.sendResetPasswordEmail(user.email, randomPassword);
     } catch (emailErr: unknown) {
-      this.logEmailDebug(`Gửi email mật khẩu mới thất bại đến ${user.email}`, emailErr);
+      this.logEmailDebug(
+        `Gửi email mật khẩu mới thất bại đến ${user.email}`,
+        emailErr,
+      );
     }
 
     // Ghi Audit Log vào audit.log
     try {
-      
       const logPath = path.join(process.cwd(), "audit.log");
       const time = new Date().toISOString();
       const logMsg = `[${time}] Admin: ${adminEmail} | Target User: ${user.email} | Action: Yêu cầu đặt lại mật khẩu.\n`;
@@ -516,7 +587,11 @@ Trân trọng,
       console.error("Không thể ghi file audit.log", e);
     }
 
-    return { success: true, message: "Đã đặt lại mật khẩu thành công và gửi mật khẩu mới đến email của người dùng." };
+    return {
+      success: true,
+      message:
+        "Đã đặt lại mật khẩu thành công và gửi mật khẩu mới đến email của người dùng.",
+    };
   }
 
   async sendDeleteEmail(email: string) {
@@ -524,9 +599,13 @@ Trân trọng,
     const port = this.configService.get<number>("SMTP_PORT") || 587;
     const user = this.configService.get<string>("SMTP_USER");
     const pass = this.configService.get<string>("SMTP_PASS");
-    const from = this.configService.get<string>("SMTP_FROM") || '"ToboMeet Support" <noreply@tobomeet.com>';
+    const from =
+      this.configService.get<string>("SMTP_FROM") ||
+      '"ToboMeet Support" <noreply@tobomeet.com>';
 
-    this.logEmailDebug(`[SMTP Config] host=${host || 'missing'}, port=${port}, user=${user || 'missing'}, pass=${pass ? '***' : 'missing'}`);
+    this.logEmailDebug(
+      `[SMTP Config] host=${host || "missing"}, port=${port}, user=${user || "missing"}, pass=${pass ? "***" : "missing"}`,
+    );
 
     if (!host || !user || !pass) {
       throw new Error("Cấu hình SMTP bị thiếu.");
@@ -562,22 +641,30 @@ Trân trọng,
     }
 
     // 1. Gửi email thông báo xóa vĩnh viễn trước khi xóa
-    this.logEmailDebug(`[Debug] Bắt đầu gọi sendDeleteEmail cho email: ${user.email}`);
+    this.logEmailDebug(
+      `[Debug] Bắt đầu gọi sendDeleteEmail cho email: ${user.email}`,
+    );
     try {
       await this.sendDeleteEmail(user.email);
-      this.logEmailDebug(`[Debug] Đã gửi email xóa vĩnh viễn thành công tới ${user.email}`);
+      this.logEmailDebug(
+        `[Debug] Đã gửi email xóa vĩnh viễn thành công tới ${user.email}`,
+      );
     } catch (err: unknown) {
-      this.logEmailDebug(`[Debug ERROR] Gửi email xóa vĩnh viễn thất bại đến ${user.email}`, err);
+      this.logEmailDebug(
+        `[Debug ERROR] Gửi email xóa vĩnh viễn thất bại đến ${user.email}`,
+        err,
+      );
     }
 
-
     // 2. Xóa trên Supabase
-    const { error: deleteError } = await this.supabaseAdmin.auth.admin.deleteUser(
-      user.supabaseId
-    );
+    const { error: deleteError } =
+      await this.supabaseAdmin.auth.admin.deleteUser(user.supabaseId);
 
     if (deleteError) {
-      console.warn("Cảnh báo: Lỗi xóa trên Supabase Auth (hoặc tài khoản đã bị xóa trước):", deleteError.message);
+      console.warn(
+        "Cảnh báo: Lỗi xóa trên Supabase Auth (hoặc tài khoản đã bị xóa trước):",
+        deleteError.message,
+      );
     }
 
     // 3. Xóa hoàn toàn bản ghi trong MongoDB
@@ -596,13 +683,15 @@ Trân trọng,
       actualDuration: string;
       lockedAt: Date;
       lockedUntil?: Date;
-    }
+    },
   ) {
     const host = this.configService.get<string>("SMTP_HOST");
     const port = this.configService.get<number>("SMTP_PORT") || 587;
     const user = this.configService.get<string>("SMTP_USER");
     const pass = this.configService.get<string>("SMTP_PASS");
-    const from = this.configService.get<string>("SMTP_FROM") || '"ToboMeet Support" <noreply@tobomeet.com>';
+    const from =
+      this.configService.get<string>("SMTP_FROM") ||
+      '"ToboMeet Support" <noreply@tobomeet.com>';
 
     if (!host || !user || !pass) {
       throw new Error("Cấu hình SMTP bị thiếu.");
@@ -616,12 +705,17 @@ Trân trọng,
     });
 
     const formatTime = (d?: Date) => {
-      if (!d) return "Tài khoản của bạn đã bị khóa cho đến khi quản trị viên mở khóa.";
+      if (!d)
+        return "Tài khoản của bạn đã bị khóa cho đến khi quản trị viên mở khóa.";
       return d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
     };
 
-    const isWarning = details.actualDuration === "Cảnh báo" || details.actualDuration === "warning";
-    const subject = isWarning ? "Cảnh cáo vi phạm tài khoản ToboMeet" : "Thông báo tài khoản bị khóa";
+    const isWarning =
+      details.actualDuration === "Cảnh báo" ||
+      details.actualDuration === "warning";
+    const subject = isWarning
+      ? "Cảnh cáo vi phạm tài khoản ToboMeet"
+      : "Thông báo tài khoản bị khóa";
 
     let text = `Chào bạn,\n\n`;
     if (isWarning) {
@@ -629,13 +723,13 @@ Trân trọng,
     } else {
       text += `Tài khoản của bạn trên ToboMeet đã bị khóa.\n\n`;
     }
-    
+
     text += `Chi tiết xử lý vi phạm:\n`;
     text += `- Hành vi vi phạm: ${details.violationType}\n`;
     text += `- Lý do khóa: ${details.lockReason}\n`;
     text += `- Thời gian áp dụng: ${details.actualDuration}\n`;
     text += `- Thời điểm bắt đầu: ${formatTime(details.lockedAt)}\n`;
-    
+
     if (!isWarning) {
       if (!details.lockedUntil) {
         text += `- Thời điểm kết thúc dự kiến: Tài khoản của bạn đã bị khóa cho đến khi quản trị viên mở khóa.\n\n`;
@@ -662,21 +756,31 @@ Trân trọng,
 
   async checkLockByEmail(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const user = await this.userModel.findOne({
-      email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") }
-    }).exec();
+    const user = await this.userModel
+      .findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") },
+      })
+      .exec();
 
     if (!user) {
       return { isLocked: false };
     }
 
     // Tự động mở khóa (self-healing) nếu thời hạn khóa đã hết
-    if (user.status === "BLOCKED" && user.lockType === "TEMPORARY" && user.lockedUntil && new Date() >= user.lockedUntil) {
+    if (
+      user.status === "BLOCKED" &&
+      user.lockType === "TEMPORARY" &&
+      user.lockedUntil &&
+      new Date() >= user.lockedUntil
+    ) {
       try {
-        await this.unlockUserAccount(user._id.toString(), "System (Self-healing)");
+        await this.unlockUserAccount(
+          user._id.toString(),
+          "System (Self-healing)",
+        );
         return { isLocked: false };
       } catch (e) {
-        this.logEmailDebug(`Lỗi tự động mở khóa khi checkLockByEmail: ${e.message}`);
+        this.logEmailDebug(`Lỗi tự động mở khóa khi checkLockByEmail: ${e}`);
       }
     }
 
@@ -711,14 +815,20 @@ Trân trọng,
       throw new NotFoundException("Người dùng không tồn tại");
     }
 
-    const { violationType, recommendedDuration, actualDuration, lockReason, lockSource } = body;
+    const {
+      violationType,
+      recommendedDuration,
+      actualDuration,
+      lockReason,
+      lockSource,
+    } = body;
 
     const mapping: Record<string, string> = {
-      "Spam": "Spam / Quảng cáo",
-      "Harassment": "Quấy rối người khác",
-      "Inappropriate_Content": "Nội dung không phù hợp",
-      "Impersonation": "Mạo danh",
-      "Malware_Fraud": "Phát tán mã độc / Lừa đảo"
+      Spam: "Spam / Quảng cáo",
+      Harassment: "Quấy rối người khác",
+      Inappropriate_Content: "Nội dung không phù hợp",
+      Impersonation: "Mạo danh",
+      Malware_Fraud: "Phát tán mã độc / Lừa đảo",
     };
 
     let finalReason = lockReason;
@@ -754,7 +864,10 @@ Trân trọng,
       actualDuration === "Khóa cho đến khi quản trị viên mở khóa"
     ) {
       durationType = "INDEFINITE";
-    } else if (actualDuration.includes("-") && !isNaN(Date.parse(actualDuration))) {
+    } else if (
+      actualDuration.includes("-") &&
+      !isNaN(Date.parse(actualDuration))
+    ) {
       untilDate = new Date(actualDuration);
       durationMs = untilDate.getTime() - Date.now();
       if (durationMs < 0) durationMs = 0;
@@ -775,7 +888,7 @@ Trân trọng,
         "30 ngày": 30 * 24 * 60 * 60 * 1000,
         "30d": 30 * 24 * 60 * 60 * 1000,
       };
-      durationMs = map[actualDuration] || (24 * 60 * 60 * 1000);
+      durationMs = map[actualDuration] || 24 * 60 * 60 * 1000;
       untilDate = new Date(Date.now() + durationMs);
     }
 
@@ -783,8 +896,9 @@ Trân trọng,
 
     // 3. Thực hiện khóa hoặc cảnh báo
     let emailSentSuccess = false;
-    
-    const validLockSource: "MANUAL" | "AI" = lockSource === "AI" ? "AI" : "MANUAL";
+
+    const validLockSource: "MANUAL" | "AI" =
+      lockSource === "AI" ? "AI" : "MANUAL";
 
     if (durationType === "WARNING") {
       user.lockHistory.push({
@@ -825,22 +939,27 @@ Trân trọng,
         emailSent: false, // sẽ cập nhật lại sau khi gửi email
       });
 
+      const banDuration =
+        durationType === "INDEFINITE"
+          ? "876000h"
+          : `${Math.ceil((durationMs || 0) / (60 * 60 * 1000))}h`;
 
-      const banDuration = durationType === "INDEFINITE" 
-        ? "876000h" 
-        : `${Math.ceil((durationMs || 0) / (60 * 60 * 1000))}h`;
-      
-      const { error: banError } = await this.supabaseAdmin.auth.admin.updateUserById(
-        user.supabaseId,
-        { ban_duration: banDuration }
-      );
+      const { error: banError } =
+        await this.supabaseAdmin.auth.admin.updateUserById(user.supabaseId, {
+          ban_duration: banDuration,
+        });
       if (banError) {
-        this.logEmailDebug(`Lỗi đồng bộ trạng thái khóa sang Supabase: ${banError.message}`);
+        this.logEmailDebug(
+          `Lỗi đồng bộ trạng thái khóa sang Supabase: ${banError.message}`,
+        );
       }
 
-      const { error: signOutError } = await this.supabaseAdmin.auth.admin.signOut(user.supabaseId);
+      const { error: signOutError } =
+        await this.supabaseAdmin.auth.admin.signOut(user.supabaseId);
       if (signOutError) {
-        this.logEmailDebug(`Lỗi thu hồi phiên đăng nhập trên Supabase: ${signOutError.message}`);
+        this.logEmailDebug(
+          `Lỗi thu hồi phiên đăng nhập trên Supabase: ${signOutError.message}`,
+        );
       }
     }
 
@@ -857,12 +976,16 @@ Trân trọng,
       emailSentSuccess = true;
     } catch (err: unknown) {
       const errObj = err as Error;
-      this.logEmailDebug(`Lỗi gửi email phạt cho ${user.email}: ${errObj.message}`);
-      emailWarning = "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
+      this.logEmailDebug(
+        `Lỗi gửi email phạt cho ${user.email}: ${errObj.message}`,
+      );
+      emailWarning =
+        "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
     }
 
     if (user.lockHistory.length > 0) {
-      user.lockHistory[user.lockHistory.length - 1].emailSent = emailSentSuccess;
+      user.lockHistory[user.lockHistory.length - 1].emailSent =
+        emailSentSuccess;
     }
 
     await user.save();
@@ -911,10 +1034,10 @@ Trân trọng,
 
     await user.save();
 
-    const { error: banError } = await this.supabaseAdmin.auth.admin.updateUserById(
-      user.supabaseId,
-      { ban_duration: "none" }
-    );
+    const { error: banError } =
+      await this.supabaseAdmin.auth.admin.updateUserById(user.supabaseId, {
+        ban_duration: "none",
+      });
     if (banError) {
       this.logEmailDebug(`Lỗi gỡ ban trên Supabase: ${banError.message}`);
     }
@@ -923,7 +1046,9 @@ Trân trọng,
       await this.sendUnlockEmail(user.email);
     } catch (err: unknown) {
       const errObj = err as Error;
-      this.logEmailDebug(`Lỗi gửi email mở khóa đến ${user.email}: ${errObj.message}`);
+      this.logEmailDebug(
+        `Lỗi gửi email mở khóa đến ${user.email}: ${errObj.message}`,
+      );
     }
 
     return { success: true, message: "Mở khóa tài khoản thành công" };
@@ -952,7 +1077,10 @@ Trân trọng,
       actualDuration === "Khóa cho đến khi quản trị viên mở khóa"
     ) {
       durationType = "INDEFINITE";
-    } else if (actualDuration.includes("-") && !isNaN(Date.parse(actualDuration))) {
+    } else if (
+      actualDuration.includes("-") &&
+      !isNaN(Date.parse(actualDuration))
+    ) {
       untilDate = new Date(actualDuration);
       durationMs = untilDate.getTime() - Date.now();
       if (durationMs < 0) durationMs = 0;
@@ -973,7 +1101,7 @@ Trân trọng,
         "30 ngày": 30 * 24 * 60 * 60 * 1000,
         "30d": 30 * 24 * 60 * 60 * 1000,
       };
-      durationMs = map[actualDuration] || (24 * 60 * 60 * 1000);
+      durationMs = map[actualDuration] || 24 * 60 * 60 * 1000;
       untilDate = new Date(Date.now() + durationMs);
     }
 
@@ -998,14 +1126,14 @@ Trân trọng,
       emailSent: false, // sẽ cập nhật lại sau khi gửi email
     });
 
-    const banDuration = durationType === "INDEFINITE" 
-      ? "876000h" 
-      : `${Math.ceil((durationMs || 0) / (60 * 60 * 1000))}h`;
-    
-    await this.supabaseAdmin.auth.admin.updateUserById(
-      user.supabaseId,
-      { ban_duration: banDuration }
-    );
+    const banDuration =
+      durationType === "INDEFINITE"
+        ? "876000h"
+        : `${Math.ceil((durationMs || 0) / (60 * 60 * 1000))}h`;
+
+    await this.supabaseAdmin.auth.admin.updateUserById(user.supabaseId, {
+      ban_duration: banDuration,
+    });
 
     let emailSentSuccess = false;
     let emailWarning: string | undefined = undefined;
@@ -1020,21 +1148,24 @@ Trân trọng,
       emailSentSuccess = true;
     } catch (err: unknown) {
       const errObj = err as Error;
-      this.logEmailDebug(`Lỗi gửi email gia hạn khóa đến ${user.email}: ${errObj.message}`);
-      emailWarning = "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
+      this.logEmailDebug(
+        `Lỗi gửi email gia hạn khóa đến ${user.email}: ${errObj.message}`,
+      );
+      emailWarning =
+        "Tài khoản đã được khóa thành công nhưng hệ thống không thể gửi email thông báo. Vui lòng kiểm tra dịch vụ Email.";
     }
 
     if (user.lockHistory.length > 0) {
-      user.lockHistory[user.lockHistory.length - 1].emailSent = emailSentSuccess;
+      user.lockHistory[user.lockHistory.length - 1].emailSent =
+        emailSentSuccess;
     }
 
     await user.save();
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: "Gia hạn thời gian khóa thành công",
-      emailWarning 
+      emailWarning,
     };
   }
 }
-

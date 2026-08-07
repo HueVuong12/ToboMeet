@@ -72,12 +72,6 @@ export default function RoomLeftDrawer({
                   ? `${room.name.slice(0, 15)}...`
                   : room.name}
               </Text>
-              <View className="flex-row items-center gap-1 mt-0.5">
-                <Feather name="video" size={14} color="#0052FF" />
-                <Text className="text-sm text-[#0052FF] font-medium">
-                  Meeting
-                </Text>
-              </View>
             </View>
           </View>
 
@@ -135,7 +129,8 @@ export default function RoomLeftDrawer({
                 // isChannelMember: user có trong members[] của Private channel không
                 // (Owner không cần check vì có quyền ngầm định)
                 const isChannelMember = item.isPrivate
-                  ? item.members?.some((m) => m.userId === currentUserId) ?? false
+                  ? (item.members?.some((m) => m.userId === currentUserId) ??
+                    false)
                   : false;
 
                 // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
@@ -143,7 +138,8 @@ export default function RoomLeftDrawer({
                 // - Member: là thành viên của kênh (Rời khỏi kênh)
                 // Kênh công khai không có menu 3-dot theo spec
                 const showThreeDots =
-                  item.isPrivate && !isDefaultChannel &&
+                  item.isPrivate &&
+                  !isDefaultChannel &&
                   (canManageThisChannel || isChannelMember);
 
                 return (
@@ -186,7 +182,11 @@ export default function RoomLeftDrawer({
                     {showThreeDots && (
                       <TouchableOpacity
                         onPress={() => {
-                          const options: { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void }[] = [];
+                          const options: {
+                            text: string;
+                            style?: "default" | "cancel" | "destructive";
+                            onPress?: () => void;
+                          }[] = [];
 
                           if (item.isPrivate && canManageThisChannel) {
                             options.push({
@@ -197,7 +197,13 @@ export default function RoomLeftDrawer({
 
                           // Rời khỏi kênh: chỉ cho Private channel, không phải Owner,
                           // và user thực sự là member của kênh đó
-                          if (item.isPrivate && !isOwner && !isDefaultChannel && isChannelMember && onLeaveChannel) {
+                          if (
+                            item.isPrivate &&
+                            !isOwner &&
+                            !isDefaultChannel &&
+                            isChannelMember &&
+                            onLeaveChannel
+                          ) {
                             options.push({
                               text: "Rời khỏi kênh",
                               style: "destructive",
@@ -208,7 +214,11 @@ export default function RoomLeftDrawer({
                           options.push({ text: "Hủy", style: "cancel" });
 
                           import("react-native").then(({ Alert }) => {
-                            Alert.alert(`Kênh #${item.name}`, "Tùy chọn kênh", options);
+                            Alert.alert(
+                              `Kênh #${item.name}`,
+                              "Tùy chọn kênh",
+                              options,
+                            );
                           });
                         }}
                         className="p-2.5 mr-1"

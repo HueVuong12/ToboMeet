@@ -211,7 +211,6 @@ export class ReportsService {
         ? {
             name: room.name,
             code: room.code,
-            type: room.type,
             memberCount: room.members.length,
             createdAt: (room as unknown as { createdAt: Date }).createdAt,
           }

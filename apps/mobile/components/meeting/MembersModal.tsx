@@ -13,7 +13,6 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useRoomSettings } from "../../hooks/useRoomSettings";
 
 export default function MembersModal({
   visible,
@@ -35,8 +34,6 @@ export default function MembersModal({
   const [activeListTab, setActiveListTab] = useState<"joined" | "waiting">(
     "joined",
   );
-
-  const { roomType } = useRoomSettings({ meetingCode });
 
   const {
     localParticipant,
@@ -204,11 +201,13 @@ export default function MembersModal({
                 // Xác định text chức danh hiển thị dựa theo roomType
                 let roleText = "";
                 if (role === "owner") {
-                  roleText =
-                    roomType === "classroom" ? "Giảng viên" : "Chủ phòng";
+                  roleText = t("room.role_leader", {
+                    defaultValue: "Trưởng nhóm",
+                  });
                 } else if (role === "admin") {
-                  roleText =
-                    roomType === "classroom" ? "Ban cán sự" : "Phó phòng";
+                  roleText = t("room.role_vice_leader", {
+                    defaultValue: "Phó nhóm",
+                  });
                 } else if (role === "guest") {
                   roleText = "Người ngoài";
                 }
@@ -371,10 +370,13 @@ export default function MembersModal({
                                     color="white"
                                   />
                                   <Text className="text-white text-sm">
-                                    Thu hồi{" "}
-                                    {roomType === "classroom"
-                                      ? "Ban cán sự"
-                                      : "Phó phòng"}
+                                    {t(
+                                      "room.toast_revoke_vice_leader_success",
+                                      {
+                                        defaultValue:
+                                          "Đã thu hồi quyền thành công",
+                                      },
+                                    )}
                                   </Text>
                                 </TouchableOpacity>
                               ) : (
@@ -391,10 +393,9 @@ export default function MembersModal({
                                     color="white"
                                   />
                                   <Text className="text-white text-sm">
-                                    Bổ nhiệm{" "}
-                                    {roomType === "classroom"
-                                      ? "Ban cán sự"
-                                      : "Phó phòng"}
+                                    {t("room.appoint_vice_leader", {
+                                      defaultValue: "Bổ nhiệm Phó nhóm",
+                                    })}
                                   </Text>
                                 </TouchableOpacity>
                               )}
@@ -415,10 +416,9 @@ export default function MembersModal({
                                   color="white"
                                 />
                                 <Text className="text-white text-sm">
-                                  Chuyển quyền{" "}
-                                  {roomType === "classroom"
-                                    ? "Giáo viên"
-                                    : "Chủ phòng"}
+                                  {t("room.appoint_leader", {
+                                    defaultValue: "Bổ nhiệm Trưởng nhóm",
+                                  })}
                                 </Text>
                               </TouchableOpacity>
 

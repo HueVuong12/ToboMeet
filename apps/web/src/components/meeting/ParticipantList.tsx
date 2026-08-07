@@ -1,20 +1,18 @@
 import { useParticipantManager } from "@/hooks/useParticipantManager";
-import { useRoomSettings } from "@/hooks/useRoomSettings";
 import {
-  Crown,
   Edit2,
   Hand,
   Loader2,
   Mic,
   MicOff,
   MoreVertical,
-  Shield,
   UserMinus,
   VideoOff,
   Clock,
   ShieldCheck,
   UserCheck,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -27,6 +25,7 @@ export default function ParticipantList({
   channelId: string | null;
   meetingCode: string;
 }) {
+  const t = useTranslations("room");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // State quản lý Tab hiển thị
@@ -34,14 +33,11 @@ export default function ParticipantList({
     "joined",
   );
 
-  const { roomType } = useRoomSettings({ meetingCode: meetingCode });
-
   const {
     localParticipant,
     displayParticipants,
     waitingParticipants,
     canManageParticipants,
-    isLocalAdmin,
     isLocalOwner,
     canApprove,
     kickingUserId,
@@ -107,9 +103,7 @@ export default function ParticipantList({
               <div className="flex flex-col gap-1 w-full">
                 {/* NÚT DUYỆT TẤT CẢ */}
                 <div className="flex w-full justify-between px-1 pb-1">
-                  <p className="text-xs text-slate-400">
-                    Mọi người
-                  </p>
+                  <p className="text-xs text-slate-400">Mọi người</p>
                   <button
                     onClick={() => handleApprove("all", "Tất cả")}
                     className="text-xs text-amber-500 hover:text-amber-400 font-medium px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors"
@@ -212,11 +206,11 @@ export default function ParticipantList({
               // Xác định text chức danh hiển thị dựa theo roomType
               let roleText = "";
               if (role === "owner") {
-                roleText =
-                  roomType === "classroom" ? "Giảng viên" : "Chủ phòng";
+                roleText = t("role_leader", { defaultValue: "Trưởng nhóm" });
               } else if (role === "admin") {
-                roleText =
-                  roomType === "classroom" ? "Ban cán sự" : "Phó phòng";
+                roleText = t("role_vice_leader", {
+                  defaultValue: "Phó nhóm",
+                });
               } else if (role === "guest") {
                 roleText = "Người ngoài";
               }
@@ -330,10 +324,10 @@ export default function ParticipantList({
                                       }}
                                       className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
-                                      <UserCheck size={15} /> Thu hồi{" "}
-                                      {roomType === "classroom"
-                                        ? "Ban cán sự"
-                                        : "Phó phòng"}
+                                      <UserCheck size={15} />
+                                      {t("revoke_vice_leader", {
+                                        defaultValue: "Thu hồi Phó nhóm",
+                                      })}
                                     </button>
                                   ) : (
                                     <button
@@ -343,10 +337,10 @@ export default function ParticipantList({
                                       }}
                                       className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
-                                      <UserCheck size={15} /> Bổ nhiệm{" "}
-                                      {roomType === "classroom"
-                                        ? "Ban cán sự"
-                                        : "Phó phòng"}
+                                      <UserCheck size={15} />
+                                      {t("appoint_vice_leader", {
+                                        defaultValue: "Bổ nhiệm Phó nhóm",
+                                      })}
                                     </button>
                                   )}
 
@@ -360,10 +354,10 @@ export default function ParticipantList({
                                     }}
                                     className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                   >
-                                    <ShieldCheck size={15} /> Chuyển quyền{" "}
-                                    {roomType === "classroom"
-                                      ? "Giáo viên"
-                                      : "Chủ phòng"}
+                                    <ShieldCheck size={15} />
+                                    {t("appoint_leader", {
+                                      defaultValue: "Bổ nhiệm Trưởng nhóm",
+                                    })}
                                   </button>
                                   <div className="h-px bg-[#444] my-1 mx-2" />
                                 </>

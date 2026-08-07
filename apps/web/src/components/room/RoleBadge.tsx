@@ -4,15 +4,9 @@ import { ShieldCheck, UserCheck, User, Loader2 } from "lucide-react";
 
 interface RoleBadgeProps {
   role: string;
-  displayRole?: string;
-  roomType: "classroom" | "meeting" | string;
 }
 
-export default function RoleBadge({
-  role,
-  displayRole,
-  roomType,
-}: RoleBadgeProps) {
+export default function RoleBadge({ role }: RoleBadgeProps) {
   const t = useTranslations("room");
 
   // Normalize roles to owner, admin, member
@@ -24,24 +18,14 @@ export default function RoleBadge({
   }, [role]);
 
   const badgeText = React.useMemo(() => {
-    if (roomType === "classroom") {
-      if (normalizedRole === "owner")
-        return t("role_teacher", { defaultValue: displayRole || "Giảng viên" });
-      if (normalizedRole === "admin")
-        return t("role_assistant", {
-          defaultValue: displayRole || "Ban cán sự",
-        });
-      return t("role_student", { defaultValue: displayRole || "Học viên" });
-    } else {
-      if (normalizedRole === "owner")
-        return t("role_leader", { defaultValue: displayRole || "Trưởng nhóm" });
-      if (normalizedRole === "admin")
-        return t("role_vice_leader", {
-          defaultValue: displayRole || "Phó nhóm",
-        });
-      return t("role_member", { defaultValue: displayRole || "Thành viên" });
-    }
-  }, [displayRole, normalizedRole, roomType, t]);
+    if (normalizedRole === "owner")
+      return t("role_leader", { defaultValue: "Trưởng nhóm" });
+    if (normalizedRole === "admin")
+      return t("role_vice_leader", {
+        defaultValue: "Phó nhóm",
+      });
+    return t("role_member", { defaultValue: "Thành viên" });
+  }, [normalizedRole, t]);
 
   switch (normalizedRole) {
     case "owner":

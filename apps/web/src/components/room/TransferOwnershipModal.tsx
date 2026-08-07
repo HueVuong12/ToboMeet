@@ -28,18 +28,11 @@ export default function TransferOwnershipModal({
 
   if (!isOpen) return null;
 
-  const isClassroom = roomType === "classroom";
-  const title = isClassroom
-    ? t("transfer_teacher_title", { defaultValue: "Chuyển quyền Giáo viên" })
-    : t("transfer_leader_title", { defaultValue: "Chuyển quyền Trưởng nhóm" });
-
-  const roleName = isClassroom
-    ? t("role_teacher", { defaultValue: "Giáo viên" })
-    : t("role_leader", { defaultValue: "Trưởng nhóm" });
-
-  const downgradedRoleName = isClassroom
-    ? t("role_student", { defaultValue: "Học viên" })
-    : t("role_member", { defaultValue: "Thành viên" });
+  const title = t("transfer_leader_title", {
+    defaultValue: "Chuyển quyền Trưởng nhóm",
+  });
+  const roleName = t("role_leader", { defaultValue: "Trưởng nhóm" });
+  const downgradedRoleName = t("role_member", { defaultValue: "Thành viên" });
 
   const handleConfirm = async () => {
     try {

@@ -181,20 +181,17 @@ export default function RoomRightSidebar({
                                     return (
                                       <RoleBadge
                                         role={member.role}
-                                        roomType={room?.type || "meeting"}
                                       />
                                     );
                                   if (tRole === "admin")
                                     return (
                                       <RoleBadge
                                         role={tRole}
-                                        roomType={room?.type || "meeting"}
                                       />
                                     );
                                   return (
                                     <RoleBadge
                                       role="member"
-                                      roomType={room?.type || "meeting"}
                                     />
                                   );
                                 })()}

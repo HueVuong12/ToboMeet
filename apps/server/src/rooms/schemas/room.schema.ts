@@ -10,8 +10,8 @@ export class Room {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true, enum: ["meeting", "classroom"] })
-  type: string;
+  // @Prop({ required: true, enum: ["meeting", "classroom"] })
+  // type: string;
 
   @Prop({ required: true, unique: true })
   code: string;

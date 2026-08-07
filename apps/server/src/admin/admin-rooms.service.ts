@@ -207,7 +207,6 @@ export class AdminRoomsService {
         id: room._id,
         name: room.name,
         code: room.code,
-        type: room.type,
         status: room.status || "active",
         createdAt: (room as unknown as { createdAt: Date }).createdAt,
         membersCount: room.members?.length || 0,
@@ -271,7 +270,7 @@ export class AdminRoomsService {
         id: rep._id,
         reporterName: reporter?.displayName || "Người dùng ẩn danh",
         reason: rep.reason,
-        details: (rep as any).description || "",
+        details: rep.description || "",
         status: rep.status,
         createdAt: (rep as unknown as { createdAt: Date }).createdAt,
       };
@@ -333,7 +332,6 @@ export class AdminRoomsService {
       id: room._id,
       name: room.name,
       code: room.code,
-      type: room.type,
       status: room.status || "active",
       createdAt: (room as unknown as { createdAt: Date }).createdAt,
       owner: {

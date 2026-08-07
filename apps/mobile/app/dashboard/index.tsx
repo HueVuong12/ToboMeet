@@ -19,6 +19,7 @@ import { Feather } from "@expo/vector-icons";
 import JoinRoomModal from "../../components/JoinRoomModal";
 import CreateRoomModal from "../../components/CreateRoomModal";
 import { toast } from "../../lib/toast";
+import RoomCard from "../../components/dashboard/RoomCard";
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
@@ -75,6 +76,7 @@ export default function DashboardScreen() {
       // Gọi refetch song song để làm mới cả danh sách phòng và thông tin user
       await Promise.all([refetchRooms(), refetchProfile()]);
     } catch (error) {
+      console.log(error);
       toast.error("Không thể tải lại dữ liệu");
     } finally {
       setIsRefreshing(false);
@@ -238,31 +240,10 @@ export default function DashboardScreen() {
             )
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <RoomCard
+              item={item}
               onPress={() => router.push(`/room/${item._id}`)}
-              className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm mb-4 flex-row justify-between items-center"
-            >
-              <View className="flex-row items-center gap-4 flex-1">
-                <View className="w-12 h-12 rounded-2xl bg-blue-50 justify-center items-center">
-                  <Feather
-                    name={item.type === "classroom" ? "book-open" : "video"}
-                    size={20}
-                    color={item.type === "classroom" ? "#4F46E5" : "#0052FF"}
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-bold text-slate-800 text-sm truncate">
-                    {item.name}
-                  </Text>
-                  <Text className="text-[11px] text-slate-400 mt-1 font-semibold">
-                    {item.type === "classroom"
-                      ? t("dashboard.classroom")
-                      : t("dashboard.meeting")}
-                  </Text>
-                </View>
-              </View>
-              <Feather name="chevron-right" size={16} color="#CBD5E1" />
-            </TouchableOpacity>
+            />
           )}
         />
       </View>

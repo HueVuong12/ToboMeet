@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, BadRequestException, UseGuards, Req, ForbiddenException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+  UseGuards,
+  Req,
+  ForbiddenException,
+} from "@nestjs/common";
 import { AdminService } from "./admin.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 
@@ -10,7 +23,9 @@ export class AdminController {
   @Get("stats")
   async getStats(@Req() req) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
     return this.adminService.getDashboardStats();
   }
@@ -23,7 +38,9 @@ export class AdminController {
     @Query("limit") limit?: string,
   ) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 10;
@@ -38,7 +55,9 @@ export class AdminController {
     @Body("role") role?: string,
   ) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
 
     // 1. Validation email
@@ -81,7 +100,9 @@ export class AdminController {
     @Body("status") status?: string,
   ) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
 
     const trimmedRole = role?.trim().toLowerCase();
@@ -91,7 +112,9 @@ export class AdminController {
 
     const trimmedStatus = status?.trim().toLowerCase();
     if (trimmedStatus && !["active", "locked"].includes(trimmedStatus)) {
-      throw new BadRequestException("Trạng thái chỉ được phép là active hoặc locked");
+      throw new BadRequestException(
+        "Trạng thái chỉ được phép là active hoặc locked",
+      );
     }
 
     return this.adminService.updateUserAccount(
@@ -104,12 +127,11 @@ export class AdminController {
   }
 
   @Put("users/:id/reset-password")
-  async resetPassword(
-    @Req() req,
-    @Param("id") id: string,
-  ) {
+  async resetPassword(@Req() req, @Param("id") id: string) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
 
     const adminEmail = req.user?.email || "admin";
@@ -119,7 +141,9 @@ export class AdminController {
   @Delete("users/:id")
   async deleteUser(@Req() req, @Param("id") id: string) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
     return this.adminService.deleteUserAccount(id);
   }
@@ -146,7 +170,9 @@ export class AdminController {
     @Body("lockSource") lockSource?: string,
   ) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
 
     if (!violationType || !actualDuration || !lockReason) {
@@ -164,14 +190,16 @@ export class AdminController {
         sendEmail,
         lockSource: lockSource || "MANUAL",
       },
-      adminEmail
+      adminEmail,
     );
   }
 
   @Post("users/:id/unlock")
   async unlockUser(@Req() req, @Param("id") id: string) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
     const adminEmail = req.user?.email || "admin";
     return this.adminService.unlockUserAccount(id, adminEmail);
@@ -185,11 +213,15 @@ export class AdminController {
     @Body("lockReason") lockReason: string,
   ) {
     if (req.user?.role !== "admin") {
-      throw new ForbiddenException("Bạn không có quyền truy cập chức năng này.");
+      throw new ForbiddenException(
+        "Bạn không có quyền truy cập chức năng này.",
+      );
     }
 
     if (!actualDuration || !lockReason) {
-      throw new BadRequestException("Thiếu thông tin thời gian gia hạn hoặc lý do");
+      throw new BadRequestException(
+        "Thiếu thông tin thời gian gia hạn hoặc lý do",
+      );
     }
 
     const adminEmail = req.user?.email || "admin";
@@ -199,7 +231,7 @@ export class AdminController {
         actualDuration,
         lockReason,
       },
-      adminEmail
+      adminEmail,
     );
   }
 }

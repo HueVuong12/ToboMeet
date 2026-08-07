@@ -69,7 +69,8 @@ export default function Sidebar({
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
   const [channelToLeave, setChannelToLeave] = useState<any | null>(null);
-  const [leaveChannelMutation, { isLoading: isLeavingChannel }] = useLeaveChannelMutation();
+  const [leaveChannelMutation, { isLoading: isLeavingChannel }] =
+    useLeaveChannelMutation();
   const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(
     null,
   );
@@ -181,7 +182,6 @@ export default function Sidebar({
     }
   };
 
-  const isMeeting = room.type === "meeting";
   const currentUserRole = roomMembers.find((m: any) => m.userId === userId)
     ?.role as string | undefined;
   const isOwner = room.ownerId === userId || currentUserRole === "owner";
@@ -218,8 +218,8 @@ export default function Sidebar({
   return (
     <aside className="w-64 h-full bg-[#f5f5f5] flex flex-col border-r border-slate-200 select-none relative">
       {/* Room Header */}
-      <div className="px-4 h-14 flex items-center justify-between border-b border-slate-200 flex-shrink-0">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="px-4 h-14 flex items-center justify-between border-b border-slate-200 shrink-0">
+        <div className="flex items-center gap-1 flex-1 min-w-0">
           <button
             onClick={() => router.push("../dashboard")}
             className="w-7 h-7 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors"
@@ -230,18 +230,6 @@ export default function Sidebar({
             <h2 className="text-sm font-bold text-slate-900 truncate">
               {room.name}
             </h2>
-            <span
-              className={`inline-flex items-center gap-1 text-[11px] font-medium ${isMeeting ? "text-blue-500" : "text-violet-500"}`}
-            >
-              {isMeeting ? (
-                <Video className="w-3 h-3" />
-              ) : (
-                <GraduationCap className="w-3 h-3" />
-              )}
-              {isMeeting
-                ? t("type_meeting", { defaultValue: "Phòng họp" })
-                : t("type_classroom", { defaultValue: "Phòng học" })}
-            </span>
           </div>
         </div>
 
@@ -363,7 +351,8 @@ export default function Sidebar({
           <div className="mt-1 px-2 space-y-0.5">
             {room.channels.map((channel, index) => {
               const isActive = channel.name === activeChannel;
-              const isDefaultChannel = index === 0 || channel.name === "General";
+              const isDefaultChannel =
+                index === 0 || channel.name === "General";
               const canManageThisChannel =
                 isOwner ||
                 channel.members?.some(
@@ -372,7 +361,8 @@ export default function Sidebar({
               // isChannelMember: user có trong members[] của Private channel không
               // (Owner không cần check vì có quyền ngầm định)
               const isChannelMember = channel.isPrivate
-                ? channel.members?.some((m: any) => m.userId === userId) ?? false
+                ? (channel.members?.some((m: any) => m.userId === userId) ??
+                  false)
                 : false;
 
               // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
@@ -380,7 +370,8 @@ export default function Sidebar({
               // - Member là thành viên của kênh (Rời khỏi kênh)
               // Kênh công khai không có menu 3-dot theo spec
               const showThreeDots =
-                channel.isPrivate && !isDefaultChannel &&
+                channel.isPrivate &&
+                !isDefaultChannel &&
                 (canManageThisChannel || isChannelMember);
 
               return (
@@ -451,20 +442,23 @@ export default function Sidebar({
                             )}
 
                             {/* Nút Rời khỏi kênh: chỉ hiện với Private channel, không phải Owner, user là member */}
-                            {channel.isPrivate && !isOwner && !isDefaultChannel && isChannelMember && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenChannelMenuId(null);
-                                  setChannelToLeave(channel);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                              >
-                                <LogOut className="w-3.5 h-3.5 text-red-500" />
-                                <span>{t("leave_channel")}</span>
-                              </button>
-                            )}
+                            {channel.isPrivate &&
+                              !isOwner &&
+                              !isDefaultChannel &&
+                              isChannelMember && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenChannelMenuId(null);
+                                    setChannelToLeave(channel);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                >
+                                  <LogOut className="w-3.5 h-3.5 text-red-500" />
+                                  <span>{t("leave_channel")}</span>
+                                </button>
+                              )}
                           </div>
                         </>
                       )}
@@ -1006,7 +1000,9 @@ export default function Sidebar({
                       setChannelToLeave(null);
                     } catch (err: any) {
                       toast.error(
-                        err?.data?.message || err?.message || t("leave_channel_error"),
+                        err?.data?.message ||
+                          err?.message ||
+                          t("leave_channel_error"),
                       );
                     }
                   }}

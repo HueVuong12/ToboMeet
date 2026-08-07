@@ -5,16 +5,13 @@ import { Feather } from "@expo/vector-icons";
 interface RoleBadgeProps {
   role: string;
   displayRole?: string;
-  roomType: "classroom" | "meeting" | string;
-  t: (key: string, options?: { defaultValue?: string } & Record<string, unknown>) => string;
+  t: (
+    key: string,
+    options?: { defaultValue?: string } & Record<string, unknown>,
+  ) => string;
 }
 
-export default function RoleBadge({
-  role,
-  displayRole,
-  roomType,
-  t,
-}: RoleBadgeProps) {
+export default function RoleBadge({ role, displayRole, t }: RoleBadgeProps) {
   const normalizedRole = React.useMemo(() => {
     if (["owner", "teacher", "leader"].includes(role)) return "owner";
     if (["vice", "vice_leader", "assistant", "admin"].includes(role))
@@ -24,20 +21,12 @@ export default function RoleBadge({
 
   const defaultText = React.useMemo(() => {
     if (displayRole) return displayRole;
-    if (roomType === "classroom") {
-      if (normalizedRole === "owner")
-        return t("room.role_teacher", { defaultValue: "Giảng viên" });
-      if (normalizedRole === "admin")
-        return t("room.role_assistant", { defaultValue: "Ban cán sự" });
-      return t("room.role_student", { defaultValue: "Học viên" });
-    } else {
-      if (normalizedRole === "owner")
-        return t("room.role_leader", { defaultValue: "Trưởng nhóm" });
-      if (normalizedRole === "admin")
-        return t("room.role_vice_leader", { defaultValue: "Phó nhóm" });
-      return t("room.role_member", { defaultValue: "Thành viên" });
-    }
-  }, [displayRole, normalizedRole, roomType, t]);
+    if (normalizedRole === "owner")
+      return t("room.role_leader", { defaultValue: "Trưởng nhóm" });
+    if (normalizedRole === "admin")
+      return t("room.role_vice_leader", { defaultValue: "Phó nhóm" });
+    return t("room.role_member", { defaultValue: "Thành viên" });
+  }, [displayRole, normalizedRole, t]);
 
   switch (normalizedRole) {
     case "owner":

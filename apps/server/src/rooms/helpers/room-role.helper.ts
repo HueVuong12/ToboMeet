@@ -1,7 +1,7 @@
 export type RoomRole = "owner" | "admin" | "member";
 export type RoomType = "classroom" | "meeting" | string;
 
-export function getDisplayRole(role: string, roomType: string): string {
+export function getDisplayRole(role: string): string {
   // Normalize legacy roles if present in old data
   let normalizedRole = role;
   if (["teacher", "leader"].includes(role)) normalizedRole = "owner";
@@ -9,27 +9,15 @@ export function getDisplayRole(role: string, roomType: string): string {
     normalizedRole = "admin";
   else if (["student"].includes(role)) normalizedRole = "member";
 
-  if (roomType === "classroom") {
-    switch (normalizedRole) {
-      case "owner":
-        return "Giảng viên";
-      case "admin":
-        return "Ban cán sự";
-      case "member":
-      default:
-        return "Học viên";
-    }
-  } else {
-    // Default to meeting room format
-    switch (normalizedRole) {
-      case "owner":
-        return "Trưởng nhóm";
-      case "admin":
-        return "Phó nhóm";
-      case "member":
-      default:
-        return "Thành viên";
-    }
+  // Default to meeting room format
+  switch (normalizedRole) {
+    case "owner":
+      return "Trưởng nhóm";
+    case "admin":
+      return "Phó nhóm";
+    case "member":
+    default:
+      return "Thành viên";
   }
 }
 

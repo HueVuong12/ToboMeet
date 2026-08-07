@@ -1,7 +1,4 @@
-import {
-  RoomMemberResponse,
-  RoomResponse,
-} from "@tobomeet/shared/types";
+import { RoomMemberResponse, RoomResponse } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
 export const roomsApi = baseApi.injectEndpoints({
@@ -22,10 +19,7 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: (result, error, id) => [{ type: "Room", id }],
     }),
 
-    createRoom: builder.mutation<
-      RoomResponse,
-      { name: string; type: "meeting" | "classroom" }
-    >({
+    createRoom: builder.mutation<RoomResponse, { name: string }>({
       query: (body) => ({
         url: "/rooms",
         method: "POST",
@@ -124,8 +118,6 @@ export const roomsApi = baseApi.injectEndpoints({
       }),
     }),
 
-    // Hưng thêm vào, không đụng phần code bên dưới
-
     /**
      * Kiểm tra trạng thái thành viên bằng ID phòng
      */
@@ -205,7 +197,12 @@ export const roomsApi = baseApi.injectEndpoints({
 
     addChannelMember: builder.mutation<
       RoomResponse,
-      { roomId: string; channelId: string; targetUserId?: string; emailOrUsername?: string }
+      {
+        roomId: string;
+        channelId: string;
+        targetUserId?: string;
+        emailOrUsername?: string;
+      }
     >({
       query: ({ roomId, channelId, targetUserId, emailOrUsername }) => ({
         url: `/rooms/${roomId}/channels/${channelId}/members`,

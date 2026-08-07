@@ -3,22 +3,21 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { RoomResponse } from "@tobomeet/shared/types";
-import { Video, GraduationCap, Users } from "lucide-react";
+import { Users, ArrowRight, Hash, Layers } from "lucide-react";
 
-// Gradient presets tương tự Microsoft Teams
+// Gradient presets nâng cấp tương tự Microsoft Teams / Slack
 const CARD_GRADIENTS = [
-  "from-violet-600 to-purple-700",
-  "from-blue-600 to-indigo-700",
-  "from-teal-500 to-emerald-700",
-  "from-rose-500 to-pink-700",
-  "from-amber-500 to-orange-700",
-  "from-cyan-500 to-blue-700",
-  "from-fuchsia-500 to-purple-700",
-  "from-emerald-500 to-teal-700",
+  "from-violet-600 via-purple-600 to-indigo-700",
+  "from-blue-600 via-indigo-600 to-cyan-700",
+  "from-teal-500 via-emerald-600 to-teal-800",
+  "from-rose-500 via-pink-600 to-red-700",
+  "from-amber-500 via-orange-600 to-red-600",
+  "from-cyan-500 via-blue-600 to-indigo-700",
+  "from-fuchsia-500 via-purple-600 to-pink-700",
+  "from-emerald-500 via-teal-600 to-cyan-700",
 ];
 
 function getGradient(id: string): string {
-  // Dùng hash đơn giản từ _id để assign gradient ổn định
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
@@ -34,64 +33,81 @@ export default function RoomCard({ room }: RoomCardProps) {
   const router = useRouter();
   const t = useTranslations("dashboard");
   const gradient = getGradient(room._id);
-  const isMeeting = room.type === "meeting";
 
   return (
-    <button
+    <div
       id={`room-card-${room._id}`}
       onClick={() => router.push(`room/${room._id}`)}
-      className="group text-left w-full bg-white rounded-xl overflow-hidden border border-gray-200
-                 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.1)]
-                 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+      className="group relative text-left w-full bg-white rounded-2xl overflow-hidden border border-slate-200/80
+                 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-300
+                 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between"
     >
-      {/* Gradient Header — Teams style */}
+      {/* Header Banner — Teams & Slack style */}
       <div
-        className={`h-24 bg-gradient-to-br ${gradient} relative overflow-hidden`}
+        className={`h-28 bg-linear-to-br ${gradient} relative overflow-hidden p-4 flex flex-col justify-between`}
       >
-        {/* Decorative circles */}
-        <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10" />
-        <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
+        {/* Background decorative elements */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:scale-125 transition-transform duration-500" />
+        <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-black/10 blur-md" />
 
-        {/* Room initials */}
-        <div className="absolute bottom-3 left-4">
-          <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg">
+        {/* Room Code Badge */}
+        {room.code && (
+          <div className="self-end relative z-10">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-md text-[11px] font-mono text-white/90 border border-white/10 font-semibold tracking-wider shadow-sm">
+              <Hash className="w-3 h-3 text-white/70" />
+              {room.code}
+            </span>
+          </div>
+        )}
+
+        {/* Avatar đại diện tên phòng */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white font-extrabold text-lg shadow-inner group-hover:scale-105 transition-transform duration-300">
             {room.name.charAt(0).toUpperCase()}
           </div>
         </div>
       </div>
 
       {/* Card Body */}
-      <div className="p-4">
-        {/* Room Name */}
-        <h3 className="text-[15px] font-bold text-slate-900 truncate mb-1.5 group-hover:text-brand-600 transition-colors">
-          {room.name}
-        </h3>
+      <div className="p-4 flex-1 flex flex-col justify-between bg-white">
+        <div>
+          {/* Tên phòng */}
+          <h3 className="text-base font-bold text-slate-800 truncate mb-1 group-hover:text-brand-600 transition-colors">
+            {room.name}
+          </h3>
+        </div>
 
-        {/* Room Type Badge + Member Count */}
-        <div className="flex items-center gap-2">
-          {/* Type Badge */}
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-              isMeeting
-                ? "bg-blue-50 text-blue-700 border border-blue-100"
-                : "bg-violet-50 text-violet-700 border border-violet-100"
-            }`}
-          >
-            {isMeeting ? (
-              <Video className="w-3 h-3" />
-            ) : (
-              <GraduationCap className="w-3 h-3" />
+        {/* Footer info & CTA */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <div className="flex items-center gap-3">
+            {/* Số lượng thành viên */}
+            <span
+              className="flex items-center gap-1.5 font-medium text-slate-600"
+              title="Thành viên"
+            >
+              <Users className="w-3.5 h-3.5 text-slate-400" />
+              {room.members?.length || 0}
+            </span>
+
+            {/* Số lượng kênh (Channel) nếu có */}
+            {room.channels && room.channels.length > 0 && (
+              <span
+                className="flex items-center gap-1.5 font-medium text-slate-600"
+                title="Kênh"
+              >
+                <Layers className="w-3.5 h-3.5 text-slate-400" />
+                {room.channels.length}
+              </span>
             )}
-            {isMeeting ? t("meeting") : t("classroom")}
-          </span>
+          </div>
 
-          {/* Member Count */}
-          <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-            <Users className="w-3 h-3" />
-            {room.members?.length || 0}
+          {/* Nút hành động trượt nhẹ khi Hover */}
+          <span className="inline-flex items-center gap-1 font-semibold text-slate-400 group-hover:text-brand-600 transition-colors">
+            <span>{t("go_to_room", { defaultValue: "Vào phòng" })}</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

@@ -20,9 +20,6 @@ export class CalendarEvent {
   @Prop({ index: true })
   channelId: string; // Tùy chọn: Kênh (Channel) nếu tạo trong kênh
 
-  @Prop({ default: "meeting" })
-  roomType: "meeting" | "classroom"; // Loại phòng họp hoặc phòng học
-
   @Prop({ required: true })
   startDate: Date; // Thời gian bắt đầu (buổi đầu tiên nếu lặp)
 

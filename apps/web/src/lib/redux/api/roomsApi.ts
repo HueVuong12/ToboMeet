@@ -19,10 +19,7 @@ export const roomsApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, roomId) => [{ type: "Room", id: roomId }],
     }),
 
-    createRoom: builder.mutation<
-      RoomResponse,
-      { name: string; type: "meeting" | "classroom" }
-    >({
+    createRoom: builder.mutation<RoomResponse, { name: string }>({
       query: (body) => ({
         url: "/rooms",
         method: "POST",

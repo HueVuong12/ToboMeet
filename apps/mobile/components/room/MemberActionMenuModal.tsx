@@ -128,14 +128,9 @@ export default function MemberActionMenuModal({
                           );
                           refetchMembers();
                         } catch (err: any) {
-                          const subTitle =
-                            room.type === "classroom"
-                              ? t("room.role_assistant", {
-                                  defaultValue: "Ban cán sự",
-                                })
-                              : t("room.role_vice_leader", {
-                                  defaultValue: "Phó nhóm",
-                                });
+                          const subTitle = t("room.role_vice_leader", {
+                            defaultValue: "Phó nhóm",
+                          });
                           Alert.alert(
                             t("room.error", { defaultValue: "Lỗi" }),
                             err?.data?.message ||
@@ -150,13 +145,9 @@ export default function MemberActionMenuModal({
                     >
                       <Feather name="user-check" size={18} color="#2563EB" />
                       <Text className="text-blue-600 text-base font-semibold">
-                        {room.type === "classroom"
-                          ? t("room.appoint_assistant", {
-                              defaultValue: "Bổ nhiệm Ban cán sự",
-                            })
-                          : t("room.appoint_vice_leader", {
-                              defaultValue: "Bổ nhiệm Phó nhóm",
-                            })}
+                        {t("room.appoint_vice_leader", {
+                          defaultValue: "Bổ nhiệm Phó nhóm",
+                        })}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -193,13 +184,9 @@ export default function MemberActionMenuModal({
                     >
                       <Feather name="user-minus" size={18} color="#D97706" />
                       <Text className="text-amber-600 text-base font-semibold">
-                        {room.type === "classroom"
-                          ? t("room.revoke_assistant", {
-                              defaultValue: "Thu hồi Ban cán sự",
-                            })
-                          : t("room.revoke_vice_leader", {
-                              defaultValue: "Thu hồi Phó nhóm",
-                            })}
+                        {t("room.revoke_vice_leader", {
+                          defaultValue: "Thu hồi Phó nhóm",
+                        })}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -208,23 +195,16 @@ export default function MemberActionMenuModal({
                   <TouchableOpacity
                     onPress={() => {
                       onClose();
-                      const isClass = room.type === "classroom";
-                      const ownerTitle = isClass
-                        ? t("room.role_teacher", { defaultValue: "Giảng viên" })
-                        : t("room.role_leader", {
-                            defaultValue: "Trưởng nhóm",
-                          });
-                      const memberTitle = isClass
-                        ? t("room.role_student", { defaultValue: "Học viên" })
-                        : t("room.role_member", { defaultValue: "Thành viên" });
+                      const ownerTitle = t("room.role_leader", {
+                        defaultValue: "Trưởng nhóm",
+                      });
+                      const memberTitle = t("room.role_member", {
+                        defaultValue: "Thành viên",
+                      });
                       Alert.alert(
-                        isClass
-                          ? t("room.transfer_teacher_title", {
-                              defaultValue: "Chuyển quyền Giảng viên",
-                            })
-                          : t("room.transfer_leader_title", {
-                              defaultValue: "Chuyển quyền Trưởng nhóm",
-                            }),
+                        t("room.transfer_leader_title", {
+                          defaultValue: "Chuyển quyền Trưởng nhóm",
+                        }),
                         t("room.transfer_confirm_message", {
                           role: ownerTitle,
                           name: member.displayName,
@@ -265,13 +245,9 @@ export default function MemberActionMenuModal({
                   >
                     <Feather name="shield" size={18} color="#B45309" />
                     <Text className="text-amber-700 text-base font-bold">
-                      {room.type === "classroom"
-                        ? t("room.appoint_teacher", {
-                            defaultValue: "Bổ nhiệm Giảng viên",
-                          })
-                        : t("room.appoint_leader", {
-                            defaultValue: "Bổ nhiệm Trưởng nhóm",
-                          })}
+                      {t("room.appoint_leader", {
+                        defaultValue: "Bổ nhiệm Trưởng nhóm",
+                      })}
                     </Text>
                   </TouchableOpacity>
                 </>

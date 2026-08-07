@@ -71,36 +71,24 @@ export default function MemberActionMenu({
 
       if (role === "admin") {
         toast.success(
-          room?.type === "classroom"
-            ? t("toast_appoint_assistant_success", {
-                defaultValue: "Bổ nhiệm Ban cán sự thành công",
-              })
-            : t("toast_appoint_vice_leader_success", {
-                defaultValue: "Bổ nhiệm Phó nhóm thành công",
-              }),
+          t("toast_appoint_vice_leader_success", {
+            defaultValue: "Bổ nhiệm Phó nhóm thành công",
+          }),
         );
       } else {
         toast.success(
-          room?.type === "classroom"
-            ? t("toast_revoke_assistant_success", {
-                defaultValue: "Đã thu hồi Ban cán sự",
-              })
-            : t("toast_revoke_vice_leader_success", {
-                defaultValue: "Đã thu hồi Phó nhóm",
-              }),
+          t("toast_revoke_vice_leader_success", {
+            defaultValue: "Đã thu hồi Phó nhóm",
+          }),
         );
       }
     } catch (err: any) {
       if (role === "admin") {
-        const subTitle =
-          room?.type === "classroom"
-            ? t("role_assistant")
-            : t("role_vice_leader");
         toast.error(
           err?.data?.message ||
             t("toast_max_vice_leaders_reached", {
-              role: subTitle,
-              defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
+              role: t("role_vice_leader"),
+              defaultValue: `Đã đạt số lượng tối đa 3 Phó nhóm`,
             }),
         );
       } else {
@@ -217,13 +205,9 @@ export default function MemberActionMenu({
                 className="w-full text-left px-4 py-2 font-semibold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                {room?.type === "classroom"
-                  ? t("revoke_assistant", {
-                      defaultValue: "Thu hồi Ban cán sự",
-                    })
-                  : t("revoke_vice_leader", {
-                      defaultValue: "Thu hồi Phó nhóm",
-                    })}
+                {t("revoke_vice_leader", {
+                  defaultValue: "Thu hồi Phó nhóm",
+                })}
               </button>
             ) : (
               <button
@@ -231,13 +215,9 @@ export default function MemberActionMenu({
                 className="w-full text-left px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-2"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                {room?.type === "classroom"
-                  ? t("appoint_assistant", {
-                      defaultValue: "Bổ nhiệm Ban cán sự",
-                    })
-                  : t("appoint_vice_leader", {
-                      defaultValue: "Bổ nhiệm Phó nhóm",
-                    })}
+                {t("appoint_vice_leader", {
+                  defaultValue: "Bổ nhiệm Phó nhóm",
+                })}
               </button>
             )}
 
@@ -252,9 +232,7 @@ export default function MemberActionMenu({
               className="w-full text-left px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              {room?.type === "classroom"
-                ? t("appoint_teacher", { defaultValue: "Bổ nhiệm Giảng viên" })
-                : t("appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
+              {t("appoint_leader", { defaultValue: "Bổ nhiệm Trưởng nhóm" })}
             </button>
           </>
         )}

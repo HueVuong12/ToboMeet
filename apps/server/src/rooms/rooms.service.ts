@@ -56,7 +56,6 @@ export class RoomsService {
 
     const room = await this.roomModel.create({
       name: dto.name,
-      type: dto.type,
       code,
       ownerId: userId,
       // Đẩy object user đầu tiên vào với quyền owner
@@ -236,7 +235,6 @@ export class RoomsService {
         oldRole: "owner",
         newRole: "owner",
         details: message,
-        roomType: room.type,
       },
     });
 
@@ -492,7 +490,6 @@ export class RoomsService {
     return {
       _id: room._id.toString(),
       name: room.name,
-      type: room.type,
       code: room.code,
     };
   }

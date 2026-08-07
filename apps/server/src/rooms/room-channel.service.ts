@@ -174,8 +174,7 @@ export class RoomChannelService {
           m.userId !== room.ownerId,
       ).length;
       if (currentAdminCount >= 3) {
-        const subTitle = room.type === "classroom" ? "Ban cán sự" : "Phó nhóm";
-        throw new BadRequestException(`Đã đạt số lượng tối đa 3 ${subTitle}`);
+        throw new BadRequestException(`Đã đạt số lượng tối đa 3 Phó nhóm`);
       }
     }
 

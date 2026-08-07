@@ -162,7 +162,6 @@ export default function RoomRightDrawer({
                           return (
                             <RoleBadge
                               role={m.role}
-                              roomType={room?.type || "meeting"}
                               t={t}
                             />
                           );
@@ -172,7 +171,6 @@ export default function RoomRightDrawer({
                           return (
                             <RoleBadge
                               role={tRole}
-                              roomType={room?.type || "meeting"}
                               t={t}
                             />
                           );
@@ -181,7 +179,6 @@ export default function RoomRightDrawer({
                         return (
                           <RoleBadge
                             role="member"
-                            roomType={room?.type || "meeting"}
                             t={t}
                           />
                         );

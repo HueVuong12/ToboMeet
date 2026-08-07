@@ -17,54 +17,42 @@ interface CreateRoomModalProps {
   onSuccess: (roomId: string) => void;
 }
 
-type Step = "select-type" | "enter-name";
-
 export default function CreateRoomModal({
   visible,
   onClose,
   onSuccess,
 }: CreateRoomModalProps) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<Step>("select-type");
-  const [selectedType, setSelectedType] = useState<"meeting" | "classroom" | null>(null);
   const [roomName, setRoomName] = useState("");
   const [createRoom, { isLoading }] = useCreateRoomMutation();
   const [error, setError] = useState<string | null>(null);
 
-  const handleSelectType = (type: "meeting" | "classroom") => {
-    setSelectedType(type);
-    setStep("enter-name");
-  };
-
-  const handleBack = () => {
-    setStep("select-type");
-    setSelectedType(null);
-    setRoomName("");
-    setError(null);
-  };
-
   const handleCreate = async () => {
-    if (!roomName.trim() || !selectedType) return;
+    if (!roomName.trim()) return;
     setError(null);
 
     try {
+      // Đã loại bỏ hoàn toàn thuộc tính type
       const room = await createRoom({
         name: roomName.trim(),
-        type: selectedType,
       }).unwrap();
-      setStep("select-type");
-      setSelectedType(null);
+
       setRoomName("");
       onSuccess(room._id);
     } catch (err) {
-      const errorResponse = err as { message?: string; data?: { message?: string } };
-      setError(errorResponse.data?.message || errorResponse.message || t("dashboard.create_room_failed"));
+      const errorResponse = err as {
+        message?: string;
+        data?: { message?: string };
+      };
+      setError(
+        errorResponse.data?.message ||
+          errorResponse.message ||
+          t("dashboard.create_room_failed"),
+      );
     }
   };
 
   const handleClose = () => {
-    setStep("select-type");
-    setSelectedType(null);
     setRoomName("");
     setError(null);
     onClose();
@@ -78,21 +66,19 @@ export default function CreateRoomModal({
       onRequestClose={handleClose}
     >
       <View className="flex-1 justify-center items-center bg-black/40 px-4">
-        <TouchableOpacity activeOpacity={1} onPress={handleClose} className="absolute inset-0" />
+        {/* Backdrop đóng modal */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={handleClose}
+          className="absolute inset-0"
+        />
 
         <View className="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl border border-slate-100">
           {/* Header */}
-          <View className="flex-row justify-between items-center mb-5">
-            <View className="flex-row items-center gap-3">
-              {step === "enter-name" && (
-                <TouchableOpacity onPress={handleBack} className="mr-1">
-                  <Feather name="arrow-left" size={20} color="#64748B" />
-                </TouchableOpacity>
-              )}
-              <Text className="text-lg font-bold text-slate-900">
-                {t("dashboard.create_team")}
-              </Text>
-            </View>
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-lg font-bold text-slate-900">
+              {t("dashboard.create_team", { defaultValue: "Tạo phòng mới" })}
+            </Text>
             <TouchableOpacity
               onPress={handleClose}
               className="w-8 h-8 rounded-lg bg-slate-100 justify-center items-center"
@@ -101,93 +87,61 @@ export default function CreateRoomModal({
             </TouchableOpacity>
           </View>
 
-          {/* Step 1: Select Type */}
-          {step === "select-type" && (
-            <View className="gap-3 mb-2">
-              <Text className="text-xs text-slate-400 font-semibold mb-1 uppercase">
-                {t("dashboard.select_room_type")}
-              </Text>
+          <Text className="text-sm text-slate-500 mb-5">
+            Hãy đặt một cái tên thật hay cho phòng của bạn để mọi người dễ dàng
+            nhận ra nhé.
+          </Text>
 
-              {/* Meeting Option */}
-              <TouchableOpacity
-                onPress={() => handleSelectType("meeting")}
-                className="flex-row items-center p-4 rounded-2xl border border-slate-100 bg-slate-50/50 active:bg-slate-100"
-              >
-                <View className="w-12 h-12 rounded-xl bg-blue-50 justify-center items-center mr-4">
-                  <Feather name="video" size={22} color="#0052FF" />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-bold text-slate-800 text-sm">
-                    {t("dashboard.meeting")}
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={16} color="#94A3B8" />
-              </TouchableOpacity>
+          {/* Form nhập tên phòng */}
+          <View className="mb-2">
+            <TextInput
+              value={roomName}
+              onChangeText={setRoomName}
+              placeholder={t("dashboard.room_name_placeholder", {
+                defaultValue: "Nhập tên phòng...",
+              })}
+              placeholderTextColor="#94A3B8"
+              autoFocus
+              className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 font-medium mb-3"
+            />
 
-              {/* Classroom Option */}
-              <TouchableOpacity
-                onPress={() => handleSelectType("classroom")}
-                className="flex-row items-center p-4 rounded-2xl border border-slate-100 bg-slate-50/50 active:bg-slate-100"
-              >
-                <View className="w-12 h-12 rounded-xl bg-indigo-50 justify-center items-center mr-4">
-                  <Feather name="book-open" size={22} color="#4F46E5" />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-bold text-slate-800 text-sm">
-                    {t("dashboard.classroom")}
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={16} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Step 2: Enter Name */}
-          {step === "enter-name" && (
-            <View className="mb-5">
-              <Text className="text-xs text-slate-400 font-semibold mb-2 uppercase">
-                {t("dashboard.room_name_placeholder")}
-              </Text>
-              <TextInput
-                value={roomName}
-                onChangeText={setRoomName}
-                placeholder={t("dashboard.room_name_placeholder")}
-                autoFocus
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 mb-3"
-              />
-
-              {error && (
-                <View className="flex-row items-center gap-2 mb-3">
-                  <Feather name="alert-circle" size={14} color="#EF4444" />
-                  <Text className="text-red-600 text-xs flex-1">{error}</Text>
-                </View>
-              )}
-
-              <View className="flex-row justify-end gap-3 mt-2">
-                <TouchableOpacity
-                  onPress={handleBack}
-                  className="px-4 py-3 rounded-xl bg-slate-100 justify-center items-center"
-                >
-                  <Text className="text-sm font-medium text-slate-600">
-                    {t("dashboard.step_back")}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleCreate}
-                  disabled={!roomName.trim() || isLoading}
-                  className={`px-5 py-3 rounded-xl justify-center items-center flex-row gap-2 ${
-                    !roomName.trim() || isLoading ? "bg-blue-300" : "bg-[#0052FF]"
-                  }`}
-                >
-                  {isLoading && <ActivityIndicator size="small" color="#ffffff" />}
-                  <Text className="text-white font-bold text-sm">
-                    {t("dashboard.create_room")}
-                  </Text>
-                </TouchableOpacity>
+            {/* Thông báo lỗi */}
+            {error && (
+              <View className="flex-row items-center gap-2 mb-3 bg-red-50 p-3 rounded-lg border border-red-100">
+                <Feather name="alert-circle" size={14} color="#EF4444" />
+                <Text className="text-red-600 text-xs flex-1 font-medium">
+                  {error}
+                </Text>
               </View>
+            )}
+
+            {/* Các nút hành động */}
+            <View className="flex-row justify-end gap-3 mt-4">
+              <TouchableOpacity
+                onPress={handleClose}
+                className="px-5 py-3 rounded-xl bg-slate-100 justify-center items-center"
+              >
+                <Text className="text-sm font-semibold text-slate-600">
+                  {t("dashboard.cancel", { defaultValue: "Hủy" })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleCreate}
+                disabled={!roomName.trim() || isLoading}
+                className={`px-6 py-3 rounded-xl justify-center items-center flex-row gap-2 ${
+                  !roomName.trim() || isLoading ? "bg-blue-300" : "bg-[#0052FF]"
+                }`}
+              >
+                {isLoading && (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                )}
+                <Text className="text-white font-bold text-sm">
+                  {t("dashboard.create_room", { defaultValue: "Tạo phòng" })}
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
         </View>
       </View>
     </Modal>

@@ -43,7 +43,7 @@ export function mapToRoomResponse(
         return {
           userId: member.userId,
           role: effectiveRole,
-          displayRole: getDisplayRole(effectiveRole, plainRoom.type),
+          displayRole: getDisplayRole(effectiveRole),
           joinedAt: safeToIsoString(member.joinedAt),
         };
       }) ?? [];
@@ -68,7 +68,6 @@ export function mapToRoomResponse(
   return {
     _id: plainRoom._id?.toString() ?? "",
     name: plainRoom.name ?? "",
-    type: (plainRoom.type ?? "meeting") as "meeting" | "classroom",
     code: plainRoom.code ?? "",
     ownerId: plainRoom.ownerId ?? "",
     channels:

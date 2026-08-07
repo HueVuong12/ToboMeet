@@ -27,8 +27,6 @@ export function useRoomSettings({
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
 
-  const [roomType, setRoomType] = useState<"meeting" | "classroom">("meeting");
-
   // State quản lý quyền duyệt
   const [approvalPermission, setApprovalPermission] = useState<
     "admin_only" | "member_and_admin" | "everyone"
@@ -56,9 +54,6 @@ export function useRoomSettings({
       }
       if (typeof meta.approvalPermission === "string") {
         setApprovalPermission(meta.approvalPermission); // Parse metadata quyền duyệt
-      }
-      if (typeof meta.roomType === "string") {
-        setRoomType(meta.roomType as "meeting" | "classroom");
       }
     } catch (e) {}
   }, [roomMetadata]);
@@ -141,7 +136,6 @@ export function useRoomSettings({
     canChat,
     isWaitingRoomEnabled,
     approvalPermission,
-    roomType,
     isHost,
     handleToggleChat,
     handleToggleWaitingRoom,
