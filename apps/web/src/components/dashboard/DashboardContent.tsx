@@ -156,12 +156,12 @@ export default function DashboardContent({
 
             {/* Calendar Button */}
             <button 
-              onClick={() => router.push(`/${locale}/dashboard/calendar`)}
+              onClick={() => router.push(`/${locale}/calendar`)}
               className="flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1 text-slate-600 hover:bg-slate-50 border-l-2 border-transparent transition-all group"
             >
               <Calendar className="w-[22px] h-[22px] group-hover:scale-110 transition-transform" />
               <span className="text-[10px] font-semibold tracking-wide">
-                Calendar
+                {locale === "vi" ? "Lịch" : "Calendar"}
               </span>
             </button>
           </div>

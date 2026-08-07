@@ -25,11 +25,13 @@ import {
   Trash2,
   ExternalLink,
   Settings,
+  Paperclip,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import { socket } from "@/lib/socket";
 import StoreProvider from "@/lib/redux/StoreProvider";
+import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
 
 interface CalendarEvent {
   _id: string;
@@ -78,7 +80,8 @@ function CalendarContent() {
 
   // Form states
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const descriptionRef = useRef("");
+  const [editorResetKey, setEditorResetKey] = useState(0);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [roomType, setRoomType] = useState<"meeting" | "classroom" | "livestream" | "private">("meeting");
@@ -195,7 +198,7 @@ function CalendarContent() {
     try {
       const payload: any = {
         title,
-        description,
+        description: descriptionRef.current,
         startDate,
         endDate,
         roomType,
@@ -228,7 +231,9 @@ function CalendarContent() {
       setShowCreateModal(false);
       setShowQuickCreate(false);
       setTitle("");
-      setDescription("");
+      descriptionRef.current = "";
+      setEditorResetKey((prev) => prev + 1);
+      localStorage.removeItem("teams_rich_editor_draft_content");
       setStartDate("");
       setEndDate("");
       setSelectedInvitees([]);
@@ -487,7 +492,7 @@ function CalendarContent() {
             >
               <CalendarIcon className="w-[22px] h-[22px] group-hover:scale-110 transition-transform" />
               <span className="text-[10px] font-semibold tracking-wide">
-                Calendar
+                {locale === "vi" ? "Lịch" : "Calendar"}
               </span>
             </button>
           </div>
@@ -1005,12 +1010,13 @@ function CalendarContent() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateEvent} className="p-6 space-y-4">
-              {errorMsg && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl text-xs font-medium">
-                  <span>{errorMsg}</span>
-                </div>
-              )}
+            <form onSubmit={handleCreateEvent}>
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                {errorMsg && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl text-xs font-medium">
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
@@ -1250,18 +1256,22 @@ function CalendarContent() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2.5">
                   {locale === "vi" ? "Mô tả" : "Description"}
                 </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                <TeamsRichEditor
+                  value={descriptionRef.current}
+                  onChange={(html) => { descriptionRef.current = html; }}
+                  resetKey={editorResetKey}
+                  locale={locale}
                   placeholder={locale === "vi" ? "Nội dung tóm tắt cuộc họp..." : "Meeting summary notes..."}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 h-20 resize-none"
+                  
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -1312,11 +1322,46 @@ function CalendarContent() {
                     {new Date(selectedEvent.endDate).toLocaleTimeString(locale === "vi" ? "vi-VN" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                {selectedEvent.description && (
-                  <div className="mt-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100 text-slate-500">
-                    {selectedEvent.description}
-                  </div>
-                )}
+                {selectedEvent.description && (() => {
+                  const match = selectedEvent.description.match(/<div[^>]*data-attachments="([^"]*)"[^>]*><\/div>/);
+                  let cleanHtml = selectedEvent.description;
+                  let files: any[] = [];
+                  if (match) {
+                    cleanHtml = selectedEvent.description.replace(match[0], "");
+                    try {
+                      files = JSON.parse(decodeURIComponent(match[1]));
+                    } catch (e) {}
+                  }
+                  return (
+                    <div className="mt-2 space-y-3">
+                      <div 
+                        className="text-sm bg-slate-50 p-3 rounded-xl border border-slate-100 text-slate-500 rich-text-display prose prose-slate max-w-none"
+                        dangerouslySetInnerHTML={{ __html: cleanHtml }}
+                      />
+                      {files.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            {locale === "vi" ? "Tệp đính kèm" : "Attachments"}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {files.map((f: any, idx: number) => (
+                              <a
+                                key={idx}
+                                href={f.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-lg text-[11px] font-medium text-slate-600 hover:text-indigo-600 transition-colors"
+                              >
+                                <Paperclip className="w-3 h-3 text-slate-400" />
+                                <span>{f.name}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {selectedEvent.invitees && selectedEvent.invitees.length > 0 && (
