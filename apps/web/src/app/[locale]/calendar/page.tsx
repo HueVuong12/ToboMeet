@@ -26,12 +26,14 @@ import {
   ExternalLink,
   Settings,
   Paperclip,
+  Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import { socket } from "@/lib/socket";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
+import { useGetMeQuery } from "@/lib/redux/features/users/usersApi";
 
 interface CalendarEvent {
   _id: string;
@@ -60,6 +62,8 @@ export default function CalendarPage() {
 function CalendarContent() {
   const locale = useLocale();
   const router = useRouter();
+  const { data: meData } = useGetMeQuery();
+  const currentUserId = meData?._id;
   const [view, setView] = useState<"day" | "week" | "workweek" | "month" | "agenda">("week");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -70,6 +74,7 @@ function CalendarContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -79,6 +84,7 @@ function CalendarContent() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   // Form states
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const descriptionRef = useRef("");
   const [editorResetKey, setEditorResetKey] = useState(0);
@@ -217,19 +223,23 @@ function CalendarContent() {
         }
       }
 
-      const res = await fetch("/api/calendar", {
-        method: "POST",
+      const url = editingEventId ? `/api/calendar/${editingEventId}?type=all` : "/api/calendar";
+      const method = editingEventId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || "Không thể tạo cuộc họp");
+        throw new Error(errData.message || (editingEventId ? "Không thể cập nhật cuộc họp" : "Không thể tạo cuộc họp"));
       }
 
       setShowCreateModal(false);
       setShowQuickCreate(false);
+      setEditingEventId(null);
       setTitle("");
       descriptionRef.current = "";
       setEditorResetKey((prev) => prev + 1);
@@ -283,6 +293,11 @@ function CalendarContent() {
   };
 
   const handleCellClick = (date: Date, hour: number) => {
+    setEditingEventId(null);
+    setTitle("");
+    descriptionRef.current = "";
+    setSelectedInvitees([]);
+    setRoomType("meeting");
     const start = new Date(date);
     start.setHours(hour, 0, 0, 0);
     const end = new Date(start.getTime() + 60 * 60 * 1000); // Mặc định 1 tiếng
@@ -395,9 +410,34 @@ function CalendarContent() {
     return matchesSearch && matchesType;
   });
 
-  const handleLogout = async () => {
-    const { logout } = await import("@/app/[locale]/auth/actions");
-    await logout();
+  const handleEditClick = (event: CalendarEvent) => {
+    setEditingEventId(event._id);
+    setTitle(event.title);
+    
+    // Định dạng datetime-local cho start/end (YYYY-MM-DDTHH:mm)
+    const formatDateTimeLocal = (dStr: string) => {
+      const d = new Date(dStr);
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    setStartDate(formatDateTimeLocal(event.startDate));
+    setEndDate(formatDateTimeLocal(event.endDate));
+    setRoomType(event.roomType);
+    descriptionRef.current = event.description || "";
+    
+    // Nạp lại danh sách người tham gia
+    if (event.invitees) {
+      setSelectedInvitees(event.invitees.map(inv => ({
+        email: inv.email,
+        displayName: inv.displayName || inv.email,
+      })));
+    } else {
+      setSelectedInvitees([]);
+    }
+
+    // Đóng popup chi tiết và mở modal form
+    setShowDetailPopup(false);
+    setShowCreateModal(true);
   };
 
   return (
@@ -446,19 +486,24 @@ function CalendarContent() {
           {/* Right Actions */}
           <div className="flex items-center gap-4">
             <button
-              onClick={() => {
-                const now = new Date();
-                // Làm tròn lên giờ tiếp theo
-                const start = new Date(now);
-                start.setHours(now.getHours() + 1, 0, 0, 0);
-                const end = new Date(start);
-                end.setHours(start.getHours() + 1, 0, 0, 0);
+               onClick={() => {
+                 setEditingEventId(null);
+                 setTitle("");
+                 descriptionRef.current = "";
+                 setSelectedInvitees([]);
+                 setRoomType("meeting");
+                 const now = new Date();
+                 // Làm tròn lên giờ tiếp theo
+                 const start = new Date(now);
+                 start.setHours(now.getHours() + 1, 0, 0, 0);
+                 const end = new Date(start);
+                 end.setHours(start.getHours() + 1, 0, 0, 0);
 
-                const pad = (n: number) => n.toString().padStart(2, "0");
-                setStartDate(`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`);
-                setEndDate(`${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`);
-                setShowCreateModal(true);
-              }}
+                 const pad = (n: number) => n.toString().padStart(2, "0");
+                 setStartDate(`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`);
+                 setEndDate(`${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`);
+                 setShowCreateModal(true);
+               }}
               className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-[0_2px_8px_rgba(0,85,255,0.25)] transition-all duration-150 active:scale-95"
             >
               <Plus className="w-4 h-4" />
@@ -1293,8 +1338,14 @@ function CalendarContent() {
 
       {/* ── Detail Event Popup ── */}
       {showDetailPopup && selectedEvent && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div 
+          onClick={() => setShowDetailPopup(false)}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800 text-sm">
                 {locale === "vi" ? "Chi tiết lịch họp" : "Meeting Details"}
@@ -1387,29 +1438,69 @@ function CalendarContent() {
                   <ExternalLink className="w-4 h-4" />
                   <span>Join Room</span>
                 </button>
+                {(() => {
+                  console.log("Current User ID:", currentUserId);
+                  console.log("Selected Event Host ID:", selectedEvent.hostId);
+                  return (currentUserId === selectedEvent.hostId || meData?.supabaseId === selectedEvent.hostId) && (
+                    <button
+                      onClick={() => handleEditClick(selectedEvent)}
+                      className="p-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
+                      title={locale === "vi" ? "Chỉnh sửa" : "Edit"}
+                    >
+                      <Pencil className="w-4 h-4 text-slate-600" />
+                    </button>
+                  );
+                })()}
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/room/join?code=${selectedEvent.meetingCode}`);
-                    alert(locale === "vi" ? "Đã sao chép liên kết tham gia!" : "Copied join link to clipboard!");
-                  }}
-                  className="p-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
-                  title="Copy Link"
-                >
-                  <Copy className="w-4 h-4 text-slate-600" />
-                </button>
-                <button
-                  onClick={async () => {
-                    if (confirm(locale === "vi" ? "Bạn có chắc chắn muốn hủy lịch họp này?" : "Are you sure you want to cancel this meeting?")) {
-                      await fetch(`/api/calendar/${selectedEvent._id}?type=all`, { method: "DELETE" });
-                      setShowDetailPopup(false);
-                      fetchEvents();
-                    }
-                  }}
+                  onClick={() => setShowDeleteConfirmModal(true)}
                   className="p-2.5 border border-red-100 hover:bg-red-50 rounded-xl transition-colors"
                 >
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Delete Confirm Modal ── */}
+      {showDeleteConfirmModal && selectedEvent && (
+        <div 
+          onClick={() => setShowDeleteConfirmModal(false)}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-7 max-w-sm w-full shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
+          >
+            <h3 className="font-bold text-slate-800 text-lg mb-3">
+              {locale === "vi" ? "Hủy lịch họp" : "Cancel Meeting"}
+            </h3>
+            <p className="text-sm text-slate-500 mb-7 leading-relaxed">
+              {locale === "vi" 
+                ? "Bạn có chắc chắn muốn hủy lịch họp này không? Hành động này không thể hoàn tác." 
+                : "Are you sure you want to cancel this meeting? This action cannot be undone."}
+            </p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
+              >
+                {locale === "vi" ? "Hủy" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch(`/api/calendar/${selectedEvent._id}?type=all`, { method: "DELETE" });
+                  setShowDeleteConfirmModal(false);
+                  setShowDetailPopup(false);
+                  fetchEvents();
+                }}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
+              >
+                {locale === "vi" ? "Đồng ý" : "Confirm"}
+              </button>
             </div>
           </div>
         </div>
@@ -1423,4 +1514,9 @@ function CalendarContent() {
       )}
     </div>
   );
+
+  async function handleLogout() {
+    const { logout } = await import("@/app/[locale]/auth/actions");
+    await logout();
+  }
 }
