@@ -10,6 +10,7 @@ import { SupabaseModule } from "./supabase/supabase.module";
 import { ReportsModule } from "./reports/reports.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { NewsFeedModule } from "./news-feed/news-feed.module";
+import { ChannelFilesModule } from "./channel-files/channel-files.module";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 
 @Module({
@@ -34,6 +35,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
     ReportsModule,
     UploadsModule,
     NewsFeedModule,
+    ChannelFilesModule,
   ],
 })
 export class AppModule {}

@@ -20,6 +20,7 @@ import {
   Settings,
   Search,
   X,
+  Calendar,
 } from "lucide-react";
 
 interface DashboardContentProps {
@@ -141,12 +142,26 @@ export default function DashboardContent({
         {/* ── Left Sidebar ── */}
         <aside className="w-[68px] bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center pt-0 pb-4 flex-shrink-0 z-20 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
           {/* Top Section */}
-          <div className="w-full flex flex-col items-center">
+          <div className="w-full flex flex-col items-center gap-2">
             {/* Teams Button (Active State) */}
-            <button className="flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1 text-brand-600 bg-white border-l-2 border-brand-600 shadow-sm transition-all group">
+            <button 
+              onClick={() => router.push(`/${locale}/dashboard`)}
+              className="flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1 text-slate-600 hover:bg-slate-50 border-l-2 border-transparent transition-all group"
+            >
               <Video className="w-[22px] h-[22px] group-hover:scale-110 transition-transform" />
               <span className="text-[10px] font-semibold tracking-wide">
                 Teams
+              </span>
+            </button>
+
+            {/* Calendar Button */}
+            <button 
+              onClick={() => router.push(`/${locale}/calendar`)}
+              className="flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1 text-slate-600 hover:bg-slate-50 border-l-2 border-transparent transition-all group"
+            >
+              <Calendar className="w-[22px] h-[22px] group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-semibold tracking-wide">
+                {locale === "vi" ? "Lịch" : "Calendar"}
               </span>
             </button>
           </div>

@@ -24,6 +24,11 @@ export function EventProvider({
   useEffect(() => {
     let activeUserId = initialUserId;
 
+    const joinUserRoom = (uid: string) => {
+      socket.emit("join_user_room", uid);
+      hasJoinedRef.current = true;
+    };
+
     const setupSocket = async () => {
       if (!activeUserId) {
         try {
@@ -37,10 +42,10 @@ export function EventProvider({
 
       if (!activeUserId) return;
 
+      // Đăng ký handler TRƯỚC khi connect để tránh race condition
       const handleConnect = () => {
         if (activeUserId) {
-          socket.emit("join_user_room", activeUserId);
-          hasJoinedRef.current = true;
+          joinUserRoom(activeUserId);
         }
       };
 
@@ -48,14 +53,17 @@ export function EventProvider({
         hasJoinedRef.current = false;
       };
 
-      if (socket.connected && !hasJoinedRef.current) {
-        handleConnect();
-      } else if (!socket.connected) {
-        socket.connect();
-      }
-
       socket.on("connect", handleConnect);
       socket.on("disconnect", handleDisconnect);
+
+      // Nếu socket đã connected → emit join ngay, không chờ event "connect"
+      if (socket.connected) {
+        if (!hasJoinedRef.current) {
+          joinUserRoom(activeUserId);
+        }
+      } else {
+        socket.connect();
+      }
 
       // Lắng nghe sự kiện khi chính mình được thêm vào phòng mới
       const handleUserRoomAdded = (data: any) => {
@@ -70,11 +78,14 @@ export function EventProvider({
       socket.on("user_room_added", handleUserRoomAdded);
 
       return () => {
+        socket.off("connect", handleConnect);
+        socket.off("disconnect", handleDisconnect);
         socket.off("user_room_added", handleUserRoomAdded);
       };
     };
 
-    setupSocket();
+    let cleanup: (() => void) | void;
+    setupSocket().then((fn) => { cleanup = fn; });
 
     // Lắng nghe sự kiện Auth state change để tự động join room khi đăng nhập
     const supabase = createClient();
@@ -84,8 +95,7 @@ export function EventProvider({
       if (session?.user?.id) {
         activeUserId = session.user.id;
         if (socket.connected) {
-          socket.emit("join_user_room", activeUserId);
-          hasJoinedRef.current = true;
+          joinUserRoom(activeUserId);
         } else {
           socket.connect();
         }
@@ -93,6 +103,7 @@ export function EventProvider({
     });
 
     return () => {
+      if (cleanup) cleanup();
       subscription.unsubscribe();
     };
   }, [initialUserId, dispatch]);

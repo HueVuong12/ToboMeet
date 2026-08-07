@@ -15,7 +15,7 @@ export async function doClientLogout() {
 
   try {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
   } catch {}
 
   if (typeof window !== "undefined") {

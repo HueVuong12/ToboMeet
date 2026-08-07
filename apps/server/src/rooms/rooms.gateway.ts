@@ -90,4 +90,46 @@ export class RoomsGateway {
       room: payload,
     });
   }
+
+  /**
+   * Phát tín hiệu khi có file mới được upload vào kênh
+   */
+  notifyFileUploaded(roomId: string, channelId: string, file: any) {
+    this.server.to(`room_${roomId}`).emit("room_updated", {
+      type: "channel_file_uploaded",
+      roomId,
+      channelId,
+      file,
+    });
+  }
+
+  /**
+   * Phát tín hiệu khi tệp trong kênh được đổi tên
+   */
+  notifyFileRenamed(
+    roomId: string,
+    channelId: string,
+    fileId: string,
+    newName: string,
+  ) {
+    this.server.to(`room_${roomId}`).emit("room_updated", {
+      type: "channel_file_renamed",
+      roomId,
+      channelId,
+      fileId,
+      newName,
+    });
+  }
+
+  /**
+   * Phát tín hiệu khi tệp trong kênh bị xóa
+   */
+  notifyFileDeleted(roomId: string, channelId: string, fileId: string) {
+    this.server.to(`room_${roomId}`).emit("room_updated", {
+      type: "channel_file_deleted",
+      roomId,
+      channelId,
+      fileId,
+    });
+  }
 }

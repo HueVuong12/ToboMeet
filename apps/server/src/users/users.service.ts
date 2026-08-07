@@ -15,7 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { AppGateway } from "../core/gateways/app.gateway";
 import { createHash } from "crypto";
 
-interface MappedSession {
+export interface MappedSession {
   id: string;
   /** Địa chỉ IP của phiên đăng nhập */
   ip: string;
@@ -38,6 +38,7 @@ interface MappedSession {
   isGps?: boolean;
   createdAt: string;
   updatedAt: string;
+  loggedOutAt?: string;
 }
 
 
@@ -206,6 +207,54 @@ export class UsersService {
     return user;
   }
 
+  /** Cache reverse geocode (lat/lon tròn 2 chữ số thập phân → địa chỉ) để tránh spam Nominatim */
+  private readonly reverseGeoCache = new Map<string, { city: string; country: string; cachedAt: number }>();
+  private readonly REVERSE_GEO_TTL_MS = 5 * 60 * 1000; // 5 phút
+
+  /**
+   * Proxy Nominatim reverse geocoding — chạy trên server để tránh CORS và rate-limit từ browser.
+   * @param lat latitude
+   * @param lon longitude
+   */
+  async reverseGeocode(lat: number, lon: number): Promise<{ city: string; country: string }> {
+    // Làm tròn tọa độ 2 chữ số thập phân (~1km) để cache tốt hơn
+    const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+    const now = Date.now();
+
+    const cached = this.reverseGeoCache.get(key);
+    if (cached && now - cached.cachedAt < this.REVERSE_GEO_TTL_MS) {
+      return { city: cached.city, country: cached.country };
+    }
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=vi`;
+      const res = await fetch(url, {
+        headers: {
+          // Nominatim yêu cầu User-Agent hợp lệ theo ToS
+          "User-Agent": "ToBoMeet-Server/1.0 (contact@tobomeet.com)",
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!res.ok) {
+        this.logger.warn(`[ReverseGeo] Nominatim trả về ${res.status} cho (${lat},${lon})`);
+        return { city: "", country: "" };
+      }
+
+      const data = await res.json() as { address?: Record<string, string> };
+      const addr = data.address || {};
+      const city = addr.city || addr.town || addr.municipality || addr.state || addr.province || "";
+      const country = addr.country || "";
+
+      this.reverseGeoCache.set(key, { city, country, cachedAt: now });
+      return { city, country };
+    } catch (err) {
+      this.logger.warn(`[ReverseGeo] Lỗi khi gọi Nominatim: ${String(err)}`);
+      return { city: "", country: "" };
+    }
+  }
+
   /**
    * Tra cứu vị trí (city, country, isp, publicIp) từ địa chỉ IP dùng ip-api.com.
    * Khi ip là địa chỉ private/localhost (dev mode), gọi ip-api.com/json không truyền IP để lấy WAN public IP.
@@ -278,6 +327,12 @@ export class UsersService {
     currentToken: string,
     userAgent: string,
     clientIp: string,
+    deviceHeaders?: {
+      deviceName?: string;
+      deviceModel?: string;
+      deviceBrand?: string;
+      deviceOS?: string;
+    }
   ): Promise<void> {
     if (!currentToken || !userId) return;
     try {
@@ -291,6 +346,33 @@ export class UsersService {
       }
 
       const uaInfo = this.parseUserAgent(userAgent);
+      let deviceName = uaInfo.deviceName;
+      let os = uaInfo.os;
+      let browser = uaInfo.browser;
+      let isMobile = uaInfo.isMobile;
+      let isDesktop = uaInfo.isDesktop;
+
+      if (deviceHeaders) {
+        const { deviceOS, deviceName: hName, deviceModel: hModel } = deviceHeaders;
+        if (deviceOS) {
+          os = deviceOS;
+          if (deviceOS === "iOS" || deviceOS === "Android") {
+            browser = "ToboMeet Mobile";
+            isMobile = true;
+            isDesktop = false;
+          }
+        }
+        
+        const genericOSNames = ["iphone", "ipad", "android", "device"];
+        if (hName && hName.trim() && !genericOSNames.includes(hName.toLowerCase().trim())) {
+          deviceName = hName.trim();
+        } else if (hModel && hModel.trim()) {
+          deviceName = hModel.trim();
+        } else if (deviceOS) {
+          deviceName = deviceOS;
+        }
+      }
+
       const cleanIp = this.getRealIpAddress(clientIp) || "127.0.0.1";
       const geo = await this.getGeolocation(cleanIp);
 
@@ -306,15 +388,37 @@ export class UsersService {
         // ignore payload parsing failure
       }
 
-      const amr: Array<{ method: string }> = Array.isArray(payload.amr) ? payload.amr : [];
-      const appMetadata = payload.app_metadata as { provider?: string } | undefined;
-      const provider: string = (appMetadata?.provider || "").toLowerCase();
+      const amr: any[] = Array.isArray(payload.amr) ? payload.amr : [];
+      const methods: string[] = amr
+        .map((a) => {
+          if (typeof a === "string") return a;
+          if (a && typeof a === "object" && typeof a.method === "string") return a.method;
+          return "";
+        })
+        .filter(Boolean);
+
       let loginMethod = "password";
 
-      if (provider === "google" || amr.some((a) => a.method === "oauth")) {
-        loginMethod = "google";
+      if (methods.length > 0) {
+        if (methods.includes("oauth")) {
+          loginMethod = "google";
+        } else if (methods.includes("password")) {
+          loginMethod = "password";
+        } else if (methods.includes("otp")) {
+          loginMethod = "otp";
+        } else if (methods.includes("qr")) {
+          loginMethod = "qr";
+        } else {
+          loginMethod = methods[0];
+        }
       } else {
-        loginMethod = "password";
+        const appMetadata = payload.app_metadata as { provider?: string } | undefined;
+        const provider: string = (appMetadata?.provider || "").toLowerCase();
+        if (provider === "google") {
+          loginMethod = "google";
+        } else {
+          loginMethod = "password";
+        }
       }
 
       const ipAddress = this.getRealIpAddress(clientIp);
@@ -325,15 +429,15 @@ export class UsersService {
         ip: cleanIp,
         ipAddress,
         userAgent,
-        deviceName: uaInfo.deviceName,
-        os: uaInfo.os,
-        browser: uaInfo.browser,
+        deviceName,
+        os,
+        browser,
         city: geo.city || "",
         country: geo.country || "Không xác định",
         isp: geo.isp || "",
         loginMethod,
-        isMobile: uaInfo.isMobile,
-        isDesktop: uaInfo.isDesktop,
+        isMobile,
+        isDesktop,
         updatedAt: new Date(),
       };
 
@@ -342,6 +446,16 @@ export class UsersService {
         { $set: sessionData, $setOnInsert: { createdAt: new Date(), isGps: false } },
         { upsert: true, new: true },
       );
+
+      if (!existing) {
+        try {
+          if (this.appGateway?.server) {
+            this.appGateway.server.to(`user_${userId}`).emit("session_list_changed");
+          }
+        } catch (err) {
+          this.logger.error("Lỗi khi bắn WebSocket session_list_changed (new session): " + String(err));
+        }
+      }
     } catch (e) {
       this.logger.error("Lỗi khi ghi nhận/cập nhật DeviceSession: " + String(e));
     }
@@ -355,12 +469,25 @@ export class UsersService {
     currentToken: string,
     userAgent: string = "",
     clientIp: string = "",
+    deviceHeaders?: {
+      deviceName?: string;
+      deviceModel?: string;
+      deviceBrand?: string;
+      deviceOS?: string;
+    }
   ): Promise<SessionsResult> {
     const currentSessionId = this.extractSessionId(currentToken, userAgent);
 
     // Tự động đồng bộ/cập nhật session hiện tại vào MongoDB
     if (currentSessionId) {
-      await this.registerOrUpdateSession(userId, currentToken, userAgent, clientIp);
+      await this.registerOrUpdateSession(userId, currentToken, userAgent, clientIp, deviceHeaders);
+    }
+
+    // Sync ngầm danh sách phiên đăng nhập với Supabase
+    if (userId) {
+      this.syncUserSessionsWithSupabase(userId).catch((err) => {
+        this.logger.error("Lỗi khi chạy ngầm syncUserSessionsWithSupabase: " + String(err));
+      });
     }
 
     try {
@@ -394,7 +521,38 @@ export class UsersService {
 
       const currentDevice = mapped.find((s) => s.isCurrent) ?? null;
       const otherDevices = mapped.filter((s) => !s.isCurrent);
-      return { currentDevice, otherDevices, recentlyLoggedOut: [], totalLoggedOut: 0 };
+
+      // Lấy tối đa 5 thiết bị đã đăng xuất gần nhất
+      const loggedOutDbSessions = await this.sessionModel
+        .find({ userId, isRevoked: true })
+        .sort({ revokedAt: -1, updatedAt: -1 })
+        .limit(5)
+        .lean()
+        .exec();
+
+      const recentlyLoggedOut: MappedSession[] = loggedOutDbSessions.map((s) => ({
+        id: s.sessionId,
+        ip: s.ip === "127.0.0.1" && process.env.NODE_ENV === "production" ? "Không rõ" : s.ip || "Không rõ",
+        ipAddress: s.ipAddress || null,
+        deviceName: s.deviceName,
+        os: s.os,
+        browser: s.browser,
+        loginMethod: s.loginMethod || "password",
+        isMobile: !!s.isMobile,
+        isDesktop: !!s.isDesktop,
+        isCurrent: false,
+        isGps: !!s.isGps,
+        city: s.city || "",
+        country: s.country || "Không xác định",
+        isp: s.isp || "",
+        createdAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString(),
+        loggedOutAt: s.revokedAt ? s.revokedAt.toISOString() : (s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString()),
+      }));
+
+      const totalLoggedOut = await this.sessionModel.countDocuments({ userId, isRevoked: true }).exec();
+
+      return { currentDevice, otherDevices, recentlyLoggedOut, totalLoggedOut };
     } catch (err) {
       this.logger.error("Lỗi khi đọc sessions từ MongoDB: " + String(err));
       return { currentDevice: null, otherDevices: [], recentlyLoggedOut: [], totalLoggedOut: 0 };
@@ -404,7 +562,17 @@ export class UsersService {
   /**
    * Đăng xuất/hủy bỏ một phiên hoạt động qua Supabase Admin REST API và xóa khỏi MongoDB
    */
-  async revokeSession(userId: string, sessionId: string) {
+  async revokeSession(userId: string, sessionId: string, currentToken: string, userAgent: string) {
+    // Thêm safeguard ngăn chặn tự xóa session hiện tại của chính mình
+    if (currentToken) {
+      const currentSessionId = this.extractSessionId(currentToken, userAgent);
+      if (currentSessionId && sessionId === currentSessionId) {
+        throw new BadRequestException(
+          "Không thể tự đăng xuất thiết bị hiện tại bằng chức năng này. Vui lòng sử dụng tính năng Đăng xuất thông thường."
+        );
+      }
+    }
+
     // 1. Đánh dấu session bị thu hồi trong MongoDB
     try {
       await this.sessionModel.updateOne(
@@ -419,9 +587,10 @@ export class UsersService {
     try {
       if (this.appGateway?.server) {
         this.appGateway.server.to(`user_${userId}`).emit("session_revoked", { sessionId });
+        this.appGateway.server.to(`user_${userId}`).emit("session_list_changed");
       }
     } catch (err) {
-      this.logger.error("Lỗi khi bắn WebSocket session_revoked: " + String(err));
+      this.logger.error("Lỗi khi bắn WebSocket session_revoked/session_list_changed: " + String(err));
     }
 
     // 2. Thu hồi/đăng xuất phiên trên Supabase
@@ -455,9 +624,15 @@ export class UsersService {
   }
 
   /**
-   * Đăng xuất/hủy bỏ tất cả các phiên đăng nhập khác của user ngoại trừ phiên hiện tại
+   * Đăng xuất/hủy bỏ tất cả các phiên đăng nhập khác của user ngoại trừ phiên hiện tại.
+   * @param currentSocketId - socket.id của thiết bị đang gửi request, dùng để exclude khỏi emit
    */
-  async revokeOtherSessions(userId: string, currentToken: string, userAgent: string = "") {
+  async revokeOtherSessions(
+    userId: string,
+    currentToken: string,
+    userAgent: string = "",
+    currentSocketId: string = "",
+  ) {
     if (!currentToken || !userId) {
       throw new BadRequestException("Token hoặc User ID không hợp lệ.");
     }
@@ -468,7 +643,40 @@ export class UsersService {
       throw new BadRequestException("Không xác định được phiên làm việc hiện tại.");
     }
 
-    // 1. Tìm tất cả các session ID khác đang hoạt động
+    this.logger.log(
+      `[RevokeAll] userId=${userId} | currentSessionId=${currentSessionId} | ` +
+      `currentSocketId="${currentSocketId || "N/A"}" | userAgent="${userAgent.slice(0, 80)}"`
+    );
+
+    // ─── FIX LỖI 2: Verify session hiện tại (A) tồn tại trong DB ───────────────
+    // Nếu currentSessionId không tìm thấy trong DB, nghĩa là extractSessionId()
+    // đã tính sai sessionId → không thể xác định session nào của A → KHÔNG revoke.
+    const currentSessionDoc = await this.sessionModel
+      .findOne({ userId, sessionId: currentSessionId })
+      .lean();
+
+    if (!currentSessionDoc) {
+      this.logger.error(
+        `[RevokeAll] ❌ ABORT – Không tìm thấy session hiện tại (${currentSessionId}) trong DB. ` +
+        `Có thể extractSessionId() tính sai. Hủy thao tác để tránh revoke nhầm session A.`
+      );
+      throw new BadRequestException(
+        "Không xác định được phiên làm việc hiện tại trong hệ thống. Vui lòng thử lại."
+      );
+    }
+
+    if (currentSessionDoc.isRevoked) {
+      this.logger.warn(
+        `[RevokeAll] ⚠️ Session hiện tại (${currentSessionId}) đã bị revoke trước đó. Tiếp tục revoke các session khác.`
+      );
+    }
+
+    this.logger.log(
+      `[RevokeAll] ✅ Đã xác nhận session hiện tại (${currentSessionId}) tồn tại trong DB. Tiến hành revoke các session khác.`
+    );
+    // ────────────────────────────────────────────────────────────────────────────
+
+    // 1. Tìm tất cả các session khác đang hoạt động (cần sessionId để emit và xóa Supabase)
     const otherSessions = await this.sessionModel
       .find({
         userId,
@@ -480,28 +688,132 @@ export class UsersService {
 
     const revokedSessionIds = otherSessions.map((s) => s.sessionId);
 
-    // 2. Cập nhật isRevoked = true trong MongoDB
-    await this.sessionModel.updateMany(
+    this.logger.log(
+      `[RevokeAll] Tìm thấy ${revokedSessionIds.length} session cần revoke: [${revokedSessionIds.join(", ")}]`
+    );
+
+    if (revokedSessionIds.length === 0) {
+      this.logger.log("[RevokeAll] Không có session nào khác để revoke. Trả về thành công.");
+      return {
+        success: true,
+        message: "Không có thiết bị nào khác đang đăng nhập",
+        revokedCount: 0,
+      };
+    }
+
+    // 2. Cập nhật isRevoked = true trong MongoDB (CHỈ revoke session khác, không revoke A)
+    const updateResult = await this.sessionModel.updateMany(
       { userId, sessionId: { $ne: currentSessionId } },
       { $set: { isRevoked: true, revokedAt: new Date() } },
     );
+    this.logger.log(`[RevokeAll] MongoDB đã revoke ${updateResult.modifiedCount} session(s).`);
 
-    // 3. Phát WebSocket event session_revoked tới room của user
+    // 3. Xóa session trên Supabase Auth (nếu có thể) để token không thể refresh
+    //    Chạy song song, không block response nếu Supabase fail
+    this.destroySupabaseSessions(userId, revokedSessionIds).catch((err) => {
+      this.logger.warn("Không thể xóa session Supabase (non-critical): " + String(err));
+    });
+
+    // ─── FIX LỖI 1: Emit force_logout với logging chi tiết ──────────────────────
     try {
-      if (this.appGateway?.server && revokedSessionIds.length > 0) {
-        this.appGateway.server.to(`user_${userId}`).emit("session_revoked", {
-          revokedSessionIds,
-        });
+      if (!this.appGateway?.server) {
+        this.logger.warn("[RevokeAll][Socket] appGateway.server chưa khởi tạo – bỏ qua emit force_logout");
+      } else {
+        const room = `user_${userId}`;
+
+        // Lấy danh sách TẤT CẢ socketId đang có trong room để debug
+        const socketsInRoom = await this.appGateway.server.in(room).allSockets();
+        const allSocketIds = Array.from(socketsInRoom);
+
+        this.logger.log(
+          `[RevokeAll][Socket] Room "${room}" có ${socketsInRoom.size} socket(s): [${allSocketIds.join(", ")}]`
+        );
+        this.logger.log(
+          `[RevokeAll][Socket] currentSocketId (thiết bị A – sẽ bị loại trừ): "${currentSocketId || "EMPTY – sẽ emit tới TẤT CẢ"}"`
+        );
+
+        if (socketsInRoom.size === 0) {
+          this.logger.warn(
+            `[RevokeAll][Socket] ⚠️ Room "${room}" không có socket nào. ` +
+            `B/C có thể chưa join room hoặc đã disconnect. force_logout sẽ không được nhận realtime.`
+          );
+        } else {
+          const emitter = this.appGateway.server.to(room);
+          // Nếu có socketId của thiết bị hiện tại → exclude nó khỏi emit
+          const finalEmitter = currentSocketId
+            ? emitter.except(currentSocketId)
+            : emitter;
+
+          finalEmitter.emit("force_logout", {
+            revokedSessionIds,
+            reason: "LOGOUT_ALL",
+          });
+
+          // Phát sự kiện cập nhật danh sách thiết bị đến mọi socket của user
+          this.appGateway.server.to(room).emit("session_list_changed");
+
+          const targetCount = currentSocketId
+            ? Math.max(0, socketsInRoom.size - (allSocketIds.includes(currentSocketId) ? 1 : 0))
+            : socketsInRoom.size;
+
+          this.logger.log(
+            `[RevokeAll][Socket] ✅ Đã emit "force_logout" tới ${targetCount} socket(s) trong room "${room}" và phát "session_list_changed". ` +
+            `Excluded: "${currentSocketId || "không có"}". Payload: ${revokedSessionIds.length} sessionId(s).`
+          );
+        }
       }
     } catch (err) {
-      this.logger.error("Lỗi khi bắn WebSocket session_revoked: " + String(err));
+      this.logger.error("[RevokeAll][Socket] Lỗi khi emit force_logout: " + String(err));
     }
+    // ────────────────────────────────────────────────────────────────────────────
 
     return {
       success: true,
       message: "Đã đăng xuất tất cả thiết bị khác thành công",
       revokedCount: revokedSessionIds.length,
     };
+  }
+
+
+  /**
+   * Xóa các session trên Supabase Auth để vô hiệu hóa khả năng refresh token.
+   * Chạy bất đồng bộ, không block luồng chính.
+   */
+  private async destroySupabaseSessions(userId: string, sessionIds: string[]): Promise<void> {
+    for (const sessionId of sessionIds) {
+      try {
+        // Thử dùng SDK method trước
+        if (typeof this.supabaseAdmin.auth.admin.deleteSession === "function") {
+          await this.supabaseAdmin.auth.admin.deleteSession(sessionId);
+          continue;
+        }
+      } catch {
+        // SDK method không tồn tại hoặc thất bại, thử REST API
+      }
+
+      try {
+        // Fallback: REST API Supabase Admin
+        const res = await fetch(
+          `${this.supabaseUrl}/auth/v1/admin/users/${userId}/sessions/${sessionId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${this.supabaseServiceKey}`,
+              apikey: this.supabaseServiceKey,
+            },
+          },
+        );
+
+        if (!res.ok && res.status !== 404) {
+          this.logger.warn(
+            `Không thể xóa Supabase session ${sessionId} (HTTP ${res.status}). ` +
+            `MongoDB đã revoke – Guard sẽ block token này.`
+          );
+        }
+      } catch (err) {
+        this.logger.warn(`Lỗi khi xóa Supabase session ${sessionId}: ${String(err)}`);
+      }
+    }
   }
 
   async updateCurrentSessionLocation(
@@ -526,15 +838,113 @@ export class UsersService {
   }
 
   async searchUsers(query: string): Promise<User[]> {
+    const logger = new Logger("UsersSearch");
+    logger.log(`[SearchUsers] Từ khóa tìm kiếm thô nhận từ client: "${query}"`);
     if (!query || !query.trim()) return [];
-    const searchRegex = new RegExp(query.trim(), "i");
-    return this.userModel
+    
+    // Hàm loại bỏ dấu tiếng Việt để so khớp không dấu
+    const removeVietnameseTones = (str: string): string => {
+      str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+      str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+      str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+      str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+      str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+      str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+      str = str.replace(/đ/g, "d");
+      str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+      str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+      str = str.replace(/Ì|Í|Ị|B̉|Ĩ/g, "I");
+      str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+      str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+      str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+      str = str.replace(/Đ/g, "D");
+      // Một số bộ gõ unicode dựng sẵn khác
+      str = str.replace(/\u0300|\u0301|\u0309|\u0303|\u0323/g, ""); // Huyền sắc hỏi ngã nặng
+      str = str.replace(/\u02C6|\u0306|\u031B/g, ""); // Â, Ă, Ơ, Ư
+      return str.trim();
+    };
+
+    const cleanQuery = query.trim().toLowerCase();
+    const queryNoDiacritics = removeVietnameseTones(cleanQuery);
+    
+    // Tách các từ trong query để tìm kiếm đa từ ghép
+    const words = cleanQuery.split(/\s+/).filter(Boolean);
+    const wordsNoDiacritics = queryNoDiacritics.split(/\s+/).filter(Boolean);
+
+    // Lấy tất cả user đang hoạt động để lọc & sắp xếp trên bộ nhớ
+    const allUsers = await this.userModel
       .find({
-        $or: [{ email: searchRegex }, { displayName: searchRegex }],
+        status: { $nin: ["BLOCKED"] }
       })
-      .select("supabaseId email displayName avatarUrl")
-      .limit(10)
+      .select("supabaseId email displayName avatarUrl status")
+      .lean()
       .exec();
+
+    logger.log(`[SearchUsers] Tổng số người dùng hoạt động trong DB: ${allUsers.length}`);
+
+    const matchedUsersWithScore = allUsers.map((user: any) => {
+      const email = (user.email || "").toLowerCase();
+      const displayName = (user.displayName || "").toLowerCase();
+      const displayNameNoDiacritics = removeVietnameseTones(displayName);
+
+      let score = 0;
+      let isMatch = false;
+
+      // 1. So khớp Email
+      if (email === cleanQuery) {
+        score += 100;
+        isMatch = true;
+      } else if (email.startsWith(cleanQuery)) {
+        score += 80;
+        isMatch = true;
+      } else if (email.includes(cleanQuery)) {
+        score += 50;
+        isMatch = true;
+      }
+
+      // 2. So khớp Display Name (Tên hiển thị)
+      if (displayName === cleanQuery || displayNameNoDiacritics === queryNoDiacritics) {
+        score += 90;
+        isMatch = true;
+      } else if (displayName.startsWith(cleanQuery) || displayNameNoDiacritics.startsWith(queryNoDiacritics)) {
+        score += 70;
+        isMatch = true;
+      } else if (displayName.includes(cleanQuery) || displayNameNoDiacritics.includes(queryNoDiacritics)) {
+        score += 40;
+        isMatch = true;
+      }
+
+      // 3. So khớp từng từ (từ ghép)
+      if (!isMatch && words.length > 0) {
+        const matchedWords = words.filter((w, idx) => {
+          const wNoDia = wordsNoDiacritics[idx];
+          return (
+            email.includes(w) ||
+            displayName.includes(w) ||
+            displayNameNoDiacritics.includes(wNoDia)
+          );
+        });
+        if (matchedWords.length > 0) {
+          score += matchedWords.length * 10;
+          isMatch = true;
+        }
+      }
+
+      return { user, score, isMatch };
+    });
+
+    // Lọc các bản ghi khớp, sắp xếp theo điểm số mức độ liên quan (Relevance Score) giảm dần và giới hạn 10 kết quả
+    const results = matchedUsersWithScore
+      .filter((item) => item.isMatch)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => {
+        logger.log(`[SearchUsers] Khớp: ${item.user.email} (${item.user.displayName || "No Name"}) | Score: ${item.score}`);
+        return item.user as any;
+      })
+      .slice(0, 10);
+
+    logger.log(`[SearchUsers] Tổng số kết quả trả về: ${results.length}`);
+    return results;
   }
 
   /**
@@ -623,5 +1033,107 @@ export class UsersService {
     }
 
     return { deviceName, os, browser, isMobile, isDesktop };
+  }
+
+  /**
+   * Đồng bộ ngầm danh sách session của người dùng với Supabase Admin API.
+   * Chuyển các session không còn tồn tại trên Supabase thành isRevoked: true.
+   */
+  async syncUserSessionsWithSupabase(userId: string): Promise<void> {
+    try {
+      const res = await fetch(
+        `${this.supabaseUrl}/auth/v1/admin/users/${userId}/sessions`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.supabaseServiceKey}`,
+            apikey: this.supabaseServiceKey,
+          },
+        },
+      );
+      if (!res.ok) {
+        this.logger.warn(`Không thể lấy danh sách sessions từ Supabase: HTTP ${res.status}`);
+        return;
+      }
+      const supabaseSessions = await res.json();
+      if (!Array.isArray(supabaseSessions)) return;
+
+      const activeSessionIds = supabaseSessions.map((s: any) => s.id);
+
+      // Tìm những session trong DB đang đánh dấu active nhưng thực tế không còn trên Supabase
+      const expiredDbSessions = await this.sessionModel
+        .find({
+          userId,
+          isRevoked: { $ne: true },
+          sessionId: { $nin: activeSessionIds },
+        })
+        .lean()
+        .exec();
+
+      if (expiredDbSessions.length > 0) {
+        const expiredIds = expiredDbSessions.map((s) => s.sessionId);
+        await this.sessionModel.updateMany(
+          { sessionId: { $in: expiredIds } },
+          { $set: { isRevoked: true, revokedAt: new Date() } }
+        );
+        this.logger.log(
+          `Đã đồng bộ và đánh dấu ${expiredIds.length} session hết hạn/bị buộc đăng xuất.`
+        );
+
+        // Bắn WebSocket thông báo danh sách session thay đổi
+        try {
+          if (this.appGateway?.server) {
+            this.appGateway.server.to(`user_${userId}`).emit("session_list_changed");
+          }
+        } catch (wsErr) {
+          this.logger.error("Lỗi khi bắn WebSocket thông báo session list changed lúc đồng bộ: " + String(wsErr));
+        }
+      }
+    } catch (err) {
+      this.logger.error("Lỗi khi đồng bộ sessions với Supabase: " + String(err));
+    }
+  }
+
+  /**
+   * Lấy danh sách toàn bộ thiết bị đã đăng xuất của user có hỗ trợ phân trang.
+   */
+  async getLoggedOutSessions(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    try {
+      const dbSessions = await this.sessionModel
+        .find({ userId, isRevoked: true })
+        .sort({ revokedAt: -1, updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec();
+
+      const sessions: MappedSession[] = dbSessions.map((s) => ({
+        id: s.sessionId,
+        ip: s.ip === "127.0.0.1" && process.env.NODE_ENV === "production" ? "Không rõ" : s.ip || "Không rõ",
+        ipAddress: s.ipAddress || null,
+        deviceName: s.deviceName,
+        os: s.os,
+        browser: s.browser,
+        loginMethod: s.loginMethod || "password",
+        isMobile: !!s.isMobile,
+        isDesktop: !!s.isDesktop,
+        isCurrent: false,
+        isGps: !!s.isGps,
+        city: s.city || "",
+        country: s.country || "Không xác định",
+        isp: s.isp || "",
+        createdAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString(),
+        loggedOutAt: s.revokedAt ? s.revokedAt.toISOString() : (s.updatedAt ? s.updatedAt.toISOString() : new Date().toISOString()),
+      }));
+
+      const total = await this.sessionModel.countDocuments({ userId, isRevoked: true }).exec();
+
+      return { sessions, total, page, limit };
+    } catch (err) {
+      this.logger.error("Lỗi khi đọc logged out sessions từ MongoDB: " + String(err));
+      return { sessions: [], total: 0, page, limit };
+    }
   }
 }

@@ -12,6 +12,7 @@ export const baseApi = createApi({
     "Post",
     "Comment",
     "DeviceStatus",
+    "ChannelFile",
   ],
   endpoints: () => ({}),
 });

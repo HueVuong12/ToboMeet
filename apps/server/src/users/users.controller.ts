@@ -8,6 +8,7 @@ import {
   Query,
   Put,
   Body,
+  BadRequestException,
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -55,10 +56,16 @@ export class UsersController {
     const token = authHeader?.split(" ")[1];
     const userAgent = (req.headers["user-agent"] as string) || "";
     const clientIp = this.getClientIp(req);
+    const deviceHeaders = {
+      deviceName: req.headers["x-device-name"] as string,
+      deviceModel: req.headers["x-device-model"] as string,
+      deviceBrand: req.headers["x-device-brand"] as string,
+      deviceOS: req.headers["x-device-os"] as string,
+    };
 
     if (token) {
       // Gọi không đồng bộ (bất đồng bộ chạy nền) để không làm chậm request getMe chính
-      this.usersService.registerOrUpdateSession(userId, token, userAgent, clientIp).catch(() => {});
+      this.usersService.registerOrUpdateSession(userId, token, userAgent, clientIp, deviceHeaders).catch(() => {});
     }
 
     return userDoc;
@@ -72,8 +79,27 @@ export class UsersController {
     const token = authHeader?.split(" ")[1];
     const userAgent = (req.headers["user-agent"] as string) || "";
     const clientIp = this.getClientIp(req);
+    const deviceHeaders = {
+      deviceName: req.headers["x-device-name"] as string,
+      deviceModel: req.headers["x-device-model"] as string,
+      deviceBrand: req.headers["x-device-brand"] as string,
+      deviceOS: req.headers["x-device-os"] as string,
+    };
 
-    return this.usersService.getUserSessions(userId, token, userAgent, clientIp);
+    return this.usersService.getUserSessions(userId, token, userAgent, clientIp, deviceHeaders);
+  }
+
+  @UseGuards(SupabaseGuard)
+  @Get("me/sessions/logged-out")
+  async getLoggedOutSessions(
+    @Request() req,
+    @Query("page") pageStr?: string,
+    @Query("limit") limitStr?: string
+  ) {
+    const userId = req.user.id;
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 10;
+    return this.usersService.getLoggedOutSessions(userId, page, limit);
   }
 
 
@@ -84,14 +110,36 @@ export class UsersController {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(" ")[1] || "";
     const userAgent = (req.headers["user-agent"] as string) || "";
-    return this.usersService.revokeOtherSessions(userId, token, userAgent);
+    // Lấy socketId của thiết bị hiện tại để server exclude khi emit force_logout
+    const currentSocketId = (req.headers["x-socket-id"] as string) || "";
+    return this.usersService.revokeOtherSessions(userId, token, userAgent, currentSocketId);
   }
 
   @UseGuards(SupabaseGuard)
   @Delete("me/sessions/:id")
   async revokeSession(@Param("id") sessionId: string, @Request() req) {
     const userId = req.user.id;
-    return this.usersService.revokeSession(userId, sessionId);
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(" ")[1] || "";
+    const userAgent = (req.headers["user-agent"] as string) || "";
+    return this.usersService.revokeSession(userId, sessionId, token, userAgent);
+  }
+
+  /**
+   * Proxy Nominatim reverse geocoding — gọi từ server để tránh CORS và rate-limit browser.
+   * Public endpoint: geocoding là data công khai, không cần auth.
+   */
+  @Get("geo/reverse")
+  async reverseGeocode(
+    @Query("lat") latStr: string,
+    @Query("lon") lonStr: string,
+  ) {
+    const lat = parseFloat(latStr);
+    const lon = parseFloat(lonStr);
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      throw new BadRequestException("lat/lon không hợp lệ");
+    }
+    return this.usersService.reverseGeocode(lat, lon);
   }
 
   @UseGuards(SupabaseGuard)

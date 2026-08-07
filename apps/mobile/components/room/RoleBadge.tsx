@@ -6,7 +6,7 @@ interface RoleBadgeProps {
   role: string;
   displayRole?: string;
   roomType: "classroom" | "meeting" | string;
-  t: (key: string, options?: any) => string;
+  t: (key: string, options?: { defaultValue?: string } & Record<string, unknown>) => string;
 }
 
 export default function RoleBadge({

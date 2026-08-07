@@ -54,6 +54,7 @@ import RoomRightDrawer from "../../components/room/RoomRightDrawer";
 import RoomLeftDrawer from "../../components/room/RoomLeftDrawer";
 import MemberActionMenuModal from "../../components/room/MemberActionMenuModal";
 import { useRoomPermissions } from "../../hooks/useRoomPermissions";
+import ChannelFilesTab from "../../components/room/ChannelFilesTab";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -118,6 +119,7 @@ export default function RoomDetailScreen() {
   // News Feed state
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [editingPost, setEditingPost] = useState<PostDto | null>(null);
+  const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
 
   const {
     data: posts = [],
@@ -527,9 +529,54 @@ export default function RoomDetailScreen() {
         </View>
       </View>
 
-      {/* Main News Feed / Posts View */}
+      {/* Tab Switcher */}
+      <View className="flex-row bg-white border-b border-slate-100 px-4">
+        <TouchableOpacity
+          onPress={() => setActiveTab("feed")}
+          className={`py-3 mr-6 border-b-2 ${
+            activeTab === "feed" ? "border-blue-600" : "border-transparent"
+          }`}
+        >
+          <Text
+            className={`font-bold text-sm ${
+              activeTab === "feed" ? "text-blue-600" : "text-slate-500"
+            }`}
+          >
+            Bảng tin
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab("files")}
+          className={`py-3 border-b-2 ${
+            activeTab === "files" ? "border-blue-600" : "border-transparent"
+          }`}
+        >
+          <Text
+            className={`font-bold text-sm ${
+              activeTab === "files" ? "text-blue-600" : "text-slate-500"
+            }`}
+          >
+            Tệp
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main News Feed / Posts / Files View */}
       <View className="flex-1 bg-slate-50 relative">
-        {isLoadingPosts ? (
+        {activeTab === "files" ? (
+          activeChannelId ? (
+            <ChannelFilesTab
+              roomId={id || ""}
+              channelId={activeChannelId}
+              userId={profile?.supabaseId || ""}
+              canManageFiles={isOwner || isCurrentUserRoomVice}
+            />
+          ) : (
+            <View className="flex-1 justify-center items-center">
+              <Text className="text-slate-400">Chọn kênh để xem tệp</Text>
+            </View>
+          )
+        ) : isLoadingPosts ? (
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#0052FF" />
           </View>

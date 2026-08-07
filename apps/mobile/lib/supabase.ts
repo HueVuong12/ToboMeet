@@ -92,6 +92,6 @@ export const supabaseAuth = {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw new Error(error.message);
 
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
   },
 };

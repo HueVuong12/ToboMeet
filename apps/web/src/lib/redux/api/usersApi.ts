@@ -44,6 +44,15 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["UserSessions"],
     }),
 
+    getLoggedOutSessions: builder.query<{ sessions: UserSession[]; total: number; page: number; limit: number }, { page: number; limit: number }>({
+      query: ({ page, limit }) => ({
+        url: "/users/me/sessions/logged-out",
+        method: "GET",
+        params: { page, limit },
+      }),
+      providesTags: ["UserSessions"],
+    }),
+
     revokeSession: builder.mutation<{ success: boolean; message: string }, string>({
       query: (sessionId) => ({
         url: `/users/me/sessions/${sessionId}`,
@@ -52,11 +61,15 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ["UserSessions"],
     }),
 
-    revokeOtherSessions: builder.mutation<{ success: boolean; message: string }, void>({
-      query: () => ({
-        url: "/users/me/sessions/others",
-        method: "DELETE",
-      }),
+    revokeOtherSessions: builder.mutation<{ success: boolean; message: string }, { socketId?: string } | void>({
+      query: (arg) => {
+        const socketId = arg && (arg as { socketId?: string }).socketId;
+        return {
+          url: "/users/me/sessions/others",
+          method: "DELETE",
+          ...(socketId ? { headers: { "X-Socket-Id": socketId } } : {}),
+        };
+      },
       invalidatesTags: ["UserSessions"],
     }),
 
@@ -76,15 +89,26 @@ export const usersApi = baseApi.injectEndpoints({
         params: { q: query },
       }),
     }),
+
+    reverseGeocode: builder.query<{ city: string; country: string }, { lat: number; lon: number }>({
+      query: ({ lat, lon }) => ({
+        url: "/users/geo/reverse",
+        method: "GET",
+        params: { lat, lon },
+      }),
+    }),
   }),
   overrideExisting: true,
 });
 
 export const {
   useGetSessionsQuery,
+  useGetLoggedOutSessionsQuery,
+  useLazyGetLoggedOutSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
   useUpdateCurrentSessionLocationMutation,
   useSearchUsersQuery,
   useLazySearchUsersQuery,
+  useLazyReverseGeocodeQuery,
 } = usersApi;

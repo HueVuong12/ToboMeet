@@ -29,6 +29,7 @@ export class SupabaseGuard implements CanActivate {
     } = await this.supabaseService.client.auth.getUser(token);
 
     if (error || !user) {
+      console.log("[SupabaseGuard] ❌ getUser failed or user null:", error);
       // Bắt mọi lỗi: Token hết hạn, sai chữ ký, user đã bị khóa/xóa...
       throw new AppException(ErrorCode.INVALID_TOKEN);
     }
@@ -63,16 +64,23 @@ export class SupabaseGuard implements CanActivate {
           sessionId = payload.sub || "";
         }
 
+        console.log(`[SupabaseGuard] URL: ${request.url} | sessionId: ${sessionId} | payload.sid: ${payload.sid} | payload.session_id: ${payload.session_id}`);
+
         if (sessionId) {
           const sessionDoc = await this.sessionModel
             .findOne({ sessionId, userId: user.id })
             .lean();
+          
+          console.log(`[SupabaseGuard] sessionDoc found: ${!!sessionDoc} | isRevoked: ${sessionDoc?.isRevoked}`);
+          
           if (sessionDoc?.isRevoked) {
+            console.log(`[SupabaseGuard] ❌ Blocked revoked session: ${sessionId}`);
             throw new AppException(ErrorCode.INVALID_TOKEN);
           }
         }
       }
     } catch (err) {
+      console.error("[SupabaseGuard] Error during check:", err);
       if (err instanceof AppException) throw err;
     }
 

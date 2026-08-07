@@ -149,7 +149,7 @@ export class ReportsService {
     page = 1,
     limit = 10,
   ) {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
     if (filters.status) {
       query.status = filters.status;
     }
@@ -213,7 +213,7 @@ export class ReportsService {
             code: room.code,
             type: room.type,
             memberCount: room.members.length,
-            createdAt: (room as any).createdAt,
+            createdAt: (room as unknown as { createdAt: Date }).createdAt,
           }
         : null,
       reporter: reporter
@@ -257,8 +257,8 @@ export class ReportsService {
       action: "STATUS_CHANGED",
       fromStatus,
       toStatus: dto.status,
-      adminId: (dto as any).adminId || "admin-system",
-      adminEmail: (dto as any).adminEmail || "admin@tobomeet.com",
+      adminId: dto.adminId || "admin-system",
+      adminEmail: dto.adminEmail || "admin@tobomeet.com",
       note: dto.note || "Cập nhật trạng thái báo cáo phòng họp.",
       timestamp: new Date(),
     });
@@ -266,8 +266,8 @@ export class ReportsService {
     if (dto.note) {
       report.adminNotes.push({
         content: dto.note,
-        adminId: (dto as any).adminId || "admin-system",
-        adminEmail: (dto as any).adminEmail || "admin@tobomeet.com",
+        adminId: dto.adminId || "admin-system",
+        adminEmail: dto.adminEmail || "admin@tobomeet.com",
         createdAt: new Date(),
       });
     }

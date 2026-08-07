@@ -32,6 +32,7 @@ import {
 import { useMeetingDeviceStatus } from "@/hooks/useMeetingDeviceStatus";
 import { useMeetingLauncher } from "@/hooks/useMeetingLauncher";
 import NewsFeed from "./NewsFeed";
+import ChannelFilesTab from "./ChannelFilesTab";
 import RoomRightSidebar from "./RoomRightSidebar";
 
 interface RoomContentProps {
@@ -68,6 +69,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
+  const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
@@ -322,11 +324,25 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             </div>
 
             <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
-              <button className="px-3 py-4 border-b-2 border-brand-500 text-brand-600">
+              <button
+                onClick={() => setActiveTab("feed")}
+                className={`px-3 py-4 border-b-2 transition-colors ${
+                  activeTab === "feed"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
                 {t("class_feed")}
               </button>
-              <button className="px-3 py-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700">
-                {t("meeting_history")}
+              <button
+                onClick={() => setActiveTab("files")}
+                className={`px-3 py-4 border-b-2 transition-colors ${
+                  activeTab === "files"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Tệp
               </button>
             </div>
           </div>
@@ -402,19 +418,29 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           </div>
         </header>
 
-        {/* News Feed Panel */}
+        {/* News Feed / Files Panel */}
         {currentChannel ? (
-          <NewsFeed
-            key={currentChannel._id || activeChannel}
-            roomId={roomId}
-            channelId={currentChannel._id || ""}
-            userId={userId}
-            userRole={
-              (members.find((m: any) => m.userId === userId)?.role ||
-                "member") as "admin" | "owner" | "member"
-            }
-            channelName={activeChannel}
-          />
+          activeTab === "files" ? (
+            <ChannelFilesTab
+              key={`files-${currentChannel._id || activeChannel}`}
+              roomId={roomId}
+              channelId={currentChannel._id || ""}
+              userId={userId}
+              canManageFiles={isCurrentUserRoomOwner || currentUserRoomRole === "admin"}
+            />
+          ) : (
+            <NewsFeed
+              key={`feed-${currentChannel._id || activeChannel}`}
+              roomId={roomId}
+              channelId={currentChannel._id || ""}
+              userId={userId}
+              userRole={
+                (members.find((m: any) => m.userId === userId)?.role ||
+                  "member") as "admin" | "owner" | "member"
+              }
+              channelName={activeChannel}
+            />
+          )
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
             Vui lòng chọn một kênh để xem bảng tin.

@@ -242,3 +242,18 @@ export interface ParticipantMetadata {
   role: "owner" | "admin" | "member" | "guest";
   status: "joined" | "waiting";
 }
+
+export interface ChannelFileResponse {
+  _id: string;
+  roomId: string;
+  channelId: string;
+  uploadedBy: string;
+  uploadedByName: string;
+  fileName: string;
+  storagePath: string;
+  publicUrl: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+  updatedAt: string;
+}
