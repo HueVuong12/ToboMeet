@@ -256,3 +256,22 @@ export interface ChannelFileResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface PageResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
+export interface NotificationResponse {
+  id: string;
+  userId: string;
+  type: string;
+  metadata: Record<string, any>;
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

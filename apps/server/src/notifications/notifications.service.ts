@@ -7,6 +7,8 @@ import {
   Notification,
   NotificationDocument,
 } from "./schemas/notification.schema";
+import { GetNotificationsDto } from "./dto/get-notifications.dto";
+import { NotificationResponse, PageResponse } from "@tobomeet/shared/types";
 
 @Injectable()
 export class NotificationsService {
@@ -16,6 +18,61 @@ export class NotificationsService {
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
   ) {}
+
+  /**
+   * Lấy danh sách thông báo của người dùng với bộ lọc tự code
+   */
+  async getUserNotifications(
+    userId: string,
+    query: GetNotificationsDto,
+  ): Promise<PageResponse<NotificationResponse>> {
+    const { page = 1, limit = 20, type, isRead } = query;
+    const skip = (page - 1) * limit;
+
+    // Build filter an toàn: Bắt buộc filter phải chứa userId của người đang login
+    const filter: Record<string, any> = { userId };
+
+    if (type) {
+      filter.type = type;
+    }
+
+    if (isRead !== undefined) {
+      filter.isRead = isRead === "true";
+    }
+
+    // Chạy song song query
+    const [total, notifications] = await Promise.all([
+      this.notificationModel.countDocuments(filter),
+      this.notificationModel
+        .find(filter)
+        .sort({ createdAt: -1 }) // Cố định mới nhất lên đầu
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+    ]);
+
+    // Map dữ liệu
+    const items: NotificationResponse[] = notifications.map((doc: any) => ({
+      id: doc._id.toString(),
+      userId: doc.userId,
+      type: doc.type,
+      metadata: doc.metadata,
+      isRead: doc.isRead,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+    };
+  }
 
   // Thông báo cho người bị kick
   @OnEvent("notification.kicked", { async: true })

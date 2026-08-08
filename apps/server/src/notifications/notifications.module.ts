@@ -6,6 +6,8 @@ import {
   NotificationSchema,
 } from "./schemas/notification.schema";
 import { CoreModule } from "../core/core.module";
+import { SupabaseModule } from "../supabase/supabase.module";
+import { NotificationsController } from "./notifications.controller";
 
 @Module({
   imports: [
@@ -13,7 +15,9 @@ import { CoreModule } from "../core/core.module";
       { name: Notification.name, schema: NotificationSchema },
     ]),
     forwardRef(() => CoreModule),
+    SupabaseModule,
   ],
+  controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [MongooseModule, NotificationsService],
 })
