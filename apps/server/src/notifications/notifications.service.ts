@@ -9,6 +9,7 @@ import {
 } from "./schemas/notification.schema";
 import { GetNotificationsDto } from "./dto/get-notifications.dto";
 import { NotificationResponse, PageResponse } from "@tobomeet/shared/types";
+import { User, UserDocument } from "../users/schemas/user.schema";
 
 @Injectable()
 export class NotificationsService {
@@ -17,7 +18,30 @@ export class NotificationsService {
 
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
+
+  /**
+   * Helper cập nhật trạng thái có thông báo chưa đọc cho User(s).
+   * Chạy bất đồng bộ (không block luồng chính).
+   */
+  private async toggleUnreadStatus(
+    userIds: string | string[],
+    hasUnread: boolean,
+  ) {
+    try {
+      const ids = Array.isArray(userIds) ? userIds : [userIds];
+      if (ids.length === 0) return;
+
+      await this.userModel.updateMany(
+        { supabaseId: { $in: ids } },
+        { $set: { hasUnreadNotifications: hasUnread } },
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái Unread Notification:", error);
+    }
+  }
 
   /**
    * Lấy danh sách thông báo của người dùng với bộ lọc tự code
@@ -51,9 +75,11 @@ export class NotificationsService {
         .exec(),
     ]);
 
+    this.toggleUnreadStatus(userId, false);
+
     // Map dữ liệu
     const items: NotificationResponse[] = notifications.map((doc: any) => ({
-      id: doc._id.toString(),
+      _id: doc._id.toString(),
       userId: doc.userId,
       type: doc.type,
       metadata: doc.metadata,
@@ -88,6 +114,8 @@ export class NotificationsService {
         isRead: false,
       });
 
+      this.toggleUnreadStatus(payload.userId, true);
+
       this.appGateway.server
         .to(`user_${payload.userId}`)
         .emit("receive_notifications", [newNotif]);
@@ -115,6 +143,8 @@ export class NotificationsService {
       const insertedNotifs = await this.notificationModel.insertMany(
         notificationsToInsert,
       );
+
+      this.toggleUnreadStatus(payload.userIds, true);
 
       insertedNotifs.forEach((notif) => {
         this.appGateway.server
@@ -159,6 +189,8 @@ export class NotificationsService {
         isRead: false,
       });
 
+      this.toggleUnreadStatus(payload.userId, true);
+
       this.appGateway.server
         .to(`user_${payload.userId}`)
         .emit("receive_notifications", [newNotif]);
@@ -181,6 +213,8 @@ export class NotificationsService {
         isRead: false,
       });
 
+      this.toggleUnreadStatus(payload.userId, true);
+
       this.appGateway.server
         .to(`user_${payload.userId}`)
         .emit("receive_notifications", [newNotif]);
@@ -202,6 +236,8 @@ export class NotificationsService {
         metadata: payload.metadata,
         isRead: false,
       });
+
+      this.toggleUnreadStatus(payload.userId, true);
 
       this.appGateway.server
         .to(`user_${payload.userId}`)

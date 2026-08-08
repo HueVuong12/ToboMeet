@@ -107,14 +107,9 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
 
         {/* Body */}
         <div className="px-6 py-5">
-          {/* Step 1: Nhập tên phòng (Đã bỏ chọn Type) */}
+          {/* Step 1: Nhập tên phòng */}
           {step === "enter-name" && (
             <div>
-              <p className="text-sm text-slate-500 mb-4">
-                Hãy đặt một cái tên thật hay cho phòng của bạn để mọi người dễ
-                dàng nhận ra nhé.
-              </p>
-
               <input
                 id="create-room-name-input"
                 type="text"
@@ -142,53 +137,59 @@ export default function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
           )}
 
           {/* Step 2: Success — Hiển thị mã phòng UI Mới */}
+          {/* Step 2: Success — Hiển thị mã phòng UI Mới */}
           {step === "success" && createdRoomCode && (
-            <div className="flex flex-col items-center text-center py-2">
+            <div className="flex flex-col items-center text-center py-4 animate-fade-in">
               {/* Success Icon */}
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 ring-8 ring-emerald-50">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-5 ring-4 ring-emerald-50">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
 
-              <p className="text-slate-500 text-sm mb-6 px-4">
+              <p className="text-slate-600 text-sm font-medium mb-6 px-4">
                 {t("room_created_desc", {
                   defaultValue:
-                    "Phòng của bạn đã sẵn sàng. Hãy gửi mã này cho những người bạn muốn mời tham gia.",
+                    "Chia sẻ mã này để mọi người tham gia phòng của bạn",
                 })}
               </p>
 
-              {/* Mã phòng - Kiểu dáng nổi bật (Ticket style) */}
-              <div className="w-full relative overflow-hidden bg-slate-50/80 border-2 border-dashed border-slate-300 rounded-2xl p-6 mb-5 group hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
-                <p className="text-[11px] text-slate-500 uppercase tracking-[0.2em] font-bold mb-3 relative z-10">
-                  {t("room_code_label", { defaultValue: "MÃ PHÒNG CỦA BẠN" })}
-                </p>
+              {/* Khối hiển thị Mã phòng */}
+              <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 hover:border-brand-300 rounded-2xl p-5 mb-4 transition-colors group relative overflow-hidden">
+                {/* Background gradient nhẹ */}
+                <div className="absolute inset-0 bg-gradient-to-br from-transparent to-slate-100/50 pointer-events-none" />
 
-                <div className="flex flex-col items-center gap-5 relative z-10">
-                  <span className="font-mono text-4xl sm:text-5xl font-extrabold text-slate-800 tracking-[0.15em] bg-white px-6 py-3 rounded-xl shadow-sm border border-slate-100">
-                    {createdRoomCode}
-                  </span>
-
-                  <button
-                    onClick={handleCopyCode}
-                    className={`flex items-center justify-center gap-2 w-48 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
-                      codeCopied
-                        ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                        : "bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20 hover:-translate-y-0.5"
-                    }`}
-                  >
-                    {codeCopied ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        {t("copied", { defaultValue: "Đã sao chép!" })}
-                      </>
-                    ) : (
-                      <>
+                <div className="relative z-10">
+                  <p className="text-[11px] text-slate-500 uppercase tracking-[0.2em] font-bold mb-3">
+                    {t("room_code_label", { defaultValue: "MÃ PHÒNG" })}
+                  </p>
+                  <div className="flex items-center justify-between gap-4 bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-100">
+                    <span className="font-mono text-2xl sm:text-3xl font-black text-slate-800 tracking-[0.3em] ml-2">
+                      {createdRoomCode}
+                    </span>
+                    <button
+                      onClick={handleCopyCode}
+                      title={t("copy_code", { defaultValue: "Sao chép" })}
+                      className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 ${
+                        codeCopied
+                          ? "bg-emerald-500 text-white scale-110 shadow-md shadow-emerald-500/20"
+                          : "bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-600 group-hover:ring-4 group-hover:ring-brand-50"
+                      }`}
+                    >
+                      {codeCopied ? (
+                        <Check className="w-5 h-5" />
+                      ) : (
                         <Copy className="w-4 h-4" />
-                        {t("copy_code", { defaultValue: "Sao chép mã" })}
-                      </>
-                    )}
-                  </button>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              <p className="text-[13px] text-slate-500 bg-slate-50 px-4 py-2 rounded-full font-medium">
+                {t("room_code_share_hint", {
+                  defaultValue:
+                    "Người khác có thể tham gia bằng mã này từ trang chủ",
+                })}
+              </p>
             </div>
           )}
         </div>

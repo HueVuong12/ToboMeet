@@ -14,6 +14,7 @@ import { ConfigService } from "@nestjs/config";
 import { createClient } from "@supabase/supabase-js";
 import { AppGateway } from "../core/gateways/app.gateway";
 import { createHash } from "crypto";
+import { UserResponse } from "@tobomeet/shared/types";
 
 export interface MappedSession {
   id: string;
@@ -162,7 +163,7 @@ export class UsersService {
     );
   }
 
-  async getOrCreateUser(tokenPayload): Promise<User> {
+  async getOrCreateUser(tokenPayload): Promise<UserResponse> {
     const userId = tokenPayload.id || tokenPayload.sub;
     const email = tokenPayload.email
       ? tokenPayload.email.trim().toLowerCase()
@@ -204,7 +205,14 @@ export class UsersService {
       console.log(`Đã tạo mới user: ${email}`);
     }
 
-    return user;
+    return {
+      _id: user._id.toString(),
+      supabaseId: user.supabaseId,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      email: user.email,
+      hasUnreadNotifications: user.hasUnreadNotifications,
+    };
   }
 
   /** Cache reverse geocode (lat/lon tròn 2 chữ số thập phân → địa chỉ) để tránh spam Nominatim */

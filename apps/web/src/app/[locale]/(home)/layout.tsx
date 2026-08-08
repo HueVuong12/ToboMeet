@@ -5,10 +5,12 @@ import { useRouter, usePathname } from "next/navigation"; // Thêm usePathname
 import { useTranslations, useLocale } from "next-intl";
 import { logout } from "@/app/[locale]/auth/actions";
 import { Video, Settings, Calendar, Bell } from "lucide-react";
-import NotificationDrawer from "@/components/dashboard/NotificationDrawer";
+import NotificationDrawer from "@/components/notification/NotificationDrawer";
 import JoinDialog from "@/components/dashboard/JoinDialog";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import CreateRoomDialog from "@/components/dashboard/CreateRoomDialog";
+import { useGetMeQuery, usersApi } from "@/lib/redux/features/users/usersApi";
+import { useNotificationCacheManager } from "@/hooks/useNotificationCacheManager";
 
 // Context để các trang con (children) gọi lệnh mở Modal dùng chung
 interface HomeContextType {
@@ -28,6 +30,8 @@ export default function HomeLayout({
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname(); // Lấy đường dẫn hiện tại
+  const { data: myProfile } = useGetMeQuery();
+  const { updateUnreadNotificationBadge } = useNotificationCacheManager();
 
   // Chuyển hướng nếu có link mời tham gia
   useEffect(() => {
@@ -63,10 +67,16 @@ export default function HomeLayout({
       id: "notifications",
       icon: Bell,
       label: locale === "vi" ? "Thông báo" : "Activity",
-      onClick: () => setShowNotifications(!showNotifications),
+      onClick: () => {
+        // Tắt chấm đỏ ngay lập tức khi người dùng click vào menu (trước khi gọi API)
+        if (myProfile?.hasUnreadNotifications) {
+          updateUnreadNotificationBadge(false);
+        }
+        setShowNotifications(!showNotifications);
+      },
       // Bật active khi drawer thông báo đang mở
       isActive: showNotifications,
-      badge: true, // Cờ hiển thị chấm đỏ
+      badge: myProfile?.hasUnreadNotifications || false, // Cờ hiển thị chấm đỏ
     },
     {
       id: "calendar",

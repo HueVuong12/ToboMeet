@@ -46,8 +46,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     client.join(`user_${userId}`);
-    const rooms = Array.from(client.rooms);
-    console.log(`[Socket] Client ${client.id} joined user_${userId}. Active rooms: [${rooms.join(", ")}]`);
 
     try {
       // Khi người dùng online lại, kiểm tra xem có thông báo nào chưa gửi không
@@ -80,8 +78,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
         { _id: { $in: notificationIds } },
         { $set: { isRead: true } },
       );
-
-      // console.log(`[Socket] Đã cập nhật ${result.modifiedCount} thông báo thành 'đã đọc'`);
     } catch (error) {
       console.error("[Socket] Lỗi khi đánh dấu thông báo đã đọc:", error);
     }

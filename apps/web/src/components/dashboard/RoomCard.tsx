@@ -50,12 +50,11 @@ export default function RoomCard({ room }: RoomCardProps) {
         <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:scale-125 transition-transform duration-500" />
         <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-black/10 blur-md" />
 
-        {/* Room Code Badge */}
         {room.code && (
           <div className="self-end relative z-10">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-md text-[11px] font-mono text-white/90 border border-white/10 font-semibold tracking-wider shadow-sm">
               <Hash className="w-3 h-3 text-white/70" />
-              {room.code}
+              {"****" + room.code.slice(-3)}
             </span>
           </div>
         )}
@@ -78,7 +77,7 @@ export default function RoomCard({ room }: RoomCardProps) {
         </div>
 
         {/* Footer info & CTA */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div className="mt-1 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-3">
             {/* Số lượng thành viên */}
             <span
@@ -100,12 +99,6 @@ export default function RoomCard({ room }: RoomCardProps) {
               </span>
             )}
           </div>
-
-          {/* Nút hành động trượt nhẹ khi Hover */}
-          <span className="inline-flex items-center gap-1 font-semibold text-slate-400 group-hover:text-brand-600 transition-colors">
-            <span>{t("go_to_room", { defaultValue: "Vào phòng" })}</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </span>
         </div>
       </div>
     </div>

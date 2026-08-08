@@ -3,7 +3,10 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import type { Request } from "express";
 import { SupabaseService } from "../../supabase/supabase.service";
-import { DeviceSession, DeviceSessionDocument } from "../../users/schemas/device-session.schema";
+import {
+  DeviceSession,
+  DeviceSessionDocument,
+} from "../../users/schemas/device-session.schema";
 import { AppException } from "../exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
 
@@ -29,7 +32,6 @@ export class SupabaseGuard implements CanActivate {
     } = await this.supabaseService.client.auth.getUser(token);
 
     if (error || !user) {
-      console.log("[SupabaseGuard] ❌ getUser failed or user null:", error);
       // Bắt mọi lỗi: Token hết hạn, sai chữ ký, user đã bị khóa/xóa...
       throw new AppException(ErrorCode.INVALID_TOKEN);
     }
@@ -43,13 +45,15 @@ export class SupabaseGuard implements CanActivate {
 
     // Kiểm tra trạng thái thu hồi phiên (isRevoked) từ MongoDB
     try {
-      const userAgent = ((request.headers["user-agent"] as string) || "").trim().toLowerCase();
+      const userAgent = ((request.headers["user-agent"] as string) || "")
+        .trim()
+        .toLowerCase();
       const payloadBase64 = token.split(".")[1];
       if (payloadBase64) {
         const payload = JSON.parse(
           Buffer.from(payloadBase64, "base64").toString(),
         ) as Record<string, any>;
-        
+
         let sessionId =
           (payload.session_id as string) ||
           (payload.sid as string) ||
@@ -58,23 +62,20 @@ export class SupabaseGuard implements CanActivate {
 
         if (!sessionId && payload.sub && userAgent) {
           const { createHash } = require("crypto");
-          sessionId = createHash("sha256").update(`${payload.sub}-${userAgent}`).digest("hex");
+          sessionId = createHash("sha256")
+            .update(`${payload.sub}-${userAgent}`)
+            .digest("hex");
         }
         if (!sessionId) {
           sessionId = payload.sub || "";
         }
 
-        console.log(`[SupabaseGuard] URL: ${request.url} | sessionId: ${sessionId} | payload.sid: ${payload.sid} | payload.session_id: ${payload.session_id}`);
-
         if (sessionId) {
           const sessionDoc = await this.sessionModel
             .findOne({ sessionId, userId: user.id })
             .lean();
-          
-          console.log(`[SupabaseGuard] sessionDoc found: ${!!sessionDoc} | isRevoked: ${sessionDoc?.isRevoked}`);
-          
+
           if (sessionDoc?.isRevoked) {
-            console.log(`[SupabaseGuard] ❌ Blocked revoked session: ${sessionId}`);
             throw new AppException(ErrorCode.INVALID_TOKEN);
           }
         }

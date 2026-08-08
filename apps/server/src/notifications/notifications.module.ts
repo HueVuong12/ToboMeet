@@ -8,11 +8,13 @@ import {
 import { CoreModule } from "../core/core.module";
 import { SupabaseModule } from "../supabase/supabase.module";
 import { NotificationsController } from "./notifications.controller";
+import { User, UserSchema } from "../users/schemas/user.schema";
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     forwardRef(() => CoreModule),
     SupabaseModule,

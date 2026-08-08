@@ -7,8 +7,9 @@ export interface UserResponse {
   supabaseId: string;
   displayName?: string;
   avatarUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  hasUnreadNotifications?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ─── Meeting ──────────────────────────────────────────────────────────────────
@@ -267,7 +268,7 @@ export interface PageResponse<T> {
 }
 
 export interface NotificationResponse {
-  id: string;
+  _id: string;
   userId: string;
   type: string;
   metadata: Record<string, any>;

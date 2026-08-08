@@ -4,15 +4,25 @@ import { socket } from "@/lib/socket";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useRoomCacheManager } from "../useRoomCacheManager";
+import { NotificationResponse } from "@tobomeet/shared/types";
+import { useNotificationCacheManager } from "../useNotificationCacheManager";
 
 export function useNotificationSocketEvents() {
   const router = useRouter();
   const { removeRoomFromMyList } = useRoomCacheManager();
+  const { addNotificationsToCache, updateUnreadNotificationBadge } =
+    useNotificationCacheManager();
 
   useEffect(() => {
-    const handleNotifications = (notifications: any[]) => {
+    const handleNotifications = (notifications: NotificationResponse[]) => {
       const currentPath = window.location.pathname;
       if (!notifications || notifications.length === 0) return;
+
+      // Cập nhật cache ngay lập tức để hiện lên drawer thông báo
+      addNotificationsToCache(notifications);
+
+      // Cập nhật badge unread của người dùng
+      updateUnreadNotificationBadge(true);
 
       notifications.forEach((notif, index) => {
         const roomId = notif.metadata?.roomId;

@@ -61,8 +61,15 @@ export class User {
   @Prop()
   avatarUrl: string;
 
-  @Prop({ required: true, enum: ["admin", "user", "moderator"], default: "user" })
+  @Prop({
+    required: true,
+    enum: ["admin", "user", "moderator"],
+    default: "user",
+  })
   role: string;
+
+  @Prop({ default: false })
+  hasUnreadNotifications: boolean;
 
   // --- HỆ THỐNG XỬ LÝ VI PHẠM (BAN SYSTEM) ---
   @Prop({ required: true, enum: ["ACTIVE", "BLOCKED"], default: "ACTIVE" })

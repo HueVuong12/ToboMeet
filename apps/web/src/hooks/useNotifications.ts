@@ -5,12 +5,15 @@ interface UseNotificationsOptions {
   limit?: number;
   type?: string;
   isRead?: boolean | string;
+  skip?: boolean;
 }
 
+// Hook nhận thông báo và xử lý phân trang
 export function useNotifications({
   limit = 20,
   type,
   isRead,
+  skip,
 }: UseNotificationsOptions = {}) {
   const [page, setPage] = useState(1);
 
@@ -20,12 +23,15 @@ export function useNotifications({
   }, [type, isRead]);
 
   // Gọi RTK Query với page hiện tại và các tham số lọc
-  const queryResult = useGetNotificationsQuery({
-    page,
-    limit,
-    type,
-    isRead,
-  });
+  const queryResult = useGetNotificationsQuery(
+    {
+      page,
+      limit,
+      type,
+      isRead,
+    },
+    { skip: skip },
+  );
 
   const { data, isFetching } = queryResult;
 
