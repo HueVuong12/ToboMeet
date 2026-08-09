@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  HttpException,
-  HttpStatus,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import {
@@ -17,7 +11,9 @@ import {
 } from "./schemas/meeting-session.schema";
 import { AppGateway } from "../core/gateways/app.gateway";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import { RoomServiceClient } from "livekit-server-sdk"; // Thêm SDK của LiveKit
+import { RoomServiceClient } from "livekit-server-sdk";
+import { AppException } from "../core/exceptions/app.exception";
+import { ErrorCode } from "@tobomeet/shared/types";
 
 @Injectable()
 export class MeetingInviteService {
@@ -51,9 +47,8 @@ export class MeetingInviteService {
     inviteeId: string,
     meetingCode: string,
   ) {
-    console.log("người nhận:", inviteeId);
     if (!this.livekitRoomService) {
-      throw new BadRequestException("Máy chủ LiveKit chưa được cấu hình.");
+      throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
     // Kiểm tra phòng LiveKit và lấy danh sách người tham gia
@@ -62,21 +57,19 @@ export class MeetingInviteService {
     try {
       livekitRooms = await this.livekitRoomService.listRooms([meetingCode]);
       if (!livekitRooms || livekitRooms.length === 0) {
-        throw new BadRequestException("Cuộc họp hiện không diễn ra.");
+        throw new AppException(ErrorCode.MEETING_INVITE_ROOM_NOT_ACTIVE);
       }
       participants =
         await this.livekitRoomService.listParticipants(meetingCode);
     } catch (error) {
       console.log(error);
-      throw new BadRequestException("Không thể truy cập thông tin cuộc họp.");
+      throw new AppException(ErrorCode.MEETING_INVITE_ACCESS_FAILED);
     }
 
     // Kiểm tra nếu người dùng thực sự đang trong phòng (chống bot spam)
     const isInviterInRoom = participants.some((p) => p.identity === inviterId);
     if (!isInviterInRoom) {
-      throw new BadRequestException(
-        "Bạn phải đang tham gia cuộc họp mới có thể gửi lời mời.",
-      );
+      throw new AppException(ErrorCode.MEETING_INVITE_NOT_ALLOWED);
     }
 
     // Trích xuất sessionId từ metadata của LiveKit
@@ -92,15 +85,13 @@ export class MeetingInviteService {
     }
 
     if (!sessionId) {
-      throw new BadRequestException("Không thể xác định phiên họp hiện tại.");
+      throw new AppException(ErrorCode.MEETING_INVITE_SESSION_INVALID);
     }
 
     // Xác thực Session trong Database
     const session = await this.sessionModel.findById(sessionId);
     if (!session || session.status !== "ongoing") {
-      throw new BadRequestException(
-        "Phiên họp không tồn tại hoặc đã kết thúc.",
-      );
+      throw new AppException(ErrorCode.MEETING_INVITE_SESSION_NOT_FOUND);
     }
 
     const room = await this.roomModel.findById(session.roomId);
@@ -122,11 +113,7 @@ export class MeetingInviteService {
       const timeSinceLastInvite = now.getTime() - lastUpdated;
 
       if (timeSinceLastInvite < cooldownMs) {
-        const waitTime = Math.ceil((cooldownMs - timeSinceLastInvite) / 60000);
-        throw new HttpException(
-          `Vui lòng đợi ${waitTime} phút nữa để gửi lại lời mời.`,
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
+        throw new AppException(ErrorCode.MEETING_INVITE_RATE_LIMITED);
       }
 
       existingNotif.isRead = false;
@@ -168,11 +155,11 @@ export class MeetingInviteService {
     const session = await this.sessionModel.findById(sessionId);
 
     if (!session) {
-      throw new NotFoundException("Không tìm thấy phiên họp này.");
+      throw new AppException(ErrorCode.MEETING_INVITE_SESSION_NOT_FOUND);
     }
 
     if (session.status !== "ongoing") {
-      throw new BadRequestException("Phiên họp này đã kết thúc.");
+      throw new AppException(ErrorCode.MEETING_INVITE_SESSION_INVALID);
     }
 
     return {

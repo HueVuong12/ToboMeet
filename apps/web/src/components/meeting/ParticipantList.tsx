@@ -109,7 +109,7 @@ export default function ParticipantList({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-2 pb-3 pt-1">
+      {/* <div className="flex items-center justify-between px-2 pb-3 pt-1">
         <span className="text-[13px] font-bold text-slate-200 tracking-wide">
           Thành viên
         </span>
@@ -120,7 +120,7 @@ export default function ParticipantList({
           <UserPlus size={14} />
           <span>Mời người</span>
         </button>
-      </div>
+      </div> */}
 
       {/* ================= MODAL MỜI THÀNH VIÊN (PORTAL) ================= */}
       {isInviteModalOpen &&
@@ -365,15 +365,25 @@ export default function ParticipantList({
           <div className="animate-fade-in">
             {/* Header cho người dùng không phải Admin (Vì họ không thấy Tab) */}
             {!canApprove && (
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-semibold text-slate-400 tracking-wider">
+              <div className="flex items-center justify-between mb-3 px-1 mt-1">
+                <span className="text-xs font-medium text-slate-400">
                   Đang tham gia
                 </span>
-                <span className="text-xs font-bold bg-[#333] text-slate-300 px-2 py-1 rounded-full">
+                {/* Đã sửa: Làm mỏng lại, bo góc nhẹ (rounded-md), thêm viền tinh tế */}
+                <span className="text-[11px] font-medium bg-[#222] border border-[#333] text-slate-400 px-2 py-0.5 rounded-md shadow-sm">
                   {displayParticipants.length} người
                 </span>
               </div>
             )}
+
+            <button
+              onClick={() => setIsInviteModalOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-3 mx-1 bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{ width: "calc(100% - 8px)" }} // Trừ hao lề mx-1
+            >
+              <UserPlus size={15} />
+              <span>Mời người khác</span>
+            </button>
 
             {displayParticipants.map((p) => {
               let avatarUrl = "";

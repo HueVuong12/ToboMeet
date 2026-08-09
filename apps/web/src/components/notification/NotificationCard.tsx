@@ -110,11 +110,7 @@ export default function NotificationCard({
         router.push(`/meeting/${response.meetingCode}`);
       }
     } catch (error: any) {
-      toast.error(
-        error?.data?.message ||
-          error?.message ||
-          "Phiên họp có thể đã kết thúc.",
-      );
+      toast.error(error?.message || "Phiên họp có thể đã kết thúc.");
     } finally {
       setIsLoading(false);
     }

@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { RoomResponse } from "@tobomeet/shared/types";
-import { Users, ArrowRight, Hash, Layers } from "lucide-react";
+import { Users, Hash, Layers, Copy, Check } from "lucide-react";
 
 // Gradient presets nâng cấp tương tự Microsoft Teams / Slack
 const CARD_GRADIENTS = [
@@ -34,6 +35,19 @@ export default function RoomCard({ room }: RoomCardProps) {
   const t = useTranslations("dashboard");
   const gradient = getGradient(room._id);
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCode = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Ngăn không cho click lan ra ngoài thẻ card
+    e.preventDefault();
+    if (!room.code) return;
+
+    navigator.clipboard.writeText(room.code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Trả lại trạng thái ban đầu sau 2 giây
+    });
+  };
+
   return (
     <div
       id={`room-card-${room._id}`}
@@ -44,7 +58,7 @@ export default function RoomCard({ room }: RoomCardProps) {
     >
       {/* Header Banner — Teams & Slack style */}
       <div
-        className={`h-28 bg-linear-to-br ${gradient} relative overflow-hidden p-4 flex flex-col justify-between`}
+        className={`h-28 bg-gradient-to-br ${gradient} relative overflow-hidden p-4 flex flex-col justify-between`}
       >
         {/* Background decorative elements */}
         <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:scale-125 transition-transform duration-500" />
@@ -52,10 +66,30 @@ export default function RoomCard({ room }: RoomCardProps) {
 
         {room.code && (
           <div className="self-end relative z-10">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-md text-[11px] font-mono text-white/90 border border-white/10 font-semibold tracking-wider shadow-sm">
-              <Hash className="w-3 h-3 text-white/70" />
-              {"****" + room.code.slice(-3)}
-            </span>
+            <button
+              onClick={handleCopyCode}
+              title="Sao chép mã phòng"
+              className="group/code inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md text-[11px] font-mono text-white/90 border border-white/10 hover:border-white/30 font-semibold tracking-wider shadow-sm transition-all"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <>
+                  <Hash className="w-3.5 h-3.5 text-white/70 group-hover/code:hidden" />
+                  <Copy className="w-3.5 h-3.5 text-white/90 hidden group-hover/code:block" />
+                </>
+              )}
+
+              {/* Hiển thị **** và 3 số cuối ở trạng thái bình thường */}
+              <span className="mt-px block group-hover/code:hidden transition-all duration-200">
+                ****{room.code.slice(-3)}
+              </span>
+
+              {/* Hiển thị full mã phòng khi hover */}
+              <span className="mt-px hidden group-hover/code:block transition-all duration-200">
+                {room.code}
+              </span>
+            </button>
           </div>
         )}
 

@@ -12,32 +12,47 @@ export function useNotificationCacheManager() {
   ) => {
     if (!newNotifications || newNotifications.length === 0) return;
 
-    // 1. Cập nhật cache chính (Tab "Tất cả" - không có filter type hay isRead)
-    // Args { page: 1 } sẽ được serializeQueryArgs chuyển thành key "getNotifications-all-all"
+    // Hàm helper dùng chung để xử lý logic ghi đè & xếp lên đầu
+    const updateDraftItems = (draft: any, notif: NotificationResponse) => {
+      const existingIndex = draft.items.findIndex(
+        (item: NotificationResponse) => item._id === notif._id,
+      );
+
+      if (existingIndex !== -1) {
+        // Đã tồn tại -> Xóa phần tử cũ đi (không tăng total vì số lượng không đổi)
+        draft.items.splice(existingIndex, 1);
+      } else {
+        // Chưa tồn tại -> Tăng tổng số lượng
+        draft.total += 1;
+      }
+
+      // Đẩy phần tử mới lên đầu mảng
+      draft.items.unshift(notif);
+    };
+
+    // Cập nhật cache chính (Tab "Tất cả" - không có filter type hay isRead)
     dispatch(
       notificationsApi.util.updateQueryData(
         "getNotifications",
         { page: 1 },
         (draft) => {
-          // Push thông báo mới lên đầu mảng
-          draft.items.unshift(...newNotifications);
-          draft.total += newNotifications.length;
+          newNotifications.forEach((notif) => {
+            updateDraftItems(draft, notif);
+          });
         },
       ),
     );
 
-    // 2. (Tuỳ chọn) Nếu user đang mở tab lọc theo loại (ví dụ: ROOM_DISBANDED),
-    // chúng ta cũng cần update riêng vào vùng cache của type đó
+    // Cập nhật cache riêng theo loại (type)
     newNotifications.forEach((notif) => {
       if (!notif.type) return;
 
       dispatch(
         notificationsApi.util.updateQueryData(
           "getNotifications",
-          { page: 1, type: notif.type }, // Key sẽ là "getNotifications-{TYPE}-all"
+          { page: 1, type: notif.type },
           (draft) => {
-            draft.items.unshift(notif);
-            draft.total += 1;
+            updateDraftItems(draft, notif);
           },
         ),
       );

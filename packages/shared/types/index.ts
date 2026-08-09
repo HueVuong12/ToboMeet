@@ -105,6 +105,39 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Lỗi hệ thống, vui lòng thử lại sau",
     statusCode: 501,
   },
+
+  // Meeting invite error
+  MEETING_INVITE_ROOM_NOT_ACTIVE: {
+    code: 4003,
+    message: "Cuộc họp hiện không diễn ra.",
+    statusCode: 400,
+  },
+  MEETING_INVITE_ACCESS_FAILED: {
+    code: 4004,
+    message: "Không thể truy cập thông tin cuộc họp.",
+    statusCode: 400,
+  },
+  MEETING_INVITE_NOT_ALLOWED: {
+    code: 4005,
+    message: "Bạn phải đang tham gia cuộc họp mới có thể gửi lời mời.",
+    statusCode: 400,
+  },
+  MEETING_INVITE_SESSION_INVALID: {
+    code: 4006,
+    message: "Phiên họp không tồn tại hoặc đã kết thúc.",
+    statusCode: 400,
+  },
+  MEETING_INVITE_SESSION_NOT_FOUND: {
+    code: 4042,
+    message: "Không tìm thấy phiên họp này.",
+    statusCode: 404,
+  },
+  MEETING_INVITE_RATE_LIMITED: {
+    code: 4291,
+    message:
+      "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút.",
+    statusCode: 429,
+  },
 };
 
 export interface NavLink {
