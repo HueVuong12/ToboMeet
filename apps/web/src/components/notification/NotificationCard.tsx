@@ -7,8 +7,12 @@ import {
   Video,
   AlertTriangle,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useLazyExchangeSessionQuery } from "@/lib/redux/api/meetingsApi";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface NotificationCardProps {
   notification: NotificationResponse;
@@ -20,6 +24,8 @@ export default function NotificationCard({
   onCloseDrawer,
 }: NotificationCardProps) {
   const router = useRouter();
+  const [exchangeSession] = useLazyExchangeSessionQuery();
+  const [isLoading, setIsLoading] = useState(false);
 
   // Hàm helper để map type sang UI tương ứng
   const getNotificationDetails = (
@@ -44,7 +50,7 @@ export default function NotificationCard({
       case "PARTICIPANT_REMOVED":
         return {
           title: "Đã rời cuộc họp",
-          content: `Bạn đã bị xoá khỏi cuộc họp ${metadata?.meetingCode || ""}.`,
+          content: `Bạn đã bị xoá khỏi cuộc họp.`, // Xóa meetingCode vì người dùng không cần thiết phải biết mã code
           icon: LogOut,
           colorClass: "text-red-600 bg-red-100",
         };
@@ -54,7 +60,8 @@ export default function NotificationCard({
           content: `${metadata?.inviterName || "Ai đó"} đã mời bạn tham gia cuộc họp.`,
           icon: Video,
           colorClass: "text-brand-600 bg-brand-100",
-          actionUrl: `/room/join?code=${metadata?.meetingCode}`, // Link để chuyển hướng
+          sessionId: metadata?.sessionId,
+          isActionable: true,
         };
       case "ROOM_REPORTED":
         return {
@@ -85,24 +92,40 @@ export default function NotificationCard({
     content,
     icon: Icon,
     colorClass,
-    actionUrl,
+    isActionable,
+    sessionId,
   } = getNotificationDetails(notification.type, notification.metadata || {});
 
-  const handleClick = () => {
-    // Nếu thông báo có link hành động (như lời mời họp), chuyển hướng và đóng drawer
-    if (actionUrl) {
-      router.push(actionUrl);
-      onCloseDrawer();
+  const handleActionClick = async () => {
+    if (!sessionId) return;
+
+    setIsLoading(true);
+    try {
+      // Gọi API để check xem phiên còn tồn tại không
+      const response = await exchangeSession(sessionId).unwrap();
+
+      // Nếu thành công, có meetingCode, điều hướng tới phòng họp
+      if (response && response.meetingCode) {
+        onCloseDrawer();
+        router.push(`/meeting/${response.meetingCode}`);
+      }
+    } catch (error: any) {
+      toast.error(
+        error?.data?.message ||
+          error?.message ||
+          "Phiên họp có thể đã kết thúc.",
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div
-      onClick={handleClick}
-      className={`relative p-4 rounded-2xl border transition-all duration-200 ${actionUrl ? "cursor-pointer hover:shadow-md" : "cursor-default"} ${
+      className={`relative p-4 rounded-2xl border transition-all duration-200 ${
         notification.isRead
-          ? "bg-white border-slate-100 hover:border-slate-200"
-          : "bg-brand-50/40 border-brand-100/60 hover:bg-brand-50/70"
+          ? "bg-white border-slate-100"
+          : "bg-brand-50/40 border-brand-100/60"
       }`}
     >
       {/* Chấm tròn báo chưa đọc */}
@@ -132,6 +155,23 @@ export default function NotificationCard({
               year: "numeric",
             })}
           </p>
+
+          {/* Nút hành động cho các thông báo dạng mời */}
+          {isActionable && (
+            <div className="mt-3">
+              <button
+                onClick={handleActionClick}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center py-2 px-4 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-400 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Tham gia"
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

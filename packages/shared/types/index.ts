@@ -1,6 +1,5 @@
 // Shared TypeScript interfaces — dùng chung cho Web, Mobile, Desktop, Server
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
 export interface UserResponse {
   _id: string;
   email: string;
@@ -12,7 +11,6 @@ export interface UserResponse {
   updatedAt?: string;
 }
 
-// ─── Meeting ──────────────────────────────────────────────────────────────────
 export interface Meeting {
   id: string;
   roomCode: string;
@@ -33,7 +31,6 @@ export interface Participant {
   joinedAt: string;
 }
 
-// ─── API Response ─────────────────────────────────────────────────────────────
 export interface ApiResponse<T> {
   code: number;
   message: string;
@@ -110,13 +107,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
   },
 };
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
 export interface NavLink {
   label: string;
   href: string;
 }
 
-// ─── Landing Page ─────────────────────────────────────────────────────────────
 export interface Feature {
   iconName: string;
   title: string;
@@ -241,6 +236,13 @@ export interface ParticipantMetadata {
   hasAdminPowers: boolean;
   role: "owner" | "admin" | "member" | "guest";
   status: "joined" | "waiting";
+}
+
+export interface LivekitRoomMetadata {
+  sessionId: string;
+  isWaitingRoomEnabled: boolean;
+  isChatEnabled: boolean;
+  approvalPermission: "admin_only" | "member_and_admin" | "everyone";
 }
 
 export interface ChannelFileResponse {

@@ -9,15 +9,29 @@ import { CalendarController } from "./calendar.controller";
 import { MeetingsService } from "./meetings.service";
 import { CalendarService } from "./calendar.service";
 import { Meeting, MeetingSchema } from "./schemas/meeting.schema";
-import { CalendarEvent, CalendarEventSchema } from "./schemas/calendar-event.schema";
-import { MeetingInvitation, MeetingInvitationSchema } from "./schemas/meeting-invitation.schema";
+import {
+  CalendarEvent,
+  CalendarEventSchema,
+} from "./schemas/calendar-event.schema";
+import {
+  MeetingInvitation,
+  MeetingInvitationSchema,
+} from "./schemas/meeting-invitation.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
 import { Room, RoomSchema } from "../rooms/schemas/room.schema";
-import { RoomActivity, RoomActivitySchema } from "../rooms/schemas/room-activity.schema";
+import {
+  RoomActivity,
+  RoomActivitySchema,
+} from "../rooms/schemas/room-activity.schema";
 import { MeetingsGateway } from "./meetings.gateway";
 import { SupabaseModule } from "../supabase/supabase.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { CoreModule } from "../core/core.module";
+import {
+  MeetingSession,
+  MeetingSessionSchema,
+} from "./schemas/meeting-session.schema";
+import { MeetingInviteService } from "./meeting-invite.service";
 
 @Module({
   imports: [
@@ -28,14 +42,28 @@ import { CoreModule } from "../core/core.module";
       { name: User.name, schema: UserSchema },
       { name: Room.name, schema: RoomSchema },
       { name: RoomActivity.name, schema: RoomActivitySchema },
+      { name: MeetingSession.name, schema: MeetingSessionSchema },
     ]),
     SupabaseModule,
     NotificationsModule,
     CoreModule,
   ],
-  controllers: [MeetingsController, GlobalMeetingsController, CalendarController],
-  providers: [MeetingsService, CalendarService, MeetingsGateway],
-  exports: [MeetingsService, CalendarService, MeetingsGateway],
+  controllers: [
+    MeetingsController,
+    GlobalMeetingsController,
+    CalendarController,
+  ],
+  providers: [
+    MeetingsService,
+    MeetingInviteService,
+    CalendarService,
+    MeetingsGateway,
+  ],
+  exports: [
+    MeetingsService,
+    MeetingInviteService,
+    CalendarService,
+    MeetingsGateway,
+  ],
 })
 export class MeetingsModule {}
-

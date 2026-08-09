@@ -18,6 +18,12 @@ export class Notification {
 
   @Prop({ default: false })
   isRead: boolean;
+
+  @Prop()
+  createdAt?: Date;
+
+  @Prop()
+  updatedAt?: Date;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

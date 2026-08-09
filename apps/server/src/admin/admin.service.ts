@@ -159,7 +159,6 @@ export class AdminService {
       recentMeetings: recentMeetings.map((m) => ({
         id: m._id,
         meetingCode: m.meetingCode,
-        status: m.status,
         createdAt: (m as unknown as Record<string, unknown>).createdAt,
       })),
     };

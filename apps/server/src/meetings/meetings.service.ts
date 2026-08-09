@@ -17,6 +17,7 @@ import {
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import {
   ErrorCode,
+  LivekitRoomMetadata,
   MeetingDeviceStatus,
   MeetingJoinResponse,
   ParticipantMetadata,
@@ -27,6 +28,10 @@ import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
 import { SupabaseService } from "../supabase/supabase.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  MeetingSession,
+  MeetingSessionDocument,
+} from "./schemas/meeting-session.schema";
 
 @Injectable()
 export class MeetingsService {
@@ -36,6 +41,8 @@ export class MeetingsService {
     private eventEmitter: EventEmitter2,
     private readonly supabaseService: SupabaseService,
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
+    @InjectModel(MeetingSession.name)
+    private sessionModel: Model<MeetingSessionDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     private readonly meetingsGateway: MeetingsGateway,
@@ -134,6 +141,31 @@ export class MeetingsService {
     let livekitRoom = await this.isRoomActive(meeting.meetingCode);
     const isMeetingStarting = !livekitRoom;
 
+    let currentSessionId = "";
+
+    // Tạo meeting session khi khởi tạo cuộc họp mới
+    if (isMeetingStarting) {
+      // Nếu là người đầu tiên kích hoạt phòng -> Tạo Session 'ongoing'
+      try {
+        const newSession = await this.sessionModel.create({
+          roomId,
+          channelId,
+          meetingCode: meeting.meetingCode,
+          hostId: userId,
+          status: "ongoing",
+        });
+        currentSessionId = newSession._id.toString(); // ID mặc định của Mongo
+      } catch (error) {
+        console.log(error);
+        // Xử lý nảy sinh nếu có 2 request tạo phòng đến cùng 1 mili-giây (Partial Index sẽ bắt lỗi)
+        const ongoingSession = await this.sessionModel.findOne({
+          meetingCode: meeting.meetingCode,
+          status: "ongoing",
+        });
+        if (ongoingSession) currentSessionId = ongoingSession._id.toString();
+      }
+    }
+
     // Khởi tạo phòng ngay lập tức (eager init) với metadata mặc định
     if (!livekitRoom && this.livekitRoomService) {
       try {
@@ -141,10 +173,11 @@ export class MeetingsService {
           name: meeting.meetingCode,
           emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
           metadata: JSON.stringify({
+            sessionId: currentSessionId,
             isWaitingRoomEnabled: false,
             isChatEnabled: true,
             approvalPermission: "admin_only",
-          }),
+          } as LivekitRoomMetadata),
         });
       } catch (e) {
         console.error("Lỗi Eager Init phòng LiveKit:", e);
@@ -889,6 +922,12 @@ export class MeetingsService {
     });
 
     if (meeting) {
+      // Đóng Session hiện tại (vô hiệu hoá lời mời)
+      await this.sessionModel.updateMany(
+        { meetingCode, status: "ongoing" },
+        { $set: { status: "ended", endedAt: new Date() } },
+      );
+
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
         isOngoing: false,

@@ -18,6 +18,7 @@ import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { Roles } from "../core/decorators/roles.decorator";
 import { JoinMeetingDto } from "./dtos/join-meeting.dto";
 import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
+import { MeetingInviteService } from "./meeting-invite.service";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -201,7 +202,10 @@ export class MeetingsController {
 
 @Controller("meetings") // Public meeting API, không cần check quyền
 export class GlobalMeetingsController {
-  constructor(private readonly meetingsService: MeetingsService) {}
+  constructor(
+    private readonly meetingsService: MeetingsService,
+    private readonly meetingInviteService: MeetingInviteService,
+  ) {}
 
   /**
    * POST /api/meetings/join-by-code
@@ -253,5 +257,38 @@ export class GlobalMeetingsController {
       body.fileName,
       body.meetingCode,
     );
+  }
+
+  /**
+   * POST /api/meetings/sessions/:sessionId/invite
+   * Gửi lời mời tham gia cuộc họp
+   */
+  @Post(":meetingCode/invite")
+  @UseGuards(SupabaseGuard)
+  async inviteToMeeting(
+    @Param("meetingCode") meetingCode: string,
+    @Body("inviteeId") inviteeId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const inviterId = req.user.id;
+    return this.meetingInviteService.sendMeetingInvite(
+      inviterId,
+      inviteeId,
+      meetingCode,
+    );
+  }
+
+  /**
+   * GET /api/meetings/sessions/:sessionId/exchange
+   * Đổi sessionId lấy thông tin phòng để tham gia
+   */
+  @Get("sessions/:sessionId/exchange")
+  @UseGuards(SupabaseGuard)
+  async exchangeSession(
+    @Param("sessionId") sessionId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.meetingInviteService.exchangeSessionForCode(userId, sessionId);
   }
 }

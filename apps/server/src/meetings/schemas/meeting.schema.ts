@@ -18,7 +18,6 @@ export class Meeting {
 
   @Prop({ required: true })
   hostId: string; // Người khởi tạo cuộc họp
-  status: string; // cần loại bỏ gấp
 }
 
 export const MeetingSchema = SchemaFactory.createForClass(Meeting);
