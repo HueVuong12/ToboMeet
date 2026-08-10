@@ -14,6 +14,7 @@ export const baseApi = createApi({
     "DeviceStatus",
     "ChannelFile",
     "Notification",
+    "UserSearch",
   ],
   endpoints: () => ({}),
 });

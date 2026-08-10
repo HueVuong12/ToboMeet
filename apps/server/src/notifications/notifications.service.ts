@@ -26,7 +26,7 @@ export class NotificationsService {
    * Helper cập nhật trạng thái có thông báo chưa đọc cho User(s).
    * Chạy bất đồng bộ (không block luồng chính).
    */
-  private async toggleUnreadStatus(
+  async toggleUnreadStatus(
     userIds: string | string[],
     hasUnread: boolean,
   ) {

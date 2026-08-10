@@ -1,31 +1,53 @@
 import { Loader2, Search, UserMinus, UserPlus, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { useMeetingInvite } from "@/hooks/useMeetingInvite";
+import { Participant } from "livekit-client";
 
 interface InviteMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  isLoading: boolean;
-  availableMembers: any[];
-  invitingUserId: string | null;
-  onSendInvite: (userId: string, displayName: string) => void;
+  roomId: string | null;
+  meetingCode: string;
+  displayParticipants: Participant[];
 }
 
 export default function InviteMemberModal({
   isOpen,
   onClose,
-  searchQuery,
-  onSearchChange,
-  isLoading,
-  availableMembers,
-  invitingUserId,
-  onSendInvite,
+  roomId,
+  meetingCode,
+  displayParticipants,
 }: InviteMemberModalProps) {
+  const {
+    searchQuery,
+    setSearchQuery,
+    isLoading,
+    isFetching,
+    hasNextPage,
+    availableMembersToInvite,
+    invitingUserId,
+    handleSendInvite,
+    loadMore,
+  } = useMeetingInvite({
+    roomId,
+    meetingCode,
+    displayParticipants,
+    isOpen,
+  });
+
   if (!isOpen) return null;
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      if (hasNextPage && !isFetching) {
+        loadMore();
+      }
+    }
+  };
+
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 animate-fade-in backdrop-blur-sm">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4 animate-fade-in backdrop-blur-sm">
       <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#333]">
@@ -48,7 +70,7 @@ export default function InviteMemberModal({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm theo tên hoặc email..."
               className="w-full pl-9 pr-4 py-2.5 bg-[#222] border border-[#333] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-slate-500"
               autoFocus
@@ -56,29 +78,36 @@ export default function InviteMemberModal({
           </div>
         </div>
 
-        {/* Danh sách thành viên để mời */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+        {/* Danh sách thành viên */}
+        <div
+          className="flex-1 overflow-y-auto custom-scrollbar p-3 relative"
+          onScroll={handleScroll}
+        >
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-              <span className="text-xs text-slate-400">
-                Đang tải danh sách...
-              </span>
+              <span className="text-xs text-slate-400">Đang tìm kiếm...</span>
             </div>
-          ) : availableMembers && availableMembers.length > 0 ? (
+          ) : availableMembersToInvite &&
+            availableMembersToInvite.length > 0 ? (
             <div className="flex flex-col gap-1">
-              {availableMembers.map((member) => (
+              {availableMembersToInvite.map((member) => (
                 <div
                   key={member.userId}
                   className="flex items-center gap-3 p-2.5 hover:bg-[#2a2a2a] rounded-xl transition-all border border-transparent hover:border-[#333]"
                 >
-                  {/* Avatar */}
                   <div className="relative shrink-0">
                     {member.avatarUrl ? (
                       <img
                         src={member.avatarUrl}
                         alt={member.displayName}
-                        className="w-10 h-10 rounded-full object-cover border border-[#333]"
+                        className="w-10 h-10 rounded-full object-cover border border-[#333] bg-[#222]"
+                        onError={(e) => {
+                          const fallbackName = member.displayName || "?";
+                          e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            fallbackName,
+                          )}&background=1e293b&color=94a3b8&bold=true`;
+                        }}
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm uppercase border border-[#333]">
@@ -87,26 +116,29 @@ export default function InviteMemberModal({
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="text-sm font-medium text-slate-200 truncate">
+                    <span className="text-sm font-medium text-slate-200 truncate flex items-center gap-1.5">
                       {member.displayName || "Người dùng"}
+                      {/* {member.isOutsider && (
+                        <span className="px-1.5 py-0.5 bg-brand-500/20 text-brand-400 text-[9px] font-bold rounded-md tracking-wide uppercase border border-brand-500/30">
+                          Khách
+                        </span>
+                      )} */}
                     </span>
                     <span className="text-[10px] text-slate-500 truncate mt-0.5">
                       {member.email}
                     </span>
                   </div>
 
-                  {/* Nút Mời */}
                   <button
                     onClick={() =>
-                      onSendInvite(
+                      handleSendInvite(
                         member.userId,
                         member.displayName || "Người dùng",
                       )
                     }
                     disabled={invitingUserId === member.userId}
-                    className="shrink-0 px-4 py-1.5 bg-[#222] border border-[#333] hover:border-blue-500 hover:bg-blue-600/10 text-slate-300 hover:text-blue-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[70px]"
+                    className="shrink-0 px-4 py-1.5 bg-[#222] border border-[#333] hover:border-brand-500 hover:bg-brand-600/10 text-slate-300 hover:text-brand-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-17.5"
                   >
                     {invitingUserId === member.userId ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -116,6 +148,11 @@ export default function InviteMemberModal({
                   </button>
                 </div>
               ))}
+              {isFetching && !isLoading && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-brand-500" />
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 opacity-60">
@@ -126,8 +163,8 @@ export default function InviteMemberModal({
               />
               <p className="text-sm text-slate-400 text-center px-4">
                 {searchQuery
-                  ? "Không tìm thấy thành viên nào phù hợp."
-                  : "Tất cả thành viên đã có mặt trong phòng."}
+                  ? "Không tìm thấy kết quả nào phù hợp."
+                  : "Tất cả thành viên đều đã có mặt trong phòng."}
               </p>
             </div>
           )}

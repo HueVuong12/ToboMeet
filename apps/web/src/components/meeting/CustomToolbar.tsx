@@ -72,6 +72,7 @@ export default function CustomToolbar({
   const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
 
   const [isCopied, setIsCopied] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
@@ -119,18 +120,6 @@ export default function CustomToolbar({
     channelId,
     meetingCode,
   });
-
-  const {
-    isInviteModalOpen,
-    setIsInviteModalOpen,
-    closeInviteModal,
-    searchMemberQuery,
-    setSearchMemberQuery,
-    isMembersLoading,
-    availableMembersToInvite,
-    invitingUserId,
-    handleSendInvite,
-  } = useMeetingInvite({ roomId, meetingCode, displayParticipants });
 
   const toggleScreenShare = async () => {
     try {
@@ -520,13 +509,10 @@ export default function CustomToolbar({
       {/* ================= MODAL MỜI THÀNH VIÊN ================= */}
       <InviteMemberModal
         isOpen={isInviteModalOpen}
-        onClose={closeInviteModal}
-        searchQuery={searchMemberQuery}
-        onSearchChange={setSearchMemberQuery}
-        isLoading={isMembersLoading}
-        availableMembers={availableMembersToInvite || []}
-        invitingUserId={invitingUserId}
-        onSendInvite={handleSendInvite}
+        onClose={() => setIsInviteModalOpen(false)}
+        roomId={roomId}
+        meetingCode={meetingCode}
+        displayParticipants={displayParticipants}
       />
     </footer>
   );

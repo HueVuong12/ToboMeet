@@ -1,51 +1,103 @@
-// hooks/useMeetingInvite.ts
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useGetRoomMembersQuery } from "@/lib/redux/api/roomsApi";
 import { useSendMeetingInviteMutation } from "@/lib/redux/api/meetingsApi";
+import { useGlobalUserSearch } from "./useGlobalUserSearch";
 import { toast } from "sonner";
-import { Participant } from "livekit-client"; // Hoặc import type phù hợp từ thư viện bạn dùng
+import { Participant } from "livekit-client";
+import debounce from "lodash/debounce";
 
 interface UseMeetingInviteProps {
   roomId: string | null;
   meetingCode: string;
-  displayParticipants: Participant[]; // Danh sách đang ở trong phòng để lọc
+  displayParticipants: Participant[];
+  isOpen: boolean;
 }
 
 export function useMeetingInvite({
   roomId,
   meetingCode,
   displayParticipants,
+  isOpen,
 }: UseMeetingInviteProps) {
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [searchMemberQuery, setSearchMemberQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
 
-  // RTK Queries
+  // Debounce logic
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((query: string) => {
+        setDebouncedQuery(query);
+      }, 500),
+    [],
+  );
+
+  useEffect(() => {
+    debouncedSearch(searchQuery);
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [searchQuery, debouncedSearch]);
+
+  // Tự động reset bộ đếm và text khi Modal đóng
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery("");
+      setDebouncedQuery("");
+    }
+  }, [isOpen]);
+
+  // Gọi API lấy thành viên phòng
   const { data: roomMembers, isLoading: isMembersLoading } =
     useGetRoomMembersQuery(roomId || "", {
-      skip: !roomId || !isInviteModalOpen,
+      skip: !roomId || !isOpen,
     });
-  const [sendInvite] = useSendMeetingInviteMutation();
 
-  // Logic lọc thành viên
-  const availableMembersToInvite = roomMembers?.filter((member) => {
-    const isAlreadyInRoom = displayParticipants.some(
-      (p) => p.identity === member.userId,
-    );
-    if (isAlreadyInRoom) return false;
-    if (member.status === "removed") return false;
-
-    if (searchMemberQuery) {
-      const q = searchMemberQuery.toLowerCase();
-      return (
-        member.displayName?.toLowerCase().includes(q) ||
-        member.email?.toLowerCase().includes(q)
-      );
-    }
-    return true;
+  // Gọi API tìm kiếm toàn cục
+  const {
+    users: globalUsers,
+    isFetching: isGlobalSearching,
+    isLoading: isGlobalLoading,
+    hasNext: hasNextPage,
+    loadMore,
+  } = useGlobalUserSearch({
+    q: debouncedQuery,
+    skip: !isOpen || debouncedQuery.trim() === "",
   });
 
-  // Action Gửi lời mời
+  const [sendInvite] = useSendMeetingInviteMutation();
+
+  // Logic gộp và lọc dữ liệu
+  const availableMembersToInvite = useMemo(() => {
+    const activeParticipantIds = new Set(
+      displayParticipants.map((p) => p.identity),
+    );
+
+    if (!debouncedQuery.trim()) {
+      return (
+        roomMembers?.filter((member) => {
+          if (activeParticipantIds.has(member.userId)) return false;
+          if (member.status === "removed") return false;
+          return true;
+        }) || []
+      );
+    } else {
+      return globalUsers
+        .filter((user) => !activeParticipantIds.has(user.supabaseId))
+        .map((user) => ({
+          userId: user.supabaseId,
+          displayName: user.displayName,
+          email: user.email,
+          avatarUrl: user.avatarUrl,
+          isOutsider: !roomMembers?.some((rm) => rm.userId === user.supabaseId),
+        }));
+    }
+  }, [roomMembers, globalUsers, displayParticipants, debouncedQuery]);
+
+  const isLoading =
+    isMembersLoading || (isGlobalLoading && !!debouncedQuery.trim());
+  const isFetching = isGlobalSearching;
+
   const handleSendInvite = async (userId: string, displayName: string) => {
     setInvitingUserId(userId);
     try {
@@ -62,27 +114,15 @@ export function useMeetingInvite({
     }
   };
 
-  const closeInviteModal = () => {
-    setIsInviteModalOpen(false);
-    setSearchMemberQuery("");
-  };
-
   return {
-    // Trạng thái Modal
-    isInviteModalOpen,
-    setIsInviteModalOpen,
-    closeInviteModal,
-
-    // Trạng thái Tìm kiếm
-    searchMemberQuery,
-    setSearchMemberQuery,
-
-    // Dữ liệu và Loading
-    isMembersLoading,
+    searchQuery,
+    setSearchQuery,
+    isLoading,
+    isFetching,
+    hasNextPage,
     availableMembersToInvite,
     invitingUserId,
-
-    // Actions
     handleSendInvite,
+    loadMore,
   };
 }

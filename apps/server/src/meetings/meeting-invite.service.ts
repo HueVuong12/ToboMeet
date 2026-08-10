@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import {
@@ -15,12 +15,15 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { AppException } from "../core/exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
 import { User, UserDocument } from "../users/schemas/user.schema";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class MeetingInviteService {
   private livekitRoomService: RoomServiceClient;
 
   constructor(
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationService: NotificationsService,
     private appGateway: AppGateway,
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
@@ -117,6 +120,9 @@ export class MeetingInviteService {
       type: "MEETING_INVITE",
       "metadata.sessionId": sessionId,
     });
+
+    // toggle unread cho user
+    this.notificationService.toggleUnreadStatus(inviteeId, true);
 
     if (existingNotif) {
       const lastUpdated = existingNotif.updatedAt?.getTime() || 0;

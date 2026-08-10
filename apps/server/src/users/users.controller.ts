@@ -17,10 +17,31 @@ import { SupabaseGuard } from "../core/guards/supabase.guard";
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @UseGuards(SupabaseGuard)
+  // @UseGuards(SupabaseGuard)
+  // @Get("search")
+  // async searchUsers(@Query("q") query: string) {
+  //   return this.usersService.searchUsers(query);
+  // }
+
+  /**
+   * GET /api/users/search
+   * Tìm kiếm người dùng theo tên hoặc email có phân trang
+   */
   @Get("search")
-  async searchUsers(@Query("q") query: string) {
-    return this.usersService.searchUsers(query);
+  @UseGuards(SupabaseGuard)
+  async searchUsers(
+    @Query("q") query: string,
+    @Query("page") pageParam?: string,
+    @Query("limit") limitParam?: string,
+  ) {
+    const page = parseInt(pageParam as string, 10) || 1;
+    const limit = parseInt(limitParam as string, 10) || 20;
+
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException("Tham số phân trang không hợp lệ.");
+    }
+
+    return this.usersService.searchUsers(query, page, limit);
   }
 
   private getClientIp(req: any): string {
@@ -42,14 +63,16 @@ export class UsersController {
 
     // Không lưu/sử dụng localhost khi chạy production
     const isProd = process.env.NODE_ENV === "production";
-    return isProd && (rawIp === "127.0.0.1" || rawIp === "0.0.0.0") ? "" : rawIp;
+    return isProd && (rawIp === "127.0.0.1" || rawIp === "0.0.0.0")
+      ? ""
+      : rawIp;
   }
 
   @UseGuards(SupabaseGuard)
   @Get("me")
   async getMe(@Request() req) {
     const userDoc = await this.usersService.getOrCreateUser(req.user);
-    
+
     // Tự động ghi nhận/cập nhật phiên hoạt động khi user tải trang / mở app
     const userId = req.user.id;
     const authHeader = req.headers.authorization;
@@ -65,7 +88,15 @@ export class UsersController {
 
     if (token) {
       // Gọi không đồng bộ (bất đồng bộ chạy nền) để không làm chậm request getMe chính
-      this.usersService.registerOrUpdateSession(userId, token, userAgent, clientIp, deviceHeaders).catch(() => {});
+      this.usersService
+        .registerOrUpdateSession(
+          userId,
+          token,
+          userAgent,
+          clientIp,
+          deviceHeaders,
+        )
+        .catch(() => {});
     }
 
     return userDoc;
@@ -86,7 +117,13 @@ export class UsersController {
       deviceOS: req.headers["x-device-os"] as string,
     };
 
-    return this.usersService.getUserSessions(userId, token, userAgent, clientIp, deviceHeaders);
+    return this.usersService.getUserSessions(
+      userId,
+      token,
+      userAgent,
+      clientIp,
+      deviceHeaders,
+    );
   }
 
   @UseGuards(SupabaseGuard)
@@ -94,14 +131,13 @@ export class UsersController {
   async getLoggedOutSessions(
     @Request() req,
     @Query("page") pageStr?: string,
-    @Query("limit") limitStr?: string
+    @Query("limit") limitStr?: string,
   ) {
     const userId = req.user.id;
     const page = pageStr ? parseInt(pageStr, 10) : 1;
     const limit = limitStr ? parseInt(limitStr, 10) : 10;
     return this.usersService.getLoggedOutSessions(userId, page, limit);
   }
-
 
   @UseGuards(SupabaseGuard)
   @Delete("me/sessions/others")
@@ -112,7 +148,12 @@ export class UsersController {
     const userAgent = (req.headers["user-agent"] as string) || "";
     // Lấy socketId của thiết bị hiện tại để server exclude khi emit force_logout
     const currentSocketId = (req.headers["x-socket-id"] as string) || "";
-    return this.usersService.revokeOtherSessions(userId, token, userAgent, currentSocketId);
+    return this.usersService.revokeOtherSessions(
+      userId,
+      token,
+      userAgent,
+      currentSocketId,
+    );
   }
 
   @UseGuards(SupabaseGuard)
@@ -136,7 +177,14 @@ export class UsersController {
   ) {
     const lat = parseFloat(latStr);
     const lon = parseFloat(lonStr);
-    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    if (
+      isNaN(lat) ||
+      isNaN(lon) ||
+      lat < -90 ||
+      lat > 90 ||
+      lon < -180 ||
+      lon > 180
+    ) {
       throw new BadRequestException("lat/lon không hợp lệ");
     }
     return this.usersService.reverseGeocode(lat, lon);
@@ -146,7 +194,7 @@ export class UsersController {
   @Put("me/sessions/current/location")
   async updateLocation(
     @Request() req,
-    @Body() body: { city: string; country: string }
+    @Body() body: { city: string; country: string },
   ) {
     const userId = req.user.id;
     const authHeader = req.headers.authorization;
@@ -159,7 +207,7 @@ export class UsersController {
         token,
         userAgent,
         safeBody.city || "",
-        safeBody.country || ""
+        safeBody.country || "",
       );
     }
     return { success: true };
