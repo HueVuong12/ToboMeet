@@ -1116,7 +1116,7 @@ export class UsersService {
       this.userModel.countDocuments(searchFilter),
       this.userModel
         .find(searchFilter)
-        .select("supabaseId email displayName avatarUrl hasUnreadNotifications")
+        .select("supabaseId email displayName avatarUrl")
         .skip(skip)
         .limit(limit)
         .lean()
@@ -1126,7 +1126,7 @@ export class UsersService {
     const totalPages = Math.ceil(total / limit);
     const hasNext = page < totalPages;
 
-    const items: UserResponse[] = users.map((user: any) => ({
+    const items: UserResponse[] = users.map((user: UserDocument) => ({
       _id: user._id.toString(),
       supabaseId: user.supabaseId,
       email: user.email,

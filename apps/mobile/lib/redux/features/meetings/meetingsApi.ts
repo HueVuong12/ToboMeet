@@ -7,6 +7,12 @@ import {
 } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
+interface ExchangeSessionResponse {
+  meetingCode: string;
+  roomId: string;
+  channelId: string;
+}
+
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     joinMeeting: builder.mutation<
@@ -173,6 +179,26 @@ export const meetingsApi = baseApi.injectEndpoints({
         data: body,
       }),
     }),
+
+    // Gửi lời mời
+    sendMeetingInvite: builder.mutation<
+      void,
+      { meetingCode: string; inviteeId: string }
+    >({
+      query: ({ meetingCode, inviteeId }) => ({
+        url: `/meetings/${meetingCode}/invite`,
+        method: "POST",
+        data: { inviteeId },
+      }),
+    }),
+
+    // Đổi sessionId lấy meetingCode
+    exchangeSession: builder.query<ExchangeSessionResponse, string>({
+      query: (sessionId) => ({
+        url: `/meetings/sessions/${sessionId}/exchange`,
+        method: "GET",
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -190,4 +216,6 @@ export const {
   useRemoveParticipantMutation,
   useMuteParticipantMutation,
   useGeneratePresignedUploadUrlMutation,
+  useLazyExchangeSessionQuery,
+  useSendMeetingInviteMutation,
 } = meetingsApi;

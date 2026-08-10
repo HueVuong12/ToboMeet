@@ -1,4 +1,4 @@
-import { UserResponse } from "@tobomeet/shared/types";
+import { PageResponse, UserResponse } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
 export interface UserSession {
@@ -27,6 +27,12 @@ export interface SessionsResponse {
   totalLoggedOut: number;
 }
 
+export type SearchUsersArgs = {
+  q: string;
+  page: number;
+  limit?: number;
+};
+
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMe: builder.query<UserResponse, void>({
@@ -36,12 +42,48 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       providesTags: ["User"],
     }),
-    searchUsers: builder.query<UserResponse[], string>({
-      query: (query) => ({
-        url: `/users/search?q=${encodeURIComponent(query)}`,
-        method: "GET",
+
+    // Tìm kiếm toàn cục + phân trang (tuyệt đối không đụng nữa)
+    searchUsers: builder.query<PageResponse<UserResponse>, SearchUsersArgs>({
+      query: (args) => ({
+        url: "/users/search",
+        params: args,
       }),
+
+      // Chỉ tạo khoá (Cache Key) dựa trên từ khóa tìm kiếm (q), bỏ qua page và limit
+      serializeQueryArgs: ({ endpointName, queryArgs }) => {
+        const queryKey = queryArgs.q || "";
+        return `${endpointName}-${queryKey}`;
+      },
+
+      // Gộp (Merge) dữ liệu mới vào cache cũ khi cuộn tải thêm
+      merge: (currentCache, newItems, { arg }) => {
+        if (arg.page === 1) {
+          // Nếu gọi lại trang 1 (khi search từ khóa mới hoặc refresh), ghi đè toàn bộ
+          return newItems;
+        }
+
+        // Nếu gọi các trang tiếp theo, nối (push) thêm dữ liệu vào mảng items cũ
+        currentCache.items.push(...newItems.items);
+
+        // Cập nhật lại các thông tin phân trang
+        currentCache.page = newItems.page;
+        currentCache.hasNext = newItems.hasNext;
+        currentCache.total = newItems.total;
+        currentCache.totalPages = newItems.totalPages;
+      },
+
+      // Bắt buộc gọi lại API khi page thay đổi hoặc từ khóa q thay đổi
+      forceRefetch({ currentArg, previousArg }) {
+        return (
+          currentArg?.page !== previousArg?.page ||
+          currentArg?.q !== previousArg?.q
+        );
+      },
+
+      providesTags: ["UserSearch"],
     }),
+
     getSessions: builder.query<SessionsResponse, void>({
       query: () => ({
         url: "/users/me/sessions",
@@ -49,7 +91,11 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       providesTags: ["UserSessions"],
     }),
-    getLoggedOutSessions: builder.query<{ sessions: UserSession[]; total: number; page: number; limit: number }, { page: number; limit: number }>({
+
+    getLoggedOutSessions: builder.query<
+      { sessions: UserSession[]; total: number; page: number; limit: number },
+      { page: number; limit: number }
+    >({
       query: ({ page, limit }) => ({
         url: "/users/me/sessions/logged-out",
         method: "GET",
@@ -57,6 +103,7 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       providesTags: ["UserSessions"],
     }),
+
     revokeSession: builder.mutation<void, string>({
       query: (sessionId) => ({
         url: `/users/me/sessions/${sessionId}`,
@@ -64,6 +111,7 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["UserSessions"],
     }),
+
     revokeOtherSessions: builder.mutation<void, { socketId?: string } | void>({
       query: (arg) => {
         const socketId = arg && (arg as { socketId?: string }).socketId;

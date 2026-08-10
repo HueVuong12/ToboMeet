@@ -4,20 +4,34 @@ import { useRoomCacheManager } from "../useRoomCacheManager";
 import { useRouter, usePathname } from "expo-router";
 import { toast } from "../../lib/toast";
 import { socket } from "../../lib/socket";
+import { NotificationResponse } from "@tobomeet/shared/types";
+import { useNotificationCacheManager } from "../useNotificationCacheManager";
 
 export function useNotificationSocketEvents() {
   const router = useRouter();
   const pathname = usePathname();
   const { removeRoomFromMyList } = useRoomCacheManager();
+  const { addNotificationsToCache, updateUnreadNotificationBadge } =
+    useNotificationCacheManager();
 
   // Lắng nghe và xử lý sự kiện thông báo
   useEffect(() => {
-    const handleNotifications = (notifications: any[]) => {
+    const handleNotifications = (notifications: NotificationResponse[]) => {
       if (!notifications || notifications.length === 0) return;
+
+      // Cập nhật cache ngay lập tức để hiện lên drawer thông báo
+      addNotificationsToCache(notifications);
+
+      // Cập nhật badge unread của người dùng
+      updateUnreadNotificationBadge(true);
 
       notifications.forEach((notif, index) => {
         const roomId = notif.metadata?.roomId;
         const isCurrentlyInRoom = pathname.includes(`/room/${roomId}`);
+        const canPopup = notif.canPopup;
+
+        // Bỏ qua những thông báo không cho popup
+        if (!canPopup) return;
 
         setTimeout(() => {
           switch (notif.type) {
@@ -57,7 +71,7 @@ export function useNotificationSocketEvents() {
       });
 
       const notifIds = notifications.map((n) => n._id);
-      socket.emit("mark_notifications_read", notifIds);
+      socket.emit("mark_notifications_notified", notifIds);
     };
 
     socket.on("receive_notifications", handleNotifications);

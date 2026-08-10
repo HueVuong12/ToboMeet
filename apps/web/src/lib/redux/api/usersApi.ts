@@ -50,6 +50,7 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["User"],
     }),
 
+    // Tìm kiếm toàn cục + phân trang (tuyệt đối không đụng nữa)
     searchUsers: builder.query<PageResponse<UserResponse>, SearchUsersArgs>({
       query: (args) => ({
         url: "/users/search",
@@ -147,14 +148,6 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["UserSessions"],
     }),
-
-    // searchUsers: builder.query<any[], string>({
-    //   query: (query) => ({
-    //     url: "/users/search",
-    //     method: "GET",
-    //     params: { q: query },
-    //   }),
-    // }),
 
     reverseGeocode: builder.query<
       { city: string; country: string },
