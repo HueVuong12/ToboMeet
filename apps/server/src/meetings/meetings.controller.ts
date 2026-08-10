@@ -23,6 +23,10 @@ import { MeetingInviteService } from "./meeting-invite.service";
 interface AuthenticatedRequest extends Request {
   user: {
     id: string;
+    user_metadata?: {
+      full_name: string;
+      avatar_url: string;
+    };
   };
 }
 

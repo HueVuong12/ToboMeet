@@ -14,6 +14,7 @@ import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { AppException } from "../core/exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
+import { User, UserDocument } from "../users/schemas/user.schema";
 
 @Injectable()
 export class MeetingInviteService {
@@ -27,6 +28,8 @@ export class MeetingInviteService {
     private sessionModel: Model<MeetingSessionDocument>,
     @InjectModel(Room.name)
     private roomModel: Model<RoomDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {
     // Khởi tạo LiveKit Client để gọi API trực tiếp
     const livekitHost = process.env.LIVEKIT_API_URL;
@@ -88,14 +91,21 @@ export class MeetingInviteService {
       throw new AppException(ErrorCode.MEETING_INVITE_SESSION_INVALID);
     }
 
-    // Xác thực Session trong Database
-    const session = await this.sessionModel.findById(sessionId);
+    const [session, inviter] = await Promise.all([
+      this.sessionModel.findById(sessionId),
+      this.userModel
+        .findOne({ supabaseId: inviterId })
+        .select("displayName")
+        .exec(),
+    ]);
+
     if (!session || session.status !== "ongoing") {
       throw new AppException(ErrorCode.MEETING_INVITE_SESSION_NOT_FOUND);
     }
 
     const room = await this.roomModel.findById(session.roomId);
-    const roomName = room ? room.name : "Phòng họp";
+    const roomName = room.name;
+    const inviterName = inviter?.displayName;
 
     // Logic chống spam gửi lời mời và lưu thông báo
     const COOLDOWN_MINUTES = 5;
@@ -120,6 +130,7 @@ export class MeetingInviteService {
       existingNotif.metadata = {
         ...existingNotif.metadata,
         inviterId,
+        inviterName,
         invitedAt: now.toISOString(),
         roomName,
       };
@@ -138,6 +149,7 @@ export class MeetingInviteService {
       metadata: {
         sessionId,
         inviterId,
+        inviterName,
         invitedAt: now.toISOString(),
         roomName,
       },

@@ -33,7 +33,7 @@ import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import { socket } from "@/lib/socket";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
-import { useGetMeQuery } from "@/lib/redux/features/users/usersApi";
+import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 interface CalendarEvent {
   _id: string;

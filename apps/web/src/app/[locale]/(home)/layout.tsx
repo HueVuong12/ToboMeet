@@ -9,8 +9,8 @@ import NotificationDrawer from "@/components/notification/NotificationDrawer";
 import JoinDialog from "@/components/dashboard/JoinDialog";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import CreateRoomDialog from "@/components/dashboard/CreateRoomDialog";
-import { useGetMeQuery, usersApi } from "@/lib/redux/features/users/usersApi";
 import { useNotificationCacheManager } from "@/hooks/useNotificationCacheManager";
+import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 // Context để các trang con (children) gọi lệnh mở Modal dùng chung
 interface HomeContextType {

@@ -8,7 +8,7 @@ import {
   useJoinMeetingByCodeMutation,
   useLazyGetMemberStatusQuery,
 } from "@/lib/redux/api/meetingsApi";
-import { useGetMeQuery } from "@/lib/redux/features/users/usersApi";
+import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 export function useMeetingSession() {
   const params = useParams();

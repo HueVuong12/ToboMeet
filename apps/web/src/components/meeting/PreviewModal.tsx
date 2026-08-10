@@ -12,7 +12,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useGetMeQuery } from "@/lib/redux/features/users/usersApi";
+import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 interface PreviewModalProps {
   isOpen: boolean;

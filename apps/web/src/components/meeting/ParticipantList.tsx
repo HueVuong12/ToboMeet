@@ -1,6 +1,4 @@
 import { useParticipantManager } from "@/hooks/useParticipantManager";
-import { useSendMeetingInviteMutation } from "@/lib/redux/api/meetingsApi";
-import { useGetRoomMembersQuery } from "@/lib/redux/api/roomsApi";
 import {
   Edit2,
   Hand,
@@ -13,14 +11,10 @@ import {
   Clock,
   ShieldCheck,
   UserCheck,
-  UserPlus,
-  Search,
-  X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { toast } from "sonner";
 
 export default function ParticipantList({
   roomId,
@@ -33,39 +27,11 @@ export default function ParticipantList({
 }) {
   const t = useTranslations("room");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
-  const [searchMemberQuery, setSearchMemberQuery] = useState("");
-
-  // Lấy danh sách thành viên của phòng (Chỉ gọi khi roomId tồn tại)
-  const { data: roomMembers, isLoading: isMembersLoading } =
-    useGetRoomMembersQuery(roomId || "", {
-      skip: !roomId || !isInviteModalOpen,
-    });
-
-  const [sendInvite, { isLoading: isInviting }] =
-    useSendMeetingInviteMutation();
 
   // State quản lý Tab hiển thị
   const [activeListTab, setActiveListTab] = useState<"joined" | "waiting">(
     "joined",
   );
-
-  const handleSendInvite = async (userId: string, displayName: string) => {
-    setInvitingUserId(userId);
-    try {
-      await sendInvite({ meetingCode, inviteeId: userId }).unwrap();
-      toast.success(`Đã gửi lời mời đến ${displayName}`);
-    } catch (error: any) {
-      toast.error(
-        error?.data?.message ||
-          error?.message ||
-          "Không thể gửi lời mời lúc này.",
-      );
-    } finally {
-      setInvitingUserId(null);
-    }
-  };
 
   const {
     localParticipant,
@@ -86,161 +52,8 @@ export default function ParticipantList({
     getHandState,
   } = useParticipantManager({ roomId, channelId, meetingCode });
 
-  const availableMembersToInvite = roomMembers?.filter((member) => {
-    // Không mời người đã có trong phòng
-    const isAlreadyInRoom = displayParticipants.some(
-      (p) => p.identity === member.userId,
-    );
-    if (isAlreadyInRoom) return false;
-
-    // Không mời những người đã bị remove khỏi Room
-    if (member.status === "removed") return false;
-
-    // Lọc theo text tìm kiếm
-    if (searchMemberQuery) {
-      const q = searchMemberQuery.toLowerCase();
-      return (
-        member.displayName?.toLowerCase().includes(q) ||
-        member.email?.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
   return (
     <div className="flex flex-col h-full">
-      {/* <div className="flex items-center justify-between px-2 pb-3 pt-1">
-        <span className="text-[13px] font-bold text-slate-200 tracking-wide">
-          Thành viên
-        </span>
-        <button
-          onClick={() => setIsInviteModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600 hover:text-white text-blue-500 rounded-lg text-xs font-semibold transition-all duration-200"
-        >
-          <UserPlus size={14} />
-          <span>Mời người</span>
-        </button>
-      </div> */}
-
-      {/* ================= MODAL MỜI THÀNH VIÊN (PORTAL) ================= */}
-      {isInviteModalOpen &&
-        createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 animate-fade-in backdrop-blur-sm">
-            <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#333]">
-                <h3 className="text-[15px] font-bold text-white tracking-wide flex items-center gap-2">
-                  <UserPlus size={18} className="text-blue-500" />
-                  Mời vào cuộc họp
-                </h3>
-                <button
-                  onClick={() => {
-                    setIsInviteModalOpen(false);
-                    setSearchMemberQuery("");
-                  }}
-                  className="p-1.5 hover:bg-[#333] rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="px-5 py-4 bg-[#111]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    value={searchMemberQuery}
-                    onChange={(e) => setSearchMemberQuery(e.target.value)}
-                    placeholder="Tìm theo tên hoặc email..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-[#222] border border-[#333] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-slate-500"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {/* Danh sách thành viên để mời */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-                {isMembersLoading ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                    <span className="text-xs text-slate-400">
-                      Đang tải danh sách...
-                    </span>
-                  </div>
-                ) : availableMembersToInvite &&
-                  availableMembersToInvite.length > 0 ? (
-                  <div className="flex flex-col gap-1">
-                    {availableMembersToInvite.map((member) => (
-                      <div
-                        key={member.userId}
-                        className="flex items-center gap-3 p-2.5 hover:bg-[#2a2a2a] rounded-xl transition-all border border-transparent hover:border-[#333]"
-                      >
-                        {/* Avatar */}
-                        <div className="relative shrink-0">
-                          {member.avatarUrl ? (
-                            <img
-                              src={member.avatarUrl}
-                              alt={member.displayName}
-                              className="w-10 h-10 rounded-full object-cover border border-[#333]"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm uppercase border border-[#333]">
-                              {member.displayName?.charAt(0) || "?"}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <span className="text-sm font-medium text-slate-200 truncate">
-                            {member.displayName || "Người dùng"}
-                          </span>
-                          <span className="text-[10px] text-slate-500 truncate mt-0.5">
-                            {member.email}
-                          </span>
-                        </div>
-
-                        {/* Nút Mời */}
-                        <button
-                          onClick={() =>
-                            handleSendInvite(
-                              member.userId,
-                              member.displayName || "Người dùng",
-                            )
-                          }
-                          disabled={invitingUserId === member.userId}
-                          className="shrink-0 px-4 py-1.5 bg-[#222] border border-[#333] hover:border-blue-500 hover:bg-blue-600/10 text-slate-300 hover:text-blue-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[70px]"
-                        >
-                          {invitingUserId === member.userId ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            "Mời"
-                          )}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 opacity-60">
-                    <UserMinus
-                      className="text-slate-600 mb-3"
-                      size={36}
-                      strokeWidth={1.5}
-                    />
-                    <p className="text-sm text-slate-400 text-center px-4">
-                      {searchMemberQuery
-                        ? "Không tìm thấy thành viên nào phù hợp."
-                        : "Tất cả thành viên đã có mặt trong phòng."}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
-
       {/* ================= THANH ĐIỀU HƯỚNG TABS (CHỈ DÀNH CHO ADMIN) ================= */}
       {canApprove && (
         <div className="flex p-1 bg-[#1a1a1a] rounded-lg mb-3 mx-1 border border-[#333]">
@@ -375,15 +188,6 @@ export default function ParticipantList({
                 </span>
               </div>
             )}
-
-            <button
-              onClick={() => setIsInviteModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-3 mx-1 bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-medium transition-all duration-200"
-              style={{ width: "calc(100% - 8px)" }} // Trừ hao lề mx-1
-            >
-              <UserPlus size={15} />
-              <span>Mời người khác</span>
-            </button>
 
             {displayParticipants.map((p) => {
               let avatarUrl = "";

@@ -1,3 +1,4 @@
+import { UserResponse } from "@tobomeet/shared/types";
 import { baseApi } from "./baseApi";
 
 export interface UserSession {
@@ -26,7 +27,6 @@ export interface UserSession {
   loggedOutAt?: string;
 }
 
-
 export interface SessionsResponse {
   currentDevice: UserSession;
   otherDevices: UserSession[];
@@ -36,6 +36,14 @@ export interface SessionsResponse {
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getMe: builder.query<UserResponse, void>({
+      query: () => ({
+        url: "/users/me",
+        method: "GET",
+      }),
+      providesTags: ["User"],
+    }),
+
     getSessions: builder.query<SessionsResponse, void>({
       query: () => ({
         url: "/users/me/sessions",
@@ -44,7 +52,10 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["UserSessions"],
     }),
 
-    getLoggedOutSessions: builder.query<{ sessions: UserSession[]; total: number; page: number; limit: number }, { page: number; limit: number }>({
+    getLoggedOutSessions: builder.query<
+      { sessions: UserSession[]; total: number; page: number; limit: number },
+      { page: number; limit: number }
+    >({
       query: ({ page, limit }) => ({
         url: "/users/me/sessions/logged-out",
         method: "GET",
@@ -53,7 +64,10 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["UserSessions"],
     }),
 
-    revokeSession: builder.mutation<{ success: boolean; message: string }, string>({
+    revokeSession: builder.mutation<
+      { success: boolean; message: string },
+      string
+    >({
       query: (sessionId) => ({
         url: `/users/me/sessions/${sessionId}`,
         method: "DELETE",
@@ -61,7 +75,10 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ["UserSessions"],
     }),
 
-    revokeOtherSessions: builder.mutation<{ success: boolean; message: string }, { socketId?: string } | void>({
+    revokeOtherSessions: builder.mutation<
+      { success: boolean; message: string },
+      { socketId?: string } | void
+    >({
       query: (arg) => {
         const socketId = arg && (arg as { socketId?: string }).socketId;
         return {
@@ -73,7 +90,10 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ["UserSessions"],
     }),
 
-    updateCurrentSessionLocation: builder.mutation<void, { city: string; country: string }>({
+    updateCurrentSessionLocation: builder.mutation<
+      void,
+      { city: string; country: string }
+    >({
       query: (data) => ({
         url: "/users/me/sessions/current/location",
         method: "PUT",
@@ -90,7 +110,10 @@ export const usersApi = baseApi.injectEndpoints({
       }),
     }),
 
-    reverseGeocode: builder.query<{ city: string; country: string }, { lat: number; lon: number }>({
+    reverseGeocode: builder.query<
+      { city: string; country: string },
+      { lat: number; lon: number }
+    >({
       query: ({ lat, lon }) => ({
         url: "/users/geo/reverse",
         method: "GET",
@@ -102,6 +125,7 @@ export const usersApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetMeQuery,
   useGetSessionsQuery,
   useGetLoggedOutSessionsQuery,
   useLazyGetLoggedOutSessionsQuery,

@@ -1,4 +1,6 @@
 import { useHandRaise } from "@/hooks/useHandRaise";
+import { useMeetingInvite } from "@/hooks/useMeetingInvite";
+import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
 import {
   useLocalParticipant,
@@ -26,9 +28,11 @@ import {
   ShieldCheck,
   UserCog,
   ChevronRight,
+  UserPlus,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import InviteMemberModal from "./InviteMemberModal";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -109,6 +113,24 @@ export default function CustomToolbar({
     channelId,
     meetingCode,
   });
+
+  const { displayParticipants } = useParticipantManager({
+    roomId,
+    channelId,
+    meetingCode,
+  });
+
+  const {
+    isInviteModalOpen,
+    setIsInviteModalOpen,
+    closeInviteModal,
+    searchMemberQuery,
+    setSearchMemberQuery,
+    isMembersLoading,
+    availableMembersToInvite,
+    invitingUserId,
+    handleSendInvite,
+  } = useMeetingInvite({ roomId, meetingCode, displayParticipants });
 
   const toggleScreenShare = async () => {
     try {
@@ -309,6 +331,16 @@ export default function CustomToolbar({
                   </span>
                 </button>
 
+                <button
+                  onClick={() => {
+                    setIsInviteModalOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                >
+                  <UserPlus size={16} />
+                  <span>Mời người tham gia</span>
+                </button>
+
                 {isHost && (
                   <>
                     <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#333] bg-[#333]">
@@ -484,6 +516,18 @@ export default function CustomToolbar({
           </span>
         </button>
       </div>
+
+      {/* ================= MODAL MỜI THÀNH VIÊN ================= */}
+      <InviteMemberModal
+        isOpen={isInviteModalOpen}
+        onClose={closeInviteModal}
+        searchQuery={searchMemberQuery}
+        onSearchChange={setSearchMemberQuery}
+        isLoading={isMembersLoading}
+        availableMembers={availableMembersToInvite || []}
+        invitingUserId={invitingUserId}
+        onSendInvite={handleSendInvite}
+      />
     </footer>
   );
 }

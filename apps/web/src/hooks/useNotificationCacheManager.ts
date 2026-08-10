@@ -2,7 +2,7 @@ import { useDispatch } from "react-redux";
 import { notificationsApi } from "@/lib/redux/api/notificationsApi";
 import { NotificationResponse } from "@tobomeet/shared/types";
 import { AppDispatch } from "@/lib/redux/store";
-import { usersApi } from "@/lib/redux/features/users/usersApi";
+import { usersApi } from "@/lib/redux/api/usersApi";
 
 export function useNotificationCacheManager() {
   const dispatch = useDispatch<AppDispatch>();
