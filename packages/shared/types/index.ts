@@ -308,6 +308,8 @@ export interface NotificationResponse {
   type: string;
   metadata: Record<string, any>;
   isRead: boolean;
+  isNotified?: boolean; // Dành cho Popup/Toast
+  canPopup?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

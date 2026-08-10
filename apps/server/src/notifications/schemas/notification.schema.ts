@@ -19,6 +19,12 @@ export class Notification {
   @Prop({ default: false })
   isRead: boolean;
 
+  @Prop({ default: false })
+  isNotified: boolean; // Dành cho Popup/Toast
+
+  @Prop({ default: false })
+  canPopup: boolean; // Cho phép thông báo này được popup
+
   @Prop()
   createdAt?: Date;
 

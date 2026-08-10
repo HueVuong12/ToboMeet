@@ -3,7 +3,6 @@ import {
   Bell,
   UserMinus,
   Trash2,
-  LogOut,
   Video,
   AlertTriangle,
   CheckCircle2,
@@ -27,7 +26,6 @@ export default function NotificationCard({
   const [exchangeSession] = useLazyExchangeSessionQuery();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Hàm helper để map type sang UI tương ứng
   const getNotificationDetails = (
     type: string,
     metadata: Record<string, any>,
@@ -47,17 +45,10 @@ export default function NotificationCard({
           icon: Trash2,
           colorClass: "text-orange-600 bg-orange-100",
         };
-      case "PARTICIPANT_REMOVED":
-        return {
-          title: "Đã rời cuộc họp",
-          content: `Bạn đã bị xoá khỏi cuộc họp.`, // Xóa meetingCode vì người dùng không cần thiết phải biết mã code
-          icon: LogOut,
-          colorClass: "text-red-600 bg-red-100",
-        };
       case "MEETING_INVITE":
         return {
-          title: "Lời mời tham gia họp",
-          content: `${metadata?.inviterName || "Ai đó"} đã mời bạn tham gia cuộc họp.`,
+          title: "Tham gia họp",
+          content: `${metadata?.inviterName || "Ai đó"} đã mời bạn tham gia cuộc họp trong phòng ${metadata?.roomName}.`,
           icon: Video,
           colorClass: "text-brand-600 bg-brand-100",
           sessionId: metadata?.sessionId,
@@ -80,7 +71,7 @@ export default function NotificationCard({
       default:
         return {
           title: "Thông báo hệ thống",
-          content: `Có một sự kiện diễn ra (${type}).`,
+          content: `Sự kiện diễn ra (${type}).`,
           icon: Bell,
           colorClass: "text-slate-500 bg-slate-100",
         };

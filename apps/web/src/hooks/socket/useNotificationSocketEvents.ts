@@ -27,6 +27,10 @@ export function useNotificationSocketEvents() {
       notifications.forEach((notif, index) => {
         const roomId = notif.metadata?.roomId;
         const isCurrentlyInRoom = currentPath.includes(`/room/${roomId}`);
+        const canPopup = notif.canPopup;
+
+        // Bỏ qua những thông báo không cho popup
+        if (!canPopup) return;
 
         setTimeout(() => {
           switch (notif.type) {
@@ -87,7 +91,7 @@ export function useNotificationSocketEvents() {
       });
 
       const notifIds = notifications.map((n) => n._id);
-      socket.emit("mark_notifications_read", notifIds); // ack lại cho server biết đã nhận rồi
+      socket.emit("mark_notifications_notified", notifIds); // ack lại cho server biết đã popup rồi
     };
 
     socket.on("receive_notifications", handleNotifications);

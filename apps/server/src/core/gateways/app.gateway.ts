@@ -48,16 +48,37 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.join(`user_${userId}`);
 
     try {
-      // Khi người dùng online lại, kiểm tra xem có thông báo nào chưa gửi không
+      // Khi người dùng online lại, kiểm tra xem có thông báo popup nào chưa gửi không
       const unreadNotifs = await this.notificationModel
-        .find({ userId: userId, isRead: false })
-        .sort({ createdAt: 1 });
+        .find({ userId: userId, isNotified: false, canPopup: true })
+        .sort({ createdAt: -1 }) // Sắp xếp mới nhất lên đầu
+        .limit(20); // Giới hạn 20 record
 
       if (unreadNotifs.length > 0) {
-        client.emit("receive_notifications", unreadNotifs); // xả tất cả thông báo chưa nhận được
+        client.emit("receive_notifications", unreadNotifs); // xả 20 thông báo popup
       }
     } catch (error) {
       console.error("[Socket] Lỗi khi đồng bộ thông báo lúc online:", error);
+    }
+  }
+
+  /**
+   * Đánh dấu thông báo đã được hiển thị Popup/Toast (Không còn bị spam lại)
+   */
+  @SubscribeMessage("mark_notifications_notified")
+  async handleMarkNotificationsNotified(
+    @MessageBody() notificationIds: string[],
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      if (!notificationIds || notificationIds.length === 0) return;
+
+      await this.notificationModel.updateMany(
+        { _id: { $in: notificationIds } },
+        { $set: { isNotified: true } },
+      );
+    } catch (error) {
+      console.error("[Socket] Lỗi khi đánh dấu notified:", error);
     }
   }
 
@@ -70,10 +91,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      // Bỏ qua nếu mảng rỗng để tránh query vô ích xuống DB
       if (!notificationIds || notificationIds.length === 0) return;
 
-      // Update tất cả các record có _id nằm trong mảng notificationIds
       await this.notificationModel.updateMany(
         { _id: { $in: notificationIds } },
         { $set: { isRead: true } },

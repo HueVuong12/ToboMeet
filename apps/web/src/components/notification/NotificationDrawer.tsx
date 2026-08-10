@@ -1,7 +1,6 @@
 import { useNotifications } from "@/hooks/useNotifications";
 import { Bell, Loader2, X } from "lucide-react";
 import NotificationCard from "./NotificationCard";
-import { skip } from "node:test";
 
 export default function NotificationDrawer({
   isOpen,
@@ -22,16 +21,22 @@ export default function NotificationDrawer({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
     <>
+      {/* Backdrop: Sử dụng opacity và invisible để ẩn/hiện mượt mà */}
       <div
-        className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-[2px] transition-opacity animate-fade-in"
+        className={`fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[2px] transition-all duration-300 ease-in-out ${
+          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+        }`}
         onClick={onClose}
       />
 
-      <div className="fixed top-0 left-17 bottom-0 w-95 bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 animate-slide-in-left">
+      {/* Drawer: Dùng translate-x để tạo hiệu ứng trượt */}
+      <div
+        className={`fixed top-0 left-17 bottom-0 w-95 bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-[150%]"
+        }`}
+      >
         <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 bg-white/80 backdrop-blur-md">
           <h2 className="text-lg font-bold text-slate-800">Thông báo</h2>
           <button
@@ -64,7 +69,6 @@ export default function NotificationDrawer({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {/* Sử dụng NotificationCard tại đây */}
               {notifications.map((notif) => (
                 <NotificationCard
                   key={notif._id}

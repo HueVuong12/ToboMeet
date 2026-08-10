@@ -69,5 +69,52 @@ export function useNotificationCacheManager() {
     );
   };
 
-  return { addNotificationsToCache, updateUnreadNotificationBadge };
+  // Đánh dấu đã đọc trong Cache
+  const markNotificationsAsReadInCache = (
+    unreadIds: string[],
+    type?: string,
+    isRead?: boolean | string,
+  ) => {
+    if (!unreadIds || unreadIds.length === 0) return;
+
+    const unreadSet = new Set(unreadIds);
+
+    // Cập nhật đúng vào tab cache đang mở
+    dispatch(
+      notificationsApi.util.updateQueryData(
+        "getNotifications",
+        { page: 1, type, isRead },
+        (draft) => {
+          draft.items.forEach((item) => {
+            if (unreadSet.has(item._id)) {
+              item.isRead = true;
+            }
+          });
+        },
+      ),
+    );
+
+    // Nếu đang ở tab lọc (VD: lọc theo type), cần cập nhật đồng thời cho tab "Tất cả"
+    if (type || isRead !== undefined) {
+      dispatch(
+        notificationsApi.util.updateQueryData(
+          "getNotifications",
+          { page: 1 },
+          (draft) => {
+            draft.items.forEach((item) => {
+              if (unreadSet.has(item._id)) {
+                item.isRead = true;
+              }
+            });
+          },
+        ),
+      );
+    }
+  };
+
+  return {
+    addNotificationsToCache,
+    updateUnreadNotificationBadge,
+    markNotificationsAsReadInCache,
+  };
 }

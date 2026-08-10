@@ -112,6 +112,8 @@ export class NotificationsService {
         type: "KICKED",
         metadata: payload.metadata,
         isRead: false,
+        isNotified: false,
+        canPopup: true,
       });
 
       this.toggleUnreadStatus(payload.userId, true);
@@ -138,6 +140,8 @@ export class NotificationsService {
         type: "ROOM_DISBANDED",
         metadata: payload.metadata,
         isRead: false,
+        isNotified: false,
+        canPopup: true,
       }));
 
       const insertedNotifs = await this.notificationModel.insertMany(
@@ -187,6 +191,8 @@ export class NotificationsService {
         type: "ROOM_REPORTED",
         metadata: payload.metadata,
         isRead: false,
+        isNotified: false,
+        canPopup: true,
       });
 
       this.toggleUnreadStatus(payload.userId, true);
@@ -211,6 +217,8 @@ export class NotificationsService {
         type: "REPORT_RESOLVED",
         metadata: payload.metadata,
         isRead: false,
+        isNotified: false,
+        canPopup: true,
       });
 
       this.toggleUnreadStatus(payload.userId, true);
@@ -235,6 +243,8 @@ export class NotificationsService {
         type: "ROOM_BLOCKED",
         metadata: payload.metadata,
         isRead: false,
+        isNotified: false,
+        canPopup: true,
       });
 
       this.toggleUnreadStatus(payload.userId, true);

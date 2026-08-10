@@ -93,7 +93,7 @@ export default function HomeLayout({
       {/* Container chính dạng flex-row để Sidebar full height */}
       <div className="h-screen bg-[#f5f5f5] font-sans flex overflow-hidden">
         {/* ── Left Sidebar (Full Height) ── */}
-        <aside className="w-[68px] h-full bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center py-4 flex-shrink-0 z-40 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
+        <aside className="w-17 h-full bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center py-4 shrink-0 z-50 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
           <div className="w-full flex flex-col items-center gap-2">
             {/* Tự động render danh sách Menu */}
             {navItems.map((item) => {
@@ -112,7 +112,7 @@ export default function HomeLayout({
                   }`}
                 >
                   <div className="relative">
-                    <Icon className="w-[22px] h-[22px] group-hover:scale-110 transition-transform" />
+                    <Icon className="w-5.5 h-5.5 group-hover:scale-110 transition-transform" />
                     {item.badge && (
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white" />
                     )}
@@ -135,7 +135,7 @@ export default function HomeLayout({
                   : "text-slate-400 hover:bg-slate-200/60 hover:text-slate-700"
               }`}
             >
-              <Settings className="w-[22px] h-[22px]" />
+              <Settings className="w-5.5 h-5.5" />
             </button>
 
             {showSettings && (
@@ -152,10 +152,10 @@ export default function HomeLayout({
                     }}
                     className="flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-slate-50 transition-colors w-full text-left font-medium"
                   >
-                    <Settings className="w-[18px] h-[18px] text-slate-500" />
+                    <Settings className="w-4.5 h-4.5 text-slate-500" />
                     <span>{t("settings")}</span>
                   </button>
-                  <div className="h-[1px] bg-slate-100 my-1.5 w-full"></div>
+                  <div className="h-px bg-slate-100 my-1.5 w-full"></div>
                   <button
                     onClick={handleLogout}
                     className="flex items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors w-full text-left"
@@ -168,15 +168,15 @@ export default function HomeLayout({
           </div>
         </aside>
 
+        {/* Ngăn kéo thông báo chung */}
+        <NotificationDrawer
+          isOpen={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
+
         {/* ── Main Content Area ── */}
         <div className="flex-1 flex flex-col relative min-w-0 overflow-hidden">
           {children}
-
-          {/* Ngăn kéo thông báo chung */}
-          <NotificationDrawer
-            isOpen={showNotifications}
-            onClose={() => setShowNotifications(false)}
-          />
         </div>
 
         {/* Các Dialog chung toàn cục */}
