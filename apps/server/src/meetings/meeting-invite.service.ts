@@ -118,10 +118,9 @@ export class MeetingInviteService {
     const existingNotif = await this.notificationModel.findOne({
       userId: inviteeId,
       type: "MEETING_INVITE",
-      "metadata.sessionId": sessionId,
+      referenceId: meetingCode,
     });
 
-    // toggle unread cho user
     this.notificationService.toggleUnreadStatus(inviteeId, true);
 
     if (existingNotif) {
@@ -132,14 +131,18 @@ export class MeetingInviteService {
         throw new AppException(ErrorCode.MEETING_INVITE_RATE_LIMITED);
       }
 
+      // Cập nhật lại thông báo hiện có
       existingNotif.isRead = false;
+      existingNotif.isNotified = false;
       existingNotif.metadata = {
         ...existingNotif.metadata,
+        sessionId,
         inviterId,
         inviterName,
         invitedAt: now.toISOString(),
         roomName,
       };
+
       const updatedNotif = await existingNotif.save();
 
       this.appGateway.server
@@ -149,9 +152,11 @@ export class MeetingInviteService {
       return updatedNotif;
     }
 
+    // TẠO MỚI: Truyền meetingCode vào referenceId
     const newNotif = await this.notificationModel.create({
       userId: inviteeId,
       type: "MEETING_INVITE",
+      referenceId: meetingCode,
       metadata: {
         sessionId,
         inviterId,
@@ -160,6 +165,7 @@ export class MeetingInviteService {
         roomName,
       },
       isRead: false,
+      isNotified: false,
     });
 
     this.appGateway.server

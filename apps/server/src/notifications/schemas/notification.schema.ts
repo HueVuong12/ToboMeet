@@ -12,7 +12,10 @@ export class Notification {
   @Prop({ required: true })
   type: string; // 'KICKED', 'ROOM_DISBANDED', 'NEW_MESSAGE', v.v...
 
-  // Lưu trữ dữ liệu ngữ cảnh thô (Không chứa văn bản hiển thị)
+  // Thuộc tính đa hình dùng làm khóa tra cứu (VD: lưu meetingCode khi là MEETING_INVITE)
+  @Prop()
+  referenceId: string;
+
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   metadata: Record<string, any>;
 
@@ -33,3 +36,4 @@ export class Notification {
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
+NotificationSchema.index({ userId: 1, type: 1, referenceId: 1 });
