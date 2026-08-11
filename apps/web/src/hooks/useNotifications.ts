@@ -7,7 +7,7 @@ interface UseNotificationsOptions {
   limit?: number;
   type?: string;
   isRead?: boolean | string;
-  skip?: boolean;
+  markAsRead?: boolean;
 }
 
 // Hook nhận thông báo và xử lý phân trang
@@ -15,7 +15,7 @@ export function useNotifications({
   limit = 20,
   type,
   isRead,
-  skip,
+  markAsRead,
 }: UseNotificationsOptions = {}) {
   const [page, setPage] = useState(1);
   const { markNotificationsAsReadInCache } = useNotificationCacheManager();
@@ -36,7 +36,7 @@ export function useNotifications({
       type,
       isRead,
     },
-    { skip: skip },
+    { skip: markAsRead },
   );
 
   const { data, isFetching } = queryResult;
@@ -44,19 +44,19 @@ export function useNotifications({
 
   // Gom Id thông báo chưa đọc
   useEffect(() => {
-    if (!skip && notifications.length > 0) {
+    if (!markAsRead && notifications.length > 0) {
       notifications.forEach((notif) => {
         if (!notif.isRead) {
           unreadIdsRef.current.add(notif._id);
         }
       });
     }
-  }, [skip, notifications]);
+  }, [markAsRead, notifications]);
 
   // Xả sự kiện và cập nhật cache khi đóng drawer
   useEffect(() => {
-    // Nếu skip == true (drawer bị đóng) và có ID trong túi
-    if (skip && unreadIdsRef.current.size > 0) {
+    // Nếu markAsRead == true (drawer bị đóng) và có ID trong túi
+    if (markAsRead && unreadIdsRef.current.size > 0) {
       const idsToMark = Array.from(unreadIdsRef.current);
 
       socket.emit("mark_notifications_read", idsToMark);
@@ -64,7 +64,7 @@ export function useNotifications({
 
       unreadIdsRef.current.clear();
     }
-  }, [skip, markNotificationsAsReadInCache, type, isRead]);
+  }, [markAsRead, markNotificationsAsReadInCache, type, isRead]);
 
   // Hàm gọi trang tiếp theo (Load More)
   const loadMore = useCallback(() => {

@@ -15,6 +15,8 @@ import { toast } from "../../lib/toast";
 import { useHandRaise } from "../../hooks/useHandRaise";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomSettings } from "../../hooks/useRoomSettings";
+import { useParticipantManager } from "../../hooks/useParticipantManager";
+import InviteMemberModal from "./InviteMemberModal";
 
 export default function MobileToolbar({
   initialFacingMode,
@@ -50,6 +52,14 @@ export default function MobileToolbar({
     channelId,
     meetingCode,
   });
+
+  const { displayParticipants } = useParticipantManager({
+    roomId,
+    channelId,
+    meetingCode,
+  });
+
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
     initialFacingMode || "user",
@@ -272,6 +282,19 @@ export default function MobileToolbar({
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              onPress={() => {
+                setShowAdminMenu(false); // Đóng menu tùy chọn
+                setTimeout(() => setIsInviteModalOpen(true), 300);
+              }}
+              className="flex-row items-center py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
+            >
+              <Feather name="user-plus" size={20} color="#d1d5db" />
+              <Text className="ml-3 text-sm font-medium text-gray-300">
+                Mời người tham gia
+              </Text>
+            </TouchableOpacity>
+
             {/* CÔNG CỤ QUẢN TRỊ (CHỈ HOST MỚI THẤY) */}
             {isHost && (
               <>
@@ -413,6 +436,14 @@ export default function MobileToolbar({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      <InviteMemberModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        roomId={roomId}
+        meetingCode={meetingCode}
+        displayParticipants={displayParticipants}
+      />
     </>
   );
 }

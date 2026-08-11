@@ -10,7 +10,7 @@ export default function NotificationDrawer({
   onClose: () => void;
 }) {
   const { notifications, isLoading, isFetching, hasNext, loadMore } =
-    useNotifications({ limit: 15, skip: !isOpen });
+    useNotifications({ limit: 15, markAsRead: !isOpen });
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;

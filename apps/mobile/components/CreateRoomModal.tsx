@@ -87,11 +87,6 @@ export default function CreateRoomModal({
             </TouchableOpacity>
           </View>
 
-          <Text className="text-sm text-slate-500 mb-5">
-            Hãy đặt một cái tên thật hay cho phòng của bạn để mọi người dễ dàng
-            nhận ra nhé.
-          </Text>
-
           {/* Form nhập tên phòng */}
           <View className="mb-2">
             <TextInput

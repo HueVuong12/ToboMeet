@@ -6,16 +6,20 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { Router, useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useLazyExchangeSessionQuery } from "../../lib/redux/features/meetings/meetingsApi";
+import { NotificationResponse } from "@tobomeet/shared/types";
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused(); // true khi đang ở màn hình này, false khi chuyển tab khác
+
   const { notifications, isLoading, isFetching, hasNext, loadMore, refresh } =
-    useNotifications({ limit: 15, skip: false });
+    useNotifications({ limit: 15, skip: !isFocused });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -25,14 +29,13 @@ export default function NotificationsScreen() {
     setIsRefreshing(false);
   };
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: NotificationResponse }) => {
     return <NotificationCard notification={item} router={router} />;
   };
 
   return (
     <View className="flex-1 bg-[#f5f5f5]">
-      {/* Header tùy chỉnh thay cho header mặc định */}
-      <View className="pt-12 pb-4 px-5 bg-white border-b border-slate-100 flex-row items-center">
+      <View className="pt-4 pb-4 px-5 bg-white border-b border-slate-100 flex-row items-center">
         <Text className="text-xl font-bold text-slate-800">Thông báo</Text>
       </View>
 
@@ -56,17 +59,14 @@ export default function NotificationsScreen() {
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 8 }}
-          // Kích hoạt loadMore khi cuộn cách đáy 50%
           onEndReachedThreshold={0.5}
           onEndReached={() => {
             if (hasNext && !isFetching) {
               loadMore();
             }
           }}
-          // Pull to refresh
           refreshing={isRefreshing}
           onRefresh={handleRefresh}
-          // Spinner dưới cùng khi tải thêm trang
           ListFooterComponent={
             isFetching && !isLoading ? (
               <View className="py-4 items-center">
@@ -80,12 +80,17 @@ export default function NotificationsScreen() {
   );
 }
 
-// Component thẻ thông báo (Render tách biệt để tối ưu FlatList)
-function NotificationCard({ notification, router }: any) {
+// Component thẻ thông báo
+function NotificationCard({
+  notification,
+  router,
+}: {
+  notification: NotificationResponse;
+  router: Router;
+}) {
   const [exchangeSession] = useLazyExchangeSessionQuery();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Helper map icon và nội dung (Dùng Feather Icons thay cho Lucide-react)
   const getNotificationDetails = (type: string, metadata: any) => {
     switch (type) {
       case "KICKED":
@@ -94,7 +99,7 @@ function NotificationCard({ notification, router }: any) {
           content: `Bạn đã bị xoá khỏi nhóm ${metadata?.roomName || ""}.`,
           icon: "user-minus",
           colorClass: "bg-red-100",
-          iconColor: "#dc2626", // red-600
+          iconColor: "#dc2626",
         };
       case "ROOM_DISBANDED":
         return {
@@ -102,17 +107,18 @@ function NotificationCard({ notification, router }: any) {
           content: `Trưởng nhóm đã giải tán ${metadata?.roomName || "nhóm"}.`,
           icon: "trash-2",
           colorClass: "bg-orange-100",
-          iconColor: "#ea580c", // orange-600
+          iconColor: "#ea580c",
         };
       case "MEETING_INVITE":
         return {
           title: "Tham gia họp",
-          content: `${metadata?.inviterName || "Ai đó"} đã mời bạn tham gia cuộc họp.`,
+          content: `${metadata?.inviterName || "Ai đó"} đã mời bạn tham gia cuộc họp trong phòng ${metadata?.roomName}.`,
           icon: "video",
           colorClass: "bg-blue-100",
-          iconColor: "#0052FF", // brand-600
+          iconColor: "#0052FF",
           sessionId: metadata?.sessionId,
           isActionable: true,
+          actionTitle: "Tham gia",
         };
       default:
         return {
@@ -120,7 +126,7 @@ function NotificationCard({ notification, router }: any) {
           content: `Sự kiện diễn ra (${type}).`,
           icon: "bell",
           colorClass: "bg-slate-100",
-          iconColor: "#64748b", // slate-500
+          iconColor: "#64748b",
         };
     }
   };
@@ -132,6 +138,7 @@ function NotificationCard({ notification, router }: any) {
     colorClass,
     iconColor,
     isActionable,
+    actionTitle,
     sessionId,
   } = getNotificationDetails(notification.type, notification.metadata || {});
 
@@ -167,7 +174,6 @@ function NotificationCard({ notification, router }: any) {
       )}
 
       <View className="flex-row gap-3">
-        {/* Icon Container */}
         <View
           className={`w-10 h-10 rounded-full items-center justify-center ${colorClass}`}
         >
@@ -193,12 +199,14 @@ function NotificationCard({ notification, router }: any) {
             <TouchableOpacity
               onPress={handleActionClick}
               disabled={isProcessing}
-              className="mt-3 w-full items-center justify-center py-2 px-4 bg-[#0052FF] rounded-lg"
+              className="mt-3.5 w-full items-center justify-center py-3 px-4 bg-[#0052FF] rounded-xl active:bg-blue-700"
             >
               {isProcessing ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-white text-xs font-bold">Tham gia</Text>
+                <Text className="text-white text-[13px] font-bold">
+                  {actionTitle}
+                </Text>
               )}
             </TouchableOpacity>
           )}

@@ -54,7 +54,7 @@ export default function RoomCard({ item, onPress }: RoomCardProps) {
           <View className="self-end z-10 bg-black/20 px-2.5 py-1 rounded-full border border-white/10 flex-row items-center gap-1">
             <Feather name="hash" size={10} color="rgba(255,255,255,0.7)" />
             <Text className="text-[10px] text-white/90 font-bold tracking-wider">
-              {item.code}
+              {"****" + item.code.slice(-3)}
             </Text>
           </View>
         )}
