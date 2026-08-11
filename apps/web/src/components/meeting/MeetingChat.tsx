@@ -14,6 +14,7 @@ import {
 import { ChatMessage } from "@tobomeet/shared/types";
 import { useChatManager } from "@/hooks/useChatManager";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
+import { useMemo } from "react";
 
 interface MeetingChatProps {
   messages: ChatMessage[];
@@ -21,6 +22,29 @@ interface MeetingChatProps {
   meetingCode: string;
   roomId: string;
   channelId: string;
+}
+
+/** Nhóm tin nhắn liên tiếp của cùng 1 người */
+function groupMessages(messages: ChatMessage[]) {
+  const groups: {
+    senderIdentity: string;
+    senderName: string;
+    messages: ChatMessage[];
+  }[] = [];
+
+  for (const msg of messages) {
+    const last = groups[groups.length - 1];
+    if (last && last.senderIdentity === msg.senderIdentity) {
+      last.messages.push(msg);
+    } else {
+      groups.push({
+        senderIdentity: msg.senderIdentity,
+        senderName: msg.senderName,
+        messages: [msg],
+      });
+    }
+  }
+  return groups;
 }
 
 export default function MeetingChat({
@@ -53,68 +77,64 @@ export default function MeetingChat({
     getParticipantDetails,
   } = useChatManager({ messages, setMessages, meetingCode });
 
+  const messageGroups = useMemo(() => groupMessages(messages), [messages]);
+
   return (
     <div className="flex flex-col h-full bg-transparent relative">
-      {/* MODAL XEM CHI TIẾT CẢM XÚC */}
+      {/* ===== MODAL CHI TIẾT CẢM XÚC ===== */}
       {reactionDetails &&
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
             onClick={() => setReactionDetails(null)}
           >
             <div
-              className="bg-[#222] border-[#333] rounded-2xl w-full max-w-xs border shadow-2xl overflow-hidden flex flex-col"
+              className="bg-[#1c1c1e] border border-white/10 rounded-2xl w-full max-w-xs shadow-2xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center p-4 border-b border-[#333]">
+              <div className="flex justify-between items-center px-4 py-3 border-b border-white/10">
                 <h3 className="text-sm font-semibold text-slate-200">
                   Chi tiết cảm xúc
                 </h3>
                 <button
                   onClick={() => setReactionDetails(null)}
-                  className="text-slate-400 hover:text-white transition-colors"
+                  className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
-              <div className="p-4 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+              <div className="p-3 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-3">
                 {Object.entries(reactionDetails).map(([emoji, users]) => {
                   if (users.length === 0) return null;
                   return (
-                    <div key={emoji} className="flex flex-col gap-1.5">
-                      <div className="text-sm border-b border-[#333] pb-1 mb-1 flex items-center gap-2">
-                        <span className="text-lg">{emoji}</span>
-                        <span className="text-xs font-medium text-slate-400">
+                    <div key={emoji} className="flex flex-col gap-1">
+                      <div className="text-sm border-b border-white/5 pb-1.5 mb-1 flex items-center gap-2">
+                        <span className="text-base">{emoji}</span>
+                        <span className="text-[11px] font-medium text-slate-400">
                           {users.length} người
                         </span>
                       </div>
-
-                      {/* Vòng lặp hiển thị từng người thả cảm xúc */}
                       {users.map((userId) => {
                         const { displayName, initial, avatarUrl } =
                           getParticipantDetails(userId);
-
                         return (
                           <div
                             key={userId}
-                            className="flex items-center gap-3 px-2 py-1.5 hover:bg-[#333] rounded-lg transition-colors"
+                            className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-white/5 rounded-lg transition-colors"
                           >
-                            {/* Hiển thị Avatar thật hoặc Avatar chữ cái */}
                             {avatarUrl ? (
                               <img
                                 src={avatarUrl}
                                 alt={displayName}
-                                className="w-6 h-6 rounded-full object-cover bg-slate-700 border border-slate-600"
+                                className="w-6 h-6 rounded-full object-cover bg-slate-700 ring-1 ring-white/10"
                               />
                             ) : (
-                              <div className="w-6 h-6 rounded-full bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xs text-white font-bold shadow-sm">
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-[10px] text-white font-bold">
                                 {initial}
                               </div>
                             )}
-
-                            {/* Tên người dùng */}
-                            <span className="text-sm text-slate-300 font-medium">
+                            <span className="text-[13px] text-slate-300 font-medium">
                               {displayName}
                             </span>
                           </div>
@@ -129,12 +149,12 @@ export default function MeetingChat({
           document.body,
         )}
 
-      {/* Modal phóng to ảnh và video */}
+      {/* ===== MODAL PREVIEW MEDIA ===== */}
       {previewMedia &&
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-md animate-fade-in p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
             onClick={() => setPreviewMedia(null)}
           >
             <div
@@ -143,30 +163,30 @@ export default function MeetingChat({
             >
               <button
                 onClick={() => setPreviewMedia(null)}
-                className="absolute -top-12 right-0 p-2 text-white hover:text-red-400 bg-slate-800/50 hover:bg-slate-800 rounded-full transition-colors"
+                className="absolute -top-11 right-0 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
 
               {previewMedia.type.startsWith("image/") ? (
                 <img
                   src={previewMedia.url}
                   alt={previewMedia.name}
-                  className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                  className="max-w-[90vw] max-h-[82vh] object-contain rounded-xl shadow-2xl"
                 />
               ) : previewMedia.type.startsWith("video/") ? (
                 <video
                   src={previewMedia.url}
                   controls
                   autoPlay
-                  className="max-w-[90vw] max-h-[85vh] rounded-lg shadow-2xl"
+                  className="max-w-[90vw] max-h-[82vh] rounded-xl shadow-2xl"
                 />
               ) : null}
 
               <a
                 href={previewMedia.url}
                 download={previewMedia.name}
-                className="mt-4 text-sm text-slate-300 hover:text-emerald-400 underline"
+                className="mt-3 text-xs text-slate-300 hover:text-emerald-400 transition-colors"
               >
                 Tải xuống: {previewMedia.name}
               </a>
@@ -184,234 +204,278 @@ export default function MeetingChat({
         disabled={!canChat}
       />
 
+      {/* ===== DANH SÁCH TIN NHẮN (đã gom nhóm) ===== */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 pt-4 overflow-y-auto pr-2 space-y-4 mb-4 custom-scrollbar"
+        className="flex-1 pt-3 overflow-y-auto pr-1.5 space-y-3 mb-3 custom-scrollbar"
       >
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-slate-500 text-sm">
             Chưa có tin nhắn nào. Bắt đầu trò chuyện!
           </div>
         ) : (
-          messages.map((msg) => {
-            const isMe = msg.senderIdentity === localParticipant?.identity;
+          messageGroups.map((group) => {
+            const isMe = group.senderIdentity === localParticipant?.identity;
             const { displayName: realtimeSenderName } = getParticipantDetails(
-              msg.senderIdentity,
-              msg.senderName,
+              group.senderIdentity,
+              group.senderName,
             );
-
-            let realtimeReplySenderName = msg.replyToSender;
-            if (msg.replyToMsgId) {
-              const originalMsg = messages.find(
-                (m) => m.id === msg.replyToMsgId,
-              );
-              if (originalMsg) {
-                realtimeReplySenderName = getParticipantDetails(
-                  originalMsg.senderIdentity,
-                  msg.replyToSender,
-                ).displayName;
-              }
-            }
 
             return (
               <div
-                key={msg.id}
-                className={`group flex flex-col relative ${isMe ? "items-end" : "items-start"}`}
+                key={group.messages[0].id}
+                className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
               >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-xs font-semibold text-slate-300">
+                {/* Tên + giờ chỉ hiện 1 lần đầu nhóm */}
+                <div className="flex items-center gap-1.5 mb-1 px-0.5">
+                  <span className="text-[11px] font-semibold text-slate-400">
                     {realtimeSenderName}
                   </span>
-                  <span className="text-[10px] text-slate-500">
-                    {new Date(msg.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <span className="text-[10px] text-slate-600">
+                    {new Date(group.messages[0].timestamp).toLocaleTimeString(
+                      [],
+                      { hour: "2-digit", minute: "2-digit" },
+                    )}
                   </span>
                 </div>
 
-                {/* Wrapper tách biệt các thành phần để File/Media không bị dính background */}
+                {/* Các tin trong nhóm */}
                 <div
-                  className={`relative max-w-[90%] flex flex-col gap-1.5 ${isMe ? "items-end" : "items-start"}`}
+                  className={`flex flex-col gap-1 w-full max-w-[92%] ${
+                    isMe ? "items-end" : "items-start"
+                  }`}
                 >
-                  {/* THANH MENU NỔI KHI HOVER */}
-                  <div
-                    className={`absolute -top-10 ${isMe ? "right-2" : "left-2"} opacity-0 group-hover:opacity-100 transition-opacity bg-[#222] border-[#333] backdrop-blur-sm border rounded-xl shadow-xl flex items-center p-1 z-20 gap-0.5`}
-                  >
-                    <button
-                      onClick={() => setReplyingTo(msg)}
-                      title="Trả lời"
-                      className="p-1.5 text-slate-300 hover:text-emerald-400 hover:bg-slate-700/80 rounded transition-colors"
-                    >
-                      <Reply size={16} />
-                    </button>
-                    <div className="w-px h-4 bg-slate-600 mx-1"></div>
-                    {QUICK_EMOJIS.map((emj) => (
-                      <button
-                        key={emj}
-                        onClick={() => handleReact(msg.id, emj)}
-                        className="px-1.5 py-1 text-base hover:scale-125 transition-transform"
-                      >
-                        {emj}
-                      </button>
-                    ))}
-                  </div>
+                  {group.messages.map((msg, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === group.messages.length - 1;
 
-                  {/* BLOCK NHÚNG TIN NHẮN REPLY (NẾU CÓ) */}
-                  {msg.replyToMsgId && (
-                    <div
-                      className={`text-[11px] mt-0.5 px-2 py-1 mb-0.5 rounded border-l-2 ${isMe ? "border-emerald-300 bg-emerald-700/30 text-emerald-100" : "border-brand-400 bg-slate-800 text-slate-300"} w-full max-w-xs opacity-80 cursor-pointer line-clamp-2`}
-                    >
-                      <span className="font-semibold block">
-                        {realtimeReplySenderName}
-                      </span>
-                      {msg.replyToContent}
-                    </div>
-                  )}
+                    // Bo góc theo vị trí trong nhóm
+                    const bubbleRadius = isMe
+                      ? `rounded-2xl ${isFirst ? "rounded-tr-md" : "rounded-tr-lg"} ${isLast ? "" : "rounded-br-lg"}`
+                      : `rounded-2xl ${isFirst ? "rounded-tl-md" : "rounded-tl-lg"} ${isLast ? "" : "rounded-bl-lg"}`;
 
-                  {/* HIỂN THỊ ẢNH/VIDEO (Không bọc nền màu) */}
-                  {msg.publicUrl &&
-                    (msg.fileType?.startsWith("image/") ||
-                      msg.fileType?.startsWith("video/")) && (
+                    let realtimeReplySenderName = msg.replyToSender;
+                    if (msg.replyToMsgId) {
+                      const originalMsg = messages.find(
+                        (m) => m.id === msg.replyToMsgId,
+                      );
+                      if (originalMsg) {
+                        realtimeReplySenderName = getParticipantDetails(
+                          originalMsg.senderIdentity,
+                          msg.replyToSender,
+                        ).displayName;
+                      }
+                    }
+
+                    return (
                       <div
-                        className="cursor-pointer overflow-hidden rounded-xl relative group shadow-sm bg-slate-900/30"
-                        onClick={() =>
-                          setPreviewMedia({
-                            url: msg.publicUrl!,
-                            type: msg.fileType!,
-                            name: msg.fileName!,
-                          })
-                        }
+                        key={msg.id}
+                        className={`group relative flex flex-col ${
+                          isMe ? "items-end" : "items-start"
+                        }`}
                       >
-                        {msg.fileType?.startsWith("image/") ? (
-                          <img
-                            src={msg.publicUrl}
-                            alt={msg.fileName}
-                            className="max-w-full max-h-48 object-contain transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <video
-                            src={msg.publicUrl}
-                            className="max-w-full max-h-48 object-cover"
-                          />
+                        {/* Menu hover */}
+                        <div
+                          className={`absolute -top-9 ${
+                            isMe ? "right-1" : "left-1"
+                          } opacity-0 group-hover:opacity-100 transition-opacity bg-[#1c1c1e]/95 border border-white/10 backdrop-blur-md rounded-xl shadow-xl flex items-center p-0.5 z-20 gap-0.5`}
+                        >
+                          <button
+                            onClick={() => setReplyingTo(msg)}
+                            title="Trả lời"
+                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-colors"
+                          >
+                            <Reply size={14} />
+                          </button>
+                          <div className="w-px h-3.5 bg-white/10 mx-0.5" />
+                          {QUICK_EMOJIS.map((emj) => (
+                            <button
+                              key={emj}
+                              onClick={() => handleReact(msg.id, emj)}
+                              className="px-1 py-0.5 text-sm hover:scale-125 transition-transform"
+                            >
+                              {emj}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Reply quote */}
+                        {msg.replyToMsgId && (
+                          <div
+                            className={`text-[11px] px-2.5 py-1 mb-0.5 rounded-lg border-l-2 max-w-full line-clamp-2 ${
+                              isMe
+                                ? "border-emerald-400/60 bg-emerald-900/25 text-emerald-100/90"
+                                : "border-slate-500 bg-slate-800/60 text-slate-300"
+                            }`}
+                          >
+                            <span className="font-semibold block text-[10px] opacity-80">
+                              {realtimeReplySenderName}
+                            </span>
+                            <span className="opacity-90">
+                              {msg.replyToContent}
+                            </span>
+                          </div>
                         )}
 
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                          <span className="opacity-0 group-hover:opacity-100 text-white bg-black/60 px-3 py-1.5 rounded-md text-xs font-medium backdrop-blur-sm shadow-lg">
-                            Phóng to
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                  {/* HIỂN THỊ TÀI LIỆU KHÁC (Được style lại dạng thẻ Card đẹp mắt) */}
-                  {msg.publicUrl &&
-                    !msg.fileType?.startsWith("image/") &&
-                    !msg.fileType?.startsWith("video/") && (
-                      <a
-                        href={msg.publicUrl}
-                        download={msg.fileName}
-                        className="flex items-center gap-2 p-3 rounded-xl transition-colors bg-[#222] border-[#333] hover:bg-[#333]  shadow-sm w-full"
-                      >
-                        <FileText
-                          size={18}
-                          className={
-                            isMe ? "text-emerald-400" : "text-brand-400"
-                          }
-                        />
-                        <span className="truncate text-sm font-medium underline underline-offset-2 text-slate-200">
-                          {msg.fileName}
-                        </span>
-                      </a>
-                    )}
-
-                  {/* HIỂN THỊ TEXT (Chỉ bọc màu nền cho đoạn text) */}
-                  {msg.content && (
-                    <div
-                      className={`px-3 py-2 rounded-2xl text-sm shadow-sm ${isMe ? "bg-emerald-600 text-white rounded-tr-sm" : "bg-slate-700 text-slate-100 rounded-tl-sm"}`}
-                    >
-                      <p className="whitespace-pre-wrap wrap-break-words">
-                        {msg.content}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* HIỂN THỊ CÁC REACTION CỦA TIN NHẮN */}
-                  {msg.reactions &&
-                    Object.values(msg.reactions).some(
-                      (users) => users.length > 0,
-                    ) && (
-                      <div
-                        className={`flex flex-wrap gap-1 mt-0.5 ${isMe ? "justify-end" : "justify-start"} w-full`}
-                      >
-                        {Object.entries(msg.reactions).map(([emoji, users]) => {
-                          if (users.length === 0) return null;
-                          const hasReacted = users.includes(
-                            localParticipant?.identity || "",
-                          );
-                          return (
-                            <button
-                              key={emoji}
-                              onClick={() => handleReact(msg.id, emoji)}
-                              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ring-1 transition-colors ${hasReacted ? "bg-slate-700 ring-emerald-500 text-emerald-400" : "bg-slate-800/80 ring-slate-700 text-slate-300 hover:bg-slate-700"}`}
+                        {/* Ảnh / Video */}
+                        {msg.publicUrl &&
+                          (msg.fileType?.startsWith("image/") ||
+                            msg.fileType?.startsWith("video/")) && (
+                            <div
+                              className="cursor-pointer overflow-hidden rounded-xl relative group/media shadow-sm max-w-full"
+                              onClick={() =>
+                                setPreviewMedia({
+                                  url: msg.publicUrl!,
+                                  type: msg.fileType!,
+                                  name: msg.fileName!,
+                                })
+                              }
                             >
-                              <span>{emoji}</span>
-                              <span className="font-medium">
-                                {users.length}
+                              {msg.fileType?.startsWith("image/") ? (
+                                <img
+                                  src={msg.publicUrl}
+                                  alt={msg.fileName}
+                                  className="max-w-full max-h-44 object-contain transition-transform duration-300 group-hover/media:scale-[1.02]"
+                                />
+                              ) : (
+                                <video
+                                  src={msg.publicUrl}
+                                  className="max-w-full max-h-44 object-cover"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-black/0 group-hover/media:bg-black/25 transition-colors flex items-center justify-center">
+                                <span className="opacity-0 group-hover/media:opacity-100 text-white bg-black/60 px-2.5 py-1 rounded-md text-[11px] font-medium backdrop-blur-sm">
+                                  Phóng to
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                        {/* File khác */}
+                        {msg.publicUrl &&
+                          !msg.fileType?.startsWith("image/") &&
+                          !msg.fileType?.startsWith("video/") && (
+                            <a
+                              href={msg.publicUrl}
+                              download={msg.fileName}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl transition-colors bg-[#1c1c1e] border border-white/10 hover:bg-white/5 shadow-sm max-w-full"
+                            >
+                              <FileText
+                                size={16}
+                                className={
+                                  isMe ? "text-emerald-400" : "text-sky-400"
+                                }
+                              />
+                              <span className="truncate text-[13px] font-medium text-slate-200 underline underline-offset-2">
+                                {msg.fileName}
                               </span>
-                            </button>
-                          );
-                        })}
+                            </a>
+                          )}
 
-                        {/* Nút Info để xem chi tiết ai đã thả cảm xúc */}
-                        <button
-                          onClick={() => setReactionDetails(msg.reactions!)}
-                          title="Xem người đã thả cảm xúc"
-                          className="ml-0.5 p-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-full transition-colors"
-                        >
-                          <Info size={12} />
-                        </button>
+                        {/* Text bubble */}
+                        {msg.content && (
+                          <div
+                            className={`px-3 py-1.5 text-[13px] leading-relaxed shadow-sm ${bubbleRadius} ${
+                              isMe
+                                ? "bg-emerald-600 text-white"
+                                : "bg-[#2a2a2e] text-slate-100"
+                            }`}
+                          >
+                            <p className="whitespace-pre-wrap break-words">
+                              {msg.content}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Reactions */}
+                        {msg.reactions &&
+                          Object.values(msg.reactions).some(
+                            (users) => users.length > 0,
+                          ) && (
+                            <div
+                              className={`flex flex-wrap gap-1 mt-0.5 ${
+                                isMe ? "justify-end" : "justify-start"
+                              }`}
+                            >
+                              {Object.entries(msg.reactions).map(
+                                ([emoji, users]) => {
+                                  if (users.length === 0) return null;
+                                  const hasReacted = users.includes(
+                                    localParticipant?.identity || "",
+                                  );
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => handleReact(msg.id, emoji)}
+                                      className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ring-1 transition-colors ${
+                                        hasReacted
+                                          ? "bg-emerald-900/40 ring-emerald-500/50 text-emerald-300"
+                                          : "bg-[#1c1c1e] ring-white/10 text-slate-400 hover:bg-white/5"
+                                      }`}
+                                    >
+                                      <span>{emoji}</span>
+                                      <span className="font-medium">
+                                        {users.length}
+                                      </span>
+                                    </button>
+                                  );
+                                },
+                              )}
+                              <button
+                                onClick={() =>
+                                  setReactionDetails(msg.reactions!)
+                                }
+                                title="Xem người đã thả cảm xúc"
+                                className="p-0.5 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-full transition-colors"
+                              >
+                                <Info size={11} />
+                              </button>
+                            </div>
+                          )}
+
+                        {/* Private indicator */}
+                        {msg.isPrivate && (
+                          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-amber-500/70">
+                            <Lock size={9} />
+                            <span>
+                              {isMe
+                                ? `Gửi riêng cho ${
+                                    msg.targetIdentity
+                                      ? getParticipantDetails(
+                                          msg.targetIdentity,
+                                          msg.targetName,
+                                        ).displayName
+                                      : msg.targetName
+                                  }`
+                                : "Gửi riêng cho bạn"}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    );
+                  })}
                 </div>
-
-                {msg.isPrivate && (
-                  <div className="flex items-center gap-1 mt-1 text-[10px] text-amber-500/80">
-                    <Lock size={10} />
-                    <span>
-                      {isMe
-                        ? `Gửi riêng cho ${
-                            msg.targetIdentity
-                              ? getParticipantDetails(
-                                  msg.targetIdentity,
-                                  msg.targetName,
-                                ).displayName
-                              : msg.targetName // Fallback an toàn nếu tin nhắn cũ chưa có targetIdentity
-                          }`
-                        : "Gửi riêng cho bạn"}
-                    </span>
-                  </div>
-                )}
               </div>
             );
           })
         )}
       </div>
 
-      <div className="shrink-0 flex flex-col gap-2 relative">
-        {/* LỚP PHỦ LÀM MỜ KHI CHAT BỊ KHÓA */}
+      {/* ===== VÙNG NHẬP (đã thu gọn) ===== */}
+      <div className="shrink-0 flex flex-col gap-1.5 relative">
+        {/* Overlay khi chat bị khóa */}
         {!canChat && (
-          <div className="absolute inset-0 z-10 bg-[#222]/60 border-[#333] backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl pointer-events-none border">
-            <div className="bg-slate-800/90 text-slate-300 px-4 py-2 rounded-lg flex items-center gap-2 text-xs shadow-lg border border-slate-700/50">
-              <Lock size={14} className="text-red-400" />
+          <div className="absolute inset-0 z-10 bg-[#0a0a0a]/70 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl pointer-events-none border border-white/5">
+            <div className="bg-[#1c1c1e] text-slate-300 px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-xs shadow-lg border border-white/10">
+              <Lock size={13} className="text-rose-400" />
               Chủ phòng đã khóa chat
             </div>
           </div>
         )}
 
-        {/* BANNER HIỂN THỊ ĐANG TRẢ LỜI AI ĐÓ */}
+        {/* Banner đang trả lời */}
         {replyingTo && (
-          <div className="bg-[#222] border-[#333] px-3 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center border backdrop-blur-sm">
+          <div className="bg-[#1c1c1e] border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] text-slate-300 flex justify-between items-center">
             <div className="truncate pr-2">
               <span className="font-semibold text-emerald-400 mr-1">
                 Đang trả lời {replyingTo.senderName}:
@@ -423,65 +487,66 @@ export default function MeetingChat({
             </div>
             <button
               onClick={() => setReplyingTo(null)}
-              className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors shrink-0"
+              className="p-0.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors shrink-0"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           </div>
         )}
 
-        <div className="relative">
-          <select
-            value={selectedTarget}
-            disabled={!canChat}
-            onChange={(e) => setSelectedTarget(e.target.value)}
-            className="w-full appearance-none text-xs pl-3 pr-8 py-2.5 rounded-lg border bg-[#222] text-gray-200 border-[#333] focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors"
-          >
-            <option value="all">Mọi người trong phòng</option>
-            {otherParticipants.map((p) => (
-              <option key={p.identity} value={p.identity}>
-                Chỉ gửi: {p.name}
-              </option>
-            ))}
-          </select>
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-            <ChevronDown size={14} />
+        {/* Select đối tượng + Form nhập gộp gọn */}
+        <div className="flex flex-col gap-1.5">
+          <div className="relative">
+            <select
+              value={selectedTarget}
+              disabled={!canChat}
+              onChange={(e) => setSelectedTarget(e.target.value)}
+              className="w-full appearance-none text-[11px] pl-2.5 pr-7 py-2 rounded-lg border bg-[#1c1c1e] text-slate-300 border-white/10 focus:outline-none focus:border-emerald-500/40 cursor-pointer transition-colors"
+            >
+              <option value="all">Mọi người trong phòng</option>
+              {otherParticipants.map((p) => (
+                <option key={p.identity} value={p.identity}>
+                  Chỉ gửi: {p.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+              <ChevronDown size={12} />
+            </div>
           </div>
+
+          <form
+            onSubmit={handleSendMessage}
+            className="relative flex items-center rounded-xl border bg-[#1c1c1e] border-white/10 px-1 py-0.5 focus-within:border-emerald-500/40 transition-colors"
+          >
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!canChat}
+              className="p-1.5 text-slate-400 hover:text-emerald-400 disabled:opacity-40 transition-colors shrink-0"
+            >
+              <Paperclip size={16} />
+            </button>
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              disabled={!canChat}
+              placeholder={canChat ? "Nhập tin nhắn..." : "Chat đang bị khóa"}
+              className="flex-1 bg-transparent text-[13px] text-slate-200 px-1.5 py-1.5 focus:outline-none min-w-0 placeholder:text-slate-600"
+            />
+            <button
+              type="submit"
+              disabled={!inputValue.trim() || !canChat}
+              className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 disabled:bg-slate-700 ml-0.5 transition-colors shrink-0"
+            >
+              <Send size={14} />
+            </button>
+          </form>
         </div>
 
-        <form
-          onSubmit={handleSendMessage}
-          className="relative flex items-center rounded-xl border bg-[#222] border-[#333] p-1 focus-within:border-emerald-500/50 transition-colors"
-        >
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-slate-400 hover:text-emerald-400 transition-colors"
-          >
-            <Paperclip size={18} />
-          </button>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={!canChat}
-            placeholder={canChat ? "Nhập tin nhắn..." : "Chat đang bị khóa"}
-            className="flex-1 bg-transparent text-sm text-slate-200 px-2 py-2 focus:outline-none min-w-0"
-          />
-          <button
-            type="submit"
-            disabled={!inputValue.trim() || !canChat}
-            className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 disabled:bg-slate-700 ml-1 transition-colors"
-          >
-            <Send size={16} />
-          </button>
-        </form>
-
-        {/* Chú thích dung lượng */}
-        <p className="text-[10px] text-slate-500 text-center mt-0.5">
-          Chỉ cho phép gửi file dưới 50MB, chỉ chọn và gửi được 1 file tại 1
-          thời điểm. Ảnh/Video sẽ hiển thị trực tiếp, các loại file khác sẽ hiển
-          thị dưới dạng thẻ tải xuống.
+        <p className="text-[10px] text-slate-600 text-center leading-tight">
+          File &lt; 50MB · Chỉ 1 file mỗi lần · Ảnh/Video xem trực tiếp
         </p>
       </div>
     </div>

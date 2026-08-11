@@ -17,7 +17,6 @@ function makeKey(identity: string, source: Track.Source) {
   return `${identity}|${source}`;
 }
 
-// Hàm Helper: Kiểm tra xem người dùng có đang ở phòng chờ không
 function isWaiting(participant: Participant): boolean {
   try {
     if (participant.metadata) {
@@ -41,13 +40,14 @@ export function useSelectiveSubscription() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const [metaTick, setMetaTick] = useState(0); // State để force update khi có người được duyệt
+  const [metaTick, setMetaTick] = useState(0);
+  const [pinnedKey, setPinnedKey] = useState<string | null>(null);
 
   // Selective Subscription Refs
   const lastDesiredRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cập nhật trạng thái Mobile/Desktop
+  // Mobile/Desktop
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -55,11 +55,11 @@ export function useSelectiveSubscription() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Bắt sự kiện có người thay đổi Metadata (vd: được duyệt vào phòng) để tính toán lại layout
+  // Metadata change (duyệt vào phòng)
   useEffect(() => {
     const handleMetadataChanged = () => {
       setMetaTick((t) => t + 1);
-      ensureAudioSubscribed(); // Ép check lại Audio ngay lập tức
+      ensureAudioSubscribed();
     };
 
     room.on(RoomEvent.ParticipantMetadataChanged, handleMetadataChanged);
@@ -68,19 +68,30 @@ export function useSelectiveSubscription() {
     };
   }, [room]);
 
-  // LỌC BỎ CÁC TRACK CỦA NHỮNG NGƯỜI ĐANG Ở PHÒNG CHỜ
+  // Lọc người đang chờ
   const validTracks = useMemo(() => {
     return allTracks.filter((t) => !isWaiting(t.participant));
   }, [allTracks, metaTick]);
 
+  // Nếu người bị pin rời phòng / mất track → tự clear pin
+  useEffect(() => {
+    if (!pinnedKey) return;
+    const stillExists = validTracks.some(
+      (t) => makeKey(t.participant.identity, t.source) === pinnedKey,
+    );
+    if (!stillExists) {
+      setPinnedKey(null);
+    }
+  }, [validTracks, pinnedKey]);
+
   const pageSize = isMobile ? 4 : 16;
 
-  // Tính toán phân trang và sắp xếp (Sử dụng validTracks thay vì allTracks)
+  // Tính pages (có hỗ trợ pinned)
   const pages = useMemo(() => {
     const screenTracks = validTracks.filter(
       (t) => t.source === Track.Source.ScreenShare,
     );
-    const cameraTracks = validTracks.filter(
+    let cameraTracks = validTracks.filter(
       (t) => t.source !== Track.Source.ScreenShare,
     );
 
@@ -91,15 +102,36 @@ export function useSelectiveSubscription() {
       return a.participant.identity.localeCompare(b.participant.identity);
     });
 
+    // Tìm track đang được pin (chỉ pin camera, không pin screenshare)
+    const pinnedTrack = pinnedKey
+      ? cameraTracks.find(
+          (t) => makeKey(t.participant.identity, t.source) === pinnedKey,
+        )
+      : undefined;
+
+    // Lọc người đã pin khỏi camera pages để tránh trùng
+    if (pinnedTrack) {
+      cameraTracks = cameraTracks.filter(
+        (t) => makeKey(t.participant.identity, t.source) !== pinnedKey,
+      );
+    }
+
     const newPages: {
-      type: "screenshare" | "camera";
+      type: "screenshare" | "pinned" | "camera";
       tracks: TrackReferenceOrPlaceholder[];
     }[] = [];
 
+    // 1. Screen share luôn ưu tiên cao nhất
     if (screenTracks.length > 0) {
       newPages.push({ type: "screenshare", tracks: screenTracks });
     }
 
+    // 2. Trang pinned (nếu có)
+    if (pinnedTrack) {
+      newPages.push({ type: "pinned", tracks: [pinnedTrack] });
+    }
+
+    // 3. Các trang camera
     for (let i = 0; i < cameraTracks.length; i += pageSize) {
       newPages.push({
         type: "camera",
@@ -108,9 +140,35 @@ export function useSelectiveSubscription() {
     }
 
     return newPages;
-  }, [validTracks, pageSize]);
+  }, [validTracks, pageSize, pinnedKey]);
 
-  // Luôn subscribe toàn bộ audio NGOẠI TRỪ NGƯỜI ĐANG CHỜ
+  const pinTrack = useCallback((trackRef: TrackReferenceOrPlaceholder) => {
+    // Chỉ cho phép pin camera
+    if (trackRef.source !== Track.Source.Camera) return;
+
+    const key = makeKey(trackRef.participant.identity, trackRef.source);
+    setPinnedKey((prev) => {
+      // Toggle: nếu đang pin đúng người này → bỏ pin
+      if (prev === key) return null;
+      return key;
+    });
+  }, []);
+
+  const unpin = useCallback(() => {
+    setPinnedKey(null);
+  }, []);
+
+  const isPinned = useCallback(
+    (trackRef: TrackReferenceOrPlaceholder) => {
+      if (!pinnedKey) return false;
+      return (
+        makeKey(trackRef.participant.identity, trackRef.source) === pinnedKey
+      );
+    },
+    [pinnedKey],
+  );
+
+  // Audio luôn subscribe (trừ người chờ)
   const ensureAudioSubscribed = useCallback(() => {
     room.remoteParticipants.forEach((participant) => {
       const micPub = participant.getTrackPublication(
@@ -118,7 +176,6 @@ export function useSelectiveSubscription() {
       ) as RemoteTrackPublication | undefined;
 
       if (micPub && typeof micPub.setSubscribed === "function") {
-        // Chỉ subscribe nếu KHÔNG ở phòng chờ
         const shouldSubscribe = !isWaiting(participant);
         if (micPub.isDesired !== shouldSubscribe) {
           micPub.setSubscribed(shouldSubscribe);
@@ -127,10 +184,9 @@ export function useSelectiveSubscription() {
     });
   }, [room]);
 
-  // Hàm áp dụng Subscribe WebRTC
+  // Áp dụng subscribe video
   const applySubscriptions = useCallback(
     (desiredKeys: Set<string>) => {
-      // Return sớm nếu không có gì thay đổi
       if (
         desiredKeys.size === lastDesiredRef.current.size &&
         [...desiredKeys].every((k) => lastDesiredRef.current.has(k))
@@ -142,7 +198,6 @@ export function useSelectiveSubscription() {
       lastDesiredRef.current = desiredKeys;
 
       room.remoteParticipants.forEach((participant) => {
-        // 1. Quản lý Video & ScreenShare (Dựa vào phân trang)
         [Track.Source.Camera, Track.Source.ScreenShare].forEach((source) => {
           const pub = participant.getTrackPublication(source) as
             | RemoteTrackPublication
@@ -150,7 +205,6 @@ export function useSelectiveSubscription() {
           if (!pub || typeof pub.setSubscribed !== "function") return;
 
           const key = makeKey(participant.identity, source);
-          // desiredKeys chỉ chứa những người hợp lệ trên page hiện tại
           const shouldSubscribe = desiredKeys.has(key);
 
           if (pub.isDesired !== shouldSubscribe) {
@@ -161,7 +215,7 @@ export function useSelectiveSubscription() {
           }
         });
 
-        // 2. Quản lý Audio: Tắt mic của những người đang chờ
+        // Audio
         const micPub = participant.getTrackPublication(
           Track.Source.Microphone,
         ) as RemoteTrackPublication | undefined;
@@ -177,7 +231,6 @@ export function useSelectiveSubscription() {
     [room, ensureAudioSubscribed],
   );
 
-  // Debounce nhẹ (tránh spam khi bấm chuyển trang liên tục)
   const scheduleApply = useCallback(
     (desiredKeys: Set<string>) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -189,33 +242,39 @@ export function useSelectiveSubscription() {
     [applySubscriptions],
   );
 
-  // Theo dõi sự thay đổi trang để kích hoạt (effect chính)
+  // Effect chính: subscribe theo trang hiện tại + luôn giữ pinned
   useEffect(() => {
     if (!pages.length) {
-      scheduleApply(new Set()); // Nếu không có ai hợp lệ, clear toàn bộ sub video
+      scheduleApply(new Set());
       return;
     }
+
     const activeItems = pages[currentPage]?.tracks ?? [];
     const desired = new Set<string>(
       activeItems.map((t) => makeKey(t.participant.identity, t.source)),
     );
+
+    // Luôn giữ track đang pin trong desired (phòng trường hợp logic trang lỗi)
+    if (pinnedKey) {
+      desired.add(pinnedKey);
+    }
+
+    // Screen share cũng nên luôn được giữ nếu có (tùy chọn, hiện đã nằm trong pages)
     scheduleApply(desired);
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [currentPage, pages, scheduleApply]);
+  }, [currentPage, pages, pinnedKey, scheduleApply]);
 
-  // Lắng nghe track mới (Ví dụ người khác vừa bật cam)
+  // Track mới publish
   useEffect(() => {
     const onTrackPublished = (
       publication: RemoteTrackPublication,
       participant: any,
     ) => {
-      // Chặn ngay lập tức không subscribe bất kì thứ gì nếu đang ở phòng chờ
       if (isWaiting(participant)) return;
 
-      // Audio luôn subscribe ngay
       if (publication.source === Track.Source.Microphone) {
         if (!publication.isDesired) {
           publication.setSubscribed(true);
@@ -223,7 +282,6 @@ export function useSelectiveSubscription() {
         return;
       }
 
-      // Video chỉ sub nếu đang nằm ở trang hiện tại
       if (
         publication.source !== Track.Source.Camera &&
         publication.source !== Track.Source.ScreenShare
@@ -247,7 +305,7 @@ export function useSelectiveSubscription() {
     (t) => t.source === Track.Source.ScreenShare,
   );
 
-  // Khi có người mới join → đảm bảo audio của họ được xử lý
+  // Participant join → audio
   useEffect(() => {
     const onParticipantConnected = () => {
       ensureAudioSubscribed();
@@ -259,17 +317,25 @@ export function useSelectiveSubscription() {
     };
   }, [room, ensureAudioSubscribed]);
 
-  // Lần đầu mount cũng đảm bảo audio
   useEffect(() => {
     ensureAudioSubscribed();
   }, [ensureAudioSubscribed]);
 
-  // Tự động nhảy về trang đầu khi có Screen Share
+  // Có screen share → nhảy về trang 0
   useEffect(() => {
     if (hasScreenShare) setCurrentPage(0);
   }, [hasScreenShare]);
 
-  // Đảm bảo không bị lố trang
+  // Có pin mới → nhảy về trang pinned (thường là sau screenshare)
+  useEffect(() => {
+    if (!pinnedKey) return;
+    const pinnedPageIndex = pages.findIndex((p) => p.type === "pinned");
+    if (pinnedPageIndex >= 0) {
+      setCurrentPage(pinnedPageIndex);
+    }
+  }, [pinnedKey]); // chỉ khi pin thay đổi
+
+  // Không bị lố trang
   useEffect(() => {
     if (pages.length > 0 && currentPage >= pages.length) {
       setCurrentPage(pages.length - 1);
@@ -277,10 +343,15 @@ export function useSelectiveSubscription() {
   }, [pages.length, currentPage]);
 
   return {
-    tracks: validTracks, // Trả về mảng đã được lọc những người chờ thay vì allTracks
+    tracks: validTracks,
     pages,
     currentPage,
     setCurrentPage,
     isMobile,
+    // Pin API
+    pinnedKey,
+    pinTrack,
+    unpin,
+    isPinned,
   };
 }
