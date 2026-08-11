@@ -2,6 +2,7 @@ import { Loader2, Search, UserMinus, UserPlus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useMeetingInvite } from "@/hooks/useMeetingInvite";
 import { Participant } from "livekit-client";
+import { useTranslations } from "next-intl";
 
 interface InviteMemberModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export default function InviteMemberModal({
   meetingCode,
   displayParticipants,
 }: InviteMemberModalProps) {
+  const t = useTranslations("meeting.invite_member_modal");
   const {
     searchQuery,
     setSearchQuery,
@@ -53,7 +55,7 @@ export default function InviteMemberModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#333]">
           <h3 className="text-[15px] font-bold text-white tracking-wide flex items-center gap-2">
             <UserPlus size={18} className="text-blue-500" />
-            Mời vào cuộc họp
+            {t("title")}
           </h3>
           <button
             onClick={onClose}
@@ -71,7 +73,7 @@ export default function InviteMemberModal({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo tên hoặc email..."
+              placeholder={t("search_placeholder")}
               className="w-full pl-9 pr-4 py-2.5 bg-[#222] border border-[#333] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-slate-500"
               autoFocus
             />
@@ -86,7 +88,7 @@ export default function InviteMemberModal({
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-              <span className="text-xs text-slate-400">Đang tìm kiếm...</span>
+              <span className="text-xs text-slate-400">{t("searching")}</span>
             </div>
           ) : availableMembersToInvite &&
             availableMembersToInvite.length > 0 ? (
@@ -121,7 +123,7 @@ export default function InviteMemberModal({
                       {member.displayName || "Người dùng"}
                       {/* {member.isOutsider && (
                         <span className="px-1.5 py-0.5 bg-brand-500/20 text-brand-400 text-[9px] font-bold rounded-md tracking-wide uppercase border border-brand-500/30">
-                          Khách
+                          {t("outsider_badge")}
                         </span>
                       )} */}
                     </span>
@@ -134,7 +136,7 @@ export default function InviteMemberModal({
                     onClick={() =>
                       handleSendInvite(
                         member.userId,
-                        member.displayName || "Người dùng",
+                        member.displayName || t("default_user_name"),
                       )
                     }
                     disabled={invitingUserId === member.userId}
@@ -143,7 +145,7 @@ export default function InviteMemberModal({
                     {invitingUserId === member.userId ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      "Mời"
+                      t("invite_button")
                     )}
                   </button>
                 </div>
@@ -163,8 +165,8 @@ export default function InviteMemberModal({
               />
               <p className="text-sm text-slate-400 text-center px-4">
                 {searchQuery
-                  ? "Không tìm thấy kết quả nào phù hợp."
-                  : "Tất cả thành viên đều đã có mặt trong phòng."}
+                  ? t("no_search_results")
+                  : t("all_members_present")}
               </p>
             </div>
           )}

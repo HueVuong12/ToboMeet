@@ -12,6 +12,7 @@ import CustomToolbar from "@/components/meeting/CustomToolbar";
 import CustomVideoGrid from "@/components/meeting/CustomVideoGrid";
 import MeetingChat from "@/components/meeting/MeetingChat";
 import { ChatMessage } from "@tobomeet/shared/types";
+import { useTranslations } from "next-intl";
 
 export default function MeetingRoomContent({
   channelName,
@@ -19,6 +20,7 @@ export default function MeetingRoomContent({
   channelId,
   meetingCode,
 }: any) {
+  const t = useTranslations("meeting");
   const room = useRoomContext();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -155,7 +157,9 @@ export default function MeetingRoomContent({
           <aside className="z-99 flex flex-col shrink-0 bg-[#111] backdrop-blur-xl border-l border-[#333] border shadow-2xl absolute rounded-3xl sm:rounded-none inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] sm:relative sm:inset-auto sm:w-80 sm:h-full">
             <div className="h-14 px-5 flex items-center justify-between border-b border-[#333] shrink-0">
               <h2 className="font-semibold text-sm text-slate-200 tracking-wide">
-                {sidebarTab === "chat" ? "Trò chuyện" : "Thành viên"}
+                {sidebarTab === "chat"
+                  ? t("chat_header")
+                  : t("participant_header")}
               </h2>
               <button
                 onClick={() => setIsSidebarOpen(false)}

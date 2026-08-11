@@ -33,6 +33,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import InviteMemberModal from "./InviteMemberModal";
+import { useTranslations } from "next-intl";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -54,6 +55,7 @@ export default function CustomToolbar({
   channelId: string;
   hasUnreadChat: boolean;
 }) {
+  const t = useTranslations("meeting.toolbar");
   const {
     isMicrophoneEnabled,
     isCameraEnabled,
@@ -135,10 +137,10 @@ export default function CustomToolbar({
   };
 
   const handleLeaveClick = () => {
-    toast("Xác nhận rời cuộc họp?", {
-      description: "Bạn sẽ bị ngắt kết nối khỏi phòng hiện tại.",
-      action: { label: "Rời đi", onClick: leaveMeeting },
-      cancel: { label: "Hủy", onClick: () => {} },
+    toast(t("confirm_leave_title"), {
+      description: t("confirm_leave_description"),
+      action: { label: t("confirm_leave_action"), onClick: leaveMeeting },
+      cancel: { label: t("cancel"), onClick: () => {} },
       duration: 5000,
     });
   };
@@ -151,7 +153,6 @@ export default function CustomToolbar({
 
     navigator.clipboard.writeText(cleanUrl).then(() => {
       setIsCopied(true);
-      toast.success("Đã sao chép liên kết!");
       setTimeout(() => setIsCopied(false), 2000);
     });
   };
@@ -185,7 +186,7 @@ export default function CustomToolbar({
             <VideoOff size={20} />
           )}
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
-            Camera
+            {t("camera")}
           </span>
         </button>
 
@@ -205,7 +206,7 @@ export default function CustomToolbar({
             <MicOff size={20} />
           )}
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
-            Mic
+            {t("mic")}
           </span>
         </button>
       </div>
@@ -228,7 +229,7 @@ export default function CustomToolbar({
             </span>
           </div>
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
-            Thành viên
+            {t("participants")}
           </span>
         </button>
 
@@ -251,7 +252,7 @@ export default function CustomToolbar({
             )}
           </div>
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
-            Chat
+            {t("chat")}
           </span>
         </button>
 
@@ -265,7 +266,7 @@ export default function CustomToolbar({
             className={!isScreenShareEnabled ? "text-green-500" : ""}
           />
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
-            Chia sẻ
+            {t("share_screen")}
           </span>
         </button>
 
@@ -279,7 +280,7 @@ export default function CustomToolbar({
             className={isLocalHandRaised ? "animate-bounce" : ""}
           />
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
-            Giơ tay
+            {t("raise_hand")}
           </span>
         </button>
 
@@ -291,7 +292,7 @@ export default function CustomToolbar({
           >
             <MoreVertical size={20} />
             <span className="text-[10px] mt-1 hidden sm:block font-medium">
-              Tuỳ chọn
+              {t("options")}
             </span>
           </button>
 
@@ -304,7 +305,7 @@ export default function CustomToolbar({
               ></div>
               <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-56 bg-[#222] border border-[#333] rounded shadow-2xl py-1.5 backdrop-blur-xl">
                 <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#333] mb-1">
-                  Tùy chọn chung
+                  {t("general_options")}
                 </div>
                 <button
                   onClick={handleCopyLink}
@@ -315,9 +316,7 @@ export default function CustomToolbar({
                   ) : (
                     <Copy size={16} />
                   )}
-                  <span>
-                    {isCopied ? "Đã sao chép liên kết" : "Sao chép liên kết"}
-                  </span>
+                  <span>{isCopied ? t("link_copied") : t("copy_link")}</span>
                 </button>
 
                 <button
@@ -327,13 +326,13 @@ export default function CustomToolbar({
                   className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
                 >
                   <UserPlus size={16} />
-                  <span>Mời người tham gia</span>
+                  <span>{t("invite_participants")}</span>
                 </button>
 
                 {isHost && (
                   <>
                     <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#333] bg-[#333]">
-                      Công cụ Quản trị
+                      {t("admin_tools")}
                     </div>
 
                     {/* --- Switch Bật/tắt Chat --- */}
@@ -353,7 +352,7 @@ export default function CustomToolbar({
                               : "text-slate-500"
                           }
                         />
-                        <span>Cho phép Chat</span>
+                        <span>{t("enable_chat")}</span>
                       </div>
                       {/* UI Công tắc (Switch) cho Chat */}
                       <div
@@ -386,7 +385,7 @@ export default function CustomToolbar({
                               : "text-slate-500"
                           }
                         />
-                        <span>Phòng chờ</span>
+                        <span>{t("waiting_room")}</span>
                       </div>
                       {/* UI Công tắc (Switch) cho Phòng chờ */}
                       <div
@@ -416,7 +415,7 @@ export default function CustomToolbar({
                         <div className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer">
                           <div className="flex items-center gap-2.5">
                             <UserCog size={16} className="text-slate-500" />
-                            <span>Ai có thể duyệt</span>
+                            <span>{t("approval_permission")}</span>
                           </div>
                           <ChevronRight size={16} className="text-slate-500" />
                         </div>
@@ -438,7 +437,7 @@ export default function CustomToolbar({
                                     : "opacity-0"
                                 }
                               />
-                              <span>Chỉ Quản trị viên</span>
+                              <span>{t("admin_only")}</span>
                             </button>
 
                             <button
@@ -458,7 +457,7 @@ export default function CustomToolbar({
                                     : "opacity-0"
                                 }
                               />
-                              <span>Thành viên</span>
+                              <span>{t("member_and_admin")}</span>
                             </button>
 
                             <button
@@ -476,7 +475,7 @@ export default function CustomToolbar({
                                     : "opacity-0"
                                 }
                               />
-                              <span>Tất cả mọi người</span>
+                              <span>{t("everyone")}</span>
                             </button>
                           </div>
                         )}
@@ -501,7 +500,7 @@ export default function CustomToolbar({
             className="transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-110"
           />
           <span className="hidden md:inline text-sm transition-all duration-300">
-            Rời cuộc họp
+            {t("leave_meeting")}
           </span>
         </button>
       </div>

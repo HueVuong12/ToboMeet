@@ -133,29 +133,17 @@
       {
         "name": "Web Browser",
         "description": "No installation needed — just open and start meeting",
-        "badges": [
-          "Chrome",
-          "Safari",
-          "Firefox",
-          "Edge"
-        ]
+        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
       },
       {
         "name": "Desktop App",
         "description": "Native app with high performance and deep system integration",
-        "badges": [
-          "Windows",
-          "macOS",
-          "Linux"
-        ]
+        "badges": ["Windows", "macOS", "Linux"]
       },
       {
         "name": "Mobile",
         "description": "Meet anytime, anywhere — optimized for small screens",
-        "badges": [
-          "iOS",
-          "Android"
-        ]
+        "badges": ["iOS", "Android"]
       }
     ]
   },
@@ -1029,5 +1017,86 @@
     "failed_delete_post": "Failed to delete post.",
     "failed_create_comment": "Failed to add comment.",
     "post_announcement_btn": "New Announcement"
+  },
+  "meeting": {
+    "chat_header": "Chat",
+    "participant_header": "Participants",
+    "toolbar": {
+      "camera": "Camera",
+      "mic": "Mic",
+      "participants": "Participants",
+      "chat": "Chat",
+      "share_screen": "Share",
+      "raise_hand": "Raise hand",
+      "options": "Options",
+      "general_options": "General options",
+      "copy_link": "Copy link",
+      "link_copied": "Link copied",
+      "invite_participants": "Invite participants",
+      "admin_tools": "Admin tools",
+      "enable_chat": "Enable chat",
+      "waiting_room": "Waiting room",
+      "approval_permission": "Who can approve",
+      "admin_only": "Only admins",
+      "member_and_admin": "Members",
+      "everyone": "Everyone",
+      "confirm_leave_title": "Confirm leaving meeting?",
+      "confirm_leave_description": "You will be disconnected from the current room.",
+      "confirm_leave_action": "Leave",
+      "cancel": "Cancel",
+      "leave_meeting": "Leave meeting"
+    },
+    "chat": {
+      "you_text": "You",
+      "select_channel_to_start": "Select a channel to start chatting",
+      "chat_reaction_details_title": "Reaction details",
+      "chat_reaction_count": "{count} people",
+      "chat_download_file": "Download: {name}",
+      "chat_empty_state": "No messages yet. Start the conversation!",
+      "chat_reply_button_title": "Reply",
+      "chat_zoom": "Zoom",
+      "chat_private_to": "Sent privately to {name}",
+      "chat_private_to_you": "Sent privately to you",
+      "chat_locked": "Host has locked chat",
+      "chat_replying_to": "Replying to {name}:",
+      "chat_reply_file": "[File] {name}",
+      "chat_reply_media": "[Image/Video]",
+      "chat_target_all": "Everyone in the room",
+      "chat_target_specific": "Only send to: {name}",
+      "chat_input_placeholder": "Type a message...",
+      "chat_input_placeholder_locked": "Chat is locked",
+      "chat_input_hint": "File < 50MB · Only 1 file at a time · Images/Videos preview",
+      "chat_view_reactions_title": "View who reacted",
+      "add_member": "Add member"
+    },
+    "participant_list": {
+      "joined_members": "Joined ({count})",
+      "waiting_approval": "Waiting for approval",
+      "waiting_room_empty": "No one is waiting in the lobby",
+      "everyone": "Everyone",
+      "approve_all": "Approve all",
+      "requesting_access": "Requesting access...",
+      "reject": "Reject",
+      "approve": "Approve",
+      "in_session": "Joined",
+      "you_label": "(You)",
+      "rename_display_name": "Rename",
+      "enter_new_name": "Enter new name...",
+      "save_changes": "Save changes",
+      "guest_user": "Guest",
+      "mic_off": "Mic off",
+      "cam_off": "Camera off",
+      "remove_from_meeting": "Remove from meeting"
+    },
+    "invite_member_modal": {
+      "title": "Invite to meeting",
+      "search_placeholder": "Search by name or email...",
+      "searching": "Searching...",
+      "default_user_name": "User",
+      "invite_button": "Invite",
+      "no_search_results": "No matching results found.",
+      "all_members_present": "All members are already in the room.",
+      "outsider_badge": "Outsider"
+    }
   }
 }

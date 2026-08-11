@@ -15,6 +15,7 @@ import { ChatMessage } from "@tobomeet/shared/types";
 import { useChatManager } from "@/hooks/useChatManager";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 
 interface MeetingChatProps {
   messages: ChatMessage[];
@@ -54,6 +55,7 @@ export default function MeetingChat({
   roomId,
   channelId,
 }: MeetingChatProps) {
+  const t = useTranslations("meeting.chat");
   const { canChat } = useRoomSettings({ roomId, channelId, meetingCode });
   const {
     localParticipant,
@@ -86,7 +88,7 @@ export default function MeetingChat({
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-4"
             onClick={() => setReactionDetails(null)}
           >
             <div
@@ -95,7 +97,7 @@ export default function MeetingChat({
             >
               <div className="flex justify-between items-center px-4 py-3 border-b border-white/10">
                 <h3 className="text-sm font-semibold text-slate-200">
-                  Chi tiết cảm xúc
+                  {t("chat_reaction_details_title")}
                 </h3>
                 <button
                   onClick={() => setReactionDetails(null)}
@@ -112,7 +114,7 @@ export default function MeetingChat({
                       <div className="text-sm border-b border-white/5 pb-1.5 mb-1 flex items-center gap-2">
                         <span className="text-base">{emoji}</span>
                         <span className="text-[11px] font-medium text-slate-400">
-                          {users.length} người
+                          {t("chat_reaction_count", { count: users.length })}
                         </span>
                       </div>
                       {users.map((userId) => {
@@ -130,7 +132,7 @@ export default function MeetingChat({
                                 className="w-6 h-6 rounded-full object-cover bg-slate-700 ring-1 ring-white/10"
                               />
                             ) : (
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-[10px] text-white font-bold">
+                              <div className="w-6 h-6 rounded-full bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-[10px] text-white font-bold">
                                 {initial}
                               </div>
                             )}
@@ -154,7 +156,7 @@ export default function MeetingChat({
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+            className="fixed inset-0 z-9999 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
             onClick={() => setPreviewMedia(null)}
           >
             <div
@@ -188,7 +190,7 @@ export default function MeetingChat({
                 download={previewMedia.name}
                 className="mt-3 text-xs text-slate-300 hover:text-emerald-400 transition-colors"
               >
-                Tải xuống: {previewMedia.name}
+                {t("chat_download_file", { name: previewMedia.name })}
               </a>
             </div>
           </div>,
@@ -211,7 +213,7 @@ export default function MeetingChat({
       >
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-slate-500 text-sm">
-            Chưa có tin nhắn nào. Bắt đầu trò chuyện!
+            {t("chat_empty_state")}
           </div>
         ) : (
           messageGroups.map((group) => {
@@ -229,7 +231,7 @@ export default function MeetingChat({
                 {/* Tên + giờ chỉ hiện 1 lần đầu nhóm */}
                 <div className="flex items-center gap-1.5 mb-1 px-0.5">
                   <span className="text-[11px] font-semibold text-slate-400">
-                    {realtimeSenderName}
+                    {isMe ? t("you_text") : realtimeSenderName}
                   </span>
                   <span className="text-[10px] text-slate-600">
                     {new Date(group.messages[0].timestamp).toLocaleTimeString(
@@ -282,7 +284,7 @@ export default function MeetingChat({
                         >
                           <button
                             onClick={() => setReplyingTo(msg)}
-                            title="Trả lời"
+                            title={t("chat_reply_button_title")}
                             className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-colors"
                           >
                             <Reply size={14} />
@@ -345,7 +347,7 @@ export default function MeetingChat({
                               )}
                               <div className="absolute inset-0 bg-black/0 group-hover/media:bg-black/25 transition-colors flex items-center justify-center">
                                 <span className="opacity-0 group-hover/media:opacity-100 text-white bg-black/60 px-2.5 py-1 rounded-md text-[11px] font-medium backdrop-blur-sm">
-                                  Phóng to
+                                  {t("chat_zoom")}
                                 </span>
                               </div>
                             </div>
@@ -381,7 +383,7 @@ export default function MeetingChat({
                                 : "bg-[#2a2a2e] text-slate-100"
                             }`}
                           >
-                            <p className="whitespace-pre-wrap break-words">
+                            <p className="whitespace-pre-wrap wrap-break-words">
                               {msg.content}
                             </p>
                           </div>
@@ -425,7 +427,7 @@ export default function MeetingChat({
                                 onClick={() =>
                                   setReactionDetails(msg.reactions!)
                                 }
-                                title="Xem người đã thả cảm xúc"
+                                title={t("chat_view_reactions_title")}
                                 className="p-0.5 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-full transition-colors"
                               >
                                 <Info size={11} />
@@ -439,15 +441,15 @@ export default function MeetingChat({
                             <Lock size={9} />
                             <span>
                               {isMe
-                                ? `Gửi riêng cho ${
-                                    msg.targetIdentity
-                                      ? getParticipantDetails(
+                                ? t("chat_private_to", {
+                                    name: msg.targetIdentity
+                                      ? (getParticipantDetails(
                                           msg.targetIdentity,
                                           msg.targetName,
-                                        ).displayName
-                                      : msg.targetName
-                                  }`
-                                : "Gửi riêng cho bạn"}
+                                        ).displayName ?? "")
+                                      : (msg.targetName ?? ""),
+                                  })
+                                : t("chat_private_to_you")}
                             </span>
                           </div>
                         )}
@@ -468,7 +470,7 @@ export default function MeetingChat({
           <div className="absolute inset-0 z-10 bg-[#0a0a0a]/70 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl pointer-events-none border border-white/5">
             <div className="bg-[#1c1c1e] text-slate-300 px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-xs shadow-lg border border-white/10">
               <Lock size={13} className="text-rose-400" />
-              Chủ phòng đã khóa chat
+              {t("chat_locked")}
             </div>
           </div>
         )}
@@ -478,12 +480,12 @@ export default function MeetingChat({
           <div className="bg-[#1c1c1e] border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] text-slate-300 flex justify-between items-center">
             <div className="truncate pr-2">
               <span className="font-semibold text-emerald-400 mr-1">
-                Đang trả lời {replyingTo.senderName}:
+                {t("chat_replying_to", { name: replyingTo.senderName })}
               </span>
               {replyingTo.content ||
                 (replyingTo.fileName
-                  ? `[Tệp] ${replyingTo.fileName}`
-                  : "[Ảnh/Video]")}
+                  ? t("chat_reply_file", { name: replyingTo.fileName })
+                  : t("chat_reply_media"))}
             </div>
             <button
               onClick={() => setReplyingTo(null)}
@@ -503,10 +505,10 @@ export default function MeetingChat({
               onChange={(e) => setSelectedTarget(e.target.value)}
               className="w-full appearance-none text-[11px] pl-2.5 pr-7 py-2 rounded-lg border bg-[#1c1c1e] text-slate-300 border-white/10 focus:outline-none focus:border-emerald-500/40 cursor-pointer transition-colors"
             >
-              <option value="all">Mọi người trong phòng</option>
+              <option value="all">{t("chat_target_all")}</option>
               {otherParticipants.map((p) => (
                 <option key={p.identity} value={p.identity}>
-                  Chỉ gửi: {p.name}
+                  {t("chat_target_specific", { name: p.name || "" })}
                 </option>
               ))}
             </select>
@@ -532,7 +534,11 @@ export default function MeetingChat({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               disabled={!canChat}
-              placeholder={canChat ? "Nhập tin nhắn..." : "Chat đang bị khóa"}
+              placeholder={
+                canChat
+                  ? t("chat_input_placeholder")
+                  : t("chat_input_placeholder_locked")
+              }
               className="flex-1 bg-transparent text-[13px] text-slate-200 px-1.5 py-1.5 focus:outline-none min-w-0 placeholder:text-slate-600"
             />
             <button
@@ -546,7 +552,7 @@ export default function MeetingChat({
         </div>
 
         <p className="text-[10px] text-slate-600 text-center leading-tight">
-          File &lt; 50MB · Chỉ 1 file mỗi lần · Ảnh/Video xem trực tiếp
+          {t("chat_input_hint")}
         </p>
       </div>
     </div>

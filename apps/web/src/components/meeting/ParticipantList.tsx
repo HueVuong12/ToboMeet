@@ -26,6 +26,7 @@ export default function ParticipantList({
   meetingCode: string;
 }) {
   const t = useTranslations("room");
+  const t2 = useTranslations("meeting.participant_list");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // State quản lý Tab hiển thị
@@ -65,7 +66,7 @@ export default function ParticipantList({
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Đã tham gia ({displayParticipants.length})
+            {t2("joined_members", { count: displayParticipants.length })}
           </button>
 
           <button
@@ -76,7 +77,7 @@ export default function ParticipantList({
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Chờ duyệt
+            {t2("waiting_approval")}
             {waitingParticipants.length > 0
               ? ` (${waitingParticipants.length})`
               : ""}
@@ -96,19 +97,19 @@ export default function ParticipantList({
                   strokeWidth={1.5}
                 />
                 <p className="text-sm text-slate-400">
-                  Không có ai ở phòng chờ
+                  {t2("waiting_room_empty")}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-1 w-full">
                 {/* NÚT DUYỆT TẤT CẢ */}
                 <div className="flex w-full justify-between px-1 pb-1">
-                  <p className="text-xs text-slate-400">Mọi người</p>
+                  <p className="text-xs text-slate-400">{t("everyone")}</p>
                   <button
                     onClick={() => handleApprove("all", "Tất cả")}
                     className="text-xs text-amber-500 hover:text-amber-400 font-medium px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors"
                   >
-                    Duyệt tất cả
+                    {t2("approve_all")}
                   </button>
                 </div>
 
@@ -144,7 +145,7 @@ export default function ParticipantList({
                           {p.name}
                         </span>
                         <span className="text-[10px] text-amber-500/80">
-                          Đang yêu cầu tham gia...
+                          {t2("requesting_access")}
                         </span>
                       </div>
 
@@ -152,7 +153,7 @@ export default function ParticipantList({
                         <button
                           onClick={() => handleRemove(p.identity)}
                           className="p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-colors"
-                          title="Từ chối"
+                          title={t2("reject")}
                         >
                           <UserMinus size={16} />
                         </button>
@@ -162,7 +163,7 @@ export default function ParticipantList({
                           }
                           className="px-3 py-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white text-xs font-semibold rounded-md transition-colors"
                         >
-                          Duyệt
+                          {t2("approve")}
                         </button>
                       </div>
                     </div>
@@ -180,7 +181,7 @@ export default function ParticipantList({
             {!canApprove && (
               <div className="flex items-center justify-between mb-3 px-1 mt-1">
                 <span className="text-xs font-medium text-slate-400">
-                  Đang tham gia
+                  {t2("in_session")}
                 </span>
                 {/* Đã sửa: Làm mỏng lại, bo góc nhẹ (rounded-md), thêm viền tinh tế */}
                 <span className="text-[11px] font-medium bg-[#222] border border-[#333] text-slate-400 px-2 py-0.5 rounded-md shadow-sm">
@@ -213,7 +214,7 @@ export default function ParticipantList({
                   defaultValue: "Phó nhóm",
                 });
               } else if (role === "guest") {
-                roleText = "Người ngoài";
+                roleText = t2("guest_user");
               }
 
               return (
@@ -241,7 +242,7 @@ export default function ParticipantList({
                       {p.name}
                       {isMe && (
                         <span className="text-slate-500 font-normal ml-1.5">
-                          (Bạn)
+                          {t2("you_label")}
                         </span>
                       )}
                     </span>
@@ -310,7 +311,8 @@ export default function ParticipantList({
                                   }}
                                   className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                 >
-                                  <Edit2 size={15} /> Đổi tên
+                                  <Edit2 size={15} />{" "}
+                                  {t2("rename_display_name")}
                                 </button>
                               )}
 
@@ -379,7 +381,8 @@ export default function ParticipantList({
                                       }}
                                       className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
-                                      <MicOff size={15} /> Tắt Mic
+                                      <MicOff size={15} />
+                                      {t2("mic_off")}
                                     </button>
                                   )}
 
@@ -395,7 +398,7 @@ export default function ParticipantList({
                                       }}
                                       className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
                                     >
-                                      <VideoOff size={15} /> Tắt Camera
+                                      <VideoOff size={15} /> {t2("cam_off")}
                                     </button>
                                   )}
 
@@ -406,7 +409,8 @@ export default function ParticipantList({
                                     }}
                                     className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-3 transition-colors whitespace-nowrap"
                                   >
-                                    <UserMinus size={15} /> Xoá khỏi phòng
+                                    <UserMinus size={15} />{" "}
+                                    {t2("remove_from_meeting")}
                                   </button>
                                 </>
                               )}
@@ -429,7 +433,7 @@ export default function ParticipantList({
           <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4">
             <div className="bg-[#222] border border-[#333] rounded-xl shadow-2xl w-full max-w-sm p-6">
               <h3 className="text-lg font-semibold text-white mb-4 tracking-wide">
-                Đổi tên hiển thị
+                {t2("rename_display_name")}
               </h3>
 
               <input
@@ -438,7 +442,7 @@ export default function ParticipantList({
                 onChange={(e) =>
                   setRenameState({ ...renameState, newName: e.target.value })
                 }
-                placeholder="Nhập tên mới..."
+                placeholder={t("enter_new_name")}
                 className="w-full px-4 py-3 bg-[#111] border border-[#444] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-6 transition-colors"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()}
@@ -449,14 +453,14 @@ export default function ParticipantList({
                   onClick={() => setRenameState(null)}
                   className="px-4 py-2 text-sm font-medium text-gray-300 hover:bg-[#333] rounded-lg transition-colors"
                 >
-                  Hủy
+                  {t("cancel")}
                 </button>
                 <button
                   onClick={handleRenameSubmit}
                   disabled={!renameState.newName.trim()}
                   className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Lưu thay đổi
+                  {t2("save_changes")}
                 </button>
               </div>
             </div>
