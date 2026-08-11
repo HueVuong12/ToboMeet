@@ -60,6 +60,12 @@ export function useMeetingSession() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (!myProfile) return;
+    if (!myProfile.displayName) return;
+    setDisplayName(myProfile.displayName);
+  }, [myProfile]);
+
+  useEffect(() => {
     if (!isAuthenticating) {
       if (myProfile !== undefined) {
         // Có dữ liệu trả về thành công -> Đã đăng nhập

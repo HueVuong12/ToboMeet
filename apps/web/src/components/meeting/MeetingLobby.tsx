@@ -11,6 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 interface MeetingLobbyProps {
   meetingCode: string;
@@ -61,6 +62,7 @@ export default function MeetingLobby({
   handleJoinByCode,
   isJoining,
 }: MeetingLobbyProps) {
+  const { data: myProfile } = useGetMeQuery();
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState<
@@ -77,36 +79,28 @@ export default function MeetingLobby({
   });
 
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // State mới để theo dõi việc xin quyền
   const [isPermissionChecked, setIsPermissionChecked] = useState(false);
 
-  // Xin quyền khi vào lobby
   useEffect(() => {
     const requestInitialPermissions = async () => {
       try {
-        // Yêu cầu luồng cả mic và cam để trình duyệt hiện popup
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: true,
         });
-
-        // Xin quyền thành công xong thì tắt luồng này đi ngay lập tức
-        // để trả quyền điều khiển về cho state camOn/micOn
         stream.getTracks().forEach((track) => track.stop());
       } catch (error) {
         console.warn("Người dùng từ chối quyền hoặc lỗi thiết bị:", error);
         toast.error("Vui lòng cấp quyền Camera và Micro để tiếp tục!");
       } finally {
-        setIsPermissionChecked(true); // Đánh dấu là đã hỏi xong
+        setIsPermissionChecked(true);
       }
     };
 
     requestInitialPermissions();
-  }, []); // Chỉ chạy 1 lần khi mount
+  }, []);
 
   useEffect(() => {
-    // Đợi đến khi quá trình xin quyền ban đầu kết thúc mới chạy logic này
     if (!isPermissionChecked) return;
 
     let currentStream: MediaStream | null = null;
@@ -133,7 +127,6 @@ export default function MeetingLobby({
         };
 
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-
         await enumerateDevices();
 
         if (videoRef.current && camOn) {
@@ -201,8 +194,7 @@ export default function MeetingLobby({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 lg:p-8 font-sans transition-colors duration-700">
-      {/* Khai báo Keyframes CSS cho hiệu ứng mượt mà */}
+    <div className="relative min-h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center p-4 lg:p-8 font-sans">
       <style>{`
         @keyframes smoothFadeIn {
           0% { opacity: 0; }
@@ -229,182 +221,220 @@ export default function MeetingLobby({
         }
       `}</style>
 
-      <div className="bg-white rounded-3xl shadow-xl border border-slate-200/80 w-full max-w-5xl p-6 lg:p-8 animate-fade-in">
-        {/* Header Sảnh chờ */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-5 mb-6 gap-2 animate-slide-up-1">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              Chuẩn bị tham gia
-            </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Kiểm tra camera và micro của bạn trước khi vào cuộc họp
-            </p>
+      {/* Nền trang trí */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-[#0a0a0a] to-[#0a0a0a]" />
+        <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute top-1/3 -right-24 w-[380px] h-[380px] rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 w-[460px] h-[460px] rounded-full bg-violet-500/8 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+            backgroundSize: "28px 28px",
+          }}
+        />
+      </div>
+
+      {/* Card chính */}
+      <div className="relative z-10 w-full max-w-5xl animate-fade-in">
+        <div className="rounded-3xl border border-white/10 bg-[#121214]/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 lg:px-8 py-5 border-b border-white/5 animate-slide-up-1">
+            <div>
+              <h1 className="text-xl lg:text-2xl font-semibold text-white tracking-tight">
+                Chuẩn bị tham gia
+              </h1>
+              <p className="text-sm text-slate-400 mt-0.5">
+                Kiểm tra camera và micro trước khi vào cuộc họp
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10">
+              <span className="text-[11px] text-slate-500">Mã phòng</span>
+              <span className="text-sm font-semibold font-mono text-emerald-400 tracking-wide">
+                {meetingCode}
+              </span>
+            </div>
           </div>
-          <div className="bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full self-start sm:self-auto shadow-sm">
-            <span className="text-xs text-slate-500 mr-1.5">Mã phòng:</span>
-            <span className="text-sm font-semibold font-mono text-blue-600">
-              {meetingCode}
-            </span>
+
+          {/* Body */}
+          <div className="p-6 lg:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Preview */}
+              <div className="lg:col-span-7 flex flex-col items-center animate-slide-up-2">
+                <div className="w-full aspect-video rounded-2xl overflow-hidden relative bg-[#0a0a0a] border border-white/10 shadow-inner flex items-center justify-center">
+                  {camOn ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover transform -scale-x-100 transition-opacity duration-700 opacity-100"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-500 animate-fade-in">
+                      <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+                        <VideoOff size={28} className="opacity-70" />
+                      </div>
+                      <span className="text-sm font-medium">
+                        Camera đang tắt
+                      </span>
+                    </div>
+                  )}
+
+                  {!micOn && (
+                    <div className="absolute top-3 right-3 bg-rose-500/90 text-white p-2 rounded-xl shadow-lg border border-rose-400/30 animate-fade-in">
+                      <MicOff size={15} />
+                    </div>
+                  )}
+
+                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                </div>
+
+                <div className="flex gap-3 justify-center mt-5">
+                  <button
+                    type="button"
+                    onClick={() => setMicOn(!micOn)}
+                    className={`p-3.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95 border ${
+                      micOn
+                        ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
+                        : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
+                    }`}
+                    title={micOn ? "Tắt Micro" : "Bật Micro"}
+                  >
+                    {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCamOn(!camOn)}
+                    className={`p-3.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95 border ${
+                      camOn
+                        ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
+                        : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
+                    }`}
+                    title={camOn ? "Tắt Camera" : "Bật Camera"}
+                  >
+                    {camOn ? <Video size={20} /> : <VideoOff size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Form */}
+              <div className="lg:col-span-5 space-y-4 animate-slide-up-3">
+                <div>
+                  <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
+                    Tên hiển thị
+                  </label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Nhập tên của bạn"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white bg-white/5 border border-white/10 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                  />
+                </div>
+
+                <div className="relative">
+                  <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
+                    Micro
+                  </label>
+                  <select
+                    value={selectedMicId}
+                    onChange={(e) => setSelectedMicId(e.target.value)}
+                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                  >
+                    {audioDevices.map((device) => (
+                      <option
+                        key={device.deviceId}
+                        value={device.deviceId}
+                        className="bg-[#1c1c1e] text-white"
+                      >
+                        {device.label || "Micro mặc định"}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-[38px] pointer-events-none text-slate-500">
+                    <ChevronDown size={15} />
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
+                    Loa / Tai nghe
+                  </label>
+                  <select
+                    value={selectedSpeakerId}
+                    onChange={(e) => setSelectedSpeakerId(e.target.value)}
+                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                  >
+                    {audioOutputDevices.length > 0 ? (
+                      audioOutputDevices.map((device) => (
+                        <option
+                          key={device.deviceId}
+                          value={device.deviceId}
+                          className="bg-[#1c1c1e] text-white"
+                        >
+                          {device.label || "Loa hệ thống mặc định"}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" className="bg-[#1c1c1e] text-white">
+                        Loa hệ thống mặc định
+                      </option>
+                    )}
+                  </select>
+                  <div className="absolute right-3.5 top-[38px] pointer-events-none text-slate-500">
+                    <ChevronDown size={15} />
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
+                    Camera
+                  </label>
+                  <select
+                    value={selectedCameraId}
+                    onChange={(e) => handleCameraChange(e.target.value)}
+                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                  >
+                    {videoDevices.map((device) => (
+                      <option
+                        key={device.deviceId}
+                        value={device.deviceId}
+                        className="bg-[#1c1c1e] text-white"
+                      >
+                        {device.label || "Camera mặc định"}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-[38px] pointer-events-none text-slate-500">
+                    <ChevronDown size={15} />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleJoin}
+                    disabled={isJoining || !isPermissionChecked}
+                    className="w-full py-3 rounded-xl font-semibold text-sm text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 shadow-lg shadow-emerald-900/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2"
+                  >
+                    {isJoining ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      "Tham gia ngay"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Layout Responsive: Trái (Preview Cam/Mic) | Phải (Cấu hình) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* CỘT TRÁI: Video Preview & Quick Controls */}
-          <div className="lg:col-span-7 flex flex-col items-center animate-slide-up-2">
-            <div className="w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden relative shadow-inner border border-slate-800 flex items-center justify-center transition-all duration-500">
-              {camOn ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover transform -scale-x-100 transition-opacity duration-700 opacity-100"
-                />
-              ) : (
-                <div className="text-slate-400 flex flex-col items-center animate-fade-in">
-                  <VideoOff size={40} className="mb-2 opacity-60" />
-                  <span className="text-sm font-medium">Camera đang tắt</span>
-                </div>
-              )}
-
-              {/* Badge Mic Off */}
-              {!micOn && (
-                <div className="absolute top-3 right-3 bg-red-500/90 backdrop-blur-xs text-white p-2 rounded-lg shadow-md animate-fade-in">
-                  <MicOff size={16} />
-                </div>
-              )}
-            </div>
-
-            {/* Quick Toggle Controls Cam/Mic */}
-            <div className="flex gap-4 justify-center mt-5">
-              <button
-                type="button"
-                onClick={() => setMicOn(!micOn)}
-                className={`p-3.5 rounded-full transition-all duration-300 shadow-sm hover:scale-105 active:scale-95 ${
-                  micOn
-                    ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    : "bg-red-100 hover:bg-red-200 text-red-600"
-                }`}
-                title={micOn ? "Tắt Micro" : "Bật Micro"}
-              >
-                {micOn ? <Mic size={20} /> : <MicOff size={20} />}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCamOn(!camOn)}
-                className={`p-3.5 rounded-full transition-all duration-300 shadow-sm hover:scale-105 active:scale-95 ${
-                  camOn
-                    ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    : "bg-red-100 hover:bg-red-200 text-red-600"
-                }`}
-                title={camOn ? "Tắt Camera" : "Bật Camera"}
-              >
-                {camOn ? <Video size={20} /> : <VideoOff size={20} />}
-              </button>
-            </div>
-          </div>
-
-          {/* CỘT PHẢI: Form chọn thiết bị & Nút Join */}
-          <div className="lg:col-span-5 space-y-4 animate-slide-up-3">
-            {/* Tên hiển thị */}
-            <div className="group">
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 transition-colors group-focus-within:text-blue-600">
-                Tên hiển thị
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Nhập tên của bạn"
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all shadow-sm hover:border-slate-400"
-              />
-            </div>
-
-            {/* Select Micro */}
-            <div className="relative group">
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 transition-colors group-focus-within:text-blue-600">
-                Micro
-              </label>
-              <select
-                value={selectedMicId}
-                onChange={(e) => setSelectedMicId(e.target.value)}
-                className="w-full border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl px-3.5 py-2.5 pr-10 appearance-none truncate text-sm bg-white transition-all shadow-sm hover:border-slate-400 cursor-pointer"
-              >
-                {audioDevices.map((device) => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label || "Micro mặc định"}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3.5 top-[38px] pointer-events-none text-slate-500 transition-transform group-focus-within:-rotate-180 duration-300">
-                <ChevronDown size={16} />
-              </div>
-            </div>
-
-            {/* Select Loa / Tai nghe */}
-            <div className="relative group">
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 transition-colors group-focus-within:text-blue-600">
-                Loa / Tai nghe
-              </label>
-              <select
-                value={selectedSpeakerId}
-                onChange={(e) => setSelectedSpeakerId(e.target.value)}
-                className="w-full border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl px-3.5 py-2.5 pr-10 appearance-none truncate text-sm bg-white transition-all shadow-sm hover:border-slate-400 cursor-pointer"
-              >
-                {audioOutputDevices.length > 0 ? (
-                  audioOutputDevices.map((device) => (
-                    <option key={device.deviceId} value={device.deviceId}>
-                      {device.label || "Loa hệ thống mặc định"}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">Loa hệ thống mặc định</option>
-                )}
-              </select>
-              <div className="absolute right-3.5 top-[38px] pointer-events-none text-slate-500 transition-transform group-focus-within:-rotate-180 duration-300">
-                <ChevronDown size={16} />
-              </div>
-            </div>
-
-            {/* Select Camera */}
-            <div className="relative group">
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 transition-colors group-focus-within:text-blue-600">
-                Camera
-              </label>
-              <select
-                value={selectedCameraId}
-                onChange={(e) => handleCameraChange(e.target.value)}
-                className="w-full border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl px-3.5 py-2.5 pr-10 appearance-none truncate text-sm bg-white transition-all shadow-sm hover:border-slate-400 cursor-pointer"
-              >
-                {videoDevices.map((device) => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label || "Camera mặc định"}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3.5 top-[38px] pointer-events-none text-slate-500 transition-transform group-focus-within:-rotate-180 duration-300">
-                <ChevronDown size={16} />
-              </div>
-            </div>
-
-            {/* Nút Tham gia ngay */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleJoin}
-                disabled={isJoining || !isPermissionChecked}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 text-sm"
-              >
-                {isJoining ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  "Tham gia ngay"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <p className="mt-4 text-center text-[11px] text-slate-600">
+          Camera & micro chỉ được dùng khi bạn bật tương ứng
+        </p>
       </div>
     </div>
   );
