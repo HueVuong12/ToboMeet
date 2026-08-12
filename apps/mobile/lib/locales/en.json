@@ -337,6 +337,20 @@
     "people_count": "{{count}} people"
   },
   "meeting": {
+    "meeting_page": {
+      "jwt_parse_error": "Error parsing JWT:",
+      "metadata_parse_error": "Error parsing metadata:",
+      "toast_approved": "The host has approved you to join the meeting.",
+      "waiting_title": "Please wait",
+      "waiting_desc": "The host has received your request to join. You will be automatically admitted as soon as they approve.",
+      "in_meeting_header": "In the meeting",
+      "other_participants_count": "...and {{count}} others are in the meeting",
+      "no_one_in_meeting": "No one is in the meeting",
+      "leave_waiting_room": "Leave waiting room",
+      "room_header": "Meeting Room",
+      "leaving_meeting": "Leaving...",
+      "participant_metadata_error": "Error analyzing participant metadata:"
+    },
     "invite_member_modal": {
       "title": "Invite to meeting",
       "search_placeholder": "Search by name or email...",
@@ -347,6 +361,20 @@
       "all_members_present": "All members are already in the room.",
       "toast_success": "Invitation sent to {{name}}",
       "toast_error": "Unable to send invitation at this time."
+    },
+    "lobby": {
+      "title": "Ready to join",
+      "subtitle": "Check your camera and mic before entering",
+      "room_code": "Room code",
+      "camera_off": "Camera is off",
+      "display_name": "Display name",
+      "display_name_placeholder": "Enter your name",
+      "join_now": "Join now",
+      "mic_on": "Mute microphone",
+      "mic_off": "Unmute microphone",
+      "cam_on": "Turn off camera",
+      "cam_off": "Turn on camera",
+      "flip_camera": "Flip camera"
     },
     "member_modal": {
       "role_leader": "Leader",

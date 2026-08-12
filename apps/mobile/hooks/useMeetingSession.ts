@@ -11,6 +11,7 @@ import {
   useLazyGetMemberStatusQuery,
 } from "../lib/redux/features/meetings/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
+import { useGetMeQuery } from "../lib/redux/features/users/usersApi";
 
 export function useMeetingSession() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -35,10 +36,17 @@ export function useMeetingSession() {
   );
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
+  const { data: myProfile } = useGetMeQuery();
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
   const [getMemberStatus] = useLazyGetMemberStatusQuery();
   const [joinMeetingByCodeApi, { isLoading: isJoining }] =
     useJoinMeetingByCodeMutation();
+
+  useEffect(() => {
+    if (!myProfile) return;
+    if (!myProfile.displayName) return;
+    setDisplayName(myProfile.displayName);
+  }, [myProfile]);
 
   // Khởi tạo dữ liệu phòng
   useEffect(() => {

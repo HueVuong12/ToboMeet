@@ -336,6 +336,20 @@
     "people_count": "{{count}} người"
   },
   "meeting": {
+    "meeting_page": {
+      "jwt_parse_error": "Lỗi parse JWT:",
+      "metadata_parse_error": "Lỗi parse metadata:",
+      "toast_approved": "Chủ phòng đã phê duyệt bạn vào cuộc họp.",
+      "waiting_title": "Vui lòng chờ",
+      "waiting_desc": "Chủ phòng đã nhận được yêu cầu tham gia của bạn. Bạn sẽ tự động được đưa vào cuộc họp ngay khi được phê duyệt.",
+      "in_meeting_header": "Đang trong cuộc họp",
+      "other_participants_count": "...và {{count}} người đang ở trong cuộc họp",
+      "no_one_in_meeting": "Không có ai trong cuộc họp",
+      "leave_waiting_room": "Rời phòng chờ",
+      "room_header": "Phòng họp",
+      "leaving_meeting": "Đang rời...",
+      "participant_metadata_error": "Lỗi phân tích metadata của người tham gia:"
+    },
     "invite_member_modal": {
       "title": "Mời vào cuộc họp",
       "search_placeholder": "Tìm theo tên hoặc email...",
@@ -346,6 +360,20 @@
       "all_members_present": "Tất cả thành viên đều đã có mặt trong phòng.",
       "toast_success": "Đã gửi lời mời đến {name}",
       "toast_error": "Không thể gửi lời mời lúc này."
+    },
+    "lobby": {
+      "title": "Chuẩn bị tham gia",
+      "subtitle": "Kiểm tra camera và micro trước khi vào",
+      "room_code": "Mã phòng",
+      "camera_off": "Camera đang tắt",
+      "display_name": "Tên hiển thị",
+      "display_name_placeholder": "Nhập tên của bạn",
+      "join_now": "Tham gia ngay",
+      "mic_on": "Tắt micro",
+      "mic_off": "Bật micro",
+      "cam_on": "Tắt camera",
+      "cam_off": "Bật camera",
+      "flip_camera": "Đảo camera"
     },
     "member_modal": {
       "role_teacher": "Giảng viên",
