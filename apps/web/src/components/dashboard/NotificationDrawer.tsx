@@ -28,12 +28,12 @@ export default function NotificationDrawer({
     <>
       {/* Backdrop overlay che phần main content */}
       <div
-        className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-[2px] transition-opacity animate-fade-in"
+        className="fixed inset-y-0 left-[68px] right-0 z-[200] bg-slate-900/20 backdrop-blur-[2px] transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
       {/* Drawer trượt từ trái ra, sát với thanh Sidebar */}
-      <div className="fixed top-0 left-17 bottom-0 w-95 bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 animate-slide-in-left">
+      <div className="fixed top-0 left-17 bottom-0 w-95 bg-white z-[210] shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 animate-slide-in-left">
         {/* Header */}
         <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 bg-white/80 backdrop-blur-md">
           <h2 className="text-lg font-bold text-slate-800">Thông báo</h2>

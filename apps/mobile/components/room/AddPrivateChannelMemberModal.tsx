@@ -37,6 +37,7 @@ export default function AddPrivateChannelMemberModal({
   channel,
 }: AddPrivateChannelMemberModalProps) {
   const { t } = useTranslation();
+
   const [addChannelMember, { isLoading: isSubmitting }] = useAddChannelMemberMutation();
 
   const [searchQuery, setSearchQuery] = useState("");

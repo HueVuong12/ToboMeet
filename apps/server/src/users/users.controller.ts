@@ -19,8 +19,12 @@ export class UsersController {
 
   @UseGuards(SupabaseGuard)
   @Get("search")
-  async searchUsers(@Query("q") query: string) {
-    return this.usersService.searchUsers(query);
+  async searchUsers(
+    @Query("q") query?: string,
+    @Query("email") emailQuery?: string
+  ) {
+    const finalQuery = query || emailQuery || "";
+    return this.usersService.searchUsers(finalQuery);
   }
 
   private getClientIp(req: any): string {

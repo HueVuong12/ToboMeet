@@ -196,7 +196,24 @@ export class CalendarService {
       }
     }
 
-    return resultEvents;
+    // Đính kèm thông tin người tổ chức (hostEmail, hostDisplayName)
+    const finalEvents = [];
+    for (const e of resultEvents) {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: e.hostId })
+        .select("email displayName avatarUrl")
+        .exec();
+
+      const eventObj = typeof e.toObject === "function" ? e.toObject() : e;
+      finalEvents.push({
+        ...eventObj,
+        hostEmail: hostUser ? hostUser.email : "",
+        hostDisplayName: hostUser ? (hostUser.displayName || hostUser.email.split('@')[0]) : "",
+        hostAvatarUrl: hostUser ? hostUser.avatarUrl : "",
+      });
+    }
+
+    return finalEvents;
   }
 
   /**
@@ -339,6 +356,46 @@ export class CalendarService {
         }
       }
     }
+  }
+
+  /**
+   * Tìm kiếm sự kiện của người dùng theo từ khóa (gần đúng, không phân biệt hoa thường)
+   */
+  async searchEvents(userId: string, queryText: string) {
+    if (!queryText || queryText.trim() === "") {
+      return [];
+    }
+
+    const trimmedQuery = queryText.trim();
+
+    // Query toàn bộ sự kiện có title hoặc description chứa keyword (Global Search)
+    const query: any = {
+      $or: [
+        { title: { $regex: trimmedQuery, $options: "i" } }
+      ]
+    };
+
+    // Chỉ select những trường phục vụ Search UI và giới hạn tối đa 10 kết quả
+    const events = await this.calendarEventModel
+      .find(query)
+      .select("_id title startDate endDate roomType hostId")
+      .sort({ startDate: -1 })
+      .limit(10)
+      .exec();
+
+    // Đính kèm nhanh email host (chỉ select email từ userModel)
+    const results = [];
+    for (const event of events) {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: event.hostId })
+        .select("email")
+        .exec();
+      results.push({
+        ...event.toObject(),
+        hostEmail: hostUser ? hostUser.email : "",
+      });
+    }
+    return results;
   }
 
   /**

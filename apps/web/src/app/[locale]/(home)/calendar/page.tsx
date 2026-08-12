@@ -17,6 +17,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  MessageSquare,
   Search,
   Filter,
   Bell,
@@ -49,6 +51,9 @@ interface CalendarEvent {
   isOccurrence?: boolean;
   occurrenceDate?: string;
   invitees?: { email: string; displayName?: string; status?: string }[];
+  hostEmail?: string;
+  hostDisplayName?: string;
+  hostAvatarUrl?: string;
 }
 
 export default function CalendarPage() {
@@ -86,6 +91,101 @@ function CalendarContent() {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchResults, setSearchResults] = useState<CalendarEvent[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const calendarGridRef = useRef<HTMLDivElement>(null);
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
+  const searchCacheRef = useRef<Record<string, CalendarEvent[]>>({});
+
+  // RSVP Management States & Handlers
+  const [rsvpList, setRsvpList] = useState<any[]>([]);
+  const [showRsvpDropdown, setShowRsvpDropdown] = useState(false);
+  const selectedEventRef = useRef<CalendarEvent | null>(null);
+
+  const fetchRsvpList = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/calendar/${eventId}/rsvp`);
+      if (res.ok) {
+        const data = await res.json();
+        let list = [];
+        if (data) {
+          if (Array.isArray(data)) {
+            list = data;
+          } else if (Array.isArray(data.result)) {
+            list = data.result;
+          } else if (data.result && Array.isArray(data.result.result)) {
+            list = data.result.result;
+          }
+        }
+        setRsvpList(list);
+      }
+    } catch (e) {
+      console.error("Lỗi fetch RSVP list:", e);
+    }
+  };
+
+  const handleUpdateRSVP = async (eventId: string, status: "ACCEPTED" | "DECLINED" | "TENTATIVE") => {
+    try {
+      const res = await fetch(`/api/calendar/${eventId}/rsvp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        fetchRsvpList(eventId);
+        setShowRsvpDropdown(false);
+      }
+    } catch (e) {
+      console.error("Lỗi cập nhật RSVP:", e);
+    }
+  };
+
+  useEffect(() => {
+    selectedEventRef.current = selectedEvent;
+    if (selectedEvent) {
+      fetchRsvpList(selectedEvent._id);
+    } else {
+      setRsvpList([]);
+    }
+  }, [selectedEvent]);
+
+  // Điều hướng và highlight sự kiện được chọn từ Search
+  const handleSelectSearchEvent = (event: CalendarEvent) => {
+    // 1. Highlight
+    setHighlightedEventId(event._id);
+    setTimeout(() => {
+      setHighlightedEventId(null);
+    }, 4000); // Highlight nhấp nháy trong 4 giây
+
+    // 2. Chuyển view về tuần (week) để hiển thị lưới giờ nếu đang ở agenda/month
+    if (view === "agenda" || view === "month") {
+      setView("week");
+    }
+
+    // 3. Navigate ngày
+    const eventDate = new Date(event.startDate);
+    setCurrentDate(eventDate);
+
+    // 4. Đóng search dropdown
+    setShowSearch(false);
+    setSearchQuery("");
+
+    // 5. Scroll đến lưới giờ bắt đầu của sự kiện
+    setTimeout(() => {
+      if (calendarGridRef.current) {
+        const startHour = eventDate.getHours() + eventDate.getMinutes() / 60;
+        // Mỗi ô giờ cao 64px, bắt đầu từ 1 AM. Vị trí scroll top = (startHour - 1) * 64
+        const topOffset = Math.max(0, (startHour - 1) * 64);
+        calendarGridRef.current.scrollTo({
+          top: topOffset,
+          behavior: "smooth",
+        });
+      }
+    }, 200); // Chờ 200ms để layout grid render xong
+  };
 
   // Form states
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -117,11 +217,20 @@ function CalendarContent() {
       const res = await fetch(`/api/calendar?start=${start}&end=${end}`);
       if (res.ok) {
         const data = await res.json();
-        const eventList = data && Array.isArray(data.result) ? data.result : [];
+        let eventList = [];
+        if (data) {
+          if (Array.isArray(data)) {
+            eventList = data;
+          } else if (Array.isArray(data.result)) {
+            eventList = data.result;
+          } else if (data.result && Array.isArray(data.result.result)) {
+            eventList = data.result.result;
+          }
+        }
         setEvents(eventList);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Lỗi fetch events:", e);
     } finally {
       setLoading(false);
     }
@@ -135,26 +244,21 @@ function CalendarContent() {
 
   // Search users callback
   useEffect(() => {
-    // Clear old state immediately when typing to avoid showing stale error message from previous query
-    setSuggestedUsers([]);
-    setSearchStatusMsg("");
-
-    if (memberSearchQuery.trim().length < 2) {
+    if (!memberSearchQuery.trim()) {
+      setSuggestedUsers([]);
+      setSearchStatusMsg("");
       return;
     }
+
+    setIsSearchingMembers(true);
     const delayDebounceFn = setTimeout(async () => {
-      setIsSearchingMembers(true);
       try {
-        console.log(
-          `[Frontend Search] Bắt đầu gọi API tìm kiếm với từ khóa: "${memberSearchQuery}"`,
-        );
         const res = await fetch(
           `/api/users/search?q=${encodeURIComponent(memberSearchQuery.trim())}`,
         );
         if (res.ok) {
           const data = await res.json();
           const results = data && Array.isArray(data.result) ? data.result : [];
-          console.log(`[Frontend Search] Kết quả tìm thấy:`, results);
           setSuggestedUsers(results);
           if (results.length === 0) {
             setSearchStatusMsg(
@@ -163,8 +267,6 @@ function CalendarContent() {
                 : "No users found.",
             );
           }
-        } else {
-          console.error(`[Frontend Search] API trả về status: ${res.status}`);
         }
       } catch (err) {
         console.error("Lỗi tìm kiếm user:", err);
@@ -174,9 +276,90 @@ function CalendarContent() {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [memberSearchQuery]);
+  }, [memberSearchQuery, locale]);
+
+  // Realtime Calendar Search Effect (Tối ưu hóa: Cache client, AbortController, Debounce 200ms)
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    // 1. Kiểm tra cache
+    if (searchCacheRef.current[trimmedQuery]) {
+      setSearchResults(searchCacheRef.current[trimmedQuery]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    // 2. Debounce 200ms
+    const delayDebounceFn = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(
+          `/api/calendar/search?q=${encodeURIComponent(trimmedQuery)}`,
+          { signal: abortController.signal }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          
+          let results = [];
+          if (data) {
+            if (Array.isArray(data.result)) {
+              results = data.result;
+            } else if (data.result && Array.isArray(data.result.result)) {
+              results = data.result.result;
+            }
+          }
+          // Lưu vào cache
+          searchCacheRef.current[trimmedQuery] = results;
+          setSearchResults(results);
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.error("Lỗi tìm kiếm sự kiện:", err);
+        }
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(delayDebounceFn);
+      abortController.abort(); // Hủy request cũ nếu có ký tự mới nhập vào
+    };
+  }, [searchQuery]);
 
   const [mounted, setMounted] = useState(false);
+
+  // Handle Auto Focus when Search expands
+  useEffect(() => {
+    if (showSearch) {
+      searchInputRef.current?.focus();
+    }
+  }, [showSearch]);
+
+  // Handle Click Outside Search to Close
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSearch(false);
+      }
+    };
+    if (showSearch) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSearch]);
 
   useEffect(() => {
     setMounted(true);
@@ -189,6 +372,11 @@ function CalendarContent() {
       socket.on("calendar_event_created", () => fetchEvents());
       socket.on("calendar_event_updated", () => fetchEvents());
       socket.on("calendar_event_deleted", () => fetchEvents());
+      socket.on("rsvp_updated", (data) => {
+        if (selectedEventRef.current && selectedEventRef.current._id === data.eventId) {
+          fetchRsvpList(data.eventId);
+        }
+      });
     }
 
     return () => {
@@ -196,6 +384,7 @@ function CalendarContent() {
         socket.off("calendar_event_created");
         socket.off("calendar_event_updated");
         socket.off("calendar_event_deleted");
+        socket.off("rsvp_updated");
       }
     };
   }, [currentDate]);
@@ -371,10 +560,90 @@ function CalendarContent() {
     const top = (displayStart - 1) * 64; // Bắt đầu hiển thị từ 1 AM
     const height = durationHours * 64;
 
+    // Đặt chiều cao tối thiểu là 38px để card thon gọn và vừa vặn đẹp mắt
+    const finalHeight = Math.max(38, height - 4);
+    const offsetTop = (height - finalHeight) / 2;
+
     return {
-      top: `${top}px`,
-      height: `${height > 24 ? height - 4 : 20}px`, // trừ margin nhỏ
+      top: `${top + offsetTop}px`,
+      height: `${finalHeight}px`,
     };
+  };
+
+  // Tính toán layout chiều ngang (left, width) cho các sự kiện bị trùng giờ song song
+  const getEventsLayout = (dayEvents: CalendarEvent[]) => {
+    interface EventLayout {
+      left: string;
+      width: string;
+    }
+    const layouts: Record<string, EventLayout> = {};
+    if (dayEvents.length === 0) return layouts;
+
+    // Sắp xếp các sự kiện theo thời gian bắt đầu
+    const sorted = [...dayEvents].sort(
+      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+
+    // Tạo các nhóm trùng lặp (Overlap Groups)
+    const groups: CalendarEvent[][] = [];
+    let currentGroup: CalendarEvent[] = [];
+    let groupEnd = 0;
+
+    for (const event of sorted) {
+      const start = new Date(event.startDate).getTime();
+      const end = new Date(event.endDate).getTime();
+
+      if (currentGroup.length === 0 || start < groupEnd) {
+        currentGroup.push(event);
+        groupEnd = Math.max(groupEnd, end);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [event];
+        groupEnd = end;
+      }
+    }
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+
+    // Chia cột song song cho các event trong mỗi nhóm
+    for (const group of groups) {
+      const columns: CalendarEvent[][] = [];
+      
+      for (const event of group) {
+        let placed = false;
+        const start = new Date(event.startDate).getTime();
+        
+        for (let i = 0; i < columns.length; i++) {
+          const lastInCol = columns[i][columns[i].length - 1];
+          const lastEnd = new Date(lastInCol.endDate).getTime();
+          
+          if (start >= lastEnd) {
+            columns[i].push(event);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          columns.push([event]);
+        }
+      }
+
+      const totalCols = columns.length;
+      for (let colIdx = 0; colIdx < totalCols; colIdx++) {
+        for (const event of columns[colIdx]) {
+          const widthPercent = 100 / totalCols;
+          const leftPercent = colIdx * widthPercent;
+          
+          layouts[event._id] = {
+            left: `calc(${leftPercent}% + 1.5px)`,
+            width: `calc(${widthPercent}% - 3px)`,
+          };
+        }
+      }
+    }
+
+    return layouts;
   };
 
   // Lấy các ngày trong tuần hiện tại
@@ -482,115 +751,213 @@ function CalendarContent() {
 
   return (
     <div className="h-screen bg-[#f5f5f5] font-sans flex flex-col overflow-hidden text-slate-800">
-      {/* ── Local Header Bar (Thiết kế thanh lịch - Không Search) ── */}
-      <div className="h-[72px] bg-white border-b border-slate-200/60 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-30 gap-4">
-        {/* Trái: Nút Menu & Thời gian hiện tại */}
-        <div className="flex items-center gap-4 w-1/3">
+      {/* ── Local Header Bar ── */}
+      <div className="h-[72px] bg-white border-b border-slate-200/60 flex items-center flex-shrink-0 z-[45]">
+
+        {/* LEFT: Cố định = độ rộng sidebar (w-64 = 256px) — Menu + Lịch */}
+        <div className="w-64 flex-shrink-0 flex items-center gap-3 px-4">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors shrink-0"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <h2 className="text-[17px] sm:text-lg font-bold text-slate-800 tracking-tight truncate">
-            {currentDate.toLocaleDateString(
-              locale === "vi" ? "vi-VN" : "en-US",
-              { month: "long", year: "numeric" },
-            )}
-          </h2>
-        </div>
-
-        {/* Giữa: Bộ chuyển đổi View (Pill shape) */}
-        <div className="hidden lg:flex justify-center w-1/3">
-          <div className="flex bg-slate-100/70 p-1 rounded-full shadow-inner">
-            {(["day", "week", "month", "agenda"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-5 py-1.5 rounded-full text-[13px] font-bold uppercase tracking-wider transition-all duration-200 ${
-                  view === v
-                    ? "bg-white text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                {v === "day" && (locale === "vi" ? "Ngày" : "Day")}
-                {v === "week" && (locale === "vi" ? "Tuần" : "Week")}
-                {v === "month" && (locale === "vi" ? "Tháng" : "Month")}
-                {v === "agenda" && (locale === "vi" ? "Năm" : "Year")}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Phải: Điều hướng ngày & Nút Tạo */}
-        <div className="flex items-center justify-end gap-3 sm:gap-4 w-auto lg:w-1/3 shrink-0">
-          {/* Cụm nút điều hướng */}
-          <div className="flex items-center gap-1 bg-slate-100/70 p-1 rounded-full border border-slate-200/50">
-            <button
-              onClick={() => setCurrentDate(new Date())}
-              className="px-4 py-1.5 hover:bg-white rounded-full text-[13px] font-bold text-slate-700 transition-all shadow-sm"
-            >
-              {locale === "vi" ? "Hôm nay" : "Today"}
-            </button>
-            <div className="w-[1px] h-4 bg-slate-200 mx-1 hidden sm:block"></div>
-            <button
-              onClick={() => {
-                const temp = new Date(currentDate);
-                if (view === "month") temp.setMonth(temp.getMonth() - 1);
-                else if (view === "agenda")
-                  temp.setFullYear(temp.getFullYear() - 1);
-                else temp.setDate(temp.getDate() - 7);
-                setCurrentDate(temp);
-              }}
-              className="p-1.5 hover:bg-white rounded-full text-slate-600 transition-all hidden sm:block"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                const temp = new Date(currentDate);
-                if (view === "month") temp.setMonth(temp.getMonth() + 1);
-                else if (view === "agenda")
-                  temp.setFullYear(temp.getFullYear() + 1);
-                else temp.setDate(temp.getDate() + 7);
-                setCurrentDate(temp);
-              }}
-              className="p-1.5 hover:bg-white rounded-full text-slate-600 transition-all hidden sm:block"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Nút Tạo Lịch */}
-          <button
-            onClick={() => {
-              setEditingEventId(null);
-              setTitle("");
-              descriptionRef.current = "";
-              setSelectedInvitees([]);
-              setRoomType("meeting");
-              const now = new Date();
-              const start = new Date(now);
-              start.setHours(now.getHours() + 1, 0, 0, 0);
-              const end = new Date(start);
-              end.setHours(start.getHours() + 1, 0, 0, 0);
-
-              const pad = (n: number) => n.toString().padStart(2, "0");
-              setStartDate(
-                `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`,
-              );
-              setEndDate(
-                `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`,
-              );
-              setShowCreateModal(true);
-            }}
-            className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 rounded-full bg-brand-500 text-white text-[13px] font-bold hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 shadow-sm shrink-0"
-          >
-            <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">
-              {locale === "vi" ? "Tạo lịch" : "Create"}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <CalendarIcon className="w-4 h-4 text-blue-500" />
+            </div>
+            <span className="text-[17px] sm:text-lg font-bold text-slate-800 tracking-tight">
+              {locale === "vi" ? "Lịch" : "Calendar"}
             </span>
-          </button>
+          </div>
+        </div>
+
+        {/* RIGHT: flex-1 — tháng/năm + view switcher + điều hướng + tạo lịch */}
+        <div className="flex-1 flex items-center justify-between pl-[46px] lg:pl-[54px] pr-4 lg:pr-6 gap-4">
+
+          {/* Tháng/năm — thẳng hàng với đường kẻ phân cách */}
+          <h2 className="text-[20px] font-bold text-slate-800 tracking-tight truncate">
+            {currentDate
+              .toLocaleDateString(
+                locale === "vi" ? "vi-VN" : "en-US",
+                { month: "long", year: "numeric" },
+              )
+              .replace(/\u200E/g, "") // Loại bỏ ký tự LTR vô hình nếu có
+              .replace(/^./, (c) => c.toUpperCase())}
+          </h2>
+
+          {/* Giữa: Bộ chuyển đổi View */}
+          <div className="hidden lg:flex justify-center">
+            <div className="flex bg-slate-100/70 p-1 rounded-full shadow-inner">
+              {(["day", "week", "month", "agenda"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-5 py-1.5 rounded-full text-[13px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                    view === v
+                      ? "bg-white text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {v === "day" && (locale === "vi" ? "Ngày" : "Day")}
+                  {v === "week" && (locale === "vi" ? "Tuần" : "Week")}
+                  {v === "month" && (locale === "vi" ? "Tháng" : "Month")}
+                  {v === "agenda" && (locale === "vi" ? "Năm" : "Year")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Phải: Điều hướng + Nút Tạo */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            {/* Search Component */}
+            <div
+              ref={searchContainerRef}
+              className="relative w-9 h-9 flex items-center justify-center shrink-0"
+            >
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
+                title={locale === "vi" ? "Tìm kiếm" : "Search"}
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
+              {showSearch && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col z-[61]">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-full shadow-sm w-40 animate-in fade-in slide-in-from-right-4 duration-200">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={locale === "vi" ? "Tìm kiếm" : "Search"}
+                      className="w-full bg-transparent text-sm text-slate-800 focus:outline-none placeholder-slate-400"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="text-slate-400 hover:text-slate-600 p-0.5 shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Kết quả Tìm kiếm */}
+                  {searchQuery.trim() !== "" && (
+                    <div className="absolute top-full mt-2 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl z-[60] w-60 max-h-64 overflow-y-auto divide-y divide-slate-100 py-1">
+                      {searchLoading ? (
+                        <div className="px-4 py-3 text-xs text-slate-400 flex items-center justify-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>{locale === "vi" ? "Đang tìm kiếm..." : "Searching..."}</span>
+                        </div>
+                      ) : searchResults.length === 0 ? (
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center">
+                          {locale === "vi" ? "Không tìm thấy kết quả" : "No results found"}
+                        </div>
+                      ) : (
+                        searchResults.map((ev) => (
+                          <div
+                            key={ev._id}
+                            onClick={() => handleSelectSearchEvent(ev)}
+                            className="px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3"
+                          >
+                            <div className="mt-0.5 text-indigo-500">
+                              {getEventIcon(ev.roomType)}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-bold text-slate-800 truncate">
+                                {ev.title}
+                              </span>
+                              <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {new Date(ev.startDate).toLocaleString(
+                                    locale === "vi" ? "vi-VN" : "en-US",
+                                    { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+                                  )}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Cụm nút điều hướng */}
+            <div className="flex items-center gap-1 bg-slate-100/70 p-1 rounded-full border border-slate-200/50">
+              <button
+                onClick={() => setCurrentDate(new Date())}
+                className="px-4 py-1.5 hover:bg-white rounded-full text-[13px] font-bold text-slate-700 transition-all shadow-sm"
+              >
+                {locale === "vi" ? "Hôm nay" : "Today"}
+              </button>
+              <div className="w-[1px] h-4 bg-slate-200 mx-1 hidden sm:block"></div>
+              <button
+                onClick={() => {
+                  const temp = new Date(currentDate);
+                  if (view === "month") temp.setMonth(temp.getMonth() - 1);
+                  else if (view === "agenda")
+                    temp.setFullYear(temp.getFullYear() - 1);
+                  else temp.setDate(temp.getDate() - 7);
+                  setCurrentDate(temp);
+                }}
+                className="p-1.5 hover:bg-white rounded-full text-slate-600 transition-all hidden sm:block"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  const temp = new Date(currentDate);
+                  if (view === "month") temp.setMonth(temp.getMonth() + 1);
+                  else if (view === "agenda")
+                    temp.setFullYear(temp.getFullYear() + 1);
+                  else temp.setDate(temp.getDate() + 7);
+                  setCurrentDate(temp);
+                }}
+                className="p-1.5 hover:bg-white rounded-full text-slate-600 transition-all hidden sm:block"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Nút Tạo Lịch */}
+            <button
+              onClick={() => {
+                setEditingEventId(null);
+                setTitle("");
+                descriptionRef.current = "";
+                setSelectedInvitees([]);
+                setRoomType("meeting");
+                const now = new Date();
+                const start = new Date(now);
+                start.setHours(now.getHours() + 1, 0, 0, 0);
+                const end = new Date(start);
+                end.setHours(start.getHours() + 1, 0, 0, 0);
+
+                const pad = (n: number) => n.toString().padStart(2, "0");
+                setStartDate(
+                  `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`,
+                );
+                setEndDate(
+                  `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`,
+                );
+                setShowCreateModal(true);
+              }}
+              className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 rounded-full bg-brand-500 text-white text-[13px] font-bold hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 shadow-sm shrink-0"
+            >
+              <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">
+                {locale === "vi" ? "Tạo lịch" : "Create"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -603,10 +970,13 @@ function CalendarContent() {
             <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50">
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-xs font-bold text-slate-800">
-                  {currentDate.toLocaleDateString(
-                    locale === "vi" ? "vi-VN" : "en-US",
-                    { month: "long", year: "numeric" },
-                  )}
+                  {currentDate
+                    .toLocaleDateString(
+                      locale === "vi" ? "vi-VN" : "en-US",
+                      { month: "long", year: "numeric" },
+                    )
+                    .replace(/\u200E/g, "")
+                    .replace(/^./, (c) => c.toUpperCase())}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
@@ -773,17 +1143,20 @@ function CalendarContent() {
         {/* Calendar Grid Section */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Grid Area with absolute positioning */}
-          <div className="flex-1 overflow-auto px-6 relative">
+          <div ref={calendarGridRef} className="flex-1 overflow-auto px-6 relative">
             {view === "agenda" ? (
               /* Year View (12 Months Grid) */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 rounded-2xl shadow-sm">
                 {Array.from({ length: 12 }).map((_, monthIdx) => {
                   const year = currentDate.getFullYear();
                   const firstDayOfMonth = new Date(year, monthIdx, 1);
-                  const monthName = firstDayOfMonth.toLocaleDateString(
-                    locale === "vi" ? "vi-VN" : "en-US",
-                    { month: "long" },
-                  );
+                  const monthName = firstDayOfMonth
+                    .toLocaleDateString(
+                      locale === "vi" ? "vi-VN" : "en-US",
+                      { month: "long" },
+                    )
+                    .replace(/\u200E/g, "")
+                    .replace(/^./, (c) => c.toUpperCase());
                   const startDayOfWeek = firstDayOfMonth.getDay();
 
                   const monthDays = [];
@@ -1054,14 +1427,21 @@ function CalendarContent() {
                       ))}
 
                       {/* Absolutely positioned events inside the specific column */}
-                      {filteredEvents
-                        .filter(
+                      {(() => {
+                        const dayEvents = filteredEvents.filter(
                           (ev) =>
                             new Date(ev.startDate).toDateString() ===
-                            dayDate.toDateString(),
-                        )
-                        .map((event) => {
+                            dayDate.toDateString()
+                        );
+                        const layouts = getEventsLayout(dayEvents);
+
+                        return dayEvents.map((event) => {
                           const { top, height } = getEventPositionStyles(event);
+                          const layout = layouts[event._id] || {
+                            left: "1.5px",
+                            width: "calc(100% - 3px)",
+                          };
+
                           return (
                             <div
                               key={event._id}
@@ -1072,44 +1452,37 @@ function CalendarContent() {
                                 setSelectedEvent(event);
                                 setShowDetailPopup(true);
                               }}
-                              style={{ top, height }}
-                              className={`absolute left-1.5 right-1.5 p-3 rounded-xl border border-l-4 ${getEventBgColor(event.roomType, event.status)} transition-all cursor-pointer overflow-hidden flex flex-col justify-between`}
+                              style={{
+                                top,
+                                minHeight: height,
+                                left: layout.left,
+                                width: layout.width,
+                              }}
+                              className={`absolute h-auto px-3 py-2 rounded-xl border border-l-4 ${getEventBgColor(
+                                event.roomType,
+                                event.status
+                              )} transition-all cursor-pointer overflow-hidden flex flex-col ${
+                                parseFloat(height) > 48 ? "justify-between" : "justify-center"
+                              } z-10 hover:z-30 hover:shadow-md ${
+                                highlightedEventId === event._id
+                                  ? "ring-4 ring-indigo-500 ring-offset-2 scale-105 z-50 shadow-xl animate-pulse"
+                                  : ""
+                              }`}
                             >
                               <div>
-                                <div className="flex items-center gap-1.5">
-                                  {getEventIcon(event.roomType)}
-                                  <h4 className="font-bold text-xs truncate leading-tight">
+                                <div className="flex items-start gap-1.5">
+                                  <div className="mt-0.5 shrink-0">
+                                    {getEventIcon(event.roomType)}
+                                  </div>
+                                  <h4 className="font-bold text-xs leading-tight whitespace-normal break-words text-left">
                                     {event.title}
                                   </h4>
                                 </div>
-                                <p className="text-[10px] opacity-75 mt-0.5">
-                                  {new Date(event.startDate).toLocaleTimeString(
-                                    locale === "vi" ? "vi-VN" : "en-US",
-                                    { hour: "2-digit", minute: "2-digit" },
-                                  )}
-                                </p>
                               </div>
-
-                              {/* Show Join button inside grid card if space permits */}
-                              {parseFloat(height) > 48 && (
-                                <div className="flex items-center justify-between mt-1">
-                                  <span className="text-[9px] opacity-60">
-                                    Join Room
-                                  </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleJoinMeeting(event.meetingCode);
-                                    }}
-                                    className="px-2 py-0.5 bg-white border border-slate-200 text-slate-800 rounded-md text-[10px] font-bold shadow-sm"
-                                  >
-                                    Join
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           );
-                        })}
+                        });
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -1553,7 +1926,7 @@ function CalendarContent() {
             className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-800 text-sm">
+              <h3 className="font-bold text-slate-800 text-[17px]">
                 {locale === "vi" ? "Chi tiết lịch họp" : "Meeting Details"}
               </h3>
               <button
@@ -1569,27 +1942,38 @@ function CalendarContent() {
                 <h4 className="text-lg font-bold text-slate-900 tracking-tight">
                   {selectedEvent.title}
                 </h4>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${getEventBgColor(selectedEvent.roomType)}`}
-                  >
-                    {selectedEvent.roomType}
-                  </span>
-                </div>
+                
+                {/* Microsoft Teams style Action Buttons */}
+                {rsvpList && rsvpList.length > 0 && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      onClick={() => handleJoinMeeting(selectedEvent.meetingCode)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>{locale === 'vi' ? 'Tham gia' : 'Join'}</span>
+                    </button>
+                    
+                    <button className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors">
+                      <MessageSquare className="w-4 h-4 text-slate-400" />
+                      <span>{locale === 'vi' ? 'Trò chuyện' : 'Chat'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 text-sm text-slate-600">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-slate-400" />
                   <span>
-                    {new Date(selectedEvent.startDate).toLocaleString(
-                      locale === "vi" ? "vi-VN" : "en-US",
-                    )}{" "}
-                    -{" "}
-                    {new Date(selectedEvent.endDate).toLocaleTimeString(
-                      locale === "vi" ? "vi-VN" : "en-US",
-                      { hour: "2-digit", minute: "2-digit" },
-                    )}
+                    {(() => {
+                      const formatDateTime = (dateStr: string) => {
+                        const date = new Date(dateStr);
+                        const pad = (n: number) => n.toString().padStart(2, "0");
+                        return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+                      };
+                      return `${formatDateTime(selectedEvent.startDate)} - ${formatDateTime(selectedEvent.endDate)}`;
+                    })()}
                   </span>
                 </div>
                 {selectedEvent.description &&
@@ -1608,12 +1992,20 @@ function CalendarContent() {
                         files = JSON.parse(decodeURIComponent(match[1]));
                       } catch (e) {}
                     }
+                    const isHtmlEmpty = (htmlStr: string) => {
+                      if (!htmlStr) return true;
+                      const text = htmlStr.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim();
+                      return text === "";
+                    };
+
                     return (
                       <div className="mt-2 space-y-3">
-                        <div
-                          className="text-sm bg-slate-50 p-3 rounded-xl border border-slate-100 text-slate-500 rich-text-display prose prose-slate max-w-none"
-                          dangerouslySetInnerHTML={{ __html: cleanHtml }}
-                        />
+                        {!isHtmlEmpty(cleanHtml) && (
+                          <div
+                            className="text-sm bg-slate-50 p-3 rounded-xl border border-slate-100 text-slate-500 rich-text-display prose prose-slate max-w-none"
+                            dangerouslySetInnerHTML={{ __html: cleanHtml }}
+                          />
+                        )}
                         {files.length > 0 && (
                           <div className="space-y-1">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1640,53 +2032,112 @@ function CalendarContent() {
                   })()}
               </div>
 
-              {selectedEvent.invitees && selectedEvent.invitees.length > 0 && (
-                <div>
-                  <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              {/* Danh sách người tham gia (chỉ hiển thị khi cuộc họp có khách mời) */}
+              {rsvpList && rsvpList.length > 0 && (
+                <div className="border-t border-slate-100 pt-4">
+                  <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
                     {locale === "vi" ? "Người tham gia" : "Participants"}
                   </h5>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedEvent.invitees.map((inv, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-1 bg-slate-100 rounded-lg text-xs text-slate-600 font-medium"
-                      >
-                        {inv.displayName || inv.email}
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                    {/* Người tổ chức (Host) */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2.5">
+                        {(selectedEvent as any).hostAvatarUrl ? (
+                          <img
+                            src={(selectedEvent as any).hostAvatarUrl}
+                            className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
+                            alt=""
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border border-slate-200 uppercase shrink-0">
+                            {((selectedEvent as any).hostDisplayName || (selectedEvent as any).hostEmail || "?").substring(0, 1)}
+                          </div>
+                        )}
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold text-slate-800 truncate">
+                            {(selectedEvent as any).hostDisplayName || (selectedEvent as any).hostEmail?.split('@')[0]}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate">
+                            {(selectedEvent as any).hostEmail}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[9px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md font-bold uppercase shrink-0">
+                        {locale === 'vi' ? 'Người tổ chức' : 'Organizer'}
                       </span>
-                    ))}
+                    </div>
+
+                    {/* Khách mời */}
+                    {rsvpList.map((inv, idx) => {
+                      const isResponded = inv.status !== "PENDING";
+                      const statusText = isResponded 
+                        ? (locale === "vi" ? "Đã phản hồi" : "Responded")
+                        : (locale === "vi" ? "Chưa phản hồi" : "No response");
+
+                      let dotColor = "bg-slate-400";
+                      if (inv.status === "ACCEPTED") dotColor = "bg-emerald-500";
+                      else if (inv.status === "DECLINED") dotColor = "bg-rose-500";
+                      else if (inv.status === "TENTATIVE") dotColor = "bg-amber-500";
+
+                      return (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {inv.avatarUrl ? (
+                              <img
+                                src={inv.avatarUrl}
+                                className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
+                                alt=""
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border border-slate-200 uppercase shrink-0">
+                                {inv.displayName ? inv.displayName.substring(0, 1) : "?"}
+                              </div>
+                            )}
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-bold text-slate-800 truncate">
+                                {inv.displayName || inv.email.split('@')[0]}
+                              </span>
+                              <span className="text-[10px] text-slate-400 truncate">
+                                {inv.email}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isResponded ? "text-slate-600" : "text-slate-400"}`}>
+                              {statusText}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-2 pt-4">
-                <button
-                  onClick={() => handleJoinMeeting(selectedEvent.meetingCode)}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Join Room</span>
-                </button>
+              {/* Action Buttons ở Footer */}
+              <div className="flex gap-2 pt-4 w-full border-t border-slate-50">
                 {(() => {
-                  console.log("Current User ID:", currentUserId);
-                  console.log("Selected Event Host ID:", selectedEvent.hostId);
                   return (
                     (currentUserId === selectedEvent.hostId ||
                       meData?.supabaseId === selectedEvent.hostId) && (
                       <button
                         onClick={() => handleEditClick(selectedEvent)}
-                        className="p-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
+                        className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold text-slate-700"
                         title={locale === "vi" ? "Chỉnh sửa" : "Edit"}
                       >
-                        <Pencil className="w-4 h-4 text-slate-600" />
+                        <Pencil className="w-3.5 h-3.5 text-slate-600" />
+                        <span>{locale === "vi" ? "Chỉnh sửa" : "Edit"}</span>
                       </button>
                     )
                   );
                 })()}
                 <button
                   onClick={() => setShowDeleteConfirmModal(true)}
-                  className="p-2.5 border border-red-100 hover:bg-red-50 rounded-xl transition-colors"
+                  className="px-4 py-2 border border-red-100 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold text-red-600"
                 >
-                  <Trash2 className="w-4 h-4 text-red-600" />
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  <span>{locale === "vi" ? "Xóa" : "Delete"}</span>
                 </button>
               </div>
             </div>
