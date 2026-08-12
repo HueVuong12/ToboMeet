@@ -29,6 +29,8 @@ import {
   Settings,
   Paperclip,
   Pencil,
+  CalendarDays,
+  Users2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
@@ -79,6 +81,7 @@ function CalendarContent() {
 
   // Modals & Popups
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -927,36 +930,86 @@ function CalendarContent() {
               </button>
             </div>
 
-            {/* Nút Tạo Lịch */}
-            <button
-              onClick={() => {
-                setEditingEventId(null);
-                setTitle("");
-                descriptionRef.current = "";
-                setSelectedInvitees([]);
-                setRoomType("meeting");
-                const now = new Date();
-                const start = new Date(now);
-                start.setHours(now.getHours() + 1, 0, 0, 0);
-                const end = new Date(start);
-                end.setHours(start.getHours() + 1, 0, 0, 0);
+            {/* Nút Tạo Lịch — dropdown Sự kiện / Cuộc họp kênh */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCreateDropdown((prev) => !prev)}
+                className="inline-flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 rounded-full bg-brand-500 text-white text-[13px] font-bold hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 shadow-sm shrink-0"
+              >
+                <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">
+                  {locale === "vi" ? "Tạo lịch" : "Create"}
+                </span>
+                <ChevronDown className="hidden sm:block w-3.5 h-3.5 opacity-80" />
+              </button>
 
-                const pad = (n: number) => n.toString().padStart(2, "0");
-                setStartDate(
-                  `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`,
-                );
-                setEndDate(
-                  `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`,
-                );
-                setShowCreateModal(true);
-              }}
-              className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 rounded-full bg-brand-500 text-white text-[13px] font-bold hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 shadow-sm shrink-0"
-            >
-              <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">
-                {locale === "vi" ? "Tạo lịch" : "Create"}
-              </span>
-            </button>
+              {/* Dropdown menu */}
+              {showCreateDropdown && (
+                <>
+                  {/* Backdrop ẩn để đóng dropdown khi click ra ngoài */}
+                  <div
+                    className="fixed inset-0 z-[60]"
+                    onClick={() => setShowCreateDropdown(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-slate-100 py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150">
+                    {/* Option 1: Sự kiện */}
+                    <button
+                      onClick={() => {
+                        setShowCreateDropdown(false);
+                        setEditingEventId(null);
+                        setTitle("");
+                        descriptionRef.current = "";
+                        setSelectedInvitees([]);
+                        setRoomType("meeting");
+                        const now = new Date();
+                        const start = new Date(now);
+                        start.setHours(now.getHours() + 1, 0, 0, 0);
+                        const end = new Date(start);
+                        end.setHours(start.getHours() + 1, 0, 0, 0);
+                        const pad = (n: number) => n.toString().padStart(2, "0");
+                        setStartDate(
+                          `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`,
+                        );
+                        setEndDate(
+                          `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`,
+                        );
+                        setShowCreateModal(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 transition-colors rounded-xl mx-auto text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800">
+                          {locale === "vi" ? "Sự kiện" : "Event"}
+                        </p>
+                      </div>
+                    </button>
+
+                    <div className="h-px bg-slate-100 my-1 mx-3" />
+
+                    {/* Option 2: Cuộc họp kênh */}
+                    <button
+                      onClick={() => {
+                        setShowCreateDropdown(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-slate-400 cursor-not-allowed rounded-xl mx-auto text-left"
+                      disabled
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
+                        <Users2 className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-400">
+                          {locale === "vi" ? "Cuộc họp kênh" : "Channel meeting"}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1011,7 +1064,7 @@ function CalendarContent() {
               {/* Grid 7 columns */}
               <div className="grid grid-cols-7 gap-y-1.5 text-center text-[10px] font-bold text-slate-400 mb-2">
                 {locale === "vi"
-                  ? ["Cn", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
+                  ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
                       <div key={d}>{d}</div>
                     ))
                   : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
@@ -1180,7 +1233,7 @@ function CalendarContent() {
                       </h4>
                       <div className="grid grid-cols-7 gap-y-1 text-center text-[9px] font-bold text-slate-400 mb-1.5">
                         {locale === "vi"
-                          ? ["Cn", "T2", "T3", "T4", "T5", "T6", "T7"].map(
+                          ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map(
                               (d) => <div key={d}>{d}</div>,
                             )
                           : [
@@ -1505,8 +1558,8 @@ function CalendarContent() {
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800 text-lg">
                 {locale === "vi"
-                  ? "Lên lịch cuộc họp mới"
-                  : "Schedule New Meeting"}
+                  ? "Sự kiện"
+                  : "Event"}
               </h3>
               <button
                 onClick={() => setShowCreateModal(false)}

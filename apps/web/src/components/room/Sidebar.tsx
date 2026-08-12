@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -66,6 +66,9 @@ export default function Sidebar({
     setIsMounted(true);
   }, []);
 
+  const roomMenuRef = useRef<HTMLDivElement>(null);
+  const channelMenuRef = useRef<HTMLDivElement>(null);
+
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
   const [channelToLeave, setChannelToLeave] = useState<any | null>(null);
@@ -88,6 +91,21 @@ export default function Sidebar({
   const [disbandRoom, { isLoading: isDisbanding }] = useDisbandRoomMutation();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (showMenu && roomMenuRef.current && !roomMenuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+      if (openChannelMenuId && channelMenuRef.current && !channelMenuRef.current.contains(event.target as Node)) {
+        setOpenChannelMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMenu, openChannelMenuId]);
 
   // State cho Báo cáo phòng
   const [showReportModal, setShowReportModal] = useState(false);
@@ -235,7 +253,7 @@ export default function Sidebar({
 
         <div className="flex items-center gap-1.5">
           {/* Dropdown Menu Toggle */}
-          <div className="relative">
+          <div className="relative" ref={roomMenuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="w-7 h-7 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-500 hover:text-slate-800"
@@ -246,10 +264,6 @@ export default function Sidebar({
 
             {showMenu && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowMenu(false)}
-                />
                 <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
                   <button
                     onClick={() => {
@@ -400,7 +414,7 @@ export default function Sidebar({
                   </button>
 
                   {showThreeDots && (
-                    <div className="relative">
+                    <div className="relative" ref={openChannelMenuId === (channel._id || channel.name) ? channelMenuRef : null}>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -418,13 +432,6 @@ export default function Sidebar({
 
                       {openChannelMenuId === (channel._id || channel.name) && (
                         <>
-                          <div
-                            className="fixed inset-0 z-40"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenChannelMenuId(null);
-                            }}
-                          />
                           <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
                             {channel.isPrivate && canManageThisChannel && (
                               <button
