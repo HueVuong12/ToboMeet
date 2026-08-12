@@ -26,7 +26,7 @@ export function useParticipantManager({
   channelId: string | null;
   meetingCode: string | null;
 }) {
-  const t = useTranslations("room");
+  const t = useTranslations("meeting.participant_list");
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
@@ -132,11 +132,13 @@ export function useParticipantManager({
         identity,
       }).unwrap(),
       {
-        loading: isAll ? "Đang duyệt tất cả..." : `Đang duyệt ${name}...`,
+        loading: isAll
+          ? t("approve_all_loading")
+          : t("approve_loading", { name: name }),
         success: isAll
-          ? "Đã duyệt tất cả vào phòng"
-          : `Đã duyệt ${name} vào phòng`,
-        error: isAll ? "Không thể duyệt tất cả" : "Không thể duyệt người này",
+          ? t("approve_all_success")
+          : t("approve_success", { name: name }),
+        error: isAll ? t("approve_all_error") : t("approve_error"),
       },
     );
   };
@@ -145,42 +147,41 @@ export function useParticipantManager({
     const participant = participants.find((p) => p.identity === identity);
     if (!participant) return;
 
-    toast.warning(
-      `Bạn có chắc chắn muốn xoá ${participant.name} khỏi cuộc họp?`,
-      {
-        action: {
-          label: "Xác nhận",
-          onClick: async () => {
-            setKickingUserId(identity);
-            try {
-              if (!roomId || !channelId || !meetingCode) {
-                toast.error("Chưa thể thực hiện thao tác xoá khỏi phòng!");
-                return;
-              }
-
-              await removeParticipant({
-                roomId,
-                channelId,
-                code: meetingCode,
-                identity,
-              }).unwrap();
-              setKickedUsers((prev) => [...prev, identity]);
-              toast.success(`Đã xoá ${participant.name} khỏi cuộc họp`);
-            } catch (error) {
-              console.error(error);
-              toast.error("Chưa thể thực hiện thao tác xoá khỏi phòng!");
-            } finally {
-              setKickingUserId(null);
+    toast.warning(t("remove_confirm", { name: participant.name || "" }), {
+      action: {
+        label: t("confirm"),
+        onClick: async () => {
+          setKickingUserId(identity);
+          try {
+            if (!roomId || !channelId || !meetingCode) {
+              toast.error(t("remove_error"));
+              return;
             }
-          },
+
+            await removeParticipant({
+              roomId,
+              channelId,
+              code: meetingCode,
+              identity,
+            }).unwrap();
+            setKickedUsers((prev) => [...prev, identity]);
+            toast.success(
+              t("remove_success", { name: participant.name || "" }),
+            );
+          } catch (error) {
+            console.error(error);
+            toast.error(t("remove_error"));
+          } finally {
+            setKickingUserId(null);
+          }
         },
-        cancel: {
-          label: "Hủy",
-          onClick: () => {},
-        },
-        duration: Infinity,
       },
-    );
+      cancel: {
+        label: "Hủy",
+        onClick: () => {},
+      },
+      duration: Infinity,
+    });
   };
 
   const handleUpdateRole = async (
@@ -236,7 +237,10 @@ export function useParticipantManager({
       t("transfer_modal_body", {
         role: roleName,
         name: targetUserName,
-        defaultValue: `Bạn có chắc chắn muốn chuyển quyền ${roleName} cho ${targetUserName}?`,
+        defaultValue: t("transfer_modal_body", {
+          role: roleName,
+          name: targetUserName,
+        }),
       }),
       {
         action: {
@@ -293,9 +297,17 @@ export function useParticipantManager({
         trackType,
       }).unwrap(),
       {
-        loading: `Đang tắt ${typeLabel} của ${name}...`,
-        success: `Đã tắt ${typeLabel} của ${name}`,
-        error: `Không thể tắt ${typeLabel} lúc này`,
+        loading: t("mute_loading", {
+          type: typeLabel,
+          name: name,
+        }),
+        success: t("mute_success", {
+          type: typeLabel,
+          name: name,
+        }),
+        error: t("mute_error", {
+          type: typeLabel,
+        }),
       },
     );
   };
@@ -307,7 +319,7 @@ export function useParticipantManager({
       setRenameState(null);
     } catch (error) {
       console.error(error);
-      toast.error("Không thể đổi tên lúc này!");
+      toast.error(t("rename_error"));
     }
   };
 

@@ -212,7 +212,7 @@ export default function MeetingChat({
         className="flex-1 pt-3 overflow-y-auto pr-1.5 space-y-3 mb-3 custom-scrollbar"
       >
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+          <div className="h-full text-[13px] flex items-center justify-center text-slate-500 text-sm">
             {t("chat_empty_state")}
           </div>
         ) : (
@@ -395,7 +395,7 @@ export default function MeetingChat({
                             (users) => users.length > 0,
                           ) && (
                             <div
-                              className={`flex flex-wrap gap-1 mt-0.5 ${
+                              className={`flex flex-wrap gap-1 my-1 mx-0.5 ${
                                 isMe ? "justify-end" : "justify-start"
                               }`}
                             >

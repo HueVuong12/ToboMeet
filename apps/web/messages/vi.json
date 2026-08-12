@@ -1007,6 +1007,23 @@
   "meeting": {
     "chat_header": "Trò chuyện",
     "participant_header": "Thành viên",
+    "meeting_page": {
+      "loading_wait": "Vui lòng đợi trong giây lát",
+      "loading_prepare_room": "Chuẩn bị không gian phòng họp",
+      "loading_reconnecting": "Đang khôi phục phiên làm việc",
+      "cleaning_up": "Đang dọn dẹp...",
+      "toast_approved": "Chủ phòng đã phê duyệt bạn vào cuộc họp.",
+      "waiting_title": "Vui lòng chờ",
+      "waiting_desc": "Chủ phòng đã nhận được yêu cầu tham gia của bạn. Bạn sẽ tự động được đưa vào cuộc họp ngay khi được phê duyệt.",
+      "waiting_in_meeting": "Đang trong cuộc họp",
+      "waiting_others_count": "...và {count} người đang ở trong cuộc họp",
+      "waiting_no_one": "Không có ai trong cuộc họp",
+      "waiting_leave_btn": "Rời phòng chờ",
+      "unauth_title": "Tham gia cuộc họp",
+      "unauth_desc": "Bạn chưa đăng nhập. Để trải nghiệm cuộc họp tốt nhất, hãy mở ứng dụng ToboMeet trên điện thoại hoặc đăng nhập trên web để tiếp tục.",
+      "unauth_open_app": "Mở ToboMeet App",
+      "unauth_login_web": "Đăng nhập trên Web"
+    },
     "toolbar": {
       "camera": "Camera",
       "mic": "Mic",
@@ -1072,7 +1089,29 @@
       "guest_user": "Người ngoài",
       "mic_off": "Tắt mic",
       "cam_off": "Tắt cam",
-      "remove_from_meeting": "Xoá khỏi cuộc họp"
+      "remove_from_meeting": "Xoá khỏi cuộc họp",
+      "role_leader": "Trưởng nhóm",
+      "role_vice_leader": "Phó nhóm",
+      "toast_appoint_vice_leader_success": "Bổ nhiệm Phó nhóm thành công",
+      "toast_revoke_vice_leader_success": "Đã thu hồi Phó nhóm",
+      "toast_max_vice_leaders_reached": "Đã đạt số lượng tối đa 3 {role}",
+      "transfer_modal_body": "Bạn có chắc chắn muốn chuyển quyền {role} cho {name}?",
+      "confirm": "Xác nhận",
+      "cancel": "Hủy",
+      "toast_transfer_success": "Chuyển quyền thành công!",
+      "approve_all_loading": "Đang duyệt tất cả...",
+      "approve_loading": "Đang duyệt {name}...",
+      "approve_all_success": "Đã duyệt tất cả vào phòng",
+      "approve_success": "Đã duyệt {name} vào phòng",
+      "approve_all_error": "Không thể duyệt tất cả",
+      "approve_error": "Không thể duyệt người này",
+      "remove_confirm": "Bạn có chắc chắn muốn xoá {name} khỏi cuộc họp?",
+      "remove_success": "Đã xoá {name} khỏi cuộc họp",
+      "remove_error": "Chưa thể thực hiện thao tác xoá khỏi phòng!",
+      "mute_loading": "Đang tắt {type} của {name}...",
+      "mute_success": "Đã tắt {type} của {name}",
+      "mute_error": "Không thể tắt {type} lúc này",
+      "rename_error": "Không thể đổi tên lúc này!"
     },
     "invite_member_modal": {
       "title": "Mời vào cuộc họp",
@@ -1083,6 +1122,56 @@
       "no_search_results": "Không tìm thấy kết quả nào phù hợp.",
       "all_members_present": "Tất cả thành viên đều đã có mặt trong phòng.",
       "outsider_badge": "Khách"
+    },
+    "lobby": {
+      "title": "Chuẩn bị tham gia",
+      "subtitle": "Kiểm tra camera và micro trước khi vào cuộc họp",
+      "meeting_code": "Mã cuộc họp",
+      "camera_off": "Camera đang tắt",
+      "turn_off_mic": "Tắt Micro",
+      "turn_on_mic": "Bật Micro",
+      "turn_off_cam": "Tắt Camera",
+      "turn_on_cam": "Bật Camera",
+      "display_name_label": "Tên hiển thị",
+      "display_name_placeholder": "Nhập tên của bạn",
+      "mic_label": "Micro",
+      "default_mic": "Micro mặc định",
+      "speaker_label": "Loa / Tai nghe",
+      "default_speaker": "Loa hệ thống mặc định",
+      "camera_label": "Camera",
+      "default_camera": "Camera mặc định",
+      "join_button": "Tham gia ngay",
+      "privacy_notice": "Camera & micro chỉ được dùng khi bạn bật tương ứng",
+      "permission_error": "Vui lòng cấp quyền Camera và Micro để tiếp tục!",
+      "media_access_error": "Không thể truy cập thiết bị media"
+    },
+    "participant_tile": {
+      "raised_hand": "Giơ tay",
+      "pin": "Ghim",
+      "unpin": "Bỏ ghim",
+      "sharing_screen": "Đang chia sẻ",
+      "pinned": "Đã ghim",
+      "guest": "Khách"
+    }
+  },
+  "server": {
+    "errors": {
+      "4041": "Người dùng hoặc phòng/kênh không tồn tại",
+      "4031": "Tài khoản của bạn đã bị khóa",
+      "4032": "Bạn không đủ quyền thực hiện chức năng này",
+      "4011": "Vui lòng đăng nhập hoặc token không hợp lệ/hết hạn",
+      "4012": "Email hoặc mật khẩu không đúng",
+      "4013": "Đã trong cuộc họp",
+      "4014": "Cuộc họp chưa bắt đầu hoặc đã kết thúc",
+      "4001": "Email này đã được sử dụng",
+      "4002": "Phòng họp đã đạt số lượng tối đa",
+      "4003": "Cuộc họp hiện không diễn ra",
+      "4004": "Không thể truy cập thông tin cuộc họp",
+      "4005": "Bạn phải đang tham gia cuộc họp mới có thể gửi lời mời",
+      "4006": "Phiên họp không tồn tại hoặc đã kết thúc",
+      "4042": "Không tìm thấy phiên họp này",
+      "4291": "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút",
+      "5011": "Lỗi hệ thống, vui lòng thử lại sau"
     }
   }
 }

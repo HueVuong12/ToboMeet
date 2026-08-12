@@ -9,8 +9,10 @@ import {
   useLazyGetMemberStatusQuery,
 } from "@/lib/redux/api/meetingsApi";
 import { useGetMeQuery } from "@/lib/redux/api/usersApi";
+import { useTranslations } from "next-intl";
 
 export function useMeetingSession() {
+  const t = useTranslations("server.errors");
   const params = useParams();
   const deviceId = useDeviceId();
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
@@ -183,11 +185,14 @@ export function useMeetingSession() {
     } catch (error: any) {
       sessionStorage.removeItem(`is_joined_${meetingCode}`);
       hasTriedReconnectRef.current = false;
+      const errorCode = String(error.code);
 
       if (error?.code === 4013) {
-        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.");
+        toast.error(
+          t(errorCode) || "Bạn đang ở trong phòng này trên thiết bị/tab khác.",
+        );
       } else if (error?.code === 4014) {
-        toast.error("Cuộc họp chưa bắt đầu hoặc đã kết thúc");
+        toast.error(t(errorCode) || "Cuộc họp chưa bắt đầu hoặc đã kết thúc");
         await handleSmartRedirect();
       } else {
         toast.error("Không thể kết nối lại cuộc họp. Vui lòng thử lại.");

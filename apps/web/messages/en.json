@@ -1021,6 +1021,23 @@
   "meeting": {
     "chat_header": "Chat",
     "participant_header": "Participants",
+    "meeting_page": {
+      "loading_wait": "Please wait for a moment",
+      "loading_prepare_room": "Preparing meeting room",
+      "loading_reconnecting": "Restoring session",
+      "cleaning_up": "Cleaning up...",
+      "toast_approved": "The host has approved you to join the meeting.",
+      "waiting_title": "Please wait",
+      "waiting_desc": "The host has received your request to join. You will be automatically admitted as soon as they approve.",
+      "waiting_in_meeting": "In the meeting",
+      "waiting_others_count": "...and {count} others are in the meeting",
+      "waiting_no_one": "No one is in the meeting",
+      "waiting_leave_btn": "Leave waiting room",
+      "unauth_title": "Join meeting",
+      "unauth_desc": "You are not logged in. For the best experience, please open the ToboMeet mobile app or log in on the web to continue.",
+      "unauth_open_app": "Open ToboMeet App",
+      "unauth_login_web": "Log in on the web"
+    },
     "toolbar": {
       "camera": "Camera",
       "mic": "Mic",
@@ -1071,7 +1088,7 @@
     },
     "participant_list": {
       "joined_members": "Joined ({count})",
-      "waiting_approval": "Waiting for approval",
+      "waiting_approval": "Waiting",
       "waiting_room_empty": "No one is waiting in the lobby",
       "everyone": "Everyone",
       "approve_all": "Approve all",
@@ -1086,7 +1103,29 @@
       "guest_user": "Guest",
       "mic_off": "Mic off",
       "cam_off": "Camera off",
-      "remove_from_meeting": "Remove from meeting"
+      "remove_from_meeting": "Remove from meeting",
+      "role_leader": "Leader",
+      "role_vice_leader": "Vice Leader",
+      "toast_appoint_vice_leader_success": "Vice leader appointed successfully",
+      "toast_revoke_vice_leader_success": "Vice leader role revoked",
+      "toast_max_vice_leaders_reached": "Maximum of 3 {role} reached",
+      "transfer_modal_body": "Are you sure you want to transfer {role} role to {name}?",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "toast_transfer_success": "Ownership transferred successfully!",
+      "approve_all_loading": "Approving all...",
+      "approve_loading": "Approving {name}...",
+      "approve_all_success": "All participants approved",
+      "approve_success": "{name} approved to join",
+      "approve_all_error": "Unable to approve all",
+      "approve_error": "Unable to approve this person",
+      "remove_confirm": "Are you sure you want to remove {name} from the meeting?",
+      "remove_success": "{name} removed from the meeting",
+      "remove_error": "Unable to remove user from room",
+      "mute_loading": "Turning off {type} of {name}...",
+      "mute_success": "Turned off {type} of {name}",
+      "mute_error": "Unable to turn off {type} at this time",
+      "rename_error": "Unable to rename at this time"
     },
     "invite_member_modal": {
       "title": "Invite to meeting",
@@ -1097,6 +1136,56 @@
       "no_search_results": "No matching results found.",
       "all_members_present": "All members are already in the room.",
       "outsider_badge": "Outsider"
+    },
+    "lobby": {
+      "title": "Getting ready",
+      "subtitle": "Check your camera and mic before joining the meeting",
+      "meeting_code": "Meeting code",
+      "camera_off": "Camera is off",
+      "turn_off_mic": "Turn off Mic",
+      "turn_on_mic": "Turn on Mic",
+      "turn_off_cam": "Turn off Camera",
+      "turn_on_cam": "Turn on Camera",
+      "display_name_label": "Display name",
+      "display_name_placeholder": "Enter your name",
+      "mic_label": "Microphone",
+      "default_mic": "Default microphone",
+      "speaker_label": "Speaker / Headset",
+      "default_speaker": "Default system speaker",
+      "camera_label": "Camera",
+      "default_camera": "Default camera",
+      "join_button": "Join now",
+      "privacy_notice": "Camera & microphone are only used when you turn them on",
+      "permission_error": "Please grant Camera and Microphone permissions to continue!",
+      "media_access_error": "Unable to access media devices"
+    },
+    "participant_tile": {
+      "raised_hand": "Hand raised",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "sharing_screen": "Sharing",
+      "pinned": "Pinned",
+      "guest": "Guest"
+    }
+  },
+  "server": {
+    "errors": {
+      "4041": "User or room/channel not found",
+      "4031": "Your account has been locked",
+      "4032": "You do not have sufficient permissions to perform this action",
+      "4011": "Please log in or token is invalid/expired",
+      "4012": "Incorrect email or password",
+      "4013": "Already in the meeting",
+      "4014": "The meeting has not started or has ended",
+      "4001": "This email is already in use",
+      "4002": "The meeting room has reached maximum capacity",
+      "4003": "The meeting is not currently active",
+      "4004": "Unable to access meeting information",
+      "4005": "You must be in the meeting to send invitations",
+      "4006": "The session does not exist or has ended",
+      "4042": "Session not found",
+      "4291": "You have already sent an invitation to this person. Please try again in a few minutes",
+      "5011": "System error, please try again later"
     }
   }
 }

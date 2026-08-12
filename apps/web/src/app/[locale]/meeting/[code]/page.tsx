@@ -15,8 +15,10 @@ import { useEffect, useState } from "react";
 import { RoomEvent } from "livekit-client";
 import { toast } from "sonner";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
+import { useTranslations } from "next-intl";
 
 export default function MeetingPage() {
+  const t = useTranslations("meeting.meeting_page");
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const {
     isAuthenticated,
@@ -47,11 +49,11 @@ export default function MeetingPage() {
 
     // Gán nội dung tương ứng theo trạng thái
     if (isAuthenticated === null) {
-      loadingDesc = "Vui lòng đợi trong giây lát";
+      loadingDesc = t("loading_wait");
     } else if (status === "LOOKING_FOR_TOKEN") {
-      loadingDesc = "Chuẩn bị không gian phòng họp";
+      loadingDesc = t("loading_prepare_room");
     } else if (status === "RECONNECTING") {
-      loadingDesc = "Đang khôi phục phiên làm việc";
+      loadingDesc = t("loading_reconnecting");
     }
 
     return (
@@ -95,7 +97,7 @@ export default function MeetingPage() {
       <div className="flex flex-col h-screen items-center justify-center bg-[#111] text-white space-y-6 transition-opacity duration-500">
         <p className="text-gray-400 text-sm flex items-center gap-2">
           <Loader2 className="animate-spin text-gray-500" size={16} />
-          Đang dọn dẹp...
+          {t("cleaning_up")}
         </p>
       </div>
     );
@@ -166,6 +168,7 @@ export default function MeetingPage() {
 }
 
 function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
+  const t = useTranslations("meeting.meeting_page");
   const room = useRoomContext();
 
   const { displayParticipants } = useParticipantManager({
@@ -215,7 +218,7 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
               meta.status === "joined" &&
               prevMeta?.status !== "joined" // Chỉ thông báo khi trạng thái thay đổi từ "waiting" sang "joined"
             ) {
-              toast.success("Chủ phòng đã phê duyệt bạn vào cuộc họp.");
+              toast.success(t("toast_approved"));
             }
 
             if (meta.status) {
@@ -250,7 +253,7 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
 
         <div className="flex items-end mb-3">
           <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-wide">
-            Vui lòng chờ
+            {t("waiting_title")}
           </h1>
           <div className="flex space-x-1.5 ml-3 mb-1.5 lg:mb-2 lg:ml-4">
             <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-1"></span>
@@ -260,15 +263,14 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
         </div>
 
         <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-4 mt-2">
-          Chủ phòng đã nhận được yêu cầu tham gia của bạn. Bạn sẽ tự động được
-          đưa vào cuộc họp ngay khi được phê duyệt.
+          {t("waiting_desc")}
         </p>
 
         {/* HIỂN THỊ TỐI ĐA 5 NGƯỜI */}
         {displayParticipants.length > 0 ? (
           <div className="w-full max-w-lg mb-8 bg-[#1a1a1a] rounded-2xl p-5 border border-[#333] shadow-xl">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5 text-center">
-              Đang trong cuộc họp
+              {t("waiting_in_meeting")}
             </h3>
 
             <div className="flex flex-wrap justify-center gap-4">
@@ -311,14 +313,15 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
             {/* DÒNG CHỮ HIỂN THỊ SỐ NGƯỜI CÒN LẠI */}
             {displayParticipants.length > 5 && (
               <div className="mt-5 text-center text-xs font-medium text-slate-400">
-                ...và {displayParticipants.length - 5} người đang ở trong cuộc
-                họp
+                {t("waiting_others_count", {
+                  count: displayParticipants.length - 5,
+                })}
               </div>
             )}
           </div>
         ) : (
           <p className="text-sm text-slate-400 text-center mb-4">
-            Không có ai trong cuộc họp
+            {t("waiting_no_one")}
           </p>
         )}
 
@@ -326,7 +329,7 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
           onClick={handleDisconnect}
           className="px-6 py-2.5 bg-[#222] hover:bg-[#333] text-gray-300 rounded-xl text-sm font-medium transition-colors border border-[#333] hover:text-white"
         >
-          Rời phòng chờ
+          {t("waiting_leave_btn")}
         </button>
       </div>
     );
@@ -343,6 +346,7 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
 }
 
 function UnauthenticatedView({ meetingCode }: { meetingCode: string }) {
+  const t = useTranslations("meeting.meeting_page");
   return (
     <div className="min-h-screen bg-[#111] flex items-center justify-center p-4 lg:p-8 font-sans transition-colors duration-700">
       {/* Khai báo Keyframes CSS cho hiệu ứng mượt mà */}
@@ -378,11 +382,10 @@ function UnauthenticatedView({ meetingCode }: { meetingCode: string }) {
         </div>
 
         <h1 className="text-2xl font-bold text-slate-100 mb-3 animate-slide-up-1">
-          Tham gia cuộc họp
+          {t("unauth_title")}
         </h1>
         <p className="text-slate-400 text-sm mb-8 animate-slide-up-2">
-          Bạn chưa đăng nhập. Để trải nghiệm cuộc họp tốt nhất, hãy mở ứng dụng
-          ToboMeet trên điện thoại hoặc đăng nhập trên web để tiếp tục.
+          {t("unauth_desc")}
         </p>
 
         <div className="flex flex-col gap-4 animate-slide-up-3">
@@ -390,14 +393,14 @@ function UnauthenticatedView({ meetingCode }: { meetingCode: string }) {
             href={`intent://meeting/${meetingCode}#Intent;scheme=tobomeet;package=com.hng209.mobile;end;`}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-900/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 text-sm"
           >
-            Mở ToboMeet App
+            {t("unauth_open_app")}
           </a>
 
           <a
             href={`/login?redirect=/meeting/${meetingCode}`}
             className="w-full bg-[#333] hover:bg-[#444] text-white py-3.5 rounded-xl font-bold shadow-md transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 text-sm border border-[#444]"
           >
-            Đăng nhập trên Web
+            {t("unauth_login_web")}
           </a>
         </div>
       </div>

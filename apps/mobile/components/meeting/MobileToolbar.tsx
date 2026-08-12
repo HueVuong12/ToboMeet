@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomSettings } from "../../hooks/useRoomSettings";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import InviteMemberModal from "./InviteMemberModal";
+import { useTranslation } from "react-i18next";
 
 export default function MobileToolbar({
   initialFacingMode,
@@ -33,6 +34,7 @@ export default function MobileToolbar({
   onOpenMembers: () => void;
   onOpenChat: () => void;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const room = useRoomContext();
   const { isMicrophoneEnabled, isCameraEnabled, localParticipant } =
@@ -87,7 +89,7 @@ export default function MobileToolbar({
         setFacingMode(newFacingMode);
       } catch (error) {
         console.error(error);
-        toast.error("Không thể lật Camera lúc này.");
+        toast.error(t("meeting.toolbar.toast_flip_error"));
       }
     }
   };
@@ -96,7 +98,7 @@ export default function MobileToolbar({
     // const meetingLink = `https://tobomeet.com/meeting/${meetingCode}`;
     // await Clipboard.setStringAsync(meetingLink);
     setIsCopied(true);
-    toast.success("Đã sao chép liên kết!");
+    toast.success(t("meeting.toolbar.toast_link_copied"));
 
     setTimeout(() => {
       setIsCopied(false);
@@ -139,7 +141,7 @@ export default function MobileToolbar({
             <Text
               className={`text-[10px] mt-1 font-medium ${isCameraEnabled ? "text-gray-300" : "text-red-500"}`}
             >
-              Camera
+              {t("meeting.toolbar.camera")}
             </Text>
           </TouchableOpacity>
 
@@ -151,7 +153,7 @@ export default function MobileToolbar({
           >
             <Feather name="refresh-ccw" size={20} color="#d1d5db" />
             <Text className="text-gray-300 text-[10px] mt-1 font-medium">
-              Lật Cam
+              {t("meeting.toolbar.flip_camera")}
             </Text>
           </TouchableOpacity>
 
@@ -168,7 +170,7 @@ export default function MobileToolbar({
             <Text
               className={`text-[10px] mt-1 font-medium ${isMicrophoneEnabled ? "text-gray-300" : "text-red-500"}`}
             >
-              Mic
+              {t("meeting.toolbar.mic")}
             </Text>
           </TouchableOpacity>
 
@@ -179,7 +181,7 @@ export default function MobileToolbar({
           >
             <Feather name="users" size={20} color="#d1d5db" />
             <Text className="text-gray-300 text-[10px] mt-1 font-medium">
-              Thành viên
+              {t("meeting.toolbar.participants")}
             </Text>
           </TouchableOpacity>
 
@@ -190,7 +192,7 @@ export default function MobileToolbar({
           >
             <Feather name="message-square" size={20} color="#d1d5db" />
             <Text className="text-gray-300 text-[10px] mt-1 font-medium">
-              Chat
+              {t("meeting.toolbar.chat")}
             </Text>
           </TouchableOpacity>
 
@@ -207,7 +209,7 @@ export default function MobileToolbar({
             <Text
               className={`text-[10px] mt-1 font-medium ${isLocalHandRaised ? "text-amber-500" : "text-gray-300"}`}
             >
-              Giơ tay
+              {t("meeting.toolbar.raise_hand")}
             </Text>
           </TouchableOpacity>
 
@@ -218,27 +220,31 @@ export default function MobileToolbar({
           >
             <Feather name="more-vertical" size={20} color="#d1d5db" />
             <Text className="text-gray-300 text-[10px] mt-1 font-medium">
-              Tùy chọn
+              {t("meeting.toolbar.options")}
             </Text>
           </TouchableOpacity>
 
           {/* Nút Rời đi */}
           <TouchableOpacity
             onPress={() => {
-              Alert.alert("Rời phòng", "Bạn có chắc chắn muốn rời cuộc họp?", [
-                { text: "Hủy", style: "cancel" },
-                {
-                  text: "Rời đi",
-                  style: "destructive",
-                  onPress: () => room.disconnect(),
-                },
-              ]);
+              Alert.alert(
+                t("meeting.toolbar.confirm_leave_title"),
+                t("meeting.toolbar.confirm_leave_desc"),
+                [
+                  { text: t("meeting.toolbar.cancel"), style: "cancel" },
+                  {
+                    text: t("meeting.toolbar.leave_action"),
+                    style: "destructive",
+                    onPress: () => room.disconnect(),
+                  },
+                ],
+              );
             }}
             className="min-w-[60px] h-14 justify-center items-center px-3"
           >
             <Feather name="log-out" size={20} color="#ef4444" />
             <Text className="text-red-500 text-[10px] mt-1 font-bold">
-              Rời đi
+              {t("meeting.toolbar.leave_meeting")}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -263,7 +269,7 @@ export default function MobileToolbar({
 
             {/* TÙY CHỌN CHUNG (AI CŨNG THẤY) */}
             <Text className="text-gray-400 text-[11px] font-bold mb-3 uppercase">
-              Tùy chọn chung
+              {t("meeting.toolbar.general_options")}
             </Text>
 
             <TouchableOpacity
@@ -278,7 +284,9 @@ export default function MobileToolbar({
               <Text
                 className={`ml-3 text-sm font-medium ${isCopied ? "text-emerald-500" : "text-gray-300"}`}
               >
-                {isCopied ? "Đã sao chép liên kết" : "Sao chép liên kết"}
+                {isCopied
+                  ? t("meeting.toolbar.link_copied")
+                  : t("meeting.toolbar.copy_link")}
               </Text>
             </TouchableOpacity>
 
@@ -291,7 +299,7 @@ export default function MobileToolbar({
             >
               <Feather name="user-plus" size={20} color="#d1d5db" />
               <Text className="ml-3 text-sm font-medium text-gray-300">
-                Mời người tham gia
+                {t("meeting.toolbar.invite_participants")}
               </Text>
             </TouchableOpacity>
 
@@ -301,7 +309,7 @@ export default function MobileToolbar({
                 <View className="h-[1px] bg-[#333] my-3" />
 
                 <Text className="text-gray-400 text-[11px] font-bold mb-3 uppercase">
-                  Công cụ quản trị
+                  {t("meeting.toolbar.admin_tools")}
                 </Text>
 
                 {/* Switch Bật/Tắt Chat */}
@@ -316,7 +324,7 @@ export default function MobileToolbar({
                       color={isChatEnabled ? "#10b981" : "#6b7280"}
                     />
                     <Text className="text-gray-300 ml-3 text-sm font-medium">
-                      Cho phép Chat
+                      {t("meeting.toolbar.enable_chat")}
                     </Text>
                   </View>
                   <CustomSwitch value={isChatEnabled} />
@@ -334,7 +342,7 @@ export default function MobileToolbar({
                       color={isWaitingRoomEnabled ? "#10b981" : "#6b7280"}
                     />
                     <Text className="text-gray-300 ml-3 text-sm font-medium">
-                      Phòng chờ
+                      {t("meeting.toolbar.waiting_room")}
                     </Text>
                   </View>
                   <CustomSwitch value={isWaitingRoomEnabled} />
@@ -352,7 +360,7 @@ export default function MobileToolbar({
                       <View className="flex-row items-center">
                         <Feather name="user-check" size={20} color="#6b7280" />
                         <Text className="text-gray-300 ml-3 text-sm font-medium">
-                          Ai có thể duyệt
+                          {t("meeting.toolbar.approval_permission")}
                         </Text>
                       </View>
                       <Feather
@@ -384,7 +392,7 @@ export default function MobileToolbar({
                             }
                           />
                           <Text className="text-gray-300 ml-3 text-[13px]">
-                            Chỉ Quản trị viên
+                            {t("meeting.toolbar.admin_only")}
                           </Text>
                         </TouchableOpacity>
 
@@ -404,7 +412,7 @@ export default function MobileToolbar({
                             }
                           />
                           <Text className="text-gray-300 ml-3 text-[13px]">
-                            Thành viên
+                            {t("meeting.toolbar.member_and_admin")}
                           </Text>
                         </TouchableOpacity>
 
@@ -424,7 +432,7 @@ export default function MobileToolbar({
                             }
                           />
                           <Text className="text-gray-300 ml-3 text-[13px]">
-                            Tất cả mọi người
+                            {t("meeting.toolbar.everyone")}
                           </Text>
                         </TouchableOpacity>
                       </View>

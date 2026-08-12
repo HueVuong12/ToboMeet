@@ -17,6 +17,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useChatManager } from "../../hooks/useChatManager";
 import { useRoomSettings } from "../../hooks/useRoomSettings";
+import { useTranslation } from "react-i18next";
 
 export default function MobileChatModal({
   visible,
@@ -31,6 +32,7 @@ export default function MobileChatModal({
   channelId: string;
   meetingCode: string;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   // Hook Quyền Chat
@@ -91,7 +93,7 @@ export default function MobileChatModal({
             className="flex-row justify-between items-center p-4 shrink-0"
           >
             <Text style={{ color: "#d1d5db" }} className="font-bold text-lg">
-              Trò chuyện trong phòng
+              {t("meeting.chat.chat_header")}
             </Text>
             <TouchableOpacity
               onPress={onClose}
@@ -225,15 +227,15 @@ export default function MobileChatModal({
                       <Feather name="lock" size={10} color="#f59e0b" />
                       <Text className="text-[10px] text-amber-500">
                         {isMe
-                          ? `Gửi riêng cho ${
-                              item.targetIdentity
+                          ? t("meeting.chat.private_to_sender", {
+                              name: item.targetIdentity
                                 ? getParticipantDetails(
                                     item.targetIdentity,
                                     item.targetName,
                                   ).displayName
-                                : item.targetName // Fallback an toàn nếu tin nhắn cũ chưa có targetIdentity
-                            }`
-                          : "Gửi riêng cho bạn"}
+                                : item.targetName,
+                            })
+                          : t("meeting.chat.private_to_you")}
                       </Text>
                     </View>
                   )}
@@ -295,13 +297,13 @@ export default function MobileChatModal({
             >
               <View className="flex-1 mr-2">
                 <Text className="font-semibold text-emerald-400 text-xs mb-0.5">
-                  Đang trả lời {replyingTo.senderName}:
+                  {t("meeting.chat.replying_to", { name: replyingTo.senderName })}
                 </Text>
                 <Text className="text-slate-300 text-xs" numberOfLines={1}>
                   {replyingTo.content ||
                     (replyingTo.fileName
-                      ? `[Tệp] ${replyingTo.fileName}`
-                      : "[Ảnh/Video]")}
+                      ? `${t("meeting.chat.file_prefix")} ${replyingTo.fileName}`
+                      : t("meeting.chat.media_prefix"))}
                 </Text>
               </View>
               <TouchableOpacity
@@ -328,7 +330,7 @@ export default function MobileChatModal({
               <View className="bg-red-500/10 px-4 py-2.5 rounded-xl flex-row items-center gap-2 border border-red-500/20">
                 <Feather name="lock" size={16} color="#f87171" />
                 <Text className="text-slate-300 text-sm font-medium">
-                  Chủ phòng đã khóa chat
+                  {t("meeting.chat.chat_locked")}
                 </Text>
               </View>
             </View>
@@ -356,9 +358,9 @@ export default function MobileChatModal({
                   style={{ color: "#d1d5db" }}
                   className="text-xs font-medium mr-1.5"
                 >
-                  Gửi:{" "}
+                  {t("meeting.chat.send_label")}{" "}
                   {selectedTarget === "all"
-                    ? "Mọi người"
+                    ? t("meeting.chat.everyone")
                     : otherParticipants.find(
                         (p) => p.identity === selectedTarget,
                       )?.name || "Ẩn danh"}
@@ -371,7 +373,7 @@ export default function MobileChatModal({
                   <View className="flex-1 flex-row justify-center items-center py-2 opacity-70">
                     <ActivityIndicator size="small" color="#10b981" />
                     <Text className="text-emerald-400 font-medium ml-2 text-sm">
-                      Đang tải file lên...
+                      {t("meeting.chat.uploading_file")}
                     </Text>
                   </View>
                 ) : (
@@ -399,7 +401,7 @@ export default function MobileChatModal({
                       <TextInput
                         value={inputValue}
                         onChangeText={setInputValue}
-                        placeholder="Nhập tin nhắn..."
+                        placeholder={t("meeting.chat.input_placeholder")}
                         placeholderTextColor="#64748b"
                         className="flex-1 py-3 text-white text-base"
                       />
@@ -454,7 +456,7 @@ export default function MobileChatModal({
                 textTransform: "uppercase",
               }}
             >
-              Chọn người nhận
+              {t("meeting.chat.select_recipient")}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <TouchableOpacity
@@ -483,7 +485,7 @@ export default function MobileChatModal({
                     fontWeight: selectedTarget === "all" ? "600" : "normal",
                   }}
                 >
-                  Mọi người trong phòng
+                  {t("meeting.chat.everyone_in_room")}
                 </Text>
               </TouchableOpacity>
 
@@ -519,7 +521,7 @@ export default function MobileChatModal({
                         selectedTarget === p.identity ? "600" : "normal",
                     }}
                   >
-                    Chỉ gửi cho: {p.name}
+                    {t("meeting.chat.send_only_to", { name: p.name })}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -569,7 +571,7 @@ export default function MobileChatModal({
                 style={{ color: "#d1d5db" }}
                 className="ml-3 text-base font-medium"
               >
-                Trả lời tin nhắn này
+                {t("meeting.chat.reply_message")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -587,7 +589,9 @@ export default function MobileChatModal({
             onStartShouldSetResponder={() => true}
           >
             <View className="flex-row justify-between items-center p-4 border-b border-slate-700">
-              <Text className="text-white font-bold">Chi tiết cảm xúc</Text>
+              <Text className="text-white font-bold">
+                {t("meeting.chat.reaction_details_title")}
+              </Text>
               <TouchableOpacity onPress={() => setReactionDetails(null)}>
                 <Feather name="x" size={20} color="#94a3b8" />
               </TouchableOpacity>
@@ -601,7 +605,7 @@ export default function MobileChatModal({
                       <View className="flex-row items-center gap-2 mb-2 border-b border-slate-700/50 pb-1">
                         <Text className="text-lg">{emoji}</Text>
                         <Text className="text-xs text-slate-400 font-medium">
-                          {users.length} người
+                          {t("meeting.chat.people_count", { count: users.length })}
                         </Text>
                       </View>
                       {users.map((userId) => {
@@ -659,7 +663,7 @@ export default function MobileChatModal({
           >
             <Feather name="external-link" size={18} color="white" />
             <Text className="text-white ml-2 font-medium">
-              Mở trong trình duyệt
+              {t("meeting.chat.open_in_browser")}
             </Text>
           </TouchableOpacity>
         </View>

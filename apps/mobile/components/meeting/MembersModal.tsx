@@ -84,7 +84,9 @@ export default function MembersModal({
         <View className="bg-[#111] h-[75%] rounded-t-3xl p-5 border-t border-[#333]">
           <View className="flex-row justify-between items-center mb-4 pb-4 border-b border-[#222]">
             <Text className="text-white text-lg font-bold">
-              {t("meeting_modal.title", { defaultValue: "Thành viên" })}
+              {t("meeting.member_modal.members_modal_title", {
+                defaultValue: "Thành viên",
+              })}
             </Text>
             <TouchableOpacity onPress={onClose} className="p-1">
               <Feather name="x" size={20} color="#94a3b8" />
@@ -105,7 +107,9 @@ export default function MembersModal({
                     activeListTab === "joined" ? "text-white" : "text-gray-400"
                   }`}
                 >
-                  Đã tham gia ({displayParticipants.length})
+                  {t("meeting.member_modal.joined_count", {
+                    count: displayParticipants.length,
+                  })}
                 </Text>
               </TouchableOpacity>
 
@@ -120,10 +124,9 @@ export default function MembersModal({
                     activeListTab === "waiting" ? "text-white" : "text-gray-400"
                   }`}
                 >
-                  Chờ duyệt{" "}
-                  {waitingParticipants.length > 0
-                    ? `(${waitingParticipants.length})`
-                    : ""}
+                  {t("meeting.member_modal.waiting_count", {
+                    count: waitingParticipants.length,
+                  })}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -133,28 +136,19 @@ export default function MembersModal({
           <View className="flex-row justify-between items-center mb-2.5">
             <Text className="text-gray-400 text-xs font-bold uppercase">
               {activeListTab === "waiting"
-                ? "Đang chờ vào phòng"
-                : "Đang tham gia"}
+                ? `${t("meeting.member_modal.waiting_label")} (${waitingParticipants.length})`
+                : `${t("meeting.member_modal.joined_label")} (${displayParticipants.length})`}
             </Text>
 
-            {activeListTab === "waiting" && waitingParticipants.length > 0 ? (
+            {activeListTab === "waiting" && waitingParticipants.length > 0 && (
               <TouchableOpacity
                 onPress={() => handleApprove("all", "Tất cả")}
                 className="bg-amber-500/15 px-3 py-1.5 rounded-lg"
               >
                 <Text className="text-amber-500 text-xs font-bold">
-                  Duyệt tất cả
+                  {t("meeting.member_modal.approve_all")}
                 </Text>
               </TouchableOpacity>
-            ) : (
-              <View className="bg-[#222] px-2.5 py-1 rounded-xl border border-[#333]">
-                <Text className="text-gray-300 text-xs font-bold">
-                  {activeListTab === "waiting"
-                    ? waitingParticipants.length
-                    : displayParticipants.length}{" "}
-                  người
-                </Text>
-              </View>
             )}
           </View>
 
@@ -168,7 +162,7 @@ export default function MembersModal({
                 className="mb-3"
               />
               <Text className="text-gray-400 text-sm">
-                Không có ai ở phòng chờ
+                {t("meeting.member_modal.waiting_empty")}
               </Text>
             </View>
           ) : (
@@ -201,11 +195,11 @@ export default function MembersModal({
                 // Xác định text chức danh hiển thị dựa theo roomType
                 let roleText = "";
                 if (role === "owner") {
-                  roleText = t("room.role_leader", {
+                  roleText = t("meeting.member_modal.role_leader", {
                     defaultValue: "Trưởng nhóm",
                   });
                 } else if (role === "admin") {
-                  roleText = t("room.role_vice_leader", {
+                  roleText = t("meeting.member_modal.role_vice_leader", {
                     defaultValue: "Phó nhóm",
                   });
                 } else if (role === "guest") {
@@ -243,7 +237,7 @@ export default function MembersModal({
                         {isMe && (
                           <Text className="text-slate-500 font-normal">
                             {" "}
-                            (Bạn)
+                            {t("meeting.member_modal.you_label")}
                           </Text>
                         )}
                       </Text>
@@ -255,7 +249,7 @@ export default function MembersModal({
                         )
                       ) : (
                         <Text className="text-amber-500 text-[11px] mt-0.5">
-                          Đang yêu cầu tham gia...
+                          {t("meeting.member_modal.requesting_access")}
                         </Text>
                       )}
                     </View>
@@ -348,7 +342,7 @@ export default function MembersModal({
                             >
                               <Feather name="edit-2" size={16} color="white" />
                               <Text className="text-white text-sm">
-                                Đổi tên
+                                {t("meeting.member_modal.rename_title")}
                               </Text>
                             </TouchableOpacity>
                           )}
@@ -371,10 +365,9 @@ export default function MembersModal({
                                   />
                                   <Text className="text-white text-sm">
                                     {t(
-                                      "room.toast_revoke_vice_leader_success",
+                                      "meeting.member_modal.revoke_vice_leader",
                                       {
-                                        defaultValue:
-                                          "Đã thu hồi quyền thành công",
+                                        defaultValue: "Thu hồi phó nhóm",
                                       },
                                     )}
                                   </Text>
@@ -393,9 +386,12 @@ export default function MembersModal({
                                     color="white"
                                   />
                                   <Text className="text-white text-sm">
-                                    {t("room.appoint_vice_leader", {
-                                      defaultValue: "Bổ nhiệm Phó nhóm",
-                                    })}
+                                    {t(
+                                      "meeting.member_modal.appoint_vice_leader",
+                                      {
+                                        defaultValue: "Bổ nhiệm Phó nhóm",
+                                      },
+                                    )}
                                   </Text>
                                 </TouchableOpacity>
                               )}
@@ -416,7 +412,7 @@ export default function MembersModal({
                                   color="white"
                                 />
                                 <Text className="text-white text-sm">
-                                  {t("room.appoint_leader", {
+                                  {t("meeting.member_modal.appoint_leader", {
                                     defaultValue: "Bổ nhiệm Trưởng nhóm",
                                   })}
                                 </Text>
@@ -446,7 +442,7 @@ export default function MembersModal({
                                     color="white"
                                   />
                                   <Text className="text-white text-sm">
-                                    Tắt Mic
+                                    {t("meeting.member_modal.mute_mic")}
                                   </Text>
                                 </TouchableOpacity>
                               )}
@@ -469,7 +465,7 @@ export default function MembersModal({
                                     color="white"
                                   />
                                   <Text className="text-white text-sm">
-                                    Tắt Camera
+                                    {t("meeting.member_modal.mute_cam")}
                                   </Text>
                                 </TouchableOpacity>
                               )}
@@ -491,7 +487,9 @@ export default function MembersModal({
                                   color="#ef4444"
                                 />
                                 <Text className="text-red-500 text-sm">
-                                  Đuổi khỏi phòng
+                                  {t(
+                                    "meeting.member_modal.remove_from_meeting",
+                                  )}
                                 </Text>
                               </TouchableOpacity>
                             </>
@@ -512,7 +510,7 @@ export default function MembersModal({
           <View className="flex-1 justify-center items-center bg-black/60 p-5">
             <View className="bg-[#111] w-full rounded-3xl p-6 border border-[#333]">
               <Text className="text-white text-lg font-bold mb-4">
-                Đổi tên hiển thị
+                {t("meeting.member_modal.rename_title")}
               </Text>
 
               <TextInput
@@ -520,7 +518,7 @@ export default function MembersModal({
                 onChangeText={(text) =>
                   setRenameState({ ...renameState, newName: text })
                 }
-                placeholder="Nhập tên mới..."
+                placeholder={t("meeting.member_modal.rename_placeholder")}
                 placeholderTextColor="#6b7280"
                 className="bg-[#222] text-gray-300 p-4 rounded-xl text-base mb-6 border border-[#333]"
                 autoFocus
@@ -531,7 +529,9 @@ export default function MembersModal({
                   onPress={() => setRenameState(null)}
                   className="py-3 px-5 rounded-xl"
                 >
-                  <Text className="text-slate-400 font-bold">Hủy</Text>
+                  <Text className="text-slate-400 font-bold">
+                    {t("meeting.member_modal.rename_cancel")}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRenameSubmit}
@@ -540,7 +540,9 @@ export default function MembersModal({
                     renameState.newName.trim() ? "bg-blue-500" : "bg-blue-900"
                   }`}
                 >
-                  <Text className="text-white font-bold">Lưu thay đổi</Text>
+                  <Text className="text-white font-bold">
+                    {t("meeting.member_modal.rename_save")}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>

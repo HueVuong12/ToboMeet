@@ -11,7 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useGetMeQuery } from "@/lib/redux/api/usersApi";
+import { useTranslations } from "next-intl";
 
 interface MeetingLobbyProps {
   meetingCode: string;
@@ -62,7 +62,7 @@ export default function MeetingLobby({
   handleJoinByCode,
   isJoining,
 }: MeetingLobbyProps) {
-  const { data: myProfile } = useGetMeQuery();
+  const t = useTranslations("meeting.lobby");
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState<
@@ -91,7 +91,7 @@ export default function MeetingLobby({
         stream.getTracks().forEach((track) => track.stop());
       } catch (error) {
         console.warn("Người dùng từ chối quyền hoặc lỗi thiết bị:", error);
-        toast.error("Vui lòng cấp quyền Camera và Micro để tiếp tục!");
+        toast.error(t("permission_error"));
       } finally {
         setIsPermissionChecked(true);
       }
@@ -135,7 +135,7 @@ export default function MeetingLobby({
           videoRef.current.srcObject = null;
         }
       } catch (err) {
-        toast.error("Không thể truy cập thiết bị media");
+        toast.error(t("media_access_error"));
         console.error("Lỗi media preview:", err);
       }
     };
@@ -244,14 +244,14 @@ export default function MeetingLobby({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 lg:px-8 py-5 border-b border-white/5 animate-slide-up-1">
             <div>
               <h1 className="text-xl lg:text-2xl font-semibold text-white tracking-tight">
-                Chuẩn bị tham gia
+                {t("title")}
               </h1>
-              <p className="text-sm text-slate-400 mt-0.5">
-                Kiểm tra camera và micro trước khi vào cuộc họp
-              </p>
+              <p className="text-sm text-slate-400 mt-0.5">{t("subtitle")}</p>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10">
-              <span className="text-[11px] text-slate-500">Mã phòng</span>
+              <span className="text-[11px] text-slate-500">
+                {t("meeting_code")}
+              </span>
               <span className="text-sm font-semibold font-mono text-emerald-400 tracking-wide">
                 {meetingCode}
               </span>
@@ -278,7 +278,7 @@ export default function MeetingLobby({
                         <VideoOff size={28} className="opacity-70" />
                       </div>
                       <span className="text-sm font-medium">
-                        Camera đang tắt
+                        {t("camera_off")}
                       </span>
                     </div>
                   )}
@@ -301,7 +301,7 @@ export default function MeetingLobby({
                         ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
                         : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
                     }`}
-                    title={micOn ? "Tắt Micro" : "Bật Micro"}
+                    title={micOn ? t("turn_off_mic") : t("turn_on_mic")}
                   >
                     {micOn ? <Mic size={20} /> : <MicOff size={20} />}
                   </button>
@@ -313,7 +313,7 @@ export default function MeetingLobby({
                         ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
                         : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
                     }`}
-                    title={camOn ? "Tắt Camera" : "Bật Camera"}
+                    title={camOn ? t("turn_off_cam") : t("turn_on_cam")}
                   >
                     {camOn ? <Video size={20} /> : <VideoOff size={20} />}
                   </button>
@@ -324,20 +324,20 @@ export default function MeetingLobby({
               <div className="lg:col-span-5 space-y-4 animate-slide-up-3">
                 <div>
                   <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
-                    Tên hiển thị
+                    {t("display_name_label")}
                   </label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Nhập tên của bạn"
+                    placeholder={t("display_name_placeholder")}
                     className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white bg-white/5 border border-white/10 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
                   />
                 </div>
 
                 <div className="relative">
                   <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
-                    Micro
+                    {t("mic_label")}
                   </label>
                   <select
                     value={selectedMicId}
@@ -350,7 +350,7 @@ export default function MeetingLobby({
                         value={device.deviceId}
                         className="bg-[#1c1c1e] text-white"
                       >
-                        {device.label || "Micro mặc định"}
+                        {device.label || t("default_mic")}
                       </option>
                     ))}
                   </select>
@@ -361,7 +361,7 @@ export default function MeetingLobby({
 
                 <div className="relative">
                   <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
-                    Loa / Tai nghe
+                    {t("speaker_label")}
                   </label>
                   <select
                     value={selectedSpeakerId}
@@ -375,12 +375,12 @@ export default function MeetingLobby({
                           value={device.deviceId}
                           className="bg-[#1c1c1e] text-white"
                         >
-                          {device.label || "Loa hệ thống mặc định"}
+                          {device.label || t("default_speaker")}
                         </option>
                       ))
                     ) : (
                       <option value="" className="bg-[#1c1c1e] text-white">
-                        Loa hệ thống mặc định
+                        {t("default_speaker")}
                       </option>
                     )}
                   </select>
@@ -391,7 +391,7 @@ export default function MeetingLobby({
 
                 <div className="relative">
                   <label className="block text-[13px] font-medium text-slate-400 mb-1.5">
-                    Camera
+                    {t("camera_label")}
                   </label>
                   <select
                     value={selectedCameraId}
@@ -404,7 +404,7 @@ export default function MeetingLobby({
                         value={device.deviceId}
                         className="bg-[#1c1c1e] text-white"
                       >
-                        {device.label || "Camera mặc định"}
+                        {device.label || t("default_camera")}
                       </option>
                     ))}
                   </select>
@@ -423,7 +423,7 @@ export default function MeetingLobby({
                     {isJoining ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      "Tham gia ngay"
+                      t("join_button")
                     )}
                   </button>
                 </div>
@@ -433,7 +433,7 @@ export default function MeetingLobby({
         </div>
 
         <p className="mt-4 text-center text-[11px] text-slate-600">
-          Camera & micro chỉ được dùng khi bạn bật tương ứng
+          {t("privacy_notice")}
         </p>
       </div>
     </div>

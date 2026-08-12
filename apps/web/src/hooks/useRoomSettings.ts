@@ -6,6 +6,7 @@ import {
   useToggleWaitingRoomStatusMutation,
   useUpdateApprovalPermissionMutation,
 } from "@/lib/redux/api/meetingsApi";
+import { useTranslations } from "next-intl";
 
 // Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
 export function useRoomSettings({
@@ -17,6 +18,7 @@ export function useRoomSettings({
   channelId?: string;
   meetingCode?: string;
 }) {
+  const t = useTranslations("server.errors");
   const { localParticipant } = useLocalParticipant();
   const { metadata: roomMetadata } = useRoomInfo();
 
@@ -76,8 +78,9 @@ export function useRoomSettings({
         isChatEnabled: newState,
       }).unwrap();
     } catch (error: any) {
-      if (error?.code === 4032 || error?.status === 403) {
-        toast.error("Bạn không đủ quyền thực hiện chức năng này");
+      if (error?.code) {
+        const errorCode = String(error.code);
+        toast.error(t(errorCode) || t("errors.5011"));
       } else toast.error("Chưa thể thực hiện thao tác này");
       setIsChatEnabled(!newState); // Rollback nếu lỗi
     }
@@ -99,8 +102,9 @@ export function useRoomSettings({
         isWaitingRoomEnabled: newState,
       }).unwrap();
     } catch (error: any) {
-      if (error?.code === 4032 || error?.status === 403) {
-        toast.error("Bạn không đủ quyền thực hiện chức năng này");
+      if (error?.code) {
+        const errorCode = String(error.code);
+        toast.error(t(errorCode) || t("errors.5011"));
       } else toast.error("Chưa thể thực hiện thao tác này");
       setIsWaitingRoomEnabled(!newState); // Rollback nếu lỗi
     }
@@ -124,8 +128,9 @@ export function useRoomSettings({
         permission: permission,
       }).unwrap();
     } catch (error: any) {
-      if (error?.code === 4032 || error?.status === 403) {
-        toast.error("Bạn không đủ quyền thực hiện chức năng này");
+      if (error?.code) {
+        const errorCode = String(error.code);
+        toast.error(t(errorCode) || t("errors.5011"));
       } else toast.error("Chưa thể thực hiện thao tác này");
       setApprovalPermission(oldState); // Rollback
     }

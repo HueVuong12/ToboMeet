@@ -14,6 +14,7 @@ import {
   Pin,
   PinOff,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 interface CustomTileWrapperProps {
@@ -35,6 +36,7 @@ export default function CustomTileWrapper({
   onPinToggle,
   hideMenu = false,
 }: CustomTileWrapperProps) {
+  const t = useTranslations("meeting.participant_tile");
   const participant = trackRef.participant;
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
   const { getHandState } = useHandRaise();
@@ -182,7 +184,7 @@ export default function CustomTileWrapper({
         <div className="absolute top-2.5 right-2.5 bg-amber-500/95 text-white px-2.5 py-1.5 rounded-lg shadow-lg z-20 flex items-center gap-1.5 backdrop-blur-sm pointer-events-none border border-amber-400/30">
           <Hand size={14} className="fill-white animate-bounce" />
           <span className="text-[11px] font-semibold tracking-wide">
-            Giơ tay
+            {t("raised_hand")}
           </span>
         </div>
       )}
@@ -214,12 +216,12 @@ export default function CustomTileWrapper({
                 {isPinned ? (
                   <>
                     <PinOff size={14} className="text-rose-400" />
-                    <span>Bỏ ghim</span>
+                    <span>{t("unpin")}</span>
                   </>
                 ) : (
                   <>
                     <Pin size={14} className="text-emerald-400" />
-                    <span>Ghim</span>
+                    <span>{t("pin")}</span>
                   </>
                 )}
               </button>
@@ -269,15 +271,15 @@ export default function CustomTileWrapper({
             ) : null}
 
             <span className="text-[12px] font-medium text-white/95 truncate drop-shadow-sm">
-              {participant.name || "Khách"}
+              {participant.name || t("guest")}
               {isScreenShare && (
                 <span className="text-[11px] text-white/60 ml-1.5 font-normal">
-                  · Đang chia sẻ
+                  · {t("sharing_screen")}
                 </span>
               )}
               {isPinned && !isScreenShare && (
                 <span className="text-[11px] text-emerald-400/90 ml-1.5 font-normal">
-                  · Đã ghim
+                  · {t("pinned")}
                 </span>
               )}
             </span>

@@ -13,6 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMeetingInvite } from "../../hooks/useMeetingInvite";
 import { Participant } from "livekit-client";
+import { useTranslation } from "react-i18next";
 
 interface InviteMemberModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export default function InviteMemberModal({
   meetingCode,
   displayParticipants,
 }: InviteMemberModalProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const {
@@ -71,12 +73,13 @@ export default function InviteMemberModal({
             className="text-[14px] font-medium text-slate-200"
             numberOfLines={1}
           >
-            {item.displayName || "Người dùng"}
+            {item.displayName ||
+              t("meeting.invite_member_modal.default_user_name")}
           </Text>
           {item.isOutsider && (
             <View className="px-1.5 py-0.5 bg-blue-500/20 rounded border border-blue-500/30">
               <Text className="text-[9px] font-bold text-blue-400 uppercase">
-                Khách
+                {t("meeting.invite_member_modal.outsider_badge")}
               </Text>
             </View>
           )}
@@ -94,7 +97,9 @@ export default function InviteMemberModal({
         {invitingUserId === item.userId ? (
           <ActivityIndicator size="small" color="#3b82f6" />
         ) : (
-          <Text className="text-blue-400 font-semibold text-xs">Mời</Text>
+          <Text className="text-blue-400 font-semibold text-xs">
+            {t("meeting.invite_member_modal.invite_button")}
+          </Text>
         )}
       </TouchableOpacity>
     </View>
@@ -118,7 +123,7 @@ export default function InviteMemberModal({
             <View className="flex-row items-center gap-2">
               <Feather name="user-plus" size={18} color="#3b82f6" />
               <Text className="text-[15px] font-bold text-white ml-2">
-                Mời vào cuộc họp
+                {t("meeting.invite_member_modal.title")}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} className="p-1.5">
@@ -134,7 +139,9 @@ export default function InviteMemberModal({
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Tìm theo tên hoặc email..."
+                placeholder={t(
+                  "meeting.invite_member_modal.search_placeholder",
+                )}
                 placeholderTextColor="#64748b"
                 className="flex-1 ml-2.5 text-white text-[15px] p-0"
                 style={{
@@ -181,8 +188,8 @@ export default function InviteMemberModal({
                   <Feather name="user-minus" size={40} color="#475569" />
                   <Text className="text-slate-400 text-sm mt-3 text-center">
                     {searchQuery
-                      ? "Không tìm thấy kết quả nào."
-                      : "Tất cả thành viên đều đã có mặt trong phòng."}
+                      ? t("meeting.invite_member_modal.no_search_results")
+                      : t("meeting.invite_member_modal.all_members_present")}
                   </Text>
                 </View>
               )

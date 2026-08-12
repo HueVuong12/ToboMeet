@@ -104,7 +104,7 @@ export default function ParticipantList({
               <div className="flex flex-col gap-1 w-full">
                 {/* NÚT DUYỆT TẤT CẢ */}
                 <div className="flex w-full justify-between px-1 pb-1">
-                  <p className="text-xs text-slate-400">{t("everyone")}</p>
+                  <p className="text-xs text-slate-400">{t2("everyone")}</p>
                   <button
                     onClick={() => handleApprove("all", "Tất cả")}
                     className="text-xs text-amber-500 hover:text-amber-400 font-medium px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors"
@@ -181,11 +181,7 @@ export default function ParticipantList({
             {!canApprove && (
               <div className="flex items-center justify-between mb-3 px-1 mt-1">
                 <span className="text-xs font-medium text-slate-400">
-                  {t2("in_session")}
-                </span>
-                {/* Đã sửa: Làm mỏng lại, bo góc nhẹ (rounded-md), thêm viền tinh tế */}
-                <span className="text-[11px] font-medium bg-[#222] border border-[#333] text-slate-400 px-2 py-0.5 rounded-md shadow-sm">
-                  {displayParticipants.length} người
+                  {t2("in_session")} ({displayParticipants.length})
                 </span>
               </div>
             )}
@@ -427,12 +423,12 @@ export default function ParticipantList({
         )}
       </div>
 
-      {/* Render Modal Đổi Tên bằng Portal */}
+      {/* Modal đổi tên */}
       {renameState?.isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4">
-            <div className="bg-[#222] border border-[#333] rounded-xl shadow-2xl w-full max-w-sm p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 tracking-wide">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+            <div className="bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm p-5">
+              <h3 className="text-base font-semibold text-white mb-4">
                 {t2("rename_display_name")}
               </h3>
 
@@ -443,7 +439,7 @@ export default function ParticipantList({
                   setRenameState({ ...renameState, newName: e.target.value })
                 }
                 placeholder={t("enter_new_name")}
-                className="w-full px-4 py-3 bg-[#111] border border-[#444] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-6 transition-colors"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 mb-5 transition-colors"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()}
               />
@@ -451,14 +447,14 @@ export default function ParticipantList({
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setRenameState(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-300 hover:bg-[#333] rounded-lg transition-colors"
+                  className="px-3.5 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
                 >
                   {t("cancel")}
                 </button>
                 <button
                   onClick={handleRenameSubmit}
                   disabled={!renameState.newName.trim()}
-                  className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  className="px-3.5 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors disabled:opacity-50"
                 >
                   {t2("save_changes")}
                 </button>

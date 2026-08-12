@@ -29,7 +29,7 @@ export function useParticipantManager({
   channelId: string;
   meetingCode: string;
 }) {
-  const { t } = useTranslation("room");
+  const { t } = useTranslation();
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
@@ -74,7 +74,7 @@ export function useParticipantManager({
     console.error("Lỗi phân tích Room Metadata:", error);
   }
 
-  const roleName = t("role_leader", { defaultValue: "Trưởng nhóm" });
+  const roleName = t("meeting.member_modal.role_leader", { defaultValue: "Trưởng nhóm" });
 
   // AI CÓ QUYỀN DUYỆT?
   let canApprove = false;
@@ -136,7 +136,9 @@ export function useParticipantManager({
     const isAll = identity === "all";
 
     try {
-      toast.success(isAll ? "Đang duyệt tất cả..." : `Đang duyệt ${name}...`);
+      toast.success(
+        isAll ? t("meeting.member_modal.approve_all_loading") : t("meeting.member_modal.approve_loading", { name: name }),
+      );
       await approveParticipantApi({
         roomId,
         channelId,
@@ -145,45 +147,36 @@ export function useParticipantManager({
       }).unwrap();
     } catch (error) {
       console.error("Lỗi duyệt người dùng:", error);
-      toast.error(
-        isAll ? "Không thể duyệt tất cả" : "Không thể duyệt người này",
-      );
+      toast.error(isAll ? t("meeting.member_modal.approve_all_error") : t("meeting.member_modal.approve_error"));
     }
   };
 
   // Xử lý Đuổi
   const handleRemove = (participant: Participant) => {
-    Alert.alert(
-      "Xác nhận",
-      `Bạn có chắc chắn muốn đuổi ${participant.name} khỏi cuộc họp?`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Đuổi",
-          style: "destructive",
-          onPress: async () => {
-            setKickingUserId(participant.identity);
-            try {
-              await removeParticipant({
-                roomId,
-                channelId,
-                code: meetingCode,
-                identity: participant.identity,
-              }).unwrap();
-              setKickedUsers((prev) => [...prev, participant.identity]);
-            } catch (error) {
-              console.error(error);
-              Alert.alert(
-                "Lỗi",
-                "Không thể thực hiện thao tác đuổi khỏi phòng!",
-              );
-            } finally {
-              setKickingUserId(null);
-            }
-          },
+    Alert.alert(t("meeting.member_modal.confirm"), t("meeting.member_modal.remove_confirm", { name: participant.name }), [
+      { text: t("meeting.member_modal.cancel"), style: "cancel" },
+      {
+        text: t("meeting.member_modal.confirm"),
+        style: "destructive",
+        onPress: async () => {
+          setKickingUserId(participant.identity);
+          try {
+            await removeParticipant({
+              roomId,
+              channelId,
+              code: meetingCode,
+              identity: participant.identity,
+            }).unwrap();
+            setKickedUsers((prev) => [...prev, participant.identity]);
+          } catch (error) {
+            console.error(error);
+            Alert.alert(t("meeting.member_modal.error"), t("meeting.member_modal.remove_error"));
+          } finally {
+            setKickingUserId(null);
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const handleUpdateRole = async (
@@ -202,23 +195,23 @@ export function useParticipantManager({
 
       if (role === "admin") {
         toast.success(
-          t("toast_appoint_vice_leader_success", {
+          t("meeting.member_modal.toast_appoint_vice_leader_success", {
             defaultValue: "Bổ nhiệm Phó nhóm thành công",
           }),
         );
       } else {
         toast.success(
-          t("toast_revoke_vice_leader_success", {
+          t("meeting.member_modal.toast_revoke_vice_leader_success", {
             defaultValue: "Đã thu hồi Phó nhóm",
           }),
         );
       }
     } catch (err: any) {
       if (role === "admin") {
-        const subTitle = t("role_vice_leader");
+        const subTitle = t("meeting.member_modal.role_vice_leader");
         toast.error(
           err?.data?.message ||
-            t("toast_max_vice_leaders_reached", {
+            t("meeting.member_modal.toast_max_vice_leaders_reached", {
               role: subTitle,
               defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
             }),
@@ -236,21 +229,21 @@ export function useParticipantManager({
     if (!channelId || !roomId) return;
 
     Alert.alert(
-      t("transfer_modal_title", {
+      t("meeting.member_modal.transfer_modal_title", {
         defaultValue: "Xác nhận chuyển quyền",
       }),
-      t("transfer_modal_body", {
+      t("meeting.member_modal.transfer_confirm_message", {
         role: roleName,
         name: targetUserName,
         defaultValue: `Bạn có chắc chắn muốn chuyển quyền ${roleName} cho ${targetUserName}?`,
       }),
       [
         {
-          text: t("cancel", { defaultValue: "Hủy" }),
+          text: t("meeting.member_modal.cancel", { defaultValue: "Hủy" }),
           style: "cancel",
         },
         {
-          text: t("confirm", { defaultValue: "Xác nhận" }),
+          text: t("meeting.member_modal.confirm", { defaultValue: "Xác nhận" }),
           style: "destructive",
           onPress: async () => {
             try {
@@ -260,10 +253,7 @@ export function useParticipantManager({
               }).unwrap();
 
               toast.success(
-                t("toast_transfer_success", {
-                  actor: "",
-                  role: t("role_leader"),
-                  target: targetUserName,
+                t("meeting.member_modal.toast_transfer_success", {
                   defaultValue: "Chuyển quyền thành công!",
                 }),
               );
@@ -294,7 +284,7 @@ export function useParticipantManager({
       setRenameState(null);
     } catch (error) {
       console.error(error);
-      toast.error("Không thể đổi tên lúc này!");
+      toast.error(t("meeting.member_modal.rename_error"));
     }
   };
 
@@ -306,7 +296,12 @@ export function useParticipantManager({
   ) => {
     const typeLabel = trackType === "audio" ? "Mic" : "Camera";
     try {
-      toast.success(`Đang tắt ${typeLabel} của ${name}...`);
+      toast.success(
+        t("meeting.member_modal.mute_loading", {
+          type: typeLabel,
+          name: name,
+        }),
+      );
       await muteParticipant({
         roomId,
         channelId,
@@ -316,7 +311,11 @@ export function useParticipantManager({
       }).unwrap();
     } catch (error) {
       console.error(error);
-      toast.error(`Không thể tắt ${typeLabel} lúc này`);
+      toast.error(
+        t("meeting.member_modal.mute_error", {
+          type: typeLabel,
+        }),
+      );
     }
   };
 
