@@ -1154,6 +1154,55 @@
       "guest": "Khách"
     }
   },
+  "notification": {
+    "time": {
+      "just_now": "Vừa xong",
+      "minutes_ago": "{count} phút trước",
+      "hours_ago": "{count} giờ trước",
+      "days_ago": "{count} ngày trước"
+    },
+    "drawer": {
+      "title": "Thông báo",
+      "loading": "Đang tải thông báo...",
+      "empty": "Bạn chưa có thông báo nào"
+    },
+    "types": {
+      "kicked": {
+        "title": "Bị xóa khỏi nhóm",
+        "content": "Bạn đã bị xoá khỏi nhóm {roomName}."
+      },
+      "room_disbanded": {
+        "title": "Nhóm đã giải tán",
+        "content": "Trưởng nhóm đã giải tán {roomName}."
+      },
+      "meeting_invite": {
+        "title": "Tham gia họp",
+        "content": "{inviterName} đã mời bạn tham gia cuộc họp trong phòng {roomName}."
+      },
+      "room_reported": {
+        "title": "Phòng bị báo cáo",
+        "content": "Phòng của bạn đã bị người dùng báo cáo vi phạm."
+      },
+      "report_resolved": {
+        "title": "Đã xử lý báo cáo",
+        "content": "Báo cáo vi phạm của bạn đã được quản trị viên xử lý."
+      },
+      "system": {
+        "title": "Thông báo hệ thống",
+        "content": "Sự kiện diễn ra ({type})."
+      }
+    },
+    "actions": {
+      "join": "Tham gia"
+    },
+    "errors": {
+      "session_ended": "Phiên họp có thể đã kết thúc."
+    },
+    "common": {
+      "room": "nhóm",
+      "someone": "Ai đó"
+    }
+  },
   "server": {
     "errors": {
       "4041": "Người dùng hoặc phòng/kênh không tồn tại",

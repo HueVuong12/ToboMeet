@@ -205,25 +205,11 @@ export class MeetingsService {
       (c) => c._id?.toString() === channelId.toString(),
     );
 
-    const isRoomOwner = room.ownerId === userId;
-    const roomMember = room.members.find(
-      (m) => m.userId === userId && m.status === "active",
+    const userRole = this.getUserRoleInChannel(
+      room,
+      currentChannel._id.toString(),
+      userId,
     );
-    const isRoomLeader =
-      isRoomOwner || (roomMember && roomMember.role === "owner");
-    const channelMember = currentChannel?.members?.find(
-      (m) => m.userId === userId,
-    );
-
-    let userRole = "guest";
-
-    if (isRoomLeader) {
-      userRole = "owner"; // Chủ phòng có đặc quyền ở mọi kênh
-    } else if (channelMember) {
-      userRole = channelMember.role; // Lấy role riêng được set trong kênh (vd: admin)
-    } else if (currentChannel && !currentChannel.isPrivate && roomMember) {
-      userRole = roomMember.role; // Kênh public: Kế thừa role từ cấp phòng
-    }
 
     const hasAdminPowers = userRole === "owner" || userRole === "admin";
 
@@ -380,20 +366,11 @@ export class MeetingsService {
     }
 
     // Xác định role của requester (người đang gửi yêu cầu duyệt) để kiểm tra quyền
-    const isRoomOwner = room.ownerId === requesterId;
-    const roomMember = room.members.find((m) => m.userId === requesterId);
-    const channelMember = channel.members?.find(
-      (m) => m.userId === requesterId,
+    const requesterRole = this.getUserRoleInChannel(
+      room,
+      channel._id.toString(),
+      requesterId,
     );
-
-    let requesterRole = "guest";
-    if (isRoomOwner) {
-      requesterRole = "owner";
-    } else if (channelMember) {
-      requesterRole = channelMember.role; // admin hoặc member của kênh private/public
-    } else if (!channel.isPrivate && roomMember) {
-      requesterRole = roomMember.role; // Kế thừa role cấp phòng nếu là kênh public
-    }
 
     // Lấy thông tin quyền duyệt từ metadata của phòng LiveKit để kiểm tra xem requester có quyền duyệt hay không
     let approvalPermission = "admin_only"; // Mặc định nếu chưa setup
@@ -736,6 +713,71 @@ export class MeetingsService {
   }
 
   /**
+   * Lấy trạng thái cuộc họp hiện tại của một kênh
+   * Hỗ trợ fallback linh hoạt giữa (roomId + channelId) và meetingCode
+   */
+  // async getActiveMeeting(
+  //   roomId: string | undefined,
+  //   channelId: string | undefined,
+  //   meetingCode: string | undefined,
+  //   userId: string,
+  // ): Promise<ActiveMeetingResponse> {
+  //   let meeting = null;
+
+  //   // Helper: Hàm kiểm tra param hợp lệ (tránh chuỗi "null" hoặc "undefined" từ frontend truyền lên)
+  //   const isValidId = (id?: string) =>
+  //     id && id !== "null" && id !== "undefined";
+
+  //   // Tìm bằng roomId và channelId trước
+  //   if (isValidId(roomId) && isValidId(channelId)) {
+  //     meeting = await this.meetingModel.findOne({ roomId, channelId }).exec();
+  //   }
+
+  //   // Nếu không có, fallback tìm bằng meetingCode
+  //   if (!meeting && isValidId(meetingCode)) {
+  //     meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+  //   }
+
+  //   let canStart = false;
+
+  //   // Xác định roomId và channelId cuối cùng để check quyền
+  //   // Ưu tiên dữ liệu chuẩn xác từ Database nếu meeting tồn tại,
+  //   // Nếu chưa có meeting (chưa ai start), dùng param truyền vào để check.
+  //   const checkRoomId = meeting?.roomId || (isValidId(roomId) ? roomId : null);
+  //   const checkChannelId =
+  //     meeting?.channelId || (isValidId(channelId) ? channelId : null);
+
+  //   if (checkRoomId && checkChannelId) {
+  //     const room = await this.roomModel.findById(checkRoomId).exec();
+  //     const userRole = this.getUserRoleInChannel(room, checkChannelId, userId);
+
+  //     // Bất kỳ role nào khác 'guest' (ví dụ: owner, admin, member) đều có quyền bắt đầu cuộc họp
+  //     if (userRole !== "guest") {
+  //       canStart = true;
+  //     }
+  //   }
+
+  //   if (!meeting) {
+  //     return {
+  //       isOngoing: false,
+  //       meetingCode: null,
+  //       hostId: null,
+  //       canStart,
+  //     };
+  //   }
+
+  //   // Xác thực trạng thái phòng trực tiếp từ LiveKit Server
+  //   const isActuallyOngoing = !!(await this.isRoomActive(meeting.meetingCode));
+
+  //   return {
+  //     isOngoing: isActuallyOngoing,
+  //     meetingCode: meeting.meetingCode,
+  //     hostId: meeting.hostId,
+  //     canStart, // dùng để hiện nút bắt đầu cuộc họp trong lobby
+  //   };
+  // }
+
+  /**
    * Xoá người dùng ra khỏi cuộc họp
    */
   async removeParticipant(meetingCode: string, participantIdentity: string) {
@@ -868,6 +910,39 @@ export class MeetingsService {
   }
 
   // utils, helpers
+
+  /**
+   * Xác định Role của User trong một Kênh cụ thể
+   */
+  getUserRoleInChannel(
+    room: RoomDocument,
+    channelId: string,
+    userId: string,
+  ): string {
+    if (!room) return "guest";
+
+    const channel = room.channels.find(
+      (c) => c._id?.toString() === channelId.toString(),
+    );
+    if (!channel) return "guest";
+
+    const isRoomOwner = room.ownerId === userId;
+    const roomMember = room.members.find(
+      (m) => m.userId === userId && m.status === "active",
+    );
+    const channelMember = channel.members?.find((m) => m.userId === userId);
+
+    let userRole = "guest";
+    if (isRoomOwner) {
+      userRole = "owner";
+    } else if (channelMember) {
+      userRole = channelMember.role;
+    } else if (!channel.isPrivate && roomMember) {
+      userRole = roomMember.role;
+    }
+
+    return userRole;
+  }
 
   /**
    * Đồng bộ cập nhật Role của người dùng trực tiếp trong cuộc họp đang diễn ra

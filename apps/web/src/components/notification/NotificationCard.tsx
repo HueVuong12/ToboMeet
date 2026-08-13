@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useLazyExchangeSessionQuery } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 interface NotificationCardProps {
   notification: NotificationResponse;
@@ -22,9 +23,37 @@ export default function NotificationCard({
   notification,
   onCloseDrawer,
 }: NotificationCardProps) {
+  const t = useTranslations("notification");
   const router = useRouter();
   const [exchangeSession] = useLazyExchangeSessionQuery();
   const [isLoading, setIsLoading] = useState(false);
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return t("time.just_now");
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60)
+      return t("time.minutes_ago", { count: diffInMinutes });
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return t("time.hours_ago", { count: diffInHours });
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays <= 30) return t("time.days_ago", { count: diffInDays });
+
+    // Quá 30 ngày thì hiển thị đầy đủ ngày giờ
+    return past.toLocaleString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   const getNotificationDetails = (
     type: string,
@@ -33,22 +62,29 @@ export default function NotificationCard({
     switch (type) {
       case "KICKED":
         return {
-          title: "Bị xóa khỏi nhóm",
-          content: `Bạn đã bị xoá khỏi nhóm ${metadata?.roomName || ""}.`,
+          title: t("types.kicked.title"),
+          content: t("types.kicked.content", {
+            roomName: metadata?.roomName || "",
+          }),
           icon: UserMinus,
           colorClass: "text-red-600 bg-red-100",
         };
       case "ROOM_DISBANDED":
         return {
-          title: "Nhóm đã giải tán",
-          content: `Trưởng nhóm đã giải tán ${metadata?.roomName || "nhóm"}.`,
+          title: t("types.room_disbanded.title"),
+          content: t("types.room_disbanded.content", {
+            roomName: metadata?.roomName || t("common.room"),
+          }),
           icon: Trash2,
           colorClass: "text-orange-600 bg-orange-100",
         };
       case "MEETING_INVITE":
         return {
-          title: "Tham gia họp",
-          content: `${metadata?.inviterName || "Ai đó"} đã mời bạn tham gia cuộc họp trong phòng ${metadata?.roomName}.`,
+          title: t("types.meeting_invite.title"),
+          content: t("types.meeting_invite.content", {
+            inviterName: metadata?.inviterName || t("common.someone"),
+            roomName: metadata?.roomName || "",
+          }),
           icon: Video,
           colorClass: "text-brand-600 bg-brand-100",
           sessionId: metadata?.sessionId,
@@ -56,22 +92,22 @@ export default function NotificationCard({
         };
       case "ROOM_REPORTED":
         return {
-          title: "Phòng bị báo cáo",
-          content: `Phòng của bạn đã bị người dùng báo cáo vi phạm.`,
+          title: t("types.room_reported.title"),
+          content: t("types.room_reported.content"),
           icon: AlertTriangle,
           colorClass: "text-amber-600 bg-amber-100",
         };
       case "REPORT_RESOLVED":
         return {
-          title: "Đã xử lý báo cáo",
-          content: `Báo cáo vi phạm của bạn đã được quản trị viên xử lý.`,
+          title: t("types.report_resolved.title"),
+          content: t("types.report_resolved.content"),
           icon: CheckCircle2,
           colorClass: "text-emerald-600 bg-emerald-100",
         };
       default:
         return {
-          title: "Thông báo hệ thống",
-          content: `Sự kiện diễn ra (${type}).`,
+          title: t("types.system.title"),
+          content: t("types.system.content", { type }),
           icon: Bell,
           colorClass: "text-slate-500 bg-slate-100",
         };
@@ -92,16 +128,14 @@ export default function NotificationCard({
 
     setIsLoading(true);
     try {
-      // Gọi API để check xem phiên còn tồn tại không
       const response = await exchangeSession(sessionId).unwrap();
 
-      // Nếu thành công, có meetingCode, điều hướng tới phòng họp
       if (response && response.meetingCode) {
         onCloseDrawer();
         router.push(`/meeting/${response.meetingCode}`);
       }
     } catch (error: any) {
-      toast.error(error?.message || "Phiên họp có thể đã kết thúc.");
+      toast.error(error?.message || t("errors.session_ended"));
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +149,6 @@ export default function NotificationCard({
           : "bg-brand-50/40 border-brand-100/60"
       }`}
     >
-      {/* Chấm tròn báo chưa đọc */}
       {!notification.isRead && (
         <span className="absolute top-4 right-4 w-2 h-2 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(0,85,255,0.4)]" />
       )}
@@ -134,16 +167,9 @@ export default function NotificationCard({
             {content}
           </p>
           <p className="text-[10px] text-slate-400 font-medium mt-2 flex items-center gap-1">
-            {new Date(notification.createdAt).toLocaleString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            })}
+            {formatTimeAgo(notification.createdAt.toString())}
           </p>
 
-          {/* Nút hành động cho các thông báo dạng mời */}
           {isActionable && (
             <div className="mt-3">
               <button
@@ -154,7 +180,7 @@ export default function NotificationCard({
                 {isLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  "Tham gia"
+                  t("actions.join")
                 )}
               </button>
             </div>

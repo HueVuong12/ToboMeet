@@ -431,7 +431,7 @@ export default function MobileChatModal({
           ) : (
             <View
               style={{
-                paddingBottom: Math.max(insets.bottom, 8),
+                paddingBottom: Math.max(insets.bottom + 10, 10),
               }}
               className="px-3 pt-2.5 border-t border-white/10 gap-2"
             >

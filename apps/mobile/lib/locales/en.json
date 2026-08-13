@@ -480,5 +480,55 @@
       "toast_flip_error": "Unable to flip camera at this time.",
       "toast_link_copied": "Link copied!"
     }
+  },
+  "notification": {
+    "time": {
+      "just_now": "Just now",
+      "minutes_ago": "{{count}} minutes ago",
+      "hours_ago": "{{count}} hours ago",
+      "days_ago": "{{count}} days ago"
+    },
+    "screen": {
+      "title": "Notifications",
+      "loading": "Loading notifications...",
+      "empty": "You have no notifications"
+    },
+    "types": {
+      "kicked": {
+        "title": "Removed from room",
+        "content": "You have been removed from {{roomName}}."
+      },
+      "room_disbanded": {
+        "title": "Room disbanded",
+        "content": "The leader has disbanded {{roomName}}."
+      },
+      "meeting_invite": {
+        "title": "Meeting Invitation",
+        "content": "{{inviterName}} invited you to join a meeting in {{roomName}}."
+      },
+      "room_reported": {
+        "title": "Room reported",
+        "content": "Your room has been reported for a violation."
+      },
+      "report_resolved": {
+        "title": "Report resolved",
+        "content": "Your violation report has been resolved by an administrator."
+      },
+      "system": {
+        "title": "System Notification",
+        "content": "Event occurred ({{type}})."
+      }
+    },
+    "actions": {
+      "join": "Join"
+    },
+    "errors": {
+      "title": "Error",
+      "session_ended": "The meeting session may have ended."
+    },
+    "common": {
+      "room": "the room",
+      "someone": "Someone"
+    }
   }
 }
