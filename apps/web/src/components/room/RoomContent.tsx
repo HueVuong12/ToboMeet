@@ -107,6 +107,22 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     return rawMember?.role;
   })();
 
+  // Đọc tham số URL "channel" khi tải trang để chuyển đổi kênh tự động nếu được trỏ đến từ liên kết bên ngoài
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlChannel = searchParams.get("channel");
+      if (urlChannel && room?.channels) {
+        const matchingChan = room.channels.find(
+          (c: any) => c.name === urlChannel || (c._id && c._id === urlChannel)
+        );
+        if (matchingChan) {
+          setActiveChannel(matchingChan.name);
+        }
+      }
+    }
+  }, [room?.channels]);
+
   // Navigation Guard: Nếu kênh hiện tại không còn thuộc room.channels (do bị xóa hoặc vừa rời), tự động switch về kênh đầu tiên
   useEffect(() => {
     if (room?.channels && room.channels.length > 0) {

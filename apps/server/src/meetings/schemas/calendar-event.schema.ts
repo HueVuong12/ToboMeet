@@ -20,6 +20,9 @@ export class CalendarEvent {
   @Prop({ index: true })
   channelId: string; // Tùy chọn: Kênh (Channel) nếu tạo trong kênh
 
+  @Prop({ type: String, enum: ["meeting", "classroom", "channel_meeting"] })
+  roomType?: "meeting" | "classroom" | "channel_meeting";
+
   @Prop({ required: true })
   startDate: Date; // Thời gian bắt đầu (buổi đầu tiên nếu lặp)
 

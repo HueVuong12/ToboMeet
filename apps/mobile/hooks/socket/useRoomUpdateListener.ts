@@ -25,6 +25,7 @@ export function useRoomUpdateListener(
   const {
     removeMemberFromRoomCache,
     addMemberToRoomCache,
+    updateRoomDetailsCache,
     invalidateRoomList,
     invalidateRoom,
   } = useRoomCacheManager();
@@ -50,6 +51,7 @@ export function useRoomUpdateListener(
       roomId: string;
       removedUserId?: string;
       roomName?: string;
+      name?: string;
       room?: { name: string };
       leftUserId?: string;
       member?: { displayName: string };
@@ -62,6 +64,13 @@ export function useRoomUpdateListener(
       if (!data || !data.type) return;
 
       switch (data.type) {
+        case "room_renamed":
+          if (data.name) {
+            updateRoomDetailsCache(data.roomId, { name: data.name });
+          }
+          invalidateRoomList();
+          break;
+
         case "member_removed":
           // Xóa thành viên khỏi danh sách hiển thị
           if (data.removedUserId) {

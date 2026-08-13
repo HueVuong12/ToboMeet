@@ -21,12 +21,18 @@ interface CalendarEvent {
   startDate: string;
   endDate: string;
   meetingCode: string;
+  roomId?: string;
+  channelId?: string;
+  roomType?: string;
 }
+
+import ChannelMeetingModal from "../../components/dashboard/ChannelMeetingModal";
 
 export default function CalendarScreen() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
 
   const fetchCalendar = async () => {
@@ -45,7 +51,9 @@ export default function CalendarScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        setEvents(data);
+        // Lấy đúng mảng sự kiện (cả từ data.result nếu có)
+        const eventList = Array.isArray(data) ? data : data.result ?? [];
+        setEvents(eventList);
       }
     } catch (e) {
       console.log("Lỗi tải lịch họp:", e);
@@ -79,6 +87,8 @@ export default function CalendarScreen() {
       minute: "2-digit",
     });
 
+    const isChannelMeeting = item.roomType === "channel_meeting" && item.roomId && item.channelId;
+
     return (
       <View style={styles.card}>
         <View style={styles.dateBlock}>
@@ -89,16 +99,30 @@ export default function CalendarScreen() {
           <Text style={styles.title}>{item.title}</Text>
           {item.description ? (
             <Text style={styles.description} numberOfLines={2}>
-              {item.description}
+              {item.description.replace(/<[^>]*>/g, "")}
             </Text>
           ) : null}
         </View>
-        <TouchableOpacity
-          style={styles.joinButton}
-          onPress={() => handleJoin(item.meetingCode)}
-        >
-          <Text style={styles.joinButtonText}>Join</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+          {isChannelMeeting && (
+            <TouchableOpacity
+              style={styles.chatButton}
+              onPress={() => {}}
+            >
+              <Feather name="message-square" size={14} color="#475569" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.joinButton}
+            onPress={() => {
+              if (!isChannelMeeting) {
+                handleJoin(item.meetingCode);
+              }
+            }}
+          >
+            <Text style={styles.joinButtonText}>Join</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -130,6 +154,35 @@ export default function CalendarScreen() {
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      {/* Floating Action Button '+' */}
+      <TouchableOpacity
+        onPress={() => setModalVisible(true)}
+        style={{
+          position: "absolute",
+          right: 24,
+          bottom: 24,
+          backgroundColor: "#0052FF",
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          justifyContent: "center",
+          alignItems: "center",
+          elevation: 4,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+        }}
+      >
+        <Feather name="plus" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      <ChannelMeetingModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSuccess={fetchCalendar}
+      />
     </SafeAreaView>
   );
 }
@@ -207,6 +260,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
+  },
+  chatButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
   },
   joinButtonText: {
     color: "#FFFFFF",

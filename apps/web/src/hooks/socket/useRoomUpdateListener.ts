@@ -25,6 +25,7 @@ export function useRoomUpdateListener(
   const {
     removeMemberFromRoomCache,
     addMemberToRoomCache,
+    updateRoomDetailsCache,
     invalidateRoomList,
     invalidateRoom,
   } = useRoomCacheManager();
@@ -122,6 +123,11 @@ export function useRoomUpdateListener(
         case "member_role_updated":
           invalidateRoomList();
           invalidateRoom(roomId);
+          break;
+
+        case "room_renamed":
+          updateRoomDetailsCache(data.roomId, { name: data.name });
+          invalidateRoomList();
           break;
 
         case "channel_file_uploaded":

@@ -585,4 +585,42 @@ export class RoomsService {
     // (public channels ẩn nếu user trong leftMemberIds, private channels ẩn nếu không trong members[])
     return mapToRoomResponse(room, userId);
   }
+
+  /**
+   * Đổi tên phòng họp
+   */
+  async renameRoom(roomId: string, name: string, userId: string): Promise<RoomResponse> {
+    const room = await this.roomModel.findOne({
+      _id: roomId,
+      isDeleted: { $ne: true },
+    });
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    const oldName = room.name;
+    room.name = name;
+    await room.save();
+
+    // Ghi nhận hoạt động
+    const userInfo = await this.userModel.findOne({ supabaseId: userId });
+    const actorName = userInfo?.displayName || "Người dùng";
+    await this.activityModel.create({
+      roomId,
+      type: "RENAMED",
+      metadata: {
+        userId,
+        details: `${actorName} đã đổi tên phòng từ "${oldName}" thành "${name}".`,
+      },
+    });
+
+    const updatedRoomPayload = mapToRoomResponse(room);
+
+    // Phát tín hiệu socket realtime
+    this.roomsGateway.notifyRoomUpdated(roomId, {
+      type: "room_renamed",
+      roomId,
+      name,
+    });
+
+    return updatedRoomPayload;
+  }
 }

@@ -12,8 +12,9 @@ import {
   useGetRoomMembersQuery,
   useDisbandRoomMutation,
   useLeaveChannelMutation,
+  useRenameRoomMutation,
 } from "@/lib/redux/api/roomsApi";
-import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
+import { useLazySearchUsersByKeywordQuery } from "@/lib/redux/api/usersApi";
 import {
   Hash,
   ChevronDown,
@@ -34,6 +35,7 @@ import {
   Flag,
   Lock,
   MoreVertical,
+  Edit3,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import ReportRoomModal from "./ReportRoomModal";
@@ -89,8 +91,16 @@ export default function Sidebar({
   const [leaveRoom, { isLoading: isLeaving }] = useLeaveRoomMutation();
   const [showDisbandConfirm, setShowDisbandConfirm] = useState(false);
   const [disbandRoom, { isLoading: isDisbanding }] = useDisbandRoomMutation();
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renamingName, setRenamingName] = useState(room.name || "");
+  const [renameRoom, { isLoading: isRenaming }] = useRenameRoomMutation();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  // Sync renamingName state when room.name changes
+  useEffect(() => {
+    setRenamingName(room.name || "");
+  }, [room.name]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -122,18 +132,18 @@ export default function Sidebar({
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
-  const [searchUsers, { data: searchResults = [], isFetching: isSearching }] =
-    useLazySearchUsersQuery();
+  const [searchUsersByKeyword, { data: searchResults = [], isFetching: isSearching }] =
+    useLazySearchUsersByKeywordQuery();
   const [inviteMember, { isLoading: isInviting }] = useInviteMemberMutation();
 
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
       const delayDebounceFn = setTimeout(() => {
-        searchUsers(searchQuery.trim());
+        searchUsersByKeyword(searchQuery.trim());
       }, 300);
       return () => clearTimeout(delayDebounceFn);
     }
-  }, [searchQuery, searchUsers]);
+  }, [searchQuery, searchUsersByKeyword]);
 
   const handleInviteUser = async () => {
     setInviteError(null);
@@ -285,6 +295,18 @@ export default function Sidebar({
                     <LinkIcon className="w-3.5 h-3.5 text-slate-500" />
                     {t("copy_link")}
                   </button>
+                  {(isOwner || currentUserRole === "admin") && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowRenameModal(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                      {t("rename_room")}
+                    </button>
+                  )}
                   <div className="border-t border-slate-100 my-1" />
                   {!isOwner && (
                     <button
@@ -885,6 +907,94 @@ export default function Sidebar({
                 >
                   {isDisbanding && <Loader2 className="w-4 h-4 animate-spin" />}
                   {t("dissolve_room")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Modal Đổi tên phòng */}
+      {showRenameModal &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowRenameModal(false)}
+            />
+
+            {/* Dialog */}
+            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {t("rename_room_title")}
+                </h2>
+                <button
+                  onClick={() => setShowRenameModal(false)}
+                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4 flex flex-col gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    {t("room_name_label")}
+                  </label>
+                  <input
+                    type="text"
+                    value={renamingName}
+                    onChange={(e) => setRenamingName(e.target.value)}
+                    placeholder={t("room_name_label")}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-slate-900"
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 px-6 pb-6 pt-2">
+                <button
+                  onClick={() => {
+                    setRenamingName(room.name || "");
+                    setShowRenameModal(false);
+                  }}
+                  disabled={isRenaming}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!renamingName.trim()) {
+                      toast.error("Tên phòng không được để trống");
+                      return;
+                    }
+                    try {
+                      await renameRoom({
+                        roomId: room._id,
+                        name: renamingName.trim(),
+                      }).unwrap();
+                      toast.success(t("rename_room_success"));
+                      setShowRenameModal(false);
+                    } catch (err: any) {
+                      toast.error(
+                        err?.data?.message ||
+                          err?.message ||
+                          t("rename_room_error")
+                      );
+                    }
+                  }}
+                  disabled={isRenaming || !renamingName.trim() || renamingName.trim() === room.name}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                >
+                  {isRenaming && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {t("confirm")}
                 </button>
               </div>
             </div>

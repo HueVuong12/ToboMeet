@@ -58,6 +58,25 @@ export class Post {
 
   @Prop({ type: Boolean, default: false, index: true })
   isDeleted: boolean;
+
+  // Cấu hình bổ sung cho bài viết dạng "Lịch cuộc họp kênh"
+  @Prop({ type: Boolean, default: false, index: true })
+  isMeeting: boolean;
+
+  @Prop({ type: String, default: "", index: true })
+  meetingId: string;
+
+  @Prop({ type: String, default: "" })
+  meetingTitle: string;
+
+  @Prop({ type: Date })
+  meetingStartDate: Date;
+
+  @Prop({ type: Date })
+  meetingEndDate: Date;
+
+  @Prop({ type: String, default: "" })
+  meetingCode: string;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);

@@ -837,10 +837,17 @@ export class UsersService {
     }
   }
 
-  async searchUsers(query: string): Promise<User[]> {
+  async searchUsersByKeyword(query: string): Promise<User[]> {
     const logger = new Logger("UsersSearch");
-    logger.log(`[SearchUsers] Từ khóa tìm kiếm thô nhận từ client: "${query}"`);
+    logger.log(`[SearchUsersByKeyword] Từ khóa tìm kiếm thô nhận từ client: "${query}"`);
     if (!query || !query.trim()) return [];
+    
+
+
+
+    // Đổi tên hàm
+
+
     
     // Hàm loại bỏ dấu tiếng Việt để so khớp không dấu
     const removeVietnameseTones = (str: string): string => {

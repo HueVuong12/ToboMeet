@@ -28,6 +28,7 @@ import { CoreModule } from "../core/core.module";
       { name: User.name, schema: UserSchema },
       { name: Room.name, schema: RoomSchema },
       { name: RoomActivity.name, schema: RoomActivitySchema },
+      { name: "Post", schema: require("../news-feed/schemas/post.schema").PostSchema },
     ]),
     SupabaseModule,
     NotificationsModule,

@@ -18,13 +18,19 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @UseGuards(SupabaseGuard)
-  @Get("search")
-  async searchUsers(
+
+
+  // Đổi tên hàm get
+
+  @Get("search-by-keyword")
+  //  Đổi tên hàm 
+  async searchUsersByKeyword(
     @Query("q") query?: string,
     @Query("email") emailQuery?: string
   ) {
     const finalQuery = query || emailQuery || "";
-    return this.usersService.searchUsers(finalQuery);
+
+    return this.usersService.searchUsersByKeyword(finalQuery);
   }
 
   private getClientIp(req: any): string {

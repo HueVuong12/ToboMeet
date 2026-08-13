@@ -132,6 +132,28 @@ export class RoomsController {
   }
 
   /**
+   * PATCH /api/rooms/:id/rename — Đổi tên phòng họp (Trưởng nhóm / Phó nhóm)
+   */
+  @Patch(":id/rename")
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, RoomRoleGuard)
+  async renameRoom(
+    @Param("id") roomId: string,
+    @Body("name") name: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!name || !name.trim()) {
+      throw new BadRequestException("Tên phòng không được để trống");
+    }
+    const trimmedName = name.trim();
+    if (trimmedName.length > 50) {
+      throw new BadRequestException("Tên phòng không được vượt quá 50 ký tự");
+    }
+    const userId = req.user.id;
+    return this.roomsService.renameRoom(roomId, trimmedName, userId);
+  }
+
+  /**
    * POST /api/rooms/join — Tham gia phòng bằng mã code
    */
   @Post("join")

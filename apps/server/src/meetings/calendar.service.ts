@@ -18,6 +18,7 @@ export class CalendarService {
     @InjectModel(MeetingInvitation.name) private meetingInvitationModel: Model<MeetingInvitationDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    @InjectModel("Post") private postModel: Model<any>,
     private readonly appGateway: AppGateway,
   ) {
     // Khởi tạo mail transporter từ SMTP Env
@@ -46,7 +47,7 @@ export class CalendarService {
       description?: string;
       roomId?: string;
       channelId?: string;
-      roomType?: "meeting" | "classroom";
+      roomType?: "meeting" | "classroom" | "channel_meeting";
       startDate: string;
       endDate: string;
       timezone?: string;
@@ -66,6 +67,33 @@ export class CalendarService {
 
     if (start >= end) {
       throw new BadRequestException("Thời gian bắt đầu phải trước thời gian kết thúc");
+    }
+
+    // Validate dữ liệu riêng cho cuộc họp kênh (channel_meeting)
+    if (data.roomType === "channel_meeting") {
+      if (!data.roomId || !data.channelId) {
+        throw new BadRequestException(
+          "Cuộc họp kênh yêu cầu phải chọn phòng và kênh.",
+        );
+      }
+      // Kiểm tra channelId phải thuộc roomId đã chọn
+      const room = await this.roomModel.findOne({
+        _id: data.roomId,
+        isDeleted: { $ne: true },
+      });
+      if (!room) {
+        throw new BadRequestException(
+          "Phòng không tồn tại hoặc đã bị giải tán.",
+        );
+      }
+      const channelExists = room.channels.some(
+        (ch) => ch._id?.toString() === data.channelId,
+      );
+      if (!channelExists) {
+        throw new BadRequestException(
+          "Kênh không thuộc phòng đã chọn. Dữ liệu không hợp lệ.",
+        );
+      }
     }
 
     // Tự động sinh meeting code duy nhất
@@ -123,7 +151,48 @@ export class CalendarService {
     }
 
     // Nếu tạo trong Group/Channel, gửi cho mọi thành viên trong kênh qua Socket
-    if (data.channelId) {
+    if (data.channelId && data.roomType === "channel_meeting" && data.roomId) {
+      this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
+      
+      // Tự động tạo meeting post trong bảng tin kênh
+      try {
+        const meetingPost = await this.postModel.create({
+          roomId: data.roomId,
+          channelId: data.channelId,
+          authorId: userId,
+          content: "Đã lên lịch cuộc họp",
+          isMeeting: true,
+          meetingId: event._id.toString(),
+          meetingTitle: event.title,
+          meetingStartDate: event.startDate,
+          meetingEndDate: event.endDate,
+          meetingCode: event.meetingCode,
+          attachments: [],
+          reactions: [],
+          isEdited: false,
+        });
+
+        // Lấy thông tin user để emit realtime
+        const authorUser = await this.userModel.findOne({ supabaseId: userId }).exec();
+        const postWithAuthor = {
+          ...meetingPost.toObject(),
+          author: {
+            userId: userId,
+            displayName: authorUser?.displayName || authorUser?.email?.split('@')[0] || "Người dùng ẩn danh",
+            avatarUrl: authorUser?.avatarUrl || "",
+            role: "member",
+          },
+          commentsCount: 0,
+          reactionStats: [],
+          userReaction: null,
+        };
+
+        // Phát realtime qua Socket IO cho kênh bảng tin
+        this.appGateway.server.to(`room_${data.roomId}`).emit("post_created", postWithAuthor);
+      } catch (err) {
+        console.error("Lỗi khi tự động tạo post lịch họp kênh:", err);
+      }
+    } else if (data.channelId) {
       this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
     }
 
@@ -268,6 +337,40 @@ export class CalendarService {
         { new: true },
       );
 
+      // Cập nhật lại bài đăng meeting post nếu là cuộc họp kênh
+      if (updatedEvent.roomType === "channel_meeting" && updatedEvent.roomId && updatedEvent.channelId) {
+        try {
+          const post = await this.postModel.findOneAndUpdate(
+            { meetingId: eventId, isDeleted: { $ne: true } },
+            {
+              $set: {
+                meetingTitle: updatedEvent.title,
+                meetingStartDate: updatedEvent.startDate,
+                meetingEndDate: updatedEvent.endDate,
+              }
+            },
+            { new: true }
+          );
+
+          if (post) {
+            // Lấy thông tin user để emit realtime
+            const authorUser = await this.userModel.findOne({ supabaseId: post.authorId }).exec();
+            const postWithAuthor = {
+              ...post.toObject(),
+              author: {
+                userId: post.authorId,
+                displayName: authorUser?.displayName || authorUser?.email?.split('@')[0] || "Người dùng ẩn danh",
+                avatarUrl: authorUser?.avatarUrl || "",
+                role: "member",
+              },
+            };
+            this.appGateway.server.to(`room_${updatedEvent.roomId}`).emit("post_updated", postWithAuthor);
+          }
+        } catch (err) {
+          console.error("Lỗi cập nhật post lịch họp:", err);
+        }
+      }
+
       this.appGateway.server.emit("calendar_event_updated", { eventId, updateType, event: updatedEvent });
       return updatedEvent;
     }
@@ -284,6 +387,22 @@ export class CalendarService {
 
     if (event.hostId !== userId) {
       throw new ForbiddenException("Bạn không có quyền hủy lịch họp này");
+    }
+
+    // Xử lý xóa bài đăng cuộc họp kênh trong bảng tin
+    if (event.roomType === "channel_meeting" && event.roomId && event.channelId) {
+      try {
+        const post = await this.postModel.findOneAndUpdate(
+          { meetingId: eventId, isDeleted: { $ne: true } },
+          { $set: { isDeleted: true } },
+          { new: true }
+        );
+        if (post) {
+          this.appGateway.server.to(`room_${event.roomId}`).emit("post_deleted", { postId: post._id });
+        }
+      } catch (err) {
+        console.error("Lỗi xóa bài đăng lịch họp:", err);
+      }
     }
 
     if (deleteType === "single" && event.recurrenceRule && occurrenceDate) {

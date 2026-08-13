@@ -27,7 +27,7 @@ import {
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
   useGetMeQuery,
-  useSearchUsersQuery,
+  useSearchUsersByKeywordQuery,
 } from "../../lib/redux/features/users/usersApi";
 import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
@@ -101,7 +101,7 @@ export default function RoomDetailScreen() {
   // Search User state (Invite Member)
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: searchResults, isFetching: isSearching } = useSearchUsersQuery(
+  const { data: searchResults, isFetching: isSearching } = useSearchUsersByKeywordQuery(
     searchQuery,
     { skip: !searchQuery.trim() },
   );
