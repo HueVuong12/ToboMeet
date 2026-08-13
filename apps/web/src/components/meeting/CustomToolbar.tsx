@@ -5,7 +5,7 @@ import { useRoomSettings } from "@/hooks/useRoomSettings";
 import {
   useLocalParticipant,
   useRoomContext,
-  useParticipants, // Thêm hook lấy danh sách người tham gia
+  useParticipants,
 } from "@livekit/components-react";
 import localforage from "localforage";
 import {
@@ -29,11 +29,14 @@ import {
   UserCog,
   ChevronRight,
   UserPlus,
+  CircleDot,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import InviteMemberModal from "./InviteMemberModal";
 import { useTranslations } from "next-intl";
+import { useIsElectron } from "@/hooks/useIsElectron";
+import { useScreenRecorder } from "@/hooks/useScreenRecorder";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -64,13 +67,10 @@ export default function CustomToolbar({
   } = useLocalParticipant();
   const room = useRoomContext();
 
-  // Lấy danh sách thành viên để đếm số lượng
   const participants = useParticipants();
 
-  // State quản lý loading cho Cam/Mic
   const [isMicLoading, setIsMicLoading] = useState(false);
   const [isCamLoading, setIsCamLoading] = useState(false);
-  // State điều khiển hiển thị Submenu của quyền duyệt
   const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
 
   const [isCopied, setIsCopied] = useState(false);
@@ -78,7 +78,11 @@ export default function CustomToolbar({
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
-  // Hàm toggle Mic có trạng thái Loading
+  const isElectron = useIsElectron();
+  const { isRecording, startRecording, stopRecording } = useScreenRecorder({
+    isMicrophoneEnabled, // Chỉ thu mic khi người dùng mở
+  });
+
   const toggleMic = async () => {
     try {
       setIsMicLoading(true);
@@ -90,7 +94,6 @@ export default function CustomToolbar({
     }
   };
 
-  // Hàm toggle Cam có trạng thái Loading
   const toggleCam = async () => {
     try {
       setIsCamLoading(true);
@@ -102,7 +105,6 @@ export default function CustomToolbar({
     }
   };
 
-  // Lấy trạng thái Chat và Phòng chờ từ hook useRoomSettings
   const {
     isHost,
     isChatEnabled,
@@ -157,7 +159,6 @@ export default function CustomToolbar({
     });
   };
 
-  // Helper render style nút: Tràn chiều cao, đổi màu nền khi active, Responsive width
   const getBtnStyle = (
     isActive: boolean,
     customActiveColor = "bg-[#222] text-white",
@@ -172,7 +173,7 @@ export default function CustomToolbar({
       <div className="flex items-center space-x-1 mr-1 h-full lg:flex-1 justify-center lg:justify-start lg:pl-2 shrink-0">
         <button
           onClick={toggleCam}
-          disabled={isCamLoading} // Khóa nút khi đang tải
+          disabled={isCamLoading}
           className={getBtnStyle(
             !isCameraEnabled,
             "text-red-500 hover:bg-[#222]",
@@ -192,7 +193,7 @@ export default function CustomToolbar({
 
         <button
           onClick={toggleMic}
-          disabled={isMicLoading} // Khóa nút khi đang tải
+          disabled={isMicLoading}
           className={getBtnStyle(
             !isMicrophoneEnabled,
             "text-red-500 hover:bg-[#222]",
@@ -213,7 +214,6 @@ export default function CustomToolbar({
 
       {/* ================= PHẦN CHÍNH GIỮA ================= */}
       <div className="flex items-center space-x-1 justify-center h-full shrink-0">
-        {/* Nút Thành viên (Có Badge số lượng) */}
         <button
           onClick={() => onToggleSidebar("people")}
           className={getBtnStyle(activeTab === "people")}
@@ -223,7 +223,6 @@ export default function CustomToolbar({
               size={20}
               className={activeTab === "people" ? "text-brand-400" : ""}
             />
-            {/* Badge hiển thị số lượng thành viên */}
             <span className="absolute -top-1 -right-3.5 inline-flex items-center justify-center px-1 min-w-4 h-4 text-[9px] font-bold text-white bg-slate-600 rounded-full border-[1.5px] border-[#111]">
               {participants.length}
             </span>
@@ -233,7 +232,6 @@ export default function CustomToolbar({
           </span>
         </button>
 
-        {/* Nút Chat */}
         <button
           onClick={() => onToggleSidebar("chat")}
           className={getBtnStyle(activeTab === "chat")}
@@ -243,7 +241,6 @@ export default function CustomToolbar({
               size={20}
               className={activeTab === "chat" ? "text-brand-400" : ""}
             />
-            {/* Chấm đỏ thông báo */}
             {hasUnreadChat && activeTab !== "chat" && (
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -256,7 +253,6 @@ export default function CustomToolbar({
           </span>
         </button>
 
-        {/* Nút Share Screen */}
         <button
           onClick={toggleScreenShare}
           className={`hidden md:flex ${getBtnStyle(isScreenShareEnabled, "bg-green-600 text-white hover:bg-green-700")}`}
@@ -270,7 +266,22 @@ export default function CustomToolbar({
           </span>
         </button>
 
-        {/* Nút Giơ tay */}
+        {/* NÚT QUAY MÀN HÌNH - CHỈ HIỂN THỊ KHI CHẠY BẰNG ELECTRON */}
+        {isElectron && (
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`hidden md:flex ${getBtnStyle(isRecording, "bg-red-600 text-white hover:bg-red-700")}`}
+          >
+            <CircleDot
+              size={20}
+              className={!isRecording ? "text-red-500" : "animate-pulse"}
+            />
+            <span className="text-[10px] mt-1 hidden sm:block font-medium">
+              {isRecording ? "Dừng quay" : "Quay video"}
+            </span>
+          </button>
+        )}
+
         <button
           onClick={toggleHandRaise}
           className={getBtnStyle(isLocalHandRaised, "bg-[#222] text-amber-500")}
@@ -284,7 +295,7 @@ export default function CustomToolbar({
           </span>
         </button>
 
-        {/* Nút Tuỳ chọn */}
+        {/* Nút Tuỳ chọn và phần menu còn lại */}
         <div className="relative h-full flex">
           <button
             onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
@@ -296,7 +307,6 @@ export default function CustomToolbar({
             </span>
           </button>
 
-          {/* Menu Dropdown */}
           {isMoreMenuOpen && (
             <>
               <div
@@ -335,10 +345,9 @@ export default function CustomToolbar({
                       {t("admin_tools")}
                     </div>
 
-                    {/* --- Switch Bật/tắt Chat --- */}
                     <div
                       onClick={(e) => {
-                        e.stopPropagation(); // Ngăn sự kiện click làm đóng menu
+                        e.stopPropagation();
                         handleToggleChat();
                       }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
@@ -354,7 +363,6 @@ export default function CustomToolbar({
                         />
                         <span>{t("enable_chat")}</span>
                       </div>
-                      {/* UI Công tắc (Switch) cho Chat */}
                       <div
                         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                           isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
@@ -368,10 +376,9 @@ export default function CustomToolbar({
                       </div>
                     </div>
 
-                    {/* --- Switch Bật/tắt Phòng chờ --- */}
                     <div
                       onClick={(e) => {
-                        e.stopPropagation(); // Ngăn sự kiện click làm đóng menu
+                        e.stopPropagation();
                         handleToggleWaitingRoom();
                       }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
@@ -387,7 +394,6 @@ export default function CustomToolbar({
                         />
                         <span>{t("waiting_room")}</span>
                       </div>
-                      {/* UI Công tắc (Switch) cho Phòng chờ */}
                       <div
                         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                           isWaitingRoomEnabled
@@ -405,7 +411,6 @@ export default function CustomToolbar({
                       </div>
                     </div>
 
-                    {/* --- Submenu: Chỉ định ai có thể duyệt --- */}
                     {isWaitingRoomEnabled && (
                       <div
                         className="relative"
