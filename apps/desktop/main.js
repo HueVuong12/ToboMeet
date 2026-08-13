@@ -82,12 +82,11 @@ app.whenReady().then(() => {
 
   const meetingSession = session.fromPartition("persist:tobomeet");
 
-  // CẤP QUYỀN TỰ ĐỘNG
   session
     .fromPartition("persist:tobomeet")
     .setPermissionRequestHandler((webContents, permission, callback) => {
       if (permission === "media") {
-        callback(true); // TỰ ĐỘNG ĐỒNG Ý QUYỀN CAMERA/MIC
+        callback(true);
       } else {
         callback(false);
       }
@@ -180,6 +179,7 @@ ipcMain.handle("select-folder", async () => {
   return result.canceled ? null : result.filePaths[0];
 });
 
+// Bắt đầu ghi cuộc họp
 ipcMain.on("start-recording", (event, config) => {
   recordingConfig = config || { format: "webm", savePath: "" };
 
@@ -200,6 +200,7 @@ ipcMain.on("start-recording", (event, config) => {
   }
 });
 
+// Lưu từng chunk video webM
 ipcMain.on("save-video-chunk", (event, arrayBuffer) => {
   if (writeStream) {
     const buffer = Buffer.from(arrayBuffer);
@@ -207,6 +208,7 @@ ipcMain.on("save-video-chunk", (event, arrayBuffer) => {
   }
 });
 
+// Dừng quay và kết xuất video định dạng .webM hoặc .mp4
 ipcMain.on("stop-recording", (event) => {
   if (writeStream) {
     writeStream.end();
@@ -228,6 +230,8 @@ ipcMain.on("stop-recording", (event) => {
 app.on("window-all-closed", function () {
   if (process.platform !== "darwin") app.quit();
 });
+
+// Helpers, utils
 
 function convertWebMToMp4(inputPath, outputPath) {
   // Danh sách các bộ mã hóa phần cứng theo hệ điều hành
@@ -263,7 +267,6 @@ function convertWebMToMp4(inputPath, outputPath) {
   tryConvert(hwEncoders);
 }
 
-// Hàm thực thi lệnh FFmpeg
 function runFfmpeg(input, output, encoder, callback) {
   const args = [
     "-y", // Ghi đè nếu trùng tên

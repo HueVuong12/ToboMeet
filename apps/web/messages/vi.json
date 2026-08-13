@@ -346,13 +346,24 @@
     "cancel": "Hủy bỏ",
     "tabs": {
       "language": "Ngôn ngữ",
-      "devices": "Quản lý thiết bị"
+      "devices": "Quản lý thiết bị",
+      "recording": "Ghi hình & Lưu trữ"
     },
     "language": {
       "header": "Ngôn ngữ hiển thị",
       "desc": "Thay đổi ngôn ngữ hiển thị trên toàn bộ giao diện của bạn. Thay đổi sẽ có hiệu lực ngay lập tức.",
       "vietnamese": "Tiếng Việt",
       "english": "English (US)"
+    },
+    "recording": {
+      "header": "Cấu hình Ghi hình",
+      "desc": "Tùy chỉnh thư mục lưu trữ và định dạng video xuất ra.",
+      "path_label": "Thư mục lưu bản ghi",
+      "default_path": "Mặc định (Thư mục Downloads)",
+      "change_btn": "Thay đổi",
+      "format_label": "Định dạng xuất Video",
+      "webm_desc": "Lưu tốc độ cao, dung lượng nhẹ. Tối ưu cho trình duyệt web.",
+      "mp4_desc": "Sử dụng phần cứng máy tính để xuất file. Có thể mất thêm thời gian."
     },
     "devices": {
       "header": "Quản lý thiết bị",
@@ -1030,6 +1041,11 @@
       "participants": "Thành viên",
       "chat": "Chat",
       "share_screen": "Chia sẻ",
+      "record": "Ghi cuộc họp",
+      "pause": "Tạm dừng",
+      "resume": "Tiếp tục",
+      "stop_recording": "Dừng ghi",
+      "recording_saved": "Bản ghi đã được lưu tại {path}",
       "raise_hand": "Giơ tay",
       "options": "Tuỳ chọn",
       "general_options": "Tùy chọn chung",

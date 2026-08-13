@@ -359,7 +359,18 @@
     "cancel": "Cancel",
     "tabs": {
       "language": "Language",
-      "devices": "Devices"
+      "devices": "Devices",
+      "recording": "Recording & Storage"
+    },
+    "recording": {
+      "header": "Recording Configuration",
+      "desc": "Manage the output format and storage location on your computer.",
+      "path_label": "Recording Save Location",
+      "default_path": "Default (Downloads Folder)",
+      "change_btn": "Change",
+      "format_label": "Video Export Format",
+      "webm_desc": "Fast saving, lightweight. Optimized for web browsers.",
+      "mp4_desc": "Uses computer hardware to export. May take additional time."
     },
     "language": {
       "header": "Display Language",
@@ -1044,6 +1055,11 @@
       "participants": "Participants",
       "chat": "Chat",
       "share_screen": "Share",
+      "record": "Record",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop_recording": "Stop",
+      "recording_saved": "Recording saved to {path}",
       "raise_hand": "Raise hand",
       "options": "Options",
       "general_options": "General options",

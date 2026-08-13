@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useGetSessionsQuery } from "@/lib/redux/api/usersApi";
-import { X, Globe, Check, Monitor, Video, FolderOpen } from "lucide-react";
+import { X, Globe, Check, Monitor, Video } from "lucide-react";
 import { DeviceSettings } from "./DeviceSettings";
-import { useMeetingConfig } from "@/hooks/useMeetingConfig"; // Bổ sung import hook mới
-import { useIsElectron } from "@/hooks/useIsElectron"; // Tận dụng lại hook kiểm tra môi trường
+import { RecordingSettings } from "./RecordingSettings";
+import { useIsElectron } from "@/hooks/useIsElectron";
 
 interface SettingsDialogProps {
   onClose: () => void;
@@ -23,12 +23,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
 
   const [activeTab, setActiveTab] = useState<Tab>("language");
 
-  // Dùng hook kiểm tra môi trường Electron
   const isElectron = useIsElectron();
-
-  // Dùng hook cấu hình mới thay cho State cục bộ
-  const { config, updateRecordingPath, updateRecordingFormat } =
-    useMeetingConfig();
 
   // Lấy dữ liệu sessions để hiển thị badge số lượng thiết bị ở Sidebar
   const { data: sessions } = useGetSessionsQuery();
@@ -47,16 +42,6 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
   const handleLanguageChange = (newLocale: "vi" | "en") => {
     if (newLocale === currentLocale) return;
     router.replace(pathname, { locale: newLocale });
-  };
-
-  // Hàm xử lý chọn thư mục thông qua IPC của Electron
-  const handleSelectFolder = async () => {
-    if (isElectron) {
-      const folderPath = await (window as any).electronAPI.selectFolder();
-      if (folderPath) {
-        updateRecordingPath(folderPath); // Lưu trực tiếp qua hook
-      }
-    }
   };
 
   const maxWidthClass =
@@ -125,7 +110,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
                   ${activeTab === "recording" ? "bg-linear-to-r from-brand-500 to-indigo-600 text-white shadow-lg shadow-brand-500/25 scale-[1.02]" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900"}`}
               >
                 <Video className="w-4 h-4" />
-                <span>Ghi hình & Lưu trữ</span>
+                <span>{t("tabs.recording")}</span>
               </button>
             )}
           </nav>
@@ -259,130 +244,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
           )}
 
           {/* ── Tab Ghi hình ─────────────────────────────────────────────── */}
-          {activeTab === "recording" && (
-            <div className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col gap-6 animate-fade-in">
-              {/* Tiêu đề Tab */}
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-800 tracking-tight">
-                  Cấu hình Ghi hình
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Tùy chỉnh thư mục lưu trữ và định dạng video xuất ra.
-                </p>
-              </div>
-
-              {/* Vị trí lưu */}
-              <div className="space-y-2">
-                <p className="text-[13px] font-semibold text-slate-700">
-                  Thư mục lưu bản ghi
-                </p>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="flex-1 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-600 truncate cursor-default transition-colors"
-                    title={
-                      config.recordingPath || "Mặc định (Thư mục Downloads)"
-                    }
-                  >
-                    {config.recordingPath || "Mặc định (Thư mục Downloads)"}
-                  </div>
-                  <button
-                    onClick={handleSelectFolder}
-                    className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-[13px] font-medium rounded-lg border border-slate-200 transition-colors shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
-                    Thay đổi
-                  </button>
-                </div>
-              </div>
-
-              {/* Định dạng File */}
-              <div className="space-y-2 pt-2">
-                <p className="text-[13px] font-semibold text-slate-700">
-                  Định dạng xuất Video
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* WebM Option */}
-                  <div
-                    onClick={() => updateRecordingFormat("webm")}
-                    className={`group cursor-pointer rounded-xl p-4 transition-all duration-200 border bg-white ${
-                      config.recordingFormat === "webm"
-                        ? "border-brand-500 shadow-[0_0_0_1px_rgba(var(--brand-500),1)]"
-                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 shadow-sm"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span
-                        className={`font-bold text-base tracking-tight transition-colors ${
-                          config.recordingFormat === "webm"
-                            ? "text-brand-600"
-                            : "text-slate-700 group-hover:text-slate-900"
-                        }`}
-                      >
-                        .WebM
-                      </span>
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                          config.recordingFormat === "webm"
-                            ? "border-brand-500 bg-brand-500"
-                            : "border-slate-300 group-hover:border-slate-400"
-                        }`}
-                      >
-                        {config.recordingFormat === "webm" && (
-                          <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed pr-2">
-                      Lưu tốc độ cao, dung lượng nhẹ. Tối ưu cho trình duyệt
-                      web.
-                    </p>
-                  </div>
-
-                  {/* MP4 Option */}
-                  <div
-                    onClick={() => updateRecordingFormat("mp4")}
-                    className={`group cursor-pointer rounded-xl p-4 transition-all duration-200 border bg-white ${
-                      config.recordingFormat === "mp4"
-                        ? "border-brand-500 shadow-[0_0_0_1px_rgba(var(--brand-500),1)]"
-                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 shadow-sm"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-bold text-base tracking-tight transition-colors ${
-                            config.recordingFormat === "mp4"
-                              ? "text-brand-600"
-                              : "text-slate-700 group-hover:text-slate-900"
-                          }`}
-                        >
-                          .MP4
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-amber-100/80 text-amber-700 text-[9px] font-bold tracking-wider uppercase border border-amber-200/50">
-                          H.264
-                        </span>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                          config.recordingFormat === "mp4"
-                            ? "border-brand-500 bg-brand-500"
-                            : "border-slate-300 group-hover:border-slate-400"
-                        }`}
-                      >
-                        {config.recordingFormat === "mp4" && (
-                          <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed pr-2">
-                      Sử dụng phần cứng máy tính để xuất file. Có thể mất thêm
-                      thời gian.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === "recording" && <RecordingSettings />}
         </main>
       </div>
     </div>

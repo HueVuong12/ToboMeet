@@ -1,11 +1,18 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useMeetingConfig } from "./useMeetingConfig";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 export function useScreenRecorder({
   isMicrophoneEnabled,
 }: {
   isMicrophoneEnabled: boolean;
 }) {
+  const t = useTranslations("meeting.toolbar");
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const { config } = useMeetingConfig();
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -32,7 +39,6 @@ export function useScreenRecorder({
         } as any,
       });
 
-      // Lấy tiếng của bạn (Microphone)
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
@@ -42,18 +48,15 @@ export function useScreenRecorder({
         video: false,
       });
 
-      // Đồng bộ trạng thái Tắt/Bật mic hiện tại
       micStream.getAudioTracks().forEach((track) => {
         track.enabled = isMicrophoneEnabled;
       });
       micStreamRef.current = micStream;
 
-      // Khởi tạo Bàn Mixer Ảo
       const audioContext = new window.AudioContext();
       audioContextRef.current = audioContext;
       const audioDestination = audioContext.createMediaStreamDestination();
 
-      // Trộn 2 luồng âm thanh lại
       if (screenStream.getAudioTracks().length > 0) {
         const systemSource = audioContext.createMediaStreamSource(
           new MediaStream([screenStream.getAudioTracks()[0]]),
@@ -66,22 +69,18 @@ export function useScreenRecorder({
         micSource.connect(audioDestination);
       }
 
-      // Gộp luồng Hình ảnh + Âm thanh
       const combinedStream = new MediaStream([
         ...screenStream.getVideoTracks(),
         ...audioDestination.stream.getAudioTracks(),
       ]);
 
-      // Lấy cấu hình từ Local Storage mà người dùng đã set trong SettingsDialog
-      const savedFormat = localStorage.getItem("recording_format") || "webm";
-      const savedPath = localStorage.getItem("recording_path") || "";
+      const mappedConfig = {
+        format: config.recordingFormat,
+        savePath: config.recordingPath,
+      };
 
-      // Gửi cấu hình xuống Node.js
-      (window as any).electronAPI.startRecording({
-        format: savedFormat,
-        savePath: savedPath,
-      });
-      
+      (window as any).electronAPI.startRecording(mappedConfig);
+
       const mediaRecorder = new MediaRecorder(combinedStream, {
         mimeType: "video/webm",
       });
@@ -93,9 +92,15 @@ export function useScreenRecorder({
         }
       };
 
+      mediaRecorder.onstop = () => {
+        (window as any).electronAPI.stopRecording();
+        toast.success(t("recording_saved", { path: config.recordingPath }));
+      };
+
       mediaRecorder.start(1000);
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
+      setIsPaused(false);
 
       screenStream.getVideoTracks()[0].onended = () => {
         stopRecording();
@@ -104,14 +109,40 @@ export function useScreenRecorder({
       console.error("Lỗi khi quay màn hình và trộn âm thanh:", error);
       stopRecording();
     }
-  }, [isMicrophoneEnabled]);
+  }, [isMicrophoneEnabled, config]);
+
+  const pauseRecording = useCallback(() => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+    }
+  }, []);
+
+  const resumeRecording = useCallback(() => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "paused"
+    ) {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+    }
+  }, []);
 
   const stopRecording = useCallback(() => {
     if (
       mediaRecorderRef.current &&
       mediaRecorderRef.current.state !== "inactive"
     ) {
+      if (mediaRecorderRef.current.state === "paused") {
+        mediaRecorderRef.current.resume();
+      }
+
       const activeStream = mediaRecorderRef.current.stream;
+
+      // Lệnh stop này sẽ tự động gọi vào sự kiện onstop đã khai báo phía trên
       mediaRecorderRef.current.stop();
       activeStream.getTracks().forEach((track) => track.stop());
 
@@ -124,15 +155,17 @@ export function useScreenRecorder({
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
-
-      (window as any).electronAPI.stopRecording();
       setIsRecording(false);
+      setIsPaused(false);
     }
   }, []);
 
   return {
     isRecording,
+    isPaused,
     startRecording,
     stopRecording,
+    pauseRecording,
+    resumeRecording,
   };
 }

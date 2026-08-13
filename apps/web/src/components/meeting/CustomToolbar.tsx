@@ -30,6 +30,9 @@ import {
   ChevronRight,
   UserPlus,
   CircleDot,
+  Play,
+  Pause,
+  Square,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -79,7 +82,14 @@ export default function CustomToolbar({
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
   const isElectron = useIsElectron();
-  const { isRecording, startRecording, stopRecording } = useScreenRecorder({
+  const {
+    isRecording,
+    isPaused,
+    pauseRecording,
+    resumeRecording,
+    startRecording,
+    stopRecording,
+  } = useScreenRecorder({
     isMicrophoneEnabled, // Chỉ thu mic khi người dùng mở
   });
 
@@ -267,20 +277,51 @@ export default function CustomToolbar({
         </button>
 
         {/* NÚT QUAY MÀN HÌNH - CHỈ HIỂN THỊ KHI CHẠY BẰNG ELECTRON */}
-        {isElectron && (
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`hidden md:flex ${getBtnStyle(isRecording, "bg-red-600 text-white hover:bg-red-700")}`}
-          >
-            <CircleDot
-              size={20}
-              className={!isRecording ? "text-red-500" : "animate-pulse"}
-            />
-            <span className="text-[10px] mt-1 hidden sm:block font-medium">
-              {isRecording ? "Dừng quay" : "Quay video"}
-            </span>
-          </button>
-        )}
+        {isElectron &&
+          (!isRecording ? (
+            <button
+              onClick={startRecording}
+              className={`hidden md:flex ${getBtnStyle(false)}`}
+            >
+              <CircleDot size={20} className="text-red-500" />
+              <span className="text-[10px] mt-1 hidden sm:block font-medium">
+                {t("record")}
+              </span>
+            </button>
+          ) : (
+            <div className="hidden md:flex items-center h-full min-w-[55px] sm:min-w-[65px] bg-[#222] rounded-none overflow-hidden">
+              <button
+                onClick={isPaused ? resumeRecording : pauseRecording}
+                className="flex-1 h-full flex items-center justify-center hover:bg-white/10 transition-colors border-r border-[#111]"
+                title={isPaused ? t("resume") : t("pause")}
+              >
+                {isPaused ? (
+                  <Play
+                    size={16}
+                    fill="currentColor"
+                    className="text-amber-400"
+                  />
+                ) : (
+                  <Pause
+                    size={16}
+                    fill="currentColor"
+                    className="text-amber-400"
+                  />
+                )}
+              </button>
+              <button
+                onClick={stopRecording}
+                className="flex-1 h-full flex items-center justify-center hover:bg-red-600/30 transition-colors"
+                title={t("stop_recording")}
+              >
+                <Square
+                  size={14}
+                  fill="currentColor"
+                  className="text-red-500"
+                />
+              </button>
+            </div>
+          ))}
 
         <button
           onClick={toggleHandRaise}
