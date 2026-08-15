@@ -78,6 +78,8 @@ function CalendarContent() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const eventCache = useRef<Record<string, CalendarEvent[]>>({});
+  const activeFetchKeyRef = useRef<string>("");
 
   // Modals & Popups
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -198,7 +200,7 @@ function CalendarContent() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [roomType, setRoomType] = useState<
-    "meeting" | "classroom" | "livestream" | "private"
+    "meeting" | "classroom" | "livestream" | "private" | "channel_meeting"
   >("meeting");
   const [invitees, setInvitees] = useState("");
   const [recurrence, setRecurrence] = useState("NONE");
@@ -235,38 +237,76 @@ function CalendarContent() {
   const [expandedRoomsInputMode, setExpandedRoomsInputMode] = useState(false);
   const roomDropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    try {
-      const start = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        1,
-      ).toISOString();
-      const end = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        0,
-      ).toISOString();
-      const res = await fetch(`/api/calendar?start=${start}&end=${end}`);
-      if (res.ok) {
-        const data = await res.json();
-        let eventList = [];
-        if (data) {
-          if (Array.isArray(data)) {
-            eventList = data;
-          } else if (Array.isArray(data.result)) {
-            eventList = data.result;
-          } else if (data.result && Array.isArray(data.result.result)) {
-            eventList = data.result.result;
-          }
+  const getCacheKey = (date: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+  };
+
+  const fetchEventsForMonth = async (date: Date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1).toISOString();
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString();
+    const res = await fetch(`/api/calendar?start=${start}&end=${end}`);
+    if (res.ok) {
+      const data = await res.json();
+      let eventList = [];
+      if (data) {
+        if (Array.isArray(data)) {
+          eventList = data;
+        } else if (Array.isArray(data.result)) {
+          eventList = data.result;
+        } else if (data.result && Array.isArray(data.result.result)) {
+          eventList = data.result.result;
         }
+      }
+      const key = getCacheKey(date);
+      eventCache.current[key] = eventList;
+      return eventList;
+    }
+    throw new Error("Failed to fetch events");
+  };
+
+  const triggerPrefetch = (date: Date) => {
+    const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+    const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+    const prevKey = getCacheKey(prevMonth);
+    const nextKey = getCacheKey(nextMonth);
+
+    if (!eventCache.current[prevKey]) {
+      fetchEventsForMonth(prevMonth).catch(() => {});
+    }
+    if (!eventCache.current[nextKey]) {
+      fetchEventsForMonth(nextMonth).catch(() => {});
+    }
+  };
+
+  const fetchEvents = async (forceRefresh = false) => {
+    const key = getCacheKey(currentDate);
+
+    if (forceRefresh) {
+      eventCache.current = {};
+    }
+
+    if (eventCache.current[key]) {
+      setEvents(eventCache.current[key]);
+      triggerPrefetch(currentDate);
+      return;
+    }
+
+    activeFetchKeyRef.current = key;
+    setLoading(true);
+
+    try {
+      const eventList = await fetchEventsForMonth(currentDate);
+      if (activeFetchKeyRef.current === key) {
         setEvents(eventList);
       }
+      triggerPrefetch(currentDate);
     } catch (e) {
       console.error("Lỗi fetch events:", e);
     } finally {
-      setLoading(false);
+      if (activeFetchKeyRef.current === key) {
+        setLoading(false);
+      }
     }
   };
 
@@ -467,9 +507,9 @@ function CalendarContent() {
       if (!socket.connected) {
         socket.connect();
       }
-      socket.on("calendar_event_created", () => fetchEvents());
-      socket.on("calendar_event_updated", () => fetchEvents());
-      socket.on("calendar_event_deleted", () => fetchEvents());
+      socket.on("calendar_event_created", () => fetchEvents(true));
+      socket.on("calendar_event_updated", () => fetchEvents(true));
+      socket.on("calendar_event_deleted", () => fetchEvents(true));
       socket.on("rsvp_updated", (data) => {
         if (selectedEventRef.current && selectedEventRef.current._id === data.eventId) {
           fetchRsvpList(data.eventId);
@@ -568,7 +608,7 @@ function CalendarContent() {
       setEndDate("");
       setSelectedInvitees([]);
       setMemberSearchQuery("");
-      fetchEvents();
+      fetchEvents(true);
     } catch (err: any) {
       setErrorMsg(err.message);
     }
@@ -673,7 +713,7 @@ function CalendarContent() {
 
       setShowChannelMeetingModal(false);
       resetChannelMeetingForm();
-      fetchEvents();
+      fetchEvents(true);
     } catch (err: any) {
       setCmErrorMsg(err.message);
     }
@@ -712,7 +752,7 @@ function CalendarContent() {
         }),
       });
       if (res.ok) {
-        fetchEvents();
+        fetchEvents(true);
       }
     } catch (err) {
       console.error("Lỗi cập nhật kéo thả:", err);
@@ -1855,11 +1895,12 @@ function CalendarContent() {
                     <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
                       {locale === "vi" ? "Lặp lại" : "Recurrence"}
                     </label>
-                    <select
-                      value={recurrence}
-                      onChange={(e) => setRecurrence(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white"
-                    >
+                    <div className="relative">
+                      <select
+                        value={recurrence}
+                        onChange={(e) => setRecurrence(e.target.value)}
+                        className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white appearance-none"
+                      >
                       <option value="NONE">
                         {locale === "vi" ? "Không lặp lại" : "Does not repeat"}
                       </option>
@@ -1953,7 +1994,9 @@ function CalendarContent() {
                           </>
                         );
                       })()}
-                    </select>
+                      </select>
+                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
@@ -2275,11 +2318,12 @@ function CalendarContent() {
                   <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
                     {locale === "vi" ? "Lặp lại" : "Recurrence"}
                   </label>
-                  <select
-                    value={cmRecurrence}
-                    onChange={(e) => setCmRecurrence(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white"
-                  >
+                  <div className="relative">
+                    <select
+                      value={cmRecurrence}
+                      onChange={(e) => setCmRecurrence(e.target.value)}
+                      className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white appearance-none"
+                    >
                     <option value="NONE">
                       {locale === "vi" ? "Không lặp lại" : "Does not repeat"}
                     </option>
@@ -2325,7 +2369,9 @@ function CalendarContent() {
                         </>
                       );
                     })()}
-                  </select>
+                    </select>
+                    <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                  </div>
                 </div>
 
                 {/* ── FIELD: Thêm Kênh (Combobox/Dropdown Tree View) ── */}
@@ -2375,7 +2421,7 @@ function CalendarContent() {
                       placeholder={
                         locale === "vi" ? "Chọn phòng và kênh..." : "Select room and channel..."
                       }
-                      className={`w-full ${selectedRoom ? "pl-14" : "pl-9"} pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:border-indigo-500 transition-colors placeholder-slate-800 font-semibold`}
+                      className={`w-full ${selectedRoom ? "pl-14" : "pl-9"} pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:border-indigo-500 transition-colors placeholder-slate-400 font-normal`}
                     />
                     
                     {/* Render Avatar của phòng đã chọn ngay trong ô Input */}
@@ -2520,148 +2566,7 @@ function CalendarContent() {
                   )}
                 </div>
 
-                <div className="relative">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                    {locale === "vi" ? "Thêm khách" : "Add Guests"}
-                  </label>
 
-                  {/* Input Search Box */}
-                  <div className="relative mb-2">
-                    <input
-                      type="text"
-                      value={cmMemberQuery}
-                      onChange={(e) => setCmMemberQuery(e.target.value)}
-                      placeholder={
-                        locale === "vi"
-                          ? "Nhập tên hoặc email..."
-                          : "Type name or email..."
-                      }
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                    />
-                    {cmIsSearchingUsers && (
-                      <div className="absolute right-3.5 top-3">
-                        <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Autocomplete Dropdown List */}
-                  {(cmSuggestedUsers.length > 0 || (cmMemberQuery.trim() !== "" && cmSuggestedUsers.length === 0 && !cmIsSearchingUsers)) && (
-                    <div className="absolute left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto divide-y divide-slate-50">
-                      {cmSuggestedUsers.map((usr) => {
-                        const isAlreadySelected = cmInvitees.some(
-                          (sel) => sel.email === usr.email,
-                        );
-                        return (
-                          <div
-                            key={usr._id || usr.email}
-                            onClick={() => {
-                              if (isAlreadySelected) return;
-                              setCmInvitees([...cmInvitees, usr]);
-                              setCmMemberQuery("");
-                              setCmSuggestedUsers([]);
-                            }}
-                            className={`px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between ${
-                              isAlreadySelected
-                                ? "opacity-50 cursor-default"
-                                : "cursor-pointer"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              {usr.avatarUrl ? (
-                                <img
-                                  src={usr.avatarUrl}
-                                  alt="avatar"
-                                  className="w-7 h-7 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center">
-                                  {(usr.displayName || usr.fullName || usr.email)
-                                    .substring(0, 1)
-                                    .toUpperCase()}
-                                </div>
-                              )}
-                              <div className="flex flex-col">
-                                <span className="text-xs font-bold text-slate-800">
-                                  {usr.displayName || usr.fullName || usr.email}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {usr.email}
-                                </span>
-                              </div>
-                            </div>
-                            {isAlreadySelected && (
-                              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-bold">
-                                {locale === "vi" ? "Đã chọn" : "Selected"}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* External guest support */}
-                      {new RegExp("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").test(cmMemberQuery.trim()) &&
-                        !cmSuggestedUsers.some(
-                          (u) => u.email.toLowerCase() === cmMemberQuery.trim().toLowerCase(),
-                        ) && (
-                          <div
-                            onClick={() => {
-                              const newGuest = { email: cmMemberQuery.trim(), displayName: cmMemberQuery.trim() };
-                              setCmInvitees([...cmInvitees, newGuest]);
-                              setCmMemberQuery("");
-                              setCmSuggestedUsers([]);
-                            }}
-                            className="px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3"
-                          >
-                            <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
-                              @
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-800">{cmMemberQuery.trim()}</span>
-                              <span className="text-[10px] text-slate-400">
-                                {locale === "vi" ? "Mới khách ngoài hệ thống" : "Invite external guest"}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  )}
-
-                  {/* Selected Invitees List */}
-                  {cmInvitees.length > 0 && (
-                    <div className="mt-3 space-y-2 max-h-36 overflow-y-auto pr-1">
-                      {cmInvitees.map((usr) => (
-                        <div
-                          key={usr._id || usr.email}
-                          className="flex items-center justify-between p-2 hover:bg-slate-50/50 rounded-xl border border-slate-100 transition-all"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            {usr.avatarUrl ? (
-                              <img src={usr.avatarUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center">
-                                {(usr.displayName || usr.fullName || usr.email).substring(0, 1).toUpperCase()}
-                              </div>
-                            )}
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-800">
-                                {usr.displayName || usr.fullName || usr.email}
-                              </span>
-                              <span className="text-[10px] text-slate-400">{usr.email}</span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setCmInvitees(cmInvitees.filter((sel) => sel.email !== usr.email))}
-                            className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2.5">
@@ -2982,7 +2887,7 @@ function CalendarContent() {
                   });
                   setShowDeleteConfirmModal(false);
                   setShowDetailPopup(false);
-                  fetchEvents();
+                  fetchEvents(true);
                 }}
                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
               >

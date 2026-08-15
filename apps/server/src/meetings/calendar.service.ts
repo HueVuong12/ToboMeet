@@ -234,12 +234,18 @@ export class CalendarService {
       } else {
         // Sự kiện lặp chuẩn RFC 5545
         try {
-          const rule = rrulestr(event.recurrenceRule, { dtstart: event.startDate });
-          const occurrences = rule.between(rangeStart, rangeEnd, true);
+          const offsetMs = 7 * 60 * 60 * 1000; // GMT+07:00 (Asia/Ho_Chi_Minh)
+          const localStart = new Date(event.startDate.getTime() + offsetMs);
+          const localRangeStart = new Date(rangeStart.getTime() + offsetMs);
+          const localRangeEnd = new Date(rangeEnd.getTime() + offsetMs);
+
+          const rule = rrulestr(event.recurrenceRule, { dtstart: localStart });
+          const occurrences = rule.between(localRangeStart, localRangeEnd, true);
 
           const duration = event.endDate.getTime() - event.startDate.getTime();
 
           for (const occ of occurrences) {
+            // occ.toISOString().substring(0, 10) sẽ là ngày theo múi giờ địa phương (do occ đã được dịch chuyển +7h)
             const dateStr = occ.toISOString().substring(0, 10);
             
             // Bỏ qua nếu ngày này nằm trong danh sách ngoại lệ (bị hủy)
@@ -247,8 +253,8 @@ export class CalendarService {
               continue;
             }
 
-            const occStart = occ;
-            const occEnd = new Date(occ.getTime() + duration);
+            const occStart = new Date(occ.getTime() - offsetMs);
+            const occEnd = new Date(occStart.getTime() + duration);
 
             // Clone Event
             resultEvents.push({

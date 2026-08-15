@@ -68,7 +68,7 @@ export default function NotificationDrawer({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {notifications.map((notif) => (
+              {notifications.map((notif: any) => (
                 <div
                   key={notif.id}
                   className={`relative p-4 rounded-2xl border transition-all duration-200 cursor-pointer 

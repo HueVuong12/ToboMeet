@@ -144,6 +144,7 @@ export interface RoomResponse {
   description?: string;
   code: string;
   ownerId: string;
+  type?: string;
   members?: RoomMemberResponse[];
   channels: ChannelResponse[];
   createdAt: string;

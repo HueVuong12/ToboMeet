@@ -579,7 +579,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           roomId={room._id}
           targetUserId={memberToTransfer.userId}
           targetUserName={memberToTransfer.displayName}
-          roomType={room.type}
+          roomType={room.type || "meeting"}
         />
       )}
     </div>
