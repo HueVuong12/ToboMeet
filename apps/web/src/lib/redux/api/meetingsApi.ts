@@ -168,6 +168,20 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    startScreenShare: builder.mutation<void, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/screen-share/start`,
+        method: "POST",
+      }),
+    }),
+
+    stopScreenShare: builder.mutation<void, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/screen-share/stop`,
+        method: "POST",
+      }),
+    }),
+
     generatePresignedUploadUrl: builder.mutation<
       PresignedUploadResponse,
       { fileName: string; meetingCode: string }
@@ -210,6 +224,8 @@ export const {
   useLazyGetMemberStatusQuery,
   useToggleWaitingRoomStatusMutation,
   useToggleMeetingChatMutation,
+  useStartScreenShareMutation,
+  useStopScreenShareMutation,
   useUpdateApprovalPermissionMutation,
   useRemoveParticipantMutation,
   useApproveParticipantMutation,

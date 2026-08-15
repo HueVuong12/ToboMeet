@@ -295,4 +295,34 @@ export class GlobalMeetingsController {
     const userId = req.user.id;
     return this.meetingInviteService.exchangeSessionForCode(userId, sessionId);
   }
+
+  /**
+   * POST /api/meetings/:code/screen-share/start
+   * Cấp quyền chia sẻ màn hình
+   */
+  @Post(":code/screen-share/start")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard)
+  async startScreenShare(
+    @Param("code") meetingCode: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    await this.meetingsService.requestScreenShare(meetingCode, userId);
+  }
+
+  /**
+   * POST /api/meetings/:code/screen-share/stop
+   * Trả lại quyền chia sẻ màn hình (Nhả khóa để người khác có thể Share)
+   */
+  @Post(":code/screen-share/stop")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard)
+  async stopScreenShare(
+    @Param("code") meetingCode: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    await this.meetingsService.revokeScreenShare(meetingCode, userId);
+  }
 }

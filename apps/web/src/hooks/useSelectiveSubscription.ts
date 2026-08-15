@@ -305,6 +305,10 @@ export function useSelectiveSubscription() {
     (t) => t.source === Track.Source.ScreenShare,
   );
 
+  const isSomeoneElseSharing = validTracks.some(
+    (t) => t.source === Track.Source.ScreenShare && !t.participant.isLocal,
+  );
+
   // Participant join → audio
   useEffect(() => {
     const onParticipantConnected = () => {
@@ -353,5 +357,6 @@ export function useSelectiveSubscription() {
     pinTrack,
     unpin,
     isPinned,
+    isSomeoneElseSharing,
   };
 }

@@ -1,30 +1,21 @@
 import { useHandRaise } from "@/hooks/useHandRaise";
-import { useMeetingInvite } from "@/hooks/useMeetingInvite";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
-import {
-  useLocalParticipant,
-  useRoomContext,
-  useParticipants,
-} from "@livekit/components-react";
-import localforage from "localforage";
+import { useParticipants } from "@livekit/components-react";
 import {
   Check,
   Copy,
   Hand,
-  Lock,
   MessageSquare,
   Mic,
   MicOff,
   MonitorUp,
   MoreVertical,
   LogOut,
-  Unlock,
   Users,
   VideoIcon,
   VideoOff,
   Loader2,
-  ShieldAlert,
   ShieldCheck,
   UserCog,
   ChevronRight,
@@ -35,11 +26,11 @@ import {
   Square,
 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import InviteMemberModal from "./InviteMemberModal";
 import { useTranslations } from "next-intl";
 import { useIsElectron } from "@/hooks/useIsElectron";
 import { useScreenRecorder } from "@/hooks/useScreenRecorder";
+import { useToolbarActions } from "@/hooks/useToolbarActions";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -62,29 +53,38 @@ export default function CustomToolbar({
   hasUnreadChat: boolean;
 }) {
   const t = useTranslations("meeting.toolbar");
-  const {
-    isMicrophoneEnabled,
-    isCameraEnabled,
-    isScreenShareEnabled,
-    localParticipant,
-  } = useLocalParticipant();
-  const room = useRoomContext();
-
   const participants = useParticipants();
 
-  const [isMicLoading, setIsMicLoading] = useState(false);
-  const [isCamLoading, setIsCamLoading] = useState(false);
   const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
 
-  const [isCopied, setIsCopied] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
 
   const isElectron = useIsElectron();
+
+  const {
+    isMicrophoneEnabled,
+    isCameraEnabled,
+    isScreenShareEnabled,
+    isSomeoneElseSharing,
+    isMicLoading,
+    isCamLoading,
+    isCopied,
+
+    // Actions
+    toggleMic,
+    toggleCam,
+    toggleScreenShare,
+    handleLeaveClick,
+    handleCopyLink,
+  } = useToolbarActions({ meetingCode });
+
   const {
     isRecording,
     isPaused,
+
+    // Actions
     pauseRecording,
     resumeRecording,
     startRecording,
@@ -93,33 +93,13 @@ export default function CustomToolbar({
     isMicrophoneEnabled, // Chỉ thu mic khi người dùng mở
   });
 
-  const toggleMic = async () => {
-    try {
-      setIsMicLoading(true);
-      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
-    } catch (error) {
-      console.error("Lỗi Mic:", error);
-    } finally {
-      setIsMicLoading(false);
-    }
-  };
-
-  const toggleCam = async () => {
-    try {
-      setIsCamLoading(true);
-      await localParticipant.setCameraEnabled(!isCameraEnabled);
-    } catch (error) {
-      console.error("Lỗi Camera:", error);
-    } finally {
-      setIsCamLoading(false);
-    }
-  };
-
   const {
     isHost,
     isChatEnabled,
     isWaitingRoomEnabled,
     approvalPermission,
+
+    // Actions
     handleToggleChat,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
@@ -134,40 +114,6 @@ export default function CustomToolbar({
     channelId,
     meetingCode,
   });
-
-  const toggleScreenShare = async () => {
-    try {
-      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
-    } catch (error) {
-      console.error("Lỗi khi chia sẻ màn hình:", error);
-    }
-  };
-
-  const leaveMeeting = async () => {
-    await localforage.removeItem(`meeting_chat_${meetingCode}`);
-    room.disconnect();
-  };
-
-  const handleLeaveClick = () => {
-    toast(t("confirm_leave_title"), {
-      description: t("confirm_leave_description"),
-      action: { label: t("confirm_leave_action"), onClick: leaveMeeting },
-      cancel: { label: t("cancel"), onClick: () => {} },
-      duration: 5000,
-    });
-  };
-
-  const handleCopyLink = () => {
-    const pathName = window.location.pathname;
-    const localeRegex = /^\/[a-z]{2,3}(?=\/|$)/;
-    const cleanPath = pathName.replace(localeRegex, "");
-    const cleanUrl = `${window.location.origin}${cleanPath}`;
-
-    navigator.clipboard.writeText(cleanUrl).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    });
-  };
 
   const getBtnStyle = (
     isActive: boolean,
@@ -265,11 +211,19 @@ export default function CustomToolbar({
 
         <button
           onClick={toggleScreenShare}
-          className={`hidden md:flex ${getBtnStyle(isScreenShareEnabled, "bg-green-600 text-white hover:bg-green-700")}`}
+          disabled={isSomeoneElseSharing}
+          className={`hidden md:flex ${getBtnStyle(
+            isScreenShareEnabled,
+            "bg-green-600 text-white hover:bg-green-700",
+          )} ${isSomeoneElseSharing ? "opacity-30 cursor-not-allowed hover:bg-[#222]" : ""}`}
         >
           <MonitorUp
             size={20}
-            className={!isScreenShareEnabled ? "text-green-500" : ""}
+            className={
+              !isScreenShareEnabled && !isSomeoneElseSharing
+                ? "text-green-500"
+                : ""
+            }
           />
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
             {t("share_screen")}
@@ -289,7 +243,7 @@ export default function CustomToolbar({
               </span>
             </button>
           ) : (
-            <div className="hidden md:flex items-center h-full min-w-[55px] sm:min-w-[65px] bg-[#222] rounded-none overflow-hidden">
+            <div className="hidden md:flex items-center h-full min-w-13.75 sm:min-w-16.25 bg-[#222] rounded-none overflow-hidden">
               <button
                 onClick={isPaused ? resumeRecording : pauseRecording}
                 className="flex-1 h-full flex items-center justify-center hover:bg-white/10 transition-colors border-r border-[#111]"

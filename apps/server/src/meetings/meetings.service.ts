@@ -13,6 +13,7 @@ import {
   RoomServiceClient,
   TrackType,
   Room as LiveKitRoom,
+  TrackSource,
 } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import {
@@ -245,6 +246,7 @@ export class MeetingsService {
       roomJoin: true,
       room: meeting.meetingCode,
       canPublish: !isWaiting, // Khóa micro/camera nếu đang chờ
+      canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE], // Chưa cấp quyền share màn hình
       canSubscribe: !isWaiting, // Khóa stream (bị mù/điếc) nếu đang chờ
       canUpdateOwnMetadata: true, // Cho phép cập nhật metadata của chính mình (ví dụ: đổi tên hiển thị)
     });
@@ -565,6 +567,93 @@ export class MeetingsService {
       console.log(error);
       // Khi không có ai trong phòng, LiveKit SFU tự động dọn dẹp (xóa) phòng.
       return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
+    }
+  }
+
+  /**
+   * Xin cấp quyền chia sẻ màn hình (Dynamic Permission)
+   * Chặn nếu đã có người khác đang chia sẻ
+   */
+  async requestScreenShare(
+    meetingCode: string,
+    identity: string,
+  ): Promise<void> {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    const participants =
+      await this.livekitRoomService.listParticipants(meetingCode);
+
+    const participant = participants.find((p) => p.identity === identity);
+    if (!participant) {
+      throw new BadRequestException("Người dùng không tồn tại trong phòng.");
+    }
+
+    // Tìm xem có ai ĐÃ ĐƯỢC CẤP QUYỀN chia sẻ màn hình chưa (ngoại trừ chính mình)
+    const isSomeoneSharing = participants.some(
+      (p) =>
+        p.permission?.canPublishSources?.includes(TrackSource.SCREEN_SHARE) &&
+        p.identity !== identity,
+    );
+
+    if (isSomeoneSharing) {
+      throw new BadRequestException(
+        "Một người khác đang chia sẻ màn hình. Vui lòng đợi họ kết thúc.",
+      );
+    }
+
+    await this.livekitRoomService.updateParticipant(
+      meetingCode,
+      identity,
+      participant.metadata, // Giữ nguyên tên, avatar, role...
+      {
+        canPublish: participant.permission?.canPublish,
+        canSubscribe: participant.permission?.canSubscribe,
+        canPublishData: participant.permission?.canPublishData,
+        canUpdateMetadata: participant.permission?.canUpdateMetadata,
+        canPublishSources: [
+          TrackSource.CAMERA,
+          TrackSource.MICROPHONE,
+          TrackSource.SCREEN_SHARE,
+        ],
+      },
+    );
+  }
+
+  /**
+   * Thu hồi quyền chia sẻ màn hình
+   */
+  async revokeScreenShare(
+    meetingCode: string,
+    identity: string,
+  ): Promise<void> {
+    if (!this.livekitRoomService) return;
+
+    try {
+      const participant = await this.livekitRoomService.getParticipant(
+        meetingCode,
+        identity,
+      );
+
+      // Thu hồi quyền, trả người dùng về trạng thái mặc định ban đầu
+      await this.livekitRoomService.updateParticipant(
+        meetingCode,
+        identity,
+        participant.metadata,
+        {
+          canPublish: participant.permission?.canPublish,
+          canSubscribe: participant.permission?.canSubscribe,
+          canPublishData: participant.permission?.canPublishData,
+          canUpdateMetadata: participant.permission?.canUpdateMetadata,
+          canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE],
+        },
+      );
+    } catch (error) {
+      console.log(
+        `Lỗi khi thu hồi quyền share màn hình của ${identity}:`,
+        error,
+      );
     }
   }
 

@@ -238,6 +238,10 @@ export function useSelectiveSubscription() {
     (t) => t.source === Track.Source.ScreenShare,
   );
 
+  const isSomeoneElseSharing = validTracks.some(
+    (t) => t.source === Track.Source.ScreenShare && !t.participant.isLocal,
+  );
+
   // Khi có người mới join → đảm bảo audio của họ được xử lý
   useEffect(() => {
     const onParticipantConnected = () => {
@@ -272,5 +276,6 @@ export function useSelectiveSubscription() {
     pages,
     currentPage,
     setCurrentPage,
+    isSomeoneElseSharing,
   };
 }
