@@ -167,7 +167,7 @@ export default function NotificationCard({
             {content}
           </p>
           <p className="text-[10px] text-slate-400 font-medium mt-2 flex items-center gap-1">
-            {formatTimeAgo(notification.createdAt.toString())}
+            {formatTimeAgo(notification.updatedAt.toString())}
           </p>
 
           {isActionable && (

@@ -26,10 +26,7 @@ export class NotificationsService {
    * Helper cập nhật trạng thái có thông báo chưa đọc cho User(s).
    * Chạy bất đồng bộ (không block luồng chính).
    */
-  async toggleUnreadStatus(
-    userIds: string | string[],
-    hasUnread: boolean,
-  ) {
+  async toggleUnreadStatus(userIds: string | string[], hasUnread: boolean) {
     try {
       const ids = Array.isArray(userIds) ? userIds : [userIds];
       if (ids.length === 0) return;
@@ -69,7 +66,7 @@ export class NotificationsService {
       this.notificationModel.countDocuments(filter),
       this.notificationModel
         .find(filter)
-        .sort({ createdAt: -1 }) // Cố định mới nhất lên đầu
+        .sort({ updatedAt: -1 }) // Cố định mới nhất lên đầu
         .skip(skip)
         .limit(limit)
         .exec(),
