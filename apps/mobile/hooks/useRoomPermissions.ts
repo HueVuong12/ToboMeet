@@ -19,11 +19,19 @@ export const useRoomPermissions = (
       room?.channels?.[0];
 
     // 2. Tính toán quyền hạn của người dùng hiện tại (Current User)
-    const currentUserRole =
+    const rawCurrentUserRole =
       room?.members?.find((m: RoomMemberResponse) => m.userId === currentUserId)
         ?.role ||
       membersList?.find((m: RoomMemberResponse) => m.userId === currentUserId)
         ?.role;
+
+    const currentUserRole = rawCurrentUserRole
+      ? ["owner", "teacher", "leader"].includes(rawCurrentUserRole.toLowerCase())
+        ? "owner"
+        : ["vice", "vice_leader", "assistant", "admin"].includes(rawCurrentUserRole.toLowerCase())
+          ? "admin"
+          : "member"
+      : "member";
 
     const isOwner = !!(
       room &&
@@ -31,20 +39,29 @@ export const useRoomPermissions = (
       (room.ownerId === currentUserId || currentUserRole === "owner")
     );
 
-    const currentUserChannelRole = currentChannel?.members?.find(
+    const rawCurrentUserChannelRole = currentChannel?.members?.find(
       (m) => m.userId === currentUserId,
     )?.role;
 
+    const currentUserChannelRole = rawCurrentUserChannelRole
+      ? ["owner", "teacher", "leader"].includes(rawCurrentUserChannelRole.toLowerCase())
+        ? "owner"
+        : ["vice", "vice_leader", "assistant", "admin"].includes(rawCurrentUserChannelRole.toLowerCase())
+          ? "admin"
+          : "member"
+      : "member";
+
     const isCurrentUserRoomVice =
       !isOwner &&
-      (currentUserRole?.toLowerCase() === "admin" ||
+      (currentUserRole === "admin" ||
         (currentChannel?.isPrivate !== true &&
-          currentUserChannelRole?.toLowerCase() === "admin"));
+          currentUserChannelRole === "admin"));
 
     const canUserManageChannel =
       isOwner ||
       isCurrentUserRoomVice ||
-      currentUserChannelRole?.toLowerCase() === "admin";
+      currentUserChannelRole === "admin";
+
 
     // 3. Tính toán quyền hạn của đối tượng đang được thao tác (Target User)
     let isTargetAdmin = false;

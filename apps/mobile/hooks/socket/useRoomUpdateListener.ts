@@ -71,6 +71,12 @@ export function useRoomUpdateListener(
           invalidateRoomList();
           break;
 
+        case "channel_renamed":
+          invalidateRoom(data.roomId);
+          invalidateRoomList();
+          break;
+
+
         case "member_removed":
           // Xóa thành viên khỏi danh sách hiển thị
           if (data.removedUserId) {

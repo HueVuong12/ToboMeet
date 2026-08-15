@@ -41,7 +41,9 @@ import { createPortal } from "react-dom";
 import ReportRoomModal from "./ReportRoomModal";
 import CreateChannelModal from "./CreateChannelModal";
 import AddPrivateChannelMemberModal from "./AddPrivateChannelMemberModal";
+import RenameChannelModal from "./RenameChannelModal";
 import { axiosInstance as axios } from "@/lib/axios";
+
 
 interface SidebarProps {
   room: RoomResponse;
@@ -49,6 +51,7 @@ interface SidebarProps {
   onClose?: () => void;
   activeChannel: string;
   setActiveChannel: (channelName: string) => void;
+  roomMembers?: any[];
 }
 
 export default function Sidebar({
@@ -57,7 +60,9 @@ export default function Sidebar({
   activeChannel,
   setActiveChannel,
   onClose,
+  roomMembers: propRoomMembers,
 }: SidebarProps) {
+
   const t = useTranslations("room");
   const tDashboard = useTranslations("dashboard");
   const router = useRouter();
@@ -74,11 +79,13 @@ export default function Sidebar({
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
   const [channelToLeave, setChannelToLeave] = useState<any | null>(null);
+  const [channelToRename, setChannelToRename] = useState<any | null>(null);
   const [leaveChannelMutation, { isLoading: isLeavingChannel }] =
     useLeaveChannelMutation();
   const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(
     null,
   );
+
   const [newChannelName, setNewChannelName] = useState("");
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
@@ -123,8 +130,12 @@ export default function Sidebar({
 
   // States và Hooks cho bàn giao quyền chủ phòng
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
-  const { data: roomMembers = [] } = useGetRoomMembersQuery(room._id);
+  const { data: queryRoomMembers = [] } = useGetRoomMembersQuery(room._id, {
+    skip: !!propRoomMembers,
+  });
+  const roomMembers = propRoomMembers || queryRoomMembers;
   const otherMembers = roomMembers.filter((m: any) => m.userId !== userId);
+
 
   // States và Hooks cho tính năng tìm kiếm gợi ý & mời thành viên
   const [searchQuery, setSearchQuery] = useState("");
@@ -210,9 +221,25 @@ export default function Sidebar({
     }
   };
 
-  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)
-    ?.role as string | undefined;
+  // Tìm role trong roomMembers (từ API) trước, fallback sang room.members (từ response phòng)
+  const rawUserRole = (
+    roomMembers.find(
+      (m: any) => m.userId === userId || (m.supabaseId && m.supabaseId === userId),
+    )
+    ?? room.members?.find(
+      (m: any) => m.userId === userId || (m.supabaseId && m.supabaseId === userId),
+    )
+  )?.role as string | undefined;
+
+  const currentUserRole = rawUserRole
+    ? ["owner", "teacher", "leader"].includes(rawUserRole.toLowerCase())
+      ? "owner"
+      : ["vice", "vice_leader", "assistant", "admin"].includes(rawUserRole.toLowerCase())
+        ? "admin"
+        : "member"
+    : "member";
   const isOwner = room.ownerId === userId || currentUserRole === "owner";
+
 
   const handleCreateChannel = async () => {
     if (!newChannelName.trim()) return;
@@ -389,8 +416,11 @@ export default function Sidebar({
               const isActive = channel.name === activeChannel;
               const isDefaultChannel =
                 index === 0 || channel.name === "General";
+              // Phó nhóm cấp phòng (currentUserRole === "admin") có quyền quản lý mọi kênh
+              // Phó nhóm cấp kênh (channel.members role === "admin") có quyền quản lý kênh đó
               const canManageThisChannel =
                 isOwner ||
+                currentUserRole === "admin" ||
                 channel.members?.some(
                   (m: any) => m.userId === userId && m.role === "admin",
                 );
@@ -401,14 +431,13 @@ export default function Sidebar({
                   false)
                 : false;
 
-              // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
-              // - Owner/Admin có quyền quản lý (Thêm thành viên)
-              // - Member là thành viên của kênh (Rời khỏi kênh)
-              // Kênh công khai không có menu 3-dot theo spec
+              // Hiển thị 3-dot menu cho kênh:
+              // - Trưởng nhóm hoặc Phó nhóm có toàn quyền quản lý/đổi tên trên bất kỳ kênh nào.
+              // - Đối với thành viên thường, chỉ hiện 3-dot ở kênh riêng tư (không phải mặc định) để họ rời kênh.
               const showThreeDots =
-                channel.isPrivate &&
-                !isDefaultChannel &&
-                (canManageThisChannel || isChannelMember);
+                canManageThisChannel ||
+                (channel.isPrivate && !isDefaultChannel && isChannelMember);
+
 
               return (
                 <div
@@ -446,7 +475,7 @@ export default function Sidebar({
                             openChannelMenuId === chId ? null : chId,
                           );
                         }}
-                        title="Tùy chọn kênh"
+                        title={t("channel_options", { defaultValue: "Tùy chọn kênh" })}
                         className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 opacity-70 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -467,6 +496,21 @@ export default function Sidebar({
                               >
                                 <UserPlus className="w-3.5 h-3.5 text-slate-500" />
                                 <span>{t("add_member_to_channel")}</span>
+                              </button>
+                            )}
+
+                            {canManageThisChannel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChannelMenuId(null);
+                                  setChannelToRename(channel);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                                <span>{t("rename_channel_title", { defaultValue: "Đổi tên kênh" })}</span>
                               </button>
                             )}
 
@@ -555,6 +599,17 @@ export default function Sidebar({
           roomOwnerId={room.ownerId}
         />
       )}
+
+      {/* Rename Channel Modal */}
+      {channelToRename && (
+        <RenameChannelModal
+          isOpen={!!channelToRename}
+          onClose={() => setChannelToRename(null)}
+          roomId={room._id}
+          channel={channelToRename}
+        />
+      )}
+
 
       {/* Modal Thêm thành viên */}
       {showInviteModal &&

@@ -88,6 +88,7 @@ export class RoomMemberService {
         displayName: userInfo?.displayName || "Người dùng ẩn danh",
         avatarUrl: userInfo?.avatarUrl || undefined,
         email: userInfo?.email || undefined,
+        supabaseId: userInfo?.supabaseId || (member.userId.includes("-") ? member.userId : undefined),
       };
     });
 

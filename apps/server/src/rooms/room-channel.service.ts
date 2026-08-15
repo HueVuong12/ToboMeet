@@ -508,4 +508,61 @@ export class RoomChannelService {
 
     return { success: true };
   }
+
+  /**
+   * Đổi tên kênh (Public hoặc Private)
+   */
+  async renameChannel(
+    userId: string,
+    roomId: string,
+    channelId: string,
+    newName: string,
+  ): Promise<RoomResponse> {
+    const room = await this.roomModel.findOne({
+      _id: roomId,
+      isDeleted: { $ne: true },
+    });
+    if (!room) throw new NotFoundException("Phòng không tồn tại");
+
+    const channel = room.channels.find((c) => c._id?.toString() === channelId);
+    if (!channel) throw new NotFoundException("Kênh không tồn tại");
+
+    const trimmedNewName = newName.trim();
+    if (!trimmedNewName) {
+      throw new BadRequestException("Tên kênh không được để trống");
+    }
+
+    if (trimmedNewName.length > 30) {
+      throw new BadRequestException("Tên kênh không được vượt quá 30 ký tự");
+    }
+
+    if (channel.name === trimmedNewName) {
+      return mapToRoomResponse(room);
+    }
+
+    // Kiểm tra trùng tên kênh khác trong cùng một phòng họp (case-insensitive)
+    const exists = room.channels.some(
+      (c) =>
+        c._id?.toString() !== channelId &&
+        c.name.toLowerCase() === trimmedNewName.toLowerCase(),
+    );
+    if (exists) {
+      throw new BadRequestException("Tên kênh đã tồn tại");
+    }
+
+    channel.name = trimmedNewName;
+    room.markModified("channels");
+    await room.save();
+
+    // Phát socket event realtime cho mọi người trong phòng
+    this.roomsGateway?.notifyRoomUpdated(roomId, {
+      type: "channel_renamed",
+      roomId,
+      channelId,
+      name: trimmedNewName,
+    });
+
+    return mapToRoomResponse(room);
+  }
 }
+

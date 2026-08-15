@@ -20,7 +20,9 @@ import { JoinRoomDto } from "./dto/join-room.dto";
 import { CreateChannelDto } from "./dto/create-channel.dto";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { RoomRoleGuard } from "../core/guards/room-role.guard";
+import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { Roles } from "../core/decorators/roles.decorator";
+
 import { RoomMemberService } from "./room-member.service";
 import { RoomChannelService } from "./room-channel.service";
 
@@ -192,6 +194,28 @@ export class RoomsController {
       dto.initialMemberIds,
     );
   }
+
+  /**
+   * PATCH /api/rooms/:id/channels/:channelId/rename — Đổi tên kênh (Public / Private Channel)
+   */
+  @Patch(":id/channels/:channelId/rename")
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
+  async renameChannel(
+    @Param("id") roomId: string,
+    @Param("channelId") channelId: string,
+    @Body("name") name: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.roomChannelService.renameChannel(
+      userId,
+      roomId,
+      channelId,
+      name,
+    );
+  }
+
 
   /**
    * PUT /api/rooms/:id/channels/:channelId/members/:targetUserId/role — Thay đổi vai trò trong kênh

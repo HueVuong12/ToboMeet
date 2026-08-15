@@ -605,7 +605,18 @@
     "leave_channel_cancel": "Cancel",
     "leave_channel_action": "Leave Channel",
     "leave_channel_loading": "Leaving...",
-    "leave_channel_error": "Unable to leave channel"
+    "leave_channel_error": "Unable to leave channel",
+    "rename_channel_title": "Rename Channel",
+    "current_channel_name": "Current Channel Name",
+    "new_channel_name": "New Channel Name",
+    "new_channel_name_placeholder": "Enter new channel name...",
+    "rename_channel_cancel": "Cancel",
+    "rename_channel_save": "Save",
+    "toast_rename_channel_success": "Channel renamed successfully.",
+    "toast_rename_channel_error": "Failed to rename channel.",
+    "error_channel_name_empty": "Channel name cannot be empty",
+    "error_channel_name_too_long": "Channel name cannot exceed 30 characters",
+    "channel_options": "Channel options"
   },
   "admin": {
     "title": "System Overview",

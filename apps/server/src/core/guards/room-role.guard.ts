@@ -8,6 +8,8 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { ROLES_KEY, MemberRole } from "../decorators/roles.decorator";
 import { Room, RoomDocument } from "../../rooms/schemas/room.schema";
+import { User, UserDocument } from "../../users/schemas/user.schema";
+import { normalizeRole } from "../../rooms/helpers/room-role.helper";
 import { AppException } from "../exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
 
@@ -16,6 +18,7 @@ export class RoomRoleGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -35,13 +38,26 @@ export class RoomRoleGuard implements CanActivate {
     const room = await this.roomModel.findById(roomId);
     if (!room) return false;
 
-    const member = room.members.find((m) => m.userId === userId);
+    // Tìm thông tin User để lấy cả supabaseId và MongoDB _id
+    const userDoc = await this.userModel.findOne({ supabaseId: userId });
+    const allowedUserIds = [userId?.toString()];
+    if (userDoc) {
+      allowedUserIds.push(userDoc._id.toString());
+    }
+
+    const member = room.members.find((m) => m.userId && allowedUserIds.includes(m.userId.toString()));
+    if (!member) {
+      throw new AppException(ErrorCode.INVALID_PERMISSION);
+    }
+
+    const normalizedRole = normalizeRole(member.role);
 
     // Kiểm tra xem role của user có nằm trong danh sách requiredRoles không
-    if (!member || !requiredRoles.includes(member.role as MemberRole)) {
+    if (!requiredRoles.includes(normalizedRole as MemberRole)) {
       throw new AppException(ErrorCode.INVALID_PERMISSION);
     }
 
     return true;
   }
 }
+

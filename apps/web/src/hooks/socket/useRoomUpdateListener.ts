@@ -130,6 +130,12 @@ export function useRoomUpdateListener(
           invalidateRoomList();
           break;
 
+        case "channel_renamed":
+          invalidateRoom(data.roomId);
+          invalidateRoomList();
+          break;
+
+
         case "channel_file_uploaded":
         case "channel_file_renamed":
         case "channel_file_deleted":

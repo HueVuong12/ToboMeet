@@ -580,7 +580,18 @@
     "leave_channel_cancel": "Hủy",
     "leave_channel_action": "Rời khỏi kênh",
     "leave_channel_loading": "Đang rời...",
-    "leave_channel_error": "Không thể rời khỏi kênh"
+    "leave_channel_error": "Không thể rời khỏi kênh",
+    "rename_channel_title": "Đổi tên kênh",
+    "current_channel_name": "Tên kênh hiện tại",
+    "new_channel_name": "Tên kênh mới",
+    "new_channel_name_placeholder": "Nhập tên kênh mới...",
+    "rename_channel_cancel": "Hủy",
+    "rename_channel_save": "Lưu",
+    "toast_rename_channel_success": "Đổi tên kênh thành công.",
+    "toast_rename_channel_error": "Đổi tên kênh thất bại.",
+    "error_channel_name_empty": "Tên kênh không được để trống",
+    "error_channel_name_too_long": "Tên kênh không được vượt quá 30 ký tự",
+    "channel_options": "Tùy chọn kênh"
   },
   "admin": {
     "title": "Tổng quan hệ thống",

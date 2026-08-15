@@ -11,10 +11,12 @@ interface RoomLeftDrawerProps {
   activeChannelId: string | null;
   onSelectChannel: (channelId: string | null) => void;
   isOwner: boolean;
+  isRoomVice: boolean;
   currentUserId: string | undefined;
   onAddChannel: () => void;
   onManagePrivateChannel: (channel: ChannelResponse) => void;
   onLeaveChannel?: (channel: ChannelResponse) => void;
+  onRenameChannel?: (channel: ChannelResponse) => void;
   onOpenGroupActions: () => void;
   onCopyLink: () => void;
   onGoBack: () => void;
@@ -27,10 +29,12 @@ export default function RoomLeftDrawer({
   activeChannelId,
   onSelectChannel,
   isOwner,
+  isRoomVice,
   currentUserId,
   onAddChannel,
   onManagePrivateChannel,
   onLeaveChannel,
+  onRenameChannel,
   onOpenGroupActions,
   onCopyLink,
   onGoBack,
@@ -125,22 +129,22 @@ export default function RoomLeftDrawer({
                 const isAdmin = item.members?.some(
                   (m) => m.userId === currentUserId && m.role === "admin",
                 );
-                const canManageThisChannel = isOwner || isAdmin;
-                // isChannelMember: user có trong members[] của Private channel không
-                // (Owner không cần check vì có quyền ngầm định)
+                // Phó nhóm cấp phòng (isRoomVice) có quyền quản lý mọi kênh
+                // Phó nhóm cấp kênh (isAdmin) chỉ có quyền quản lý kênh đó
+                const canManageThisChannel = isOwner || isRoomVice || isAdmin;
+
                 const isChannelMember = item.isPrivate
                   ? (item.members?.some((m) => m.userId === currentUserId) ??
                     false)
                   : false;
 
-                // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
-                // - Owner/Admin: có quyền quản lý (Thêm thành viên)
-                // - Member: là thành viên của kênh (Rời khỏi kênh)
-                // Kênh công khai không có menu 3-dot theo spec
+                // Hiển thị 3-dot menu cho kênh:
+                // - Trưởng nhóm hoặc Phó nhóm có toàn quyền quản lý/đổi tên trên bất kỳ kênh nào.
+                // - Đối với thành viên thường, chỉ hiện 3-dot ở kênh riêng tư (không phải mặc định) để họ rời kênh.
                 const showThreeDots =
-                  item.isPrivate &&
-                  !isDefaultChannel &&
-                  (canManageThisChannel || isChannelMember);
+                  (isOwner || isRoomVice) ||
+                  (item.isPrivate && !isDefaultChannel && isChannelMember);
+
 
                 return (
                   <View
@@ -195,8 +199,13 @@ export default function RoomLeftDrawer({
                             });
                           }
 
-                          // Rời khỏi kênh: chỉ cho Private channel, không phải Owner,
-                          // và user thực sự là member của kênh đó
+                          if (canManageThisChannel && onRenameChannel) {
+                            options.push({
+                              text: "Đổi tên kênh",
+                              onPress: () => onRenameChannel(item),
+                            });
+                          }
+
                           if (
                             item.isPrivate &&
                             !isOwner &&
@@ -236,6 +245,7 @@ export default function RoomLeftDrawer({
             </ScrollView>
           )}
         </View>
+
 
         {/* Drawer Footer - Room Code */}
         <View className="p-4 pb-8 border-t border-slate-100 bg-slate-50">

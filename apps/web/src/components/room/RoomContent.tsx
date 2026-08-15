@@ -308,7 +308,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           activeChannel={activeChannel}
           setActiveChannel={setActiveChannel}
           onClose={() => setIsLeftSidebarOpen(false)}
+          roomMembers={members}
         />
+
       </div>
 
       {/* Lớp phủ đen cho Left Sidebar trên Mobile */}
