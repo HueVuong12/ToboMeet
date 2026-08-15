@@ -352,6 +352,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               >
                 {t("class_feed")}
               </button>
+              {/* localized files tab */}
               <button
                 onClick={() => setActiveTab("files")}
                 className={`px-3 py-4 border-b-2 transition-colors ${
@@ -360,7 +361,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                     : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                Tệp
+                {t("files")}
               </button>
             </div>
           </div>

@@ -396,6 +396,7 @@
   },
   "room": {
     "class_feed": "Bảng tin chung",
+    "files": "Tệp",
     "meeting_history": "Lịch sử cuộc họp",
     "btn_meeting": "Cuộc họp",
     "btn_in_meeting": "Đang trong cuộc họp",

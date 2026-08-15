@@ -10,7 +10,7 @@ try {
   console.warn("Failed to load expo-device native module:", err);
 }
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.65:3001/api";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://dolphin-paternity-estrogen.ngrok-free.dev/api";
 console.log("[axios] API baseURL:", API_BASE_URL);
 
 export const axiosInstance = axios.create({

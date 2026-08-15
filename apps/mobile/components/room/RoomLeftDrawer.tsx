@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Modal } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { ChannelResponse, RoomResponse } from "@tobomeet/shared/types";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface RoomLeftDrawerProps {
   visible: boolean;
@@ -40,9 +41,11 @@ export default function RoomLeftDrawer({
   onGoBack,
 }: RoomLeftDrawerProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   // Trạng thái này chỉ dùng trong Left Drawer nên được chuyển vào đây
   const [isChannelsExpanded, setIsChannelsExpanded] = useState(true);
+  const [selectedChannelForMenu, setSelectedChannelForMenu] = useState<ChannelResponse | null>(null);
 
   if (!visible || !room) return null;
 
@@ -186,49 +189,7 @@ export default function RoomLeftDrawer({
                     {showThreeDots && (
                       <TouchableOpacity
                         onPress={() => {
-                          const options: {
-                            text: string;
-                            style?: "default" | "cancel" | "destructive";
-                            onPress?: () => void;
-                          }[] = [];
-
-                          if (item.isPrivate && canManageThisChannel) {
-                            options.push({
-                              text: "Thêm thành viên",
-                              onPress: () => onManagePrivateChannel(item),
-                            });
-                          }
-
-                          if (canManageThisChannel && onRenameChannel) {
-                            options.push({
-                              text: "Đổi tên kênh",
-                              onPress: () => onRenameChannel(item),
-                            });
-                          }
-
-                          if (
-                            item.isPrivate &&
-                            !isOwner &&
-                            !isDefaultChannel &&
-                            isChannelMember &&
-                            onLeaveChannel
-                          ) {
-                            options.push({
-                              text: "Rời khỏi kênh",
-                              style: "destructive",
-                              onPress: () => onLeaveChannel(item),
-                            });
-                          }
-
-                          options.push({ text: "Hủy", style: "cancel" });
-
-                          import("react-native").then(({ Alert }) => {
-                            Alert.alert(
-                              `Kênh #${item.name}`,
-                              "Tùy chọn kênh",
-                              options,
-                            );
-                          });
+                          setSelectedChannelForMenu(item);
                         }}
                         className="p-2.5 mr-1"
                       >
@@ -271,6 +232,95 @@ export default function RoomLeftDrawer({
           </View>
         </View>
       </View>
+
+      {/* Modal bottom sheet for Channel Actions */}
+      <Modal
+        visible={!!selectedChannelForMenu}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedChannelForMenu(null)}
+      >
+        <View
+          className="flex-1 justify-end bg-black/50"
+          style={{ paddingBottom: insets.bottom }}
+        >
+          {/* Backdrop */}
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setSelectedChannelForMenu(null)}
+            className="absolute inset-0"
+          />
+          <View className="bg-white rounded-t-3xl p-6 shadow-2xl">
+            {/* Handle & Title */}
+            <View className="items-center mb-6">
+              <View className="w-12 h-1.5 bg-slate-200 rounded-full" />
+              <Text className="font-bold text-slate-800 text-lg mt-4">
+                Thao tác kênh
+              </Text>
+            </View>
+
+            {/* Thêm thành viên */}
+            {selectedChannelForMenu?.isPrivate &&
+              (isOwner || isRoomVice || selectedChannelForMenu.members?.some(
+                (m) => m.userId === currentUserId && m.role === "admin",
+              )) && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const channel = selectedChannelForMenu;
+                    setSelectedChannelForMenu(null);
+                    onManagePrivateChannel(channel);
+                  }}
+                  className="flex-row items-center gap-4 py-4 border-b border-slate-100/80"
+                >
+                  <Feather name="user-plus" size={18} color="#475569" />
+                  <Text className="text-slate-700 text-base font-semibold">
+                    Thêm thành viên
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+            {/* Đổi tên kênh */}
+            {(isOwner || isRoomVice || selectedChannelForMenu?.members?.some(
+              (m) => m.userId === currentUserId && m.role === "admin",
+            )) && onRenameChannel && (
+              <TouchableOpacity
+                onPress={() => {
+                  const channel = selectedChannelForMenu;
+                  setSelectedChannelForMenu(null);
+                  onRenameChannel(channel);
+                }}
+                className="flex-row items-center gap-4 py-4 border-b border-slate-100/80"
+              >
+                <Feather name="edit-2" size={18} color="#475569" />
+                <Text className="text-slate-700 text-base font-semibold">
+                  Đổi tên kênh
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Rời khỏi kênh */}
+            {selectedChannelForMenu?.isPrivate &&
+              !isOwner &&
+              !(room.channels?.findIndex((c) => c._id === selectedChannelForMenu?._id) === 0 || selectedChannelForMenu?.name === "General") &&
+              selectedChannelForMenu?.members?.some((m) => m.userId === currentUserId) &&
+              onLeaveChannel && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const channel = selectedChannelForMenu;
+                    setSelectedChannelForMenu(null);
+                    onLeaveChannel(channel);
+                  }}
+                  className="flex-row items-center gap-4 py-4 border-b border-slate-100/80"
+                >
+                  <Feather name="log-out" size={18} color="#EF4444" />
+                  <Text className="text-red-500 text-base font-semibold">
+                    Rời khỏi kênh
+                  </Text>
+                </TouchableOpacity>
+              )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

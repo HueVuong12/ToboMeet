@@ -421,6 +421,7 @@
   },
   "room": {
     "class_feed": "Class Feed",
+    "files": "Files",
     "meeting_history": "Meeting History",
     "btn_meeting": "Meeting",
     "btn_in_meeting": "In Meeting",

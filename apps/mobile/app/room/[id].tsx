@@ -547,7 +547,7 @@ export default function RoomDetailScreen() {
               activeTab === "feed" ? "text-blue-600" : "text-slate-500"
             }`}
           >
-            Bảng tin
+            {t("room.feed", { defaultValue: "Bảng tin" })}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -561,7 +561,7 @@ export default function RoomDetailScreen() {
               activeTab === "files" ? "text-blue-600" : "text-slate-500"
             }`}
           >
-            Tệp
+            {t("room.files", { defaultValue: "Tệp" })}
           </Text>
         </TouchableOpacity>
       </View>
