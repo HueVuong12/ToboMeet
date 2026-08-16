@@ -79,6 +79,22 @@ async function handleProxy(
     }
 
     const resContentType = response.headers.get("content-type") ?? "";
+    
+    // For non-JSON binary streams (like ZIP downloads), return the raw ArrayBuffer directly
+    if (!resContentType.includes("application/json")) {
+      const dataBuffer = await response.arrayBuffer();
+      const headers = new Headers();
+      headers.set("Content-Type", resContentType);
+      const contentDisposition = response.headers.get("content-disposition");
+      if (contentDisposition) {
+        headers.set("Content-Disposition", contentDisposition);
+      }
+      return new NextResponse(dataBuffer, {
+        status: response.status,
+        headers,
+      });
+    }
+
     const data = await response.text();
 
     if (!data) {
@@ -87,10 +103,9 @@ async function handleProxy(
       });
     }
 
-    const isJsonContentType = resContentType.includes("application/json");
     const looksLikeHtml = data.trimStart().startsWith("<");
 
-    if (!isJsonContentType || looksLikeHtml) {
+    if (looksLikeHtml) {
       return NextResponse.json(
         {
           code: response.status,

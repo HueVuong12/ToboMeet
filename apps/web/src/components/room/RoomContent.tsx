@@ -134,7 +134,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   }, [room?.channels, activeChannel]);
 
   const isCurrentUserRoomOwner =
-    isCurrentUserOwner || currentUserRoomRole === "owner";
+    isCurrentUserOwner || 
+    (currentUserRoomRole && ["owner", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase()));
 
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
@@ -145,14 +146,14 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
   const isCurrentUserRoomAdmin =
     !isCurrentUserRoomOwner &&
-    (currentUserRoomRole?.toLowerCase() === "admin" ||
+    ((currentUserRoomRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserRoomRole.toLowerCase())) ||
       (currentChannel?.isPrivate !== true &&
-        currentUserChannelRole?.toLowerCase() === "admin"));
+        currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase())));
 
   const canUserManageChannel =
     isCurrentUserRoomOwner ||
     isCurrentUserRoomAdmin ||
-    currentUserChannelRole === "admin";
+    (currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase()));
 
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: currentChannel?._id || "" },
@@ -445,7 +446,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               roomId={roomId}
               channelId={currentChannel._id || ""}
               userId={userId}
-              canManageFiles={isCurrentUserRoomOwner || currentUserRoomRole === "admin"}
+              canManageFiles={isCurrentUserRoomOwner || isCurrentUserRoomAdmin}
             />
           ) : (
             <NewsFeed

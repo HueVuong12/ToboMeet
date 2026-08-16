@@ -20,11 +20,11 @@ export class ChannelFile {
   @Prop({ required: true })
   fileName: string;
 
-  @Prop({ required: true })
-  storagePath: string;
+  @Prop({ required: false })
+  storagePath?: string;
 
-  @Prop({ required: true })
-  publicUrl: string;
+  @Prop({ required: false })
+  publicUrl?: string;
 
   @Prop({ required: true })
   mimeType: string;
@@ -34,6 +34,12 @@ export class ChannelFile {
 
   @Prop({ default: false, index: true })
   isDeleted: boolean;
+
+  @Prop({ default: false, index: true })
+  isFolder: boolean;
+
+  @Prop({ type: String, default: null, index: true })
+  parentFolderId: string | null;
 }
 
 export const ChannelFileSchema = SchemaFactory.createForClass(ChannelFile);

@@ -11,9 +11,9 @@ import {
   Modal,
   Clipboard,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   useGetChannelFilesQuery,
   useCreateSignedUploadUrlMutation,
@@ -21,8 +21,12 @@ import {
   useRenameFileMutation,
   useDeleteFileMutation,
   useLazyGetDownloadUrlQuery,
+  usePinFileMutation,
+  useUnpinFileMutation,
 } from "../../lib/redux/api/channelFilesApi";
 import { ChannelFileResponse } from "@tobomeet/shared/types";
+import { supabase } from "../../lib/supabase";
+import * as Sharing from "expo-sharing";
 
 interface ChannelFilesTabProps {
   roomId: string;
@@ -46,6 +50,8 @@ export default function ChannelFilesTab({
   const [renameFile] = useRenameFileMutation();
   const [deleteFile] = useDeleteFileMutation();
   const [triggerDownload] = useLazyGetDownloadUrlQuery();
+  const [pinFile] = usePinFileMutation();
+  const [unpinFile] = useUnpinFileMutation();
 
   // Search & Sort state
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +66,7 @@ export default function ChannelFilesTab({
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newNameInput, setNewNameInput] = useState("");
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
   // Format File Size
   const formatFileSize = (bytes: number) => {
@@ -71,21 +78,25 @@ export default function ChannelFilesTab({
   };
 
   // Helper File Icon
-  const getFileIcon = (fileName: string): React.ComponentProps<typeof Feather>["name"] => {
+  const getFileIcon = (mimeType: string = "", fileName: string): React.ComponentProps<typeof Feather>["name"] => {
     const ext = fileName.split(".").pop()?.toLowerCase() || "";
-    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+    if (mimeType.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
       return "image";
     }
-    if (["mp4", "mkv", "avi", "mov"].includes(ext)) {
+    if (mimeType.startsWith("video/") || ["mp4", "mkv", "avi", "mov"].includes(ext)) {
       return "video";
     }
-    if (["mp3", "wav", "ogg"].includes(ext)) {
+    if (mimeType.startsWith("audio/") || ["mp3", "wav", "ogg"].includes(ext)) {
       return "music";
     }
-    if (ext === "pdf") {
+    if (mimeType.includes("pdf") || ext === "pdf") {
       return "file-text";
     }
-    if (["xls", "xlsx", "csv"].includes(ext)) {
+    if (
+      mimeType.includes("spreadsheet") ||
+      mimeType.includes("excel") ||
+      ["xls", "xlsx", "csv"].includes(ext)
+    ) {
       return "grid";
     }
     return "file";
@@ -140,6 +151,7 @@ export default function ChannelFilesTab({
         publicUrl: res.publicUrl,
         mimeType: doc.mimeType || "application/octet-stream",
         fileSize: doc.size || 0,
+        parentFolderId: currentFolderId,
       }).unwrap();
 
       Alert.alert("Thành công", "Tải tệp lên thành công");
@@ -165,6 +177,46 @@ export default function ChannelFilesTab({
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
       Alert.alert("Lỗi", errorObj?.data?.message || "Không thể lấy liên kết tải xuống.");
+    }
+  };
+
+  // Tải xuống thư mục dưới dạng ZIP (Mobile)
+  const handleDownloadFolder = async (file: ChannelFileResponse) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://dolphin-paternity-estrogen.ngrok-free.dev/api";
+      const downloadUrl = `${API_BASE_URL}/channel-files/${file._id}/download-folder`;
+      const localUri = `${FileSystem.documentDirectory}${file.fileName}.zip`;
+
+      Alert.alert("Tải xuống", "Đang chuẩn bị tải xuống thư mục...");
+
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const downloadResult = await FileSystem.downloadAsync(downloadUrl, localUri, {
+        headers,
+      });
+
+      if (downloadResult.status === 200) {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: "application/zip",
+            dialogTitle: `Tải xuống ${file.fileName}.zip`,
+          });
+        } else {
+          Alert.alert("Thành công", `Thư mục đã được tải xuống và lưu tại: ${downloadResult.uri}`);
+        }
+      } else {
+        throw new Error(`Mã lỗi tải xuống: ${downloadResult.status}`);
+      }
+    } catch (err) {
+      console.error("Mobile download folder error:", err);
+      Alert.alert("Lỗi", "Không thể tải xuống thư mục. Vui lòng thử lại.");
     }
   };
 
@@ -205,7 +257,7 @@ export default function ChannelFilesTab({
   // Delete File
   const handleDelete = (file: ChannelFileResponse) => {
     Alert.alert(
-      "Xác nhận xóa tệp",
+      "Xác nhận xóa",
       `Bạn có chắc chắn muốn xóa tệp "${file.fileName}"? Hành động này không thể hoàn tác.`,
       [
         { text: "Hủy", style: "cancel" },
@@ -228,13 +280,52 @@ export default function ChannelFilesTab({
     );
   };
 
+  // Ghim tệp/thư mục
+  const handlePin = async (file: ChannelFileResponse) => {
+    try {
+      await pinFile({ fileId: file._id, channelId }).unwrap();
+      Alert.alert("Thành công", "Đã ghim tệp/thư mục thành công");
+    } catch (err: any) {
+      Alert.alert("Lỗi", err?.data?.message || "Không thể ghim tệp/thư mục.");
+    }
+  };
+
+  // Bỏ ghim tệp/thư mục
+  const handleUnpin = async (file: ChannelFileResponse) => {
+    try {
+      await unpinFile({ fileId: file._id, channelId }).unwrap();
+      Alert.alert("Thành công", "Đã bỏ ghim tệp/thư mục thành công");
+    } catch (err: any) {
+      Alert.alert("Lỗi", err?.data?.message || "Không thể bỏ ghim tệp/thư mục.");
+    }
+  };
+
   // Filter & Sort
   const filteredFiles = useMemo(() => {
-    const result = files.filter((f: ChannelFileResponse) =>
-      f.fileName.toLowerCase().includes(searchTerm.toLowerCase().trim()),
-    );
+    let result = [...files];
+    if (searchTerm.trim() !== "") {
+      result = files.filter((f: ChannelFileResponse) =>
+        f.fileName.toLowerCase().includes(searchTerm.toLowerCase().trim()),
+      );
+    } else {
+      result = files.filter((f: ChannelFileResponse) =>
+        (f.parentFolderId || null) === currentFolderId
+      );
+    }
 
-    result.sort((a: ChannelFileResponse, b: ChannelFileResponse) => {
+    // Tách riêng danh sách đã ghim và chưa ghim
+    const pinned = result.filter((f) => f.isPinned);
+    const unpinned = result.filter((f) => !f.isPinned);
+
+    // Ghim trước lên đầu (sắp xếp tăng dần theo pinnedAt)
+    pinned.sort((a: any, b: any) => {
+      const timeA = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+      const timeB = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    // Sắp xếp các mục chưa ghim theo tiêu chí bình thường
+    unpinned.sort((a: ChannelFileResponse, b: ChannelFileResponse) => {
       if (sortBy === "name") {
         return sortOrder === "asc"
           ? a.fileName.localeCompare(b.fileName)
@@ -250,8 +341,8 @@ export default function ChannelFilesTab({
       return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
     });
 
-    return result;
-  }, [files, searchTerm, sortBy, sortOrder]);
+    return [...pinned, ...unpinned];
+  }, [files, searchTerm, sortBy, sortOrder, currentFolderId]);
 
   return (
     <View className="flex-1 bg-slate-50">
@@ -323,6 +414,26 @@ export default function ChannelFilesTab({
         </Text>
       </View>
 
+      {/* Mobile Breadcrumb navigation */}
+      {currentFolderId !== null && (
+        <View className="px-4 py-2 bg-white flex-row items-center border-b border-slate-100">
+          <TouchableOpacity
+            onPress={() => {
+              const currentFolder = files.find((f: any) => f._id === currentFolderId);
+              setCurrentFolderId(currentFolder?.parentFolderId || null);
+            }}
+            className="flex-row items-center gap-1.5"
+          >
+            <Feather name="arrow-left" size={16} color="#0052FF" />
+            <Text className="text-sm font-bold text-blue-600">Quay lại</Text>
+          </TouchableOpacity>
+          <View className="w-px h-4 bg-slate-200 mx-3" />
+          <Text className="text-sm text-slate-500 font-semibold truncate flex-1">
+            {files.find((f: any) => f._id === currentFolderId)?.fileName || "Thư mục"}
+          </Text>
+        </View>
+      )}
+
       {/* Files List */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
@@ -332,7 +443,7 @@ export default function ChannelFilesTab({
         <View className="flex-1 justify-center items-center p-6">
           <Feather name="file" size={48} color="#CBD5E1" />
           <Text className="text-slate-500 font-bold text-sm mt-3">
-            Chưa có tệp nào trong kênh
+            {currentFolderId === null ? "Chưa có tệp nào trong kênh" : "Thư mục này trống"}
           </Text>
         </View>
       ) : (
@@ -343,14 +454,20 @@ export default function ChannelFilesTab({
           renderItem={({ item }) => (
             <View className="bg-white border border-slate-100 rounded-2xl p-4 mb-3 flex-row items-center justify-between shadow-xs">
               <TouchableOpacity
-                onPress={() => handleDownload(item)}
+                onPress={() => {
+                  if (item.isFolder) {
+                    setCurrentFolderId(item._id);
+                  } else {
+                    handleDownload(item);
+                  }
+                }}
                 className="flex-row items-center flex-1 mr-3"
               >
                 <View className="w-10 h-10 rounded-xl bg-slate-100 justify-center items-center mr-3">
                   <Feather
-                    name={getFileIcon(item.fileName)}
+                    name={item.isFolder ? "folder" : getFileIcon(item.mimeType, item.fileName)}
                     size={20}
-                    color="#475569"
+                    color={item.isFolder ? "#D97706" : "#475569"}
                   />
                 </View>
                 <View className="flex-1">
@@ -358,23 +475,38 @@ export default function ChannelFilesTab({
                     className="font-bold text-slate-800 text-sm"
                     numberOfLines={1}
                   >
-                    {item.fileName}
+                    {item.isPinned && "📌 "}{item.fileName}
                   </Text>
                   <Text className="text-xs text-slate-400 mt-1">
-                    {formatFileSize(item.fileSize)} • {item.uploadedByName}
+                    {item.isFolder ? "Thư mục" : formatFileSize(item.fileSize)} • {item.uploadedByName}
                   </Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedFileForMenu(item);
-                  setShowMenuModal(true);
-                }}
-                className="p-2"
-              >
-                <Feather name="more-vertical" size={18} color="#64748B" />
-              </TouchableOpacity>
+              <View className="flex-row items-center">
+                <TouchableOpacity
+                  onPress={() => {
+                    if (item.isFolder) {
+                      handleDownloadFolder(item);
+                    } else {
+                      handleDownload(item);
+                    }
+                  }}
+                  className="p-2 mr-1"
+                >
+                  <Feather name="download" size={18} color="#64748B" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedFileForMenu(item);
+                    setShowMenuModal(true);
+                  }}
+                  className="p-2"
+                >
+                  <Feather name="more-vertical" size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         />
@@ -400,15 +532,30 @@ export default function ChannelFilesTab({
                 {selectedFileForMenu.fileName}
               </Text>
 
+              {!selectedFileForMenu.isFolder && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowMenuModal(false);
+                    handleCopyLink(selectedFileForMenu);
+                  }}
+                  className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
+                >
+                  <Feather name="copy" size={18} color="#475569" />
+                  <Text className="ml-3 font-semibold text-slate-700 text-sm">Sao chép liên kết</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 onPress={() => {
                   setShowMenuModal(false);
-                  handleCopyLink(selectedFileForMenu);
+                  selectedFileForMenu.isPinned ? handleUnpin(selectedFileForMenu) : handlePin(selectedFileForMenu);
                 }}
                 className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
               >
-                <Feather name="copy" size={18} color="#475569" />
-                <Text className="ml-3 font-semibold text-slate-700 text-sm">Sao chép liên kết</Text>
+                <Ionicons name="pin" size={18} color="#475569" />
+                <Text className="ml-3 font-semibold text-slate-700 text-sm">
+                  {selectedFileForMenu.isPinned ? "Bỏ ghim" : "Ghim"}
+                </Text>
               </TouchableOpacity>
 
               {/* ẨN HOÀN TOÀN ĐỔI TÊN & XÓA KHỎI MENU NẾU LÀ MEMBER */}
@@ -434,7 +581,7 @@ export default function ChannelFilesTab({
                     className="flex-row items-center py-3.5 px-2 active:bg-red-50 rounded-xl"
                   >
                     <Feather name="trash-2" size={18} color="#EF4444" />
-                    <Text className="ml-3 font-semibold text-red-600 text-sm">Xóa tệp</Text>
+                    <Text className="ml-3 font-semibold text-red-600 text-sm">Xóa</Text>
                   </TouchableOpacity>
                 </>
               )}

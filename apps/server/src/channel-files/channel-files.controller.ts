@@ -10,8 +10,9 @@ import {
   UseGuards,
   Req,
   BadRequestException,
+  Res,
 } from "@nestjs/common";
-import { Request } from "express";
+import { Request, Response } from "express";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { ChannelFilesService } from "./channel-files.service";
 import {
@@ -98,5 +99,61 @@ export class ChannelFilesController {
     const userId = req.user.id;
     const isDownload = download === "true";
     return this.filesService.getDownloadUrl(userId, fileId, isDownload);
+  }
+
+  @Get(":id/download-folder")
+  async downloadFolder(
+    @Param("id") folderId: string,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const userId = req.user.id;
+    const folder = await this.filesService.getFolderForDownload(userId, folderId);
+
+    // Set headers for file download
+    res.setHeader("Content-Type", "application/zip");
+    
+    // Support UTF-8 filenames in header
+    const safeFilename = encodeURIComponent(folder.fileName);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeFilename}.zip"; filename*=UTF-8''${safeFilename}.zip`
+    );
+
+    const { ZipArchive } = await (eval('import("archiver")') as Promise<any>);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+
+    archive.on("error", (err: any) => {
+      console.error("Archive error:", err);
+      if (!res.headersSent) {
+        res.status(500).send("Không thể tải xuống thư mục. Vui lòng thử lại.");
+      }
+    });
+
+    // Pipe archive output stream to HTTP response
+    archive.pipe(res);
+
+    // Recursively append contents starting with directory prefix
+    await this.filesService.archiveFolderContents(userId, folderId, `${folder.fileName}/`, archive);
+
+    await archive.finalize();
+  }
+
+  @Post(":id/pin")
+  async pinFile(
+    @Param("id") fileId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.filesService.pinFile(userId, fileId);
+  }
+
+  @Delete(":id/pin")
+  async unpinFile(
+    @Param("id") fileId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.filesService.unpinFile(userId, fileId);
   }
 }

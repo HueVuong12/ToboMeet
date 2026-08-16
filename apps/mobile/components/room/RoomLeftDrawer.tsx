@@ -268,7 +268,9 @@ export default function RoomLeftDrawer({
                   onPress={() => {
                     const channel = selectedChannelForMenu;
                     setSelectedChannelForMenu(null);
-                    onManagePrivateChannel(channel);
+                    if (channel) {
+                      onManagePrivateChannel(channel);
+                    }
                   }}
                   className="flex-row items-center gap-4 py-4 border-b border-slate-100/80"
                 >
@@ -287,7 +289,9 @@ export default function RoomLeftDrawer({
                 onPress={() => {
                   const channel = selectedChannelForMenu;
                   setSelectedChannelForMenu(null);
-                  onRenameChannel(channel);
+                  if (channel) {
+                    onRenameChannel(channel);
+                  }
                 }}
                 className="flex-row items-center gap-4 py-4 border-b border-slate-100/80"
               >
@@ -308,7 +312,9 @@ export default function RoomLeftDrawer({
                   onPress={() => {
                     const channel = selectedChannelForMenu;
                     setSelectedChannelForMenu(null);
-                    onLeaveChannel(channel);
+                    if (channel) {
+                      onLeaveChannel(channel);
+                    }
                   }}
                   className="flex-row items-center gap-4 py-4 border-b border-slate-100/80"
                 >

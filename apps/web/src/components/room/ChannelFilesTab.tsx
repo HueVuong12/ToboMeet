@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   useGetChannelFilesQuery,
   useCreateSignedUploadUrlMutation,
@@ -8,11 +9,15 @@ import {
   useRenameFileMutation,
   useDeleteFileMutation,
   useLazyGetDownloadUrlQuery,
+  usePinFileMutation,
+  useUnpinFileMutation,
 } from "@/lib/redux/api/channelFilesApi";
 import { ChannelFileResponse } from "@tobomeet/shared/types";
 import {
   Upload,
   FolderPlus,
+  FolderOpen,
+  Folder,
   Search,
   ArrowUpDown,
   FileText,
@@ -30,6 +35,7 @@ import {
   ExternalLink,
   Loader2,
   X,
+  ChevronRight,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -47,16 +53,20 @@ export default function ChannelFilesTab({
   userId,
   canManageFiles,
 }: ChannelFilesTabProps) {
-  const { data: files = [], isLoading, refetch } = useGetChannelFilesQuery({
+  const t = useTranslations("room");
+  const { data: filesData = [], isLoading, refetch } = useGetChannelFilesQuery({
     roomId,
     channelId,
   });
+  const files = filesData as any[];
 
   const [createSignedUploadUrl] = useCreateSignedUploadUrlMutation();
   const [saveFileMeta] = useSaveFileMetaMutation();
   const [renameFile] = useRenameFileMutation();
   const [deleteFile] = useDeleteFileMutation();
   const [triggerDownload] = useLazyGetDownloadUrlQuery();
+  const [pinFile] = usePinFileMutation();
+  const [unpinFile] = useUnpinFileMutation();
 
   // Search & Filter & Sort state
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,7 +84,11 @@ export default function ChannelFilesTab({
   const [newNameInput, setNewNameInput] = useState("");
   const [fileToDelete, setFileToDelete] = useState<ChannelFileResponse | null>(null);
 
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [uploadStatusText, setUploadStatusText] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Helper cho Icon loại tệp
   const getFileIcon = (mimeType: string, fileName: string) => {
@@ -132,68 +146,171 @@ export default function ChannelFilesTab({
     });
   };
 
-  // Handle Upload File (Nhiều tệp)
+  // Handle File Upload
   const handleFileUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     if (!canManageFiles) {
-      toast.error("Bạn không có quyền tải tệp lên");
+      toast.error(t("files_no_permission_upload"));
+      return;
+    }
+
+    const file = fileList[0];
+    const fileName = file.name;
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+      setUploadStatusText(t("files_uploading"));
+
+      // 1. Tạo Signed Upload URL
+      const { signedUrl, storagePath, publicUrl } = await createSignedUploadUrl({
+        roomId,
+        channelId,
+        fileName,
+      }).unwrap();
+
+      // 2. Upload file trực tiếp lên Supabase storage qua axios (bypass proxy)
+      await axios.put(signedUrl, file, {
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / (progressEvent.total || file.size),
+          );
+          setUploadProgress(percentCompleted);
+        },
+      });
+
+      // 3. Lưu Metadata
+      await saveFileMeta({
+        roomId,
+        channelId,
+        fileName,
+        storagePath,
+        publicUrl,
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        parentFolderId: currentFolderId,
+      }).unwrap();
+
+      toast.success(t("files_upload_success"));
+    } catch (err: any) {
+      toast.error(
+        err?.data?.message || err?.message || t("files_upload_failed"),
+      );
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStatusText("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle Folder Upload
+  const handleFolderUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    if (!canManageFiles) {
+      toast.error(t("files_no_permission_folder"));
       return;
     }
 
     const filesArray = Array.from(fileList);
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadStatusText(t("files_uploading"));
 
     try {
-      for (let i = 0; i < filesArray.length; i++) {
-        const file = filesArray[i];
+      // Nhóm các thư mục cần tạo trước
+      const foldersToCreate = new Set<string>();
+      filesArray.forEach((file) => {
+        const relativePath = file.webkitRelativePath || file.name;
+        const parts = relativePath.split("/");
+        if (parts.length > 1) {
+          for (let i = 1; i < parts.length; i++) {
+            const folderPath = parts.slice(0, i).join("/");
+            foldersToCreate.add(folderPath);
+          }
+        }
+      });
 
-        // 1. Lấy Signed Upload URL
-        const res = await createSignedUploadUrl({
+      // Bản đồ map: Đường dẫn thư mục -> ID thư mục trong DB
+      const folderPathToIdMap: Record<string, string> = {};
+
+      const sortedFolders = Array.from(foldersToCreate).sort(
+        (a, b) => a.split("/").length - b.split("/").length,
+      );
+
+      for (const folderPath of sortedFolders) {
+        const parts = folderPath.split("/");
+        const folderName = parts[parts.length - 1];
+        const parentPath = parts.slice(0, -1).join("/");
+        const parentFolderId =
+          parentPath === "" ? currentFolderId : folderPathToIdMap[parentPath];
+
+        // Tạo meta thư mục
+        const res = await saveFileMeta({
           roomId,
           channelId,
-          fileName: file.name,
+          fileName: folderName,
+          isFolder: true,
+          parentFolderId,
         }).unwrap();
 
-        // 2. Upload trực tiếp qua Signed URL
-        await axios.put(res.signedUrl, file, {
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          onUploadProgress: (evt) => {
-            if (evt.total) {
-              const currentFilePercent = (evt.loaded / evt.total) * 100;
-              const totalPercent = Math.round(
-                ((i + currentFilePercent / 100) / filesArray.length) * 100,
-              );
-              setUploadProgress(totalPercent);
-            }
+        folderPathToIdMap[folderPath] = res._id;
+      }
+
+      // Upload file
+      const totalFiles = filesArray.length;
+      for (let index = 0; index < totalFiles; index++) {
+        const file = filesArray[index];
+        const relativePath = file.webkitRelativePath || file.name;
+        const parts = relativePath.split("/");
+        const fileName = file.name;
+        const parentPath = parts.slice(0, -1).join("/");
+        const parentFolderId =
+          parentPath === "" ? currentFolderId : folderPathToIdMap[parentPath];
+
+        setUploadStatusText(`Tải lên tệp ${index + 1}/${totalFiles}...`);
+        setUploadProgress(Math.round((index / totalFiles) * 100));
+
+        // 1. Tạo Signed Upload URL
+        const resUrl = await createSignedUploadUrl({
+          roomId,
+          channelId,
+          fileName,
+        }).unwrap();
+
+        // 2. Upload file vật lý
+        await axios.put(resUrl.signedUrl, file, {
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
           },
         });
 
-        // 3. Báo Backend lưu metadata vào DB
+        // 3. Lưu meta file
         await saveFileMeta({
           roomId,
           channelId,
-          fileName: file.name,
-          storagePath: res.storagePath,
-          publicUrl: res.publicUrl,
+          fileName: fileName,
+          storagePath: resUrl.storagePath,
+          publicUrl: resUrl.publicUrl,
           mimeType: file.type || "application/octet-stream",
           fileSize: file.size,
+          parentFolderId,
         }).unwrap();
       }
 
-      toast.success(
-        filesArray.length === 1
-          ? "Đã tải tệp lên thành công"
-          : `Đã tải ${filesArray.length} tệp lên thành công`,
-      );
+      toast.success(t("files_folder_upload_success"));
     } catch (err: any) {
       toast.error(
-        err?.data?.message || err?.message || "Tải tệp lên thất bại.",
+        err?.data?.message || err?.message || t("files_folder_upload_failed"),
       );
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadStatusText("");
+      if (folderInputRef.current) folderInputRef.current.value = "";
     }
   };
 
@@ -212,13 +329,54 @@ export default function ChannelFilesTab({
     }
   };
 
+  // Tải xuống thư mục dưới dạng ZIP
+  const handleDownloadFolder = async (file: ChannelFileResponse) => {
+    const toastId = toast.loading(t("files_download_folder_preparing"));
+    try {
+      const response = await axios.get(`/api/channel-files/${file._id}/download-folder`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/zip" });
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `${file.fileName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(t("files_download_folder_success"), { id: toastId });
+    } catch (err: any) {
+      console.error("Download folder error:", err);
+      toast.error(t("files_download_folder_failed"), { id: toastId });
+    }
+  };
+
+  // Ghim tệp/thư mục
+  const handlePin = async (file: ChannelFileResponse) => {
+    try {
+      await pinFile({ fileId: file._id, channelId }).unwrap();
+      toast.success(t("files_pin_success"));
+    } catch (err: any) {
+      toast.error(err?.data?.message || t("files_pin_failed"));
+    }
+  };
+
+  // Bỏ ghim tệp/thư mục
+  const handleUnpin = async (file: ChannelFileResponse) => {
+    try {
+      await unpinFile({ fileId: file._id, channelId }).unwrap();
+      toast.success(t("files_unpin_success"));
+    } catch (err: any) {
+      toast.error(err?.data?.message || t("files_unpin_failed"));
+    }
+  };
+
   // Preview File
   const handlePreview = async (file: ChannelFileResponse) => {
     try {
       const res = await triggerDownload({ fileId: file._id, download: false }).unwrap();
       window.open(res.downloadUrl, "_blank");
     } catch (err: any) {
-      toast.error(err?.data?.message || "Không thể xem trước tệp.");
+      toast.error(err?.data?.message || t("files_action_preview"));
     }
   };
 
@@ -227,9 +385,9 @@ export default function ChannelFilesTab({
     try {
       const res = await triggerDownload({ fileId: file._id, download: false }).unwrap();
       await navigator.clipboard.writeText(res.downloadUrl);
-      toast.success("Đã sao chép liên kết tệp (có hiệu lực trong 60s)");
+      toast.success(t("files_copy_link_success"));
     } catch (err) {
-      toast.error("Không thể sao chép liên kết.");
+      toast.error(t("files_copy_link_failed"));
     }
   };
 
@@ -242,10 +400,10 @@ export default function ChannelFilesTab({
         newName: newNameInput.trim(),
         channelId,
       }).unwrap();
-      toast.success("Đã đổi tên tệp thành công");
+      toast.success(t("files_rename_success"));
       setFileToRename(null);
     } catch (err: any) {
-      toast.error(err?.data?.message || "Đổi tên thất bại.");
+      toast.error(err?.data?.message || t("files_rename_failed"));
     }
   };
 
@@ -254,20 +412,37 @@ export default function ChannelFilesTab({
     if (!fileToDelete) return;
     try {
       await deleteFile({ fileId: fileToDelete._id, channelId }).unwrap();
-      toast.success("Đã xóa tệp thành công");
+      toast.success(t("files_delete_success"));
       setFileToDelete(null);
     } catch (err: any) {
-      toast.error(err?.data?.message || "Xóa tệp thất bại.");
+      toast.error(err?.data?.message || t("files_delete_failed"));
     }
   };
 
   // Lọc và Sắp xếp danh sách file
   const filteredFiles = useMemo(() => {
-    let result = files.filter((f) =>
-      f.fileName.toLowerCase().includes(searchTerm.toLowerCase().trim()),
-    );
+    let result = [...files];
+    if (searchTerm.trim() !== "") {
+      result = files.filter((f) =>
+        f.fileName.toLowerCase().includes(searchTerm.toLowerCase().trim()),
+      );
+    } else {
+      result = files.filter((f) => (f.parentFolderId || null) === currentFolderId);
+    }
 
-    result.sort((a, b) => {
+    // Tách riêng danh sách đã ghim và chưa ghim
+    const pinned = result.filter((f) => f.isPinned);
+    const unpinned = result.filter((f) => !f.isPinned);
+
+    // Ghim trước lên trước (sắp xếp tăng dần theo pinnedAt)
+    pinned.sort((a, b) => {
+      const timeA = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+      const timeB = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    // Sắp xếp các mục chưa ghim theo tiêu chí bình thường
+    unpinned.sort((a, b) => {
       if (sortBy === "name") {
         return sortOrder === "asc"
           ? a.fileName.localeCompare(b.fileName)
@@ -284,8 +459,23 @@ export default function ChannelFilesTab({
       return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
     });
 
-    return result;
-  }, [files, searchTerm, sortBy, sortOrder]);
+    return [...pinned, ...unpinned];
+  }, [files, searchTerm, sortBy, sortOrder, currentFolderId]);
+
+  const breadcrumbs = useMemo(() => {
+    const crumbs = [];
+    let currentId = currentFolderId;
+    while (currentId) {
+      const folder = files.find((f) => f._id === currentId && f.isFolder);
+      if (folder) {
+        crumbs.unshift(folder);
+        currentId = folder.parentFolderId || null;
+      } else {
+        break;
+      }
+    }
+    return crumbs;
+  }, [files, currentFolderId]);
 
   return (
     <div
@@ -308,7 +498,7 @@ export default function ChannelFilesTab({
         <div className="absolute inset-0 z-30 bg-brand-500/10 border-2 border-dashed border-brand-500 rounded-lg flex flex-col items-center justify-center backdrop-blur-xs pointer-events-none">
           <Upload className="w-12 h-12 text-brand-600 animate-bounce mb-2" />
           <p className="text-base font-bold text-brand-700">
-            Thả tệp vào đây để tải lên
+            {t("files_empty_desc")}
           </p>
         </div>
       )}
@@ -324,7 +514,7 @@ export default function ChannelFilesTab({
             />
             <input
               type="text"
-              placeholder="Tìm kiếm tệp..."
+              placeholder={t("files_search_placeholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
@@ -339,9 +529,9 @@ export default function ChannelFilesTab({
               onChange={(e: any) => setSortBy(e.target.value)}
               className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
             >
-              <option value="date">Mới nhất</option>
-              <option value="name">Tên (A-Z)</option>
-              <option value="size">Dung lượng</option>
+              <option value="date">{t("files_sort_date")}</option>
+              <option value="name">{t("files_sort_name")}</option>
+              <option value="size">{t("files_sort_size")}</option>
             </select>
             <button
               onClick={() =>
@@ -364,6 +554,14 @@ export default function ChannelFilesTab({
               onChange={(e) => handleFileUpload(e.target.files)}
               className="hidden"
             />
+            <input
+              type="file"
+              ref={folderInputRef}
+              {...{ webkitdirectory: "", directory: "" }}
+              multiple
+              onChange={(e) => handleFolderUpload(e.target.files)}
+              className="hidden"
+            />
             <button
               disabled={isUploading}
               onClick={() => fileInputRef.current?.click()}
@@ -374,17 +572,16 @@ export default function ChannelFilesTab({
               ) : (
                 <Upload size={16} />
               )}
-              <span>Tải tệp lên</span>
+              <span>{t("files_upload_btn")}</span>
             </button>
 
             <button
-              onClick={() =>
-                toast.info("Tính năng Thư mục mới sẽ được hỗ trợ trong tương lai.")
-              }
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 transition-colors"
+              disabled={isUploading}
+              onClick={() => folderInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 transition-colors disabled:opacity-50"
             >
               <FolderPlus size={16} />
-              <span className="hidden sm:inline">Thư mục mới</span>
+              <span className="hidden sm:inline">{t("files_new_folder_btn")}</span>
             </button>
           </div>
         )}
@@ -395,7 +592,7 @@ export default function ChannelFilesTab({
         <div className="w-full bg-brand-50 border-b border-brand-100 px-4 py-2 flex items-center justify-between text-xs text-brand-700 font-medium animate-fade-in">
           <div className="flex items-center gap-2">
             <Loader2 size={14} className="animate-spin text-brand-600" />
-            <span>Đang tải tệp lên... {uploadProgress}%</span>
+            <span>{uploadStatusText} {uploadProgress}%</span>
           </div>
           <div className="w-32 bg-brand-200 h-1.5 rounded-full overflow-hidden">
             <div
@@ -408,17 +605,38 @@ export default function ChannelFilesTab({
 
       {/* Main Files Table / List */}
       <div className="flex-1 overflow-y-auto p-4">
+        {/* Breadcrumbs */}
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3 px-1 font-semibold flex-wrap">
+          <button
+            onClick={() => setCurrentFolderId(null)}
+            className="hover:text-brand-600 font-bold transition-colors text-slate-600"
+          >
+            {t("files")}
+          </button>
+          {breadcrumbs.map((crumb) => (
+            <span key={crumb._id} className="flex items-center gap-1.5">
+              <ChevronRight size={12} className="text-slate-400" />
+              <button
+                onClick={() => setCurrentFolderId(crumb._id)}
+                className="hover:text-brand-600 font-bold transition-colors text-slate-600 max-w-40 truncate"
+              >
+                {crumb.fileName}
+              </button>
+            </span>
+          ))}
+        </div>
+
         {isLoading ? (
           <div className="h-40 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
           </div>
-        ) : filteredFiles.length === 0 ? (
+        ) : filteredFiles.length === 0 && currentFolderId === null ? (
           <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-sm">
             <FileIcon className="w-12 h-12 stroke-1 mb-2 text-slate-300" />
-            <p className="font-medium text-slate-500">Chưa có tệp nào trong kênh</p>
+            <p className="font-medium text-slate-500">{t("files_empty")}</p>
             {canManageFiles && (
               <p className="text-xs text-slate-400 mt-1">
-                Kéo thả tệp vào đây hoặc bấm "Tải tệp lên" để bắt đầu.
+                {t("files_empty_desc")}
               </p>
             )}
           </div>
@@ -427,14 +645,23 @@ export default function ChannelFilesTab({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3 px-4">Tên tệp</th>
-                  <th className="py-3 px-4 hidden sm:table-cell">Người tải lên</th>
-                  <th className="py-3 px-4 hidden md:table-cell">Ngày tải</th>
-                  <th className="py-3 px-4 hidden sm:table-cell">Dung lượng</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
+                  <th className="py-3 px-4">{t("files_header_name")}</th>
+                  <th className="py-3 px-4 hidden sm:table-cell">{t("files_header_uploader")}</th>
+                  <th className="py-3 px-4 hidden md:table-cell">{t("files_header_date")}</th>
+                  <th className="py-3 pl-4 pr-14 text-right">{t("files_header_actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
+
+
+                {filteredFiles.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 text-xs font-medium">
+                      {t("files_folder_empty")}
+                    </td>
+                  </tr>
+                )}
+
                 {filteredFiles.map((file) => (
                   <tr
                     key={file._id}
@@ -444,18 +671,34 @@ export default function ChannelFilesTab({
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="shrink-0 p-2 bg-slate-100 rounded-lg">
-                          {getFileIcon(file.mimeType, file.fileName)}
+                          {file.isFolder ? (
+                            <Folder className="w-5 h-5 text-amber-500 fill-amber-100" />
+                          ) : (
+                            getFileIcon(file.mimeType, file.fileName)
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <p
-                            onClick={() => handlePreview(file)}
-                            className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer truncate max-w-xs sm:max-w-md transition-colors"
-                            title={file.fileName}
-                          >
-                            {file.fileName}
-                          </p>
+                          {file.isFolder ? (
+                            <button
+                              onClick={() => setCurrentFolderId(file._id)}
+                              className="font-bold text-slate-800 hover:text-brand-600 text-sm truncate max-w-xs sm:max-w-md text-left block focus:outline-none transition-colors"
+                              title={file.fileName}
+                            >
+                              {file.isPinned && <span className="mr-1">📌</span>}
+                              {file.fileName}
+                            </button>
+                          ) : (
+                            <p
+                              onClick={() => handlePreview(file)}
+                              className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer truncate max-w-xs sm:max-w-md transition-colors"
+                              title={file.fileName}
+                            >
+                              {file.isPinned && <span className="mr-1">📌</span>}
+                              {file.fileName}
+                            </p>
+                          )}
                           <p className="text-xs text-slate-400 sm:hidden">
-                            {formatFileSize(file.fileSize)} • {file.uploadedByName}
+                            {file.isFolder ? t("files_folder") : formatFileSize(file.fileSize)} • {file.uploadedByName}
                           </p>
                         </div>
                       </div>
@@ -471,18 +714,15 @@ export default function ChannelFilesTab({
                       {formatDate(file.createdAt)}
                     </td>
 
-                    {/* File Size */}
-                    <td className="py-3 px-4 hidden sm:table-cell text-slate-500 text-xs whitespace-nowrap">
-                      {formatFileSize(file.fileSize)}
-                    </td>
+
 
                     {/* Actions Menu */}
-                    <td className={`py-3 px-4 text-right relative ${activeMenuId === file._id ? "z-10" : ""}`}>
+                    <td className={`py-3 pl-4 pr-14 text-right relative ${activeMenuId === file._id ? "z-10" : ""}`}>
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleDownload(file)}
+                          onClick={() => file.isFolder ? handleDownloadFolder(file) : handleDownload(file)}
                           className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-800 transition-colors"
-                          title="Tải xuống"
+                          title={t("files_action_download")}
                         >
                           <Download size={16} />
                         </button>
@@ -507,15 +747,27 @@ export default function ChannelFilesTab({
                                 onClick={() => setActiveMenuId(null)}
                               />
                               <div className="absolute right-0 top-8 z-50 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 text-left animate-fade-in">
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    handleCopyLink(file);
-                                  }}
-                                  className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Copy size={14} /> Sao chép liên kết
-                                </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      file.isPinned ? handleUnpin(file) : handlePin(file);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  >
+                                    <span className="text-sm">📌</span> {file.isPinned ? t("files_action_unpin") : t("files_action_pin")}
+                                  </button>
+
+                                {!file.isFolder && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      handleCopyLink(file);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  >
+                                    <Copy size={14} /> {t("files_action_copy_link")}
+                                  </button>
+                                )}
 
                                 {/* ẨN HOÀN TOÀN ĐỔI TÊN / XÓA NẾU LÀ MEMBER */}
                                 {canManageFiles && (
@@ -529,7 +781,7 @@ export default function ChannelFilesTab({
                                       }}
                                       className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                     >
-                                      <Edit2 size={14} /> Đổi tên
+                                      <Edit2 size={14} /> {t("files_action_rename")}
                                     </button>
 
                                     <button
@@ -539,7 +791,7 @@ export default function ChannelFilesTab({
                                       }}
                                       className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2"
                                     >
-                                      <Trash2 size={14} /> Xóa tệp
+                                      <Trash2 size={14} /> {t("files_action_delete")}
                                     </button>
                                   </>
                                 )}
@@ -563,7 +815,7 @@ export default function ChannelFilesTab({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-bold text-slate-800">
-                Đổi tên tệp
+                {t("files_rename_title")}
               </h3>
               <button
                 onClick={() => setFileToRename(null)}
@@ -577,7 +829,7 @@ export default function ChannelFilesTab({
               type="text"
               value={newNameInput}
               onChange={(e) => setNewNameInput(e.target.value)}
-              placeholder="Nhập tên mới..."
+              placeholder={t("files_rename_label")}
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 mb-5"
             />
 
@@ -586,13 +838,13 @@ export default function ChannelFilesTab({
                 onClick={() => setFileToRename(null)}
                 className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
               >
-                Hủy
+                {t("cancel")}
               </button>
               <button
                 onClick={handleRenameSubmit}
                 className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl"
               >
-                Lưu thay đổi
+                {t("files_action_rename")}
               </button>
             </div>
           </div>
@@ -604,12 +856,10 @@ export default function ChannelFilesTab({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h3 className="text-base font-bold text-slate-800 mb-2">
-              Xác nhận xóa tệp
+              {t("files_delete_title")}
             </h3>
             <p className="text-sm text-slate-600 mb-5">
-              Bạn có chắc chắn muốn xóa tệp{" "}
-              <strong className="text-slate-900">{fileToDelete.fileName}</strong>? Hành
-              động này không thể hoàn tác.
+              {t("files_delete_confirm")}
             </p>
 
             <div className="flex justify-end gap-2">
@@ -617,13 +867,13 @@ export default function ChannelFilesTab({
                 onClick={() => setFileToDelete(null)}
                 className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
               >
-                Hủy
+                {t("cancel")}
               </button>
               <button
                 onClick={handleDeleteSubmit}
                 className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl"
               >
-                Xóa tệp
+                {t("files_delete_action")}
               </button>
             </div>
           </div>

@@ -8,10 +8,12 @@ export class CreateFileMetaDto {
   roomId: string;
   channelId: string;
   fileName: string;
-  storagePath: string;
-  publicUrl: string;
-  mimeType: string;
-  fileSize: number;
+  storagePath?: string;
+  publicUrl?: string;
+  mimeType?: string;
+  fileSize?: number;
+  isFolder?: boolean;
+  parentFolderId?: string | null;
 }
 
 export class RenameFileDto {

@@ -111,7 +111,7 @@
     "select_room_type": "Select room type",
     "room_type_label": "Room Type: ",
     "step_back": "Back",
-    "search_placeholder": "Search for meeting rooms or classrooms...",
+    "search_placeholder": "Search rooms...",
     "no_results_title": "No matching rooms found",
     "no_results_desc": "Please try again with a different keyword or room code.",
     "settings": "Settings",
