@@ -397,7 +397,7 @@
   "room": {
     "class_feed": "Bảng tin chung",
     "files": "Tệp",
-    "files_search_placeholder": "Tìm kiếm tệp...",
+    "files_search_placeholder": "Tìm kiếm tệp và thư mục...",
     "files_upload_btn": "Tải tệp lên",
     "files_new_folder_btn": "Thư mục mới",
     "files_uploading": "Đang tải tệp lên...",

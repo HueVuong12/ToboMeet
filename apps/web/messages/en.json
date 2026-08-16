@@ -422,7 +422,7 @@
   "room": {
     "class_feed": "Class Feed",
     "files": "Files",
-    "files_search_placeholder": "Search files...",
+    "files_search_placeholder": "Search files and folders...",
     "files_upload_btn": "Upload file",
     "files_new_folder_btn": "New folder",
     "files_uploading": "Uploading file...",

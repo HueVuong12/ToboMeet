@@ -69,9 +69,14 @@ export default function ChannelFilesTab({
   const [unpinFile] = useUnpinFileMutation();
 
   // Search & Filter & Sort state
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "date" | "size">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+  };
 
   // Uploading state
   const [isUploading, setIsUploading] = useState(false);
@@ -505,41 +510,36 @@ export default function ChannelFilesTab({
 
       {/* Toolbar / Action Bar Header */}
       <div className="bg-white border-b border-slate-200 p-4 shrink-0 flex flex-wrap items-center justify-between gap-3">
-        {/* Left Actions: Search & Filter */}
+        {/* Left Actions: Search Bar */}
         <div className="flex items-center gap-2 flex-1 min-w-60">
-          <div className="relative flex-1 max-w-md">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="text"
-              placeholder={t("files_search_placeholder")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-            />
-          </div>
-
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1">
-            <ArrowUpDown size={14} className="text-slate-500" />
-            <select
-              value={sortBy}
-              onChange={(e: any) => setSortBy(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
-            >
-              <option value="date">{t("files_sort_date")}</option>
-              <option value="name">{t("files_sort_name")}</option>
-              <option value="size">{t("files_sort_size")}</option>
-            </select>
+          <div className="relative flex-1 max-w-md flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                placeholder={t("files_search_placeholder")}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+              />
+            </div>
+            
+            {/* Nút tìm kiếm thay thế cho cụm sắp xếp cũ */}
             <button
-              onClick={() =>
-                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-              }
-              className="p-1 hover:bg-slate-200 rounded text-xs font-bold text-slate-600"
+              onClick={handleSearch}
+              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5"
+              title="Tìm kiếm"
             >
-              {sortOrder === "asc" ? "↑" : "↓"}
+              <Search size={16} />
+              <span>Tìm kiếm</span>
             </button>
           </div>
         </div>

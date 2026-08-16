@@ -351,7 +351,7 @@ export default function ChannelFilesTab({
         <View className="flex-1 flex-row items-center bg-slate-100 rounded-xl px-3 py-2">
           <Feather name="search" size={16} color="#94A3B8" />
           <TextInput
-            placeholder="Tìm kiếm tệp..."
+            placeholder="Tìm kiếm tệp và thư mục..."
             value={searchTerm}
             onChangeText={setSearchTerm}
             className="flex-1 ml-2 text-sm text-slate-800 focus:outline-none"
