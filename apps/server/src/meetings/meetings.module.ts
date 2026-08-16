@@ -32,6 +32,8 @@ import {
   MeetingSessionSchema,
 } from "./schemas/meeting-session.schema";
 import { MeetingInviteService } from "./meeting-invite.service";
+import { BreakoutRoomsController } from "./breakout-rooms.controller";
+import { BreakoutRoomsService } from "./breakout-rooms.service";
 
 @Module({
   imports: [
@@ -49,17 +51,20 @@ import { MeetingInviteService } from "./meeting-invite.service";
     CoreModule,
   ],
   controllers: [
+    BreakoutRoomsController,
     MeetingsController,
     GlobalMeetingsController,
     CalendarController,
   ],
   providers: [
+    BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
     CalendarService,
     MeetingsGateway,
   ],
   exports: [
+    BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
     CalendarService,

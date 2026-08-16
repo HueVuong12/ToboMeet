@@ -276,6 +276,18 @@ export interface LivekitRoomMetadata {
   isWaitingRoomEnabled: boolean;
   isChatEnabled: boolean;
   approvalPermission: "admin_only" | "member_and_admin" | "everyone";
+  breakout_session?: {
+    status: string;
+    rooms: LivekitBreakoutRoom[]; // Mảng này giờ đã chứa sub_1, sub_2
+    startedAt: string;
+  };
+}
+
+export interface LivekitBreakoutRoom {
+  id: string;
+  name: string;
+  maxParticipants: number;
+  durationMinutes: number;
 }
 
 export interface ChannelFileResponse {

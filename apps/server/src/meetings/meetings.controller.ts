@@ -20,6 +20,11 @@ import { JoinMeetingDto } from "./dtos/join-meeting.dto";
 import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { MeetingInviteService } from "./meeting-invite.service";
 
+// TODO (Gấp): bỏ sự phụ thuộc vào channelId và roomId, chỉ phụ thuộc vào meetingCode
+// Do sau này sẽ có thêm private meeting (meeting thuộc về 1 cá nhân nào đó, không phải 1 kênh của phòng)
+// Lưu thêm trường type để phân biệt và xử lý phân quyền tương ứng
+// Có thể lưu thêm meetingCode vào channel để tiện truy xuất
+
 interface AuthenticatedRequest extends Request {
   user: {
     id: string;

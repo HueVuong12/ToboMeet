@@ -40,14 +40,6 @@ export function useMeetingLauncher({
         forceSwitch,
       }).unwrap();
 
-      const cameraConfig = encodeURIComponent(
-        JSON.stringify({
-          deviceId: config.cameraId,
-          width: config.resolution.width,
-          height: config.resolution.height,
-        }),
-      );
-
       setShowPreviewModal(false);
 
       const meetingUrl = `/meeting/${response.meetingCode}`;

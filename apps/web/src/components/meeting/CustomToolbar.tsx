@@ -1,7 +1,7 @@
 import { useHandRaise } from "@/hooks/useHandRaise";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
-import { useParticipants } from "@livekit/components-react";
+import { useParticipants, useRoomContext } from "@livekit/components-react";
 import {
   Check,
   Copy,
@@ -24,13 +24,17 @@ import {
   Play,
   Pause,
   Square,
+  Network,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import InviteMemberModal from "./InviteMemberModal";
 import { useTranslations } from "next-intl";
 import { useIsElectron } from "@/hooks/useIsElectron";
 import { useScreenRecorder } from "@/hooks/useScreenRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
+import { RoomEvent } from "livekit-client";
+import CreateBreakoutModal from "./CreateBreakoutModal";
+import { useEndBreakoutSessionMutation } from "@/lib/redux/api/meetingsApi";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -54,12 +58,44 @@ export default function CustomToolbar({
 }) {
   const t = useTranslations("meeting.toolbar");
   const participants = useParticipants();
+  const room = useRoomContext(); // Lấy room instance từ LiveKit
 
   const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
+  const [endBreakoutApi] = useEndBreakoutSessionMutation();
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
+
+  // ====== STATE CHO BREAKOUT ROOM ======
+  const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
+  const [isBreakoutActive, setIsBreakoutActive] = useState(false);
+
+  // Theo dõi Room Metadata để tự động hiện Icon Breakout
+  useEffect(() => {
+    const checkBreakoutStatus = (metadataStr: string | undefined) => {
+      if (!metadataStr) return;
+      try {
+        const meta = JSON.parse(metadataStr);
+        setIsBreakoutActive(meta.breakout_session?.status === "active");
+      } catch (e) {
+        console.error("Lỗi parse metadata breakout", e);
+      }
+    };
+
+    // Check lần đầu tiên khi component mount
+    checkBreakoutStatus(room.metadata);
+
+    const handleMetadataChanged = (metadataStr: string | undefined) => {
+      checkBreakoutStatus(metadataStr);
+    };
+
+    room.on(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
+    return () => {
+      room.off(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
+    };
+  }, [room]);
+  // =====================================
 
   const isElectron = useIsElectron();
 
@@ -290,6 +326,24 @@ export default function CustomToolbar({
           </span>
         </button>
 
+        {/* NÚT BREAKOUT: CHỈ HIỂN THỊ KHI ĐANG CÓ PHIÊN HOẠT ĐỘNG */}
+        {isBreakoutActive && (
+          <button
+            onClick={() => {
+              // TODO: Gắn hàm mở Modal chọn phòng Breakout dành cho Participant ở đây
+            }}
+            className={getBtnStyle(false, "bg-[#222] text-white")}
+          >
+            <Network
+              size={20}
+              className="text-blue-400 animate-pulse drop-shadow-md"
+            />
+            <span className="text-[10px] mt-1 hidden sm:block font-medium text-blue-400">
+              Breakout
+            </span>
+          </button>
+        )}
+
         {/* Nút Tuỳ chọn và phần menu còn lại */}
         <div className="relative h-full flex">
           <button
@@ -339,6 +393,47 @@ export default function CustomToolbar({
                     <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#333] bg-[#333]">
                       {t("admin_tools")}
                     </div>
+
+                    {/* MENU CHIA NHÓM THẢO LUẬN TỰ ĐỘNG CHUYỂN ĐỔI */}
+                    {!isBreakoutActive ? (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsBreakoutModalOpen(true);
+                          setIsMoreMenuOpen(false); // Ẩn dropdown đi
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Network size={16} className="text-blue-400" />
+                          <span>Chia nhóm thảo luận</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await endBreakoutApi({
+                              code: meetingCode,
+                            }).unwrap();
+                          } catch (error) {
+                            console.error("Lỗi khi kết thúc breakout", error);
+                          }
+                          setIsMoreMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 font-medium">
+                          <Square
+                            size={16}
+                            className="text-red-500"
+                            fill="currentColor"
+                          />
+                          <span>Kết thúc thảo luận</span>
+                        </div>
+                      </div>
+                    )}
 
                     <div
                       onClick={(e) => {
@@ -512,6 +607,13 @@ export default function CustomToolbar({
         roomId={roomId}
         meetingCode={meetingCode}
         displayParticipants={displayParticipants}
+      />
+
+      {/* ================= MODAL TẠO BREAKOUT ================= */}
+      <CreateBreakoutModal
+        isOpen={isBreakoutModalOpen}
+        onClose={() => setIsBreakoutModalOpen(false)}
+        meetingCode={meetingCode}
       />
     </footer>
   );
