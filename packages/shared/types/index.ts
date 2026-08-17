@@ -272,6 +272,7 @@ export interface ParticipantMetadata {
 }
 
 export interface LivekitRoomMetadata {
+  room_type: "main" | "breakout";
   sessionId: string;
   isWaitingRoomEnabled: boolean;
   isChatEnabled: boolean;

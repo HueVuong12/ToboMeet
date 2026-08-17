@@ -257,7 +257,7 @@ export const meetingsApi = baseApi.injectEndpoints({
       { fullBreakoutRoomName: string; deviceId: string }
     >({
       query: ({ fullBreakoutRoomName, deviceId }) => ({
-        url: `/breakout/${fullBreakoutRoomName}/return`,
+        url: `/meetings/breakout/${fullBreakoutRoomName}/return`,
         method: "POST",
         data: { deviceId },
       }),

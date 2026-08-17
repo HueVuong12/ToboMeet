@@ -1036,6 +1036,8 @@
       "loading_wait": "Please wait for a moment",
       "loading_prepare_room": "Preparing meeting room",
       "loading_reconnecting": "Restoring session",
+      "loading_joining_breakout": "Joining breakout session",
+      "loading_returning_main": "Returning to main session",
       "cleaning_up": "Cleaning up...",
       "toast_approved": "The host has approved you to join the meeting.",
       "waiting_title": "Please wait",

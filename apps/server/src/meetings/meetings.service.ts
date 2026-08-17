@@ -911,12 +911,39 @@ export class MeetingsService {
   }
 
   /**
-   * Kiểm tra thực tế số người trong phòng, nếu bằng 0 thì ép xóa
+   * Kiểm tra thực tế số người trong phòng, nếu bằng 0 thì ép xóa, bỏ qua nếu là phòng breakout
    */
   async checkAndCloseEmptyRoom(meetingCode: string) {
     if (!this.livekitRoomService) return;
 
     try {
+      // Lấy thông tin phòng để kiểm tra metadata trước
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      if (rooms && rooms.length > 0) {
+        const room = rooms[0];
+
+        let isBreakoutRoom = false;
+        if (room.metadata) {
+          try {
+            const meta: LivekitRoomMetadata = JSON.parse(room.metadata);
+            if (meta.room_type === "breakout") {
+              isBreakoutRoom = true;
+            }
+          } catch (e) {
+            console.error("Lỗi parse metadata phòng khi check empty:", e);
+          }
+        }
+
+        // Bỏ qua việc tự động đóng nếu là phòng breakout
+        if (isBreakoutRoom) {
+          console.log(
+            `Bỏ qua tự động dọn dẹp cho phòng breakout: ${meetingCode}`,
+          );
+          return;
+        }
+      }
+
+      // Nếu không phải phòng breakout, tiếp tục logic kiểm tra số người
       // Gọi API trực tiếp lên LiveKit Server để lấy danh sách người dùng hiện tại
       const participants =
         await this.livekitRoomService.listParticipants(meetingCode);
@@ -927,7 +954,6 @@ export class MeetingsService {
         await this.forceDeleteLiveKitRoom(meetingCode);
       }
     } catch (error) {
-      // Bỏ qua lỗi nếu phòng đã không còn tồn tại trên LiveKit
       console.log(`Phòng ${meetingCode} có thể đã được dọn dẹp.`, error);
     }
   }

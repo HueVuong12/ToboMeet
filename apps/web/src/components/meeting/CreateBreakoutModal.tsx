@@ -50,7 +50,6 @@ export default function CreateBreakoutModal({
   };
 
   const handleSubmit = async () => {
-    // Validate cơ bản
     if (rooms.some((r) => r.name.trim() === "")) {
       toast.error("Tên phòng không được để trống");
       return;
@@ -121,7 +120,7 @@ export default function CreateBreakoutModal({
                   {/* Số người tối đa */}
                   <div className="flex-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                      Số người tối đa (0 = Không giới hạn)
+                      Số người tối đa
                     </label>
                     <input
                       type="number"
@@ -141,7 +140,7 @@ export default function CreateBreakoutModal({
                   {/* Thời lượng */}
                   <div className="flex-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                      Thời lượng (phút, 0 = Vô hạn)
+                      Thời lượng (phút)
                     </label>
                     <input
                       type="number"

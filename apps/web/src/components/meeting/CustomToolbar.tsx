@@ -1,7 +1,6 @@
 import { useHandRaise } from "@/hooks/useHandRaise";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
-import { useParticipants, useRoomContext } from "@livekit/components-react";
 import {
   Check,
   Copy,
@@ -26,15 +25,14 @@ import {
   Square,
   Network,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import InviteMemberModal from "./InviteMemberModal";
 import { useTranslations } from "next-intl";
 import { useIsElectron } from "@/hooks/useIsElectron";
 import { useScreenRecorder } from "@/hooks/useScreenRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
-import { RoomEvent } from "livekit-client";
 import CreateBreakoutModal from "./CreateBreakoutModal";
-import { useEndBreakoutSessionMutation } from "@/lib/redux/api/meetingsApi";
+import JoinBreakoutModal from "./JoinBreakoutModal";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -48,6 +46,7 @@ export default function CustomToolbar({
   activeTab,
   onToggleSidebar,
   hasUnreadChat,
+  handleSwitchRoom,
 }: {
   meetingCode: string;
   activeTab: "chat" | "people" | null;
@@ -55,47 +54,16 @@ export default function CustomToolbar({
   roomId: string;
   channelId: string;
   hasUnreadChat: boolean;
+  handleSwitchRoom: (token: string, roomId: string) => void;
 }) {
   const t = useTranslations("meeting.toolbar");
-  const participants = useParticipants();
-  const room = useRoomContext(); // Lấy room instance từ LiveKit
 
   const [isApprovalSubmenuOpen, setIsApprovalSubmenuOpen] = useState(false);
-  const [endBreakoutApi] = useEndBreakoutSessionMutation();
-
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
+  const [isJoinBreakoutModalOpen, setIsJoinBreakoutModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
-
-  // ====== STATE CHO BREAKOUT ROOM ======
-  const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
-  const [isBreakoutActive, setIsBreakoutActive] = useState(false);
-
-  // Theo dõi Room Metadata để tự động hiện Icon Breakout
-  useEffect(() => {
-    const checkBreakoutStatus = (metadataStr: string | undefined) => {
-      if (!metadataStr) return;
-      try {
-        const meta = JSON.parse(metadataStr);
-        setIsBreakoutActive(meta.breakout_session?.status === "active");
-      } catch (e) {
-        console.error("Lỗi parse metadata breakout", e);
-      }
-    };
-
-    // Check lần đầu tiên khi component mount
-    checkBreakoutStatus(room.metadata);
-
-    const handleMetadataChanged = (metadataStr: string | undefined) => {
-      checkBreakoutStatus(metadataStr);
-    };
-
-    room.on(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
-    return () => {
-      room.off(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
-    };
-  }, [room]);
-  // =====================================
 
   const isElectron = useIsElectron();
 
@@ -107,6 +75,7 @@ export default function CustomToolbar({
     isMicLoading,
     isCamLoading,
     isCopied,
+    isLeavingBreakout,
 
     // Actions
     toggleMic,
@@ -114,7 +83,8 @@ export default function CustomToolbar({
     toggleScreenShare,
     handleLeaveClick,
     handleCopyLink,
-  } = useToolbarActions({ meetingCode });
+    handleLeaveBreakout,
+  } = useToolbarActions({ meetingCode, handleSwitchRoom });
 
   const {
     isRecording,
@@ -133,10 +103,14 @@ export default function CustomToolbar({
     isHost,
     isChatEnabled,
     isWaitingRoomEnabled,
+    isBreakoutActive,
     approvalPermission,
+    breakoutRoomsList,
+    roomType,
 
     // Actions
     handleToggleChat,
+    handleEndBreakout,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
   } = useRoomSettings({
@@ -144,6 +118,8 @@ export default function CustomToolbar({
     channelId,
     meetingCode,
   });
+
+  const isInBreakoutRoom = roomType === "breakout";
 
   const { displayParticipants } = useParticipantManager({
     roomId,
@@ -216,7 +192,7 @@ export default function CustomToolbar({
               className={activeTab === "people" ? "text-brand-400" : ""}
             />
             <span className="absolute -top-1 -right-3.5 inline-flex items-center justify-center px-1 min-w-4 h-4 text-[9px] font-bold text-white bg-slate-600 rounded-full border-[1.5px] border-[#111]">
-              {participants.length}
+              {displayParticipants.length}
             </span>
           </div>
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
@@ -329,9 +305,7 @@ export default function CustomToolbar({
         {/* NÚT BREAKOUT: CHỈ HIỂN THỊ KHI ĐANG CÓ PHIÊN HOẠT ĐỘNG */}
         {isBreakoutActive && (
           <button
-            onClick={() => {
-              // TODO: Gắn hàm mở Modal chọn phòng Breakout dành cho Participant ở đây
-            }}
+            onClick={() => setIsJoinBreakoutModalOpen(true)}
             className={getBtnStyle(false, "bg-[#222] text-white")}
           >
             <Network
@@ -413,13 +387,7 @@ export default function CustomToolbar({
                       <div
                         onClick={async (e) => {
                           e.stopPropagation();
-                          try {
-                            await endBreakoutApi({
-                              code: meetingCode,
-                            }).unwrap();
-                          } catch (error) {
-                            console.error("Lỗi khi kết thúc breakout", error);
-                          }
+                          await handleEndBreakout();
                           setIsMoreMenuOpen(false);
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 flex items-center justify-between transition-colors cursor-pointer"
@@ -586,6 +554,27 @@ export default function CustomToolbar({
 
       {/* ================= PHẦN BÊN PHẢI ================= */}
       <div className="flex items-center h-full lg:flex-1 justify-center lg:justify-end lg:pr-2 shrink-0">
+        {/* NÚT RỜI NHÓM HIỂN THỊ DỰA VÀO METADATA */}
+        {isInBreakoutRoom && (
+          <button
+            onClick={handleLeaveBreakout}
+            disabled={isLeavingBreakout}
+            className="group h-full px-3 sm:px-4 mx-1 bg-transparent text-amber-500 hover:text-amber-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
+          >
+            {isLeavingBreakout ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <LogOut
+                size={18}
+                className="transition-transform duration-300 group-hover:-translate-x-1"
+              />
+            )}
+            <span className="hidden md:inline text-sm transition-all duration-300">
+              Rời nhóm
+            </span>
+          </button>
+        )}
+
         <button
           onClick={handleLeaveClick}
           className="group h-full px-3 sm:px-4 mx-1 lg:mx-0 bg-transparent text-red-500 hover:text-red-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
@@ -614,6 +603,15 @@ export default function CustomToolbar({
         isOpen={isBreakoutModalOpen}
         onClose={() => setIsBreakoutModalOpen(false)}
         meetingCode={meetingCode}
+      />
+
+      {/* ================= MODAL JOIN BREAKOUT ================= */}
+      <JoinBreakoutModal
+        handleSwitchRoom={handleSwitchRoom}
+        isOpen={isJoinBreakoutModalOpen}
+        onClose={() => setIsJoinBreakoutModalOpen(false)}
+        meetingCode={meetingCode}
+        rooms={breakoutRoomsList}
       />
     </footer>
   );

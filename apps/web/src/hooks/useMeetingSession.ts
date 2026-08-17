@@ -7,6 +7,7 @@ import { useMeetingCacheManager } from "@/hooks/useMeetingCacheManager";
 import {
   useJoinMeetingByCodeMutation,
   useLazyGetMemberStatusQuery,
+  useReturnToMainRoomMutation,
 } from "@/lib/redux/api/meetingsApi";
 import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 import { useTranslations } from "next-intl";
@@ -43,11 +44,17 @@ export function useMeetingSession() {
   } | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [status, setStatus] = useState<
-    "LOOKING_FOR_TOKEN" | "IN_LOBBY" | "JOINED" | "RECONNECTING"
+    | "LOOKING_FOR_TOKEN"
+    | "IN_LOBBY"
+    | "JOINED"
+    | "RECONNECTING"
+    | "SWITCHING_BREAKOUT"
+    | "RETURNING_MAIN"
   >("LOOKING_FOR_TOKEN");
 
   const [joinMeetingByCodeApi, { isLoading: isJoining }] =
     useJoinMeetingByCodeMutation();
+  const [returnToMainRoomApi] = useReturnToMainRoomMutation();
 
   const hasTriedReconnectRef = useRef(false);
   const isUnloadingRef = useRef(false);
@@ -138,6 +145,61 @@ export function useMeetingSession() {
       }
     }
   };
+
+  const handleSwitchRoom = useCallback(
+    (newToken: string, newRoomId: string) => {
+      // Đổi trạng thái sang reconnecting để UI hiện loading
+      setStatus("SWITCHING_BREAKOUT");
+
+      // Cập nhật Token mới
+      setMeetingData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          token: newToken,
+          roomId: newRoomId,
+        };
+      });
+
+      // Đợi một chút để LiveKit Room tự động unmount và mount lại với token mới
+      setTimeout(() => {
+        setStatus("JOINED");
+      }, 1000);
+    },
+    [meetingCode],
+  );
+
+  // ===== HÀM MỚI: QUAY VỀ PHÒNG CHÍNH DỰA TRÊN PARENT CODE =====
+  const handleReturnToMain = useCallback(
+    async (fullBreakoutRoomName: string) => {
+      if (!deviceId) return;
+      try {
+        setStatus("RETURNING_MAIN");
+
+        // Gọi API returnToMainRoom đã được cấu hình chặt chẽ ở Backend
+        const response = await returnToMainRoomApi({
+          fullBreakoutRoomName,
+          deviceId: deviceId,
+        }).unwrap();
+
+        // Ghi nhận Token phòng chính do Backend trả về
+        setMeetingData({
+          token: response.token,
+          roomId: response.roomId,
+          channelId: response.channelId,
+          channelName: response.channelName,
+        });
+
+        setTimeout(() => {
+          setStatus("JOINED");
+        }, 1000);
+      } catch (error) {
+        toast.error("Không thể quay về phòng chính lúc này.");
+        setStatus("JOINED"); // Rollback UI nếu lỗi
+      }
+    },
+    [deviceId, returnToMainRoomApi],
+  );
 
   const handleJoinByCode = useCallback(async () => {
     if (!meetingCode) return;
@@ -309,13 +371,16 @@ export function useMeetingSession() {
     isDisconnecting,
     isJoining,
     camOn,
-    setCamOn,
     micOn,
-    setMicOn,
     displayName,
+    hardwareConfig,
+
+    setCamOn,
+    setMicOn,
     setDisplayName,
     handleJoinByCode,
     handleDisconnect,
-    hardwareConfig,
+    handleSwitchRoom,
+    handleReturnToMain,
   };
 }

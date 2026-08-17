@@ -1022,6 +1022,8 @@
       "loading_wait": "Vui lòng đợi trong giây lát",
       "loading_prepare_room": "Chuẩn bị không gian phòng họp",
       "loading_reconnecting": "Đang khôi phục phiên làm việc",
+      "loading_joining_breakout": "Đang tham gia nhóm thảo luận",
+      "loading_returning_main": "Đang trở về phòng chính",
       "cleaning_up": "Đang dọn dẹp...",
       "toast_approved": "Chủ phòng đã phê duyệt bạn vào cuộc họp.",
       "waiting_title": "Vui lòng chờ",

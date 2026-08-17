@@ -28,21 +28,26 @@ export default function MeetingPage() {
     isDisconnecting,
     isJoining,
     camOn,
-    setCamOn,
     micOn,
-    setMicOn,
     displayName,
+    hardwareConfig,
+
+    setCamOn,
+    setMicOn,
     setDisplayName,
     handleJoinByCode,
     handleDisconnect,
-    hardwareConfig,
+    handleSwitchRoom,
+    handleReturnToMain,
   } = useMeetingSession();
 
   // GỘP CHUNG CÁC TRẠNG THÁI LOADING THÀNH 1 BIẾN
   const isLoadingState =
     isAuthenticated === null ||
     status === "LOOKING_FOR_TOKEN" ||
-    status === "RECONNECTING";
+    status === "RECONNECTING" ||
+    status === "SWITCHING_BREAKOUT" ||
+    status === "RETURNING_MAIN";
 
   if (isLoadingState) {
     let loadingDesc = "";
@@ -54,11 +59,14 @@ export default function MeetingPage() {
       loadingDesc = t("loading_prepare_room");
     } else if (status === "RECONNECTING") {
       loadingDesc = t("loading_reconnecting");
+    } else if (status === "SWITCHING_BREAKOUT") {
+      loadingDesc = t("loading_joining_breakout");
+    } else if (status === "RETURNING_MAIN") {
+      loadingDesc = t("loading_returning_main");
     }
 
     return (
       <div className="flex flex-col h-screen items-center justify-center bg-[#111] text-white space-y-6">
-        {/* Khai báo Keyframe CSS trực tiếp để đảm bảo luôn chạy mượt */}
         <style>{`
           @keyframes slideUpFade {
             0% { opacity: 0; transform: translateY(15px); }
@@ -69,9 +77,7 @@ export default function MeetingPage() {
           }
         `}</style>
 
-        {/* Khối chứa Text cố định chiều cao để không bị giật khung hình */}
         <div className="h-20 flex flex-col items-center justify-start overflow-hidden">
-          {/* Thuộc tính key={loadingTitle} chính là chìa khóa để hiệu ứng slide-up chạy lại mỗi khi Text đổi */}
           <div
             key={loadingDesc}
             className="flex flex-col items-center animate-slide-up-fade"
@@ -162,12 +168,20 @@ export default function MeetingPage() {
         meetingData={meetingData}
         meetingCode={meetingCode}
         handleDisconnect={handleDisconnect}
+        handleSwitchRoom={handleSwitchRoom}
+        handleReturnToMain={handleReturnToMain}
       />
     </LiveKitRoom>
   );
 }
 
-function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
+function RoomContentGuard({
+  meetingData,
+  meetingCode,
+  handleDisconnect,
+  handleSwitchRoom,
+  handleReturnToMain,
+}: any) {
   const t = useTranslations("meeting.meeting_page");
   const room = useRoomContext();
 
@@ -176,6 +190,34 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
     channelId: meetingData.channelId,
     meetingCode: meetingCode,
   });
+
+  // Lắng nghe sự kiện kết thúc breakout (do host hoặc timer đóng)
+  useEffect(() => {
+    const handleMetadataChanged = (metadataStr: string | undefined) => {
+      if (!metadataStr) return;
+
+      try {
+        const meta = JSON.parse(metadataStr);
+
+        if (meta.room_type === "breakout" && meta.status === "closing") {
+          toast.info("Thời gian thảo luận đã hết");
+
+          // Truyền thẳng tên phòng (id của breakout)
+          handleReturnToMain(room.name);
+        }
+      } catch (error) {
+        console.error("Lỗi parse metadata breakout:", error);
+      }
+    };
+
+    handleMetadataChanged(room.metadata);
+
+    room.on(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
+
+    return () => {
+      room.off(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
+    };
+  }, [room, handleReturnToMain]);
 
   const [participantStatus, setParticipantStatus] = useState(() => {
     try {
@@ -341,6 +383,7 @@ function RoomContentGuard({ meetingData, meetingCode, handleDisconnect }: any) {
       roomId={meetingData.roomId}
       channelId={meetingData.channelId}
       meetingCode={meetingCode}
+      handleSwitchRoom={handleSwitchRoom}
     />
   );
 }
@@ -349,7 +392,6 @@ function UnauthenticatedView({ meetingCode }: { meetingCode: string }) {
   const t = useTranslations("meeting.meeting_page");
   return (
     <div className="min-h-screen bg-[#111] flex items-center justify-center p-4 lg:p-8 font-sans transition-colors duration-700">
-      {/* Khai báo Keyframes CSS cho hiệu ứng mượt mà */}
       <style>{`
         @keyframes smoothFadeIn {
           0% { opacity: 0; }

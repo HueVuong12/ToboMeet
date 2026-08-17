@@ -8,7 +8,6 @@ export class WebhooksController {
   private receiver: WebhookReceiver;
 
   constructor(private meetingsService: MeetingsService) {
-    // Sử dụng secret được lưu trong .env
     this.receiver = new WebhookReceiver(
       process.env.LIVEKIT_API_KEY,
       process.env.LIVEKIT_API_SECRET,
@@ -22,11 +21,6 @@ export class WebhooksController {
   ) {
     const rawBody = req.rawBody ? req.rawBody.toString() : "";
     const event = await this.receiver.receive(rawBody, authHeader);
-
-    if (event.event === "room_finished") {
-      const meetingCode = event.room.name;
-      await this.meetingsService.endMeetingByCode(meetingCode);
-    }
 
     if (event.event === "participant_left") {
       const meetingCode = event.room.name;

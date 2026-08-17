@@ -12,8 +12,10 @@ import {
   ErrorCode,
   LivekitBreakoutRoom,
   LivekitRoomMetadata,
+  MeetingJoinResponse,
   ParticipantMetadata,
 } from "@tobomeet/shared/types";
+import { MeetingsService } from "./meetings.service";
 
 export interface CreateBreakoutRoomDto {
   name: string; // VD: "Nhóm 1 - Thảo luận Frontend"
@@ -25,7 +27,10 @@ export interface CreateBreakoutRoomDto {
 export class BreakoutRoomsService {
   private livekitRoomService: RoomServiceClient;
 
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private meetingsService: MeetingsService,
+  ) {
     const livekitHost = process.env.LIVEKIT_API_URL;
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -41,7 +46,8 @@ export class BreakoutRoomsService {
 
   /**
    * HOST: Bắt đầu chia phòng Breakout (Eager Init + Auto ID)
-   * Client chỉ truyền cấu hình, Backend tự sinh ID và giới hạn phòng
+   * - Nếu phòng chưa tồn tại → createRoom
+   * - Nếu phòng đã tồn tại (kể cả status = closing) → force updateRoomMetadata
    */
   async startBreakoutSession(
     mainMeetingCode: string,
@@ -56,7 +62,7 @@ export class BreakoutRoomsService {
       ]);
       let currentMeta: LivekitRoomMetadata = {} as LivekitRoomMetadata;
 
-      if (livekitRooms && livekitRooms.length > 0 && livekitRooms[0].metadata) {
+      if (livekitRooms?.length > 0 && livekitRooms[0].metadata) {
         try {
           currentMeta = JSON.parse(livekitRooms[0].metadata);
         } catch (e) {
@@ -64,43 +70,77 @@ export class BreakoutRoomsService {
         }
       }
 
-      // Map dữ liệu từ Client thành cấu trúc nội bộ có ID tự tăng
+      // Map config → cấu trúc nội bộ có ID tự tăng
       const breakoutRooms: LivekitBreakoutRoom[] = roomConfigs.map(
-        (config, index) => {
-          return {
-            id: `sub_${index + 1}`, // Tự động sinh: sub_1, sub_2, sub_3...
-            name: config.name,
-            maxParticipants: config.maxParticipants || 0, // 0 = không giới hạn
-            durationMinutes: config.durationMinutes || 0,
-          };
-        },
+        (config, index) => ({
+          id: `sub_${index + 1}`,
+          name: config.name,
+          maxParticipants: config.maxParticipants || 0,
+          durationMinutes: config.durationMinutes || 0,
+        }),
       );
 
-      // Khởi tạo phòng với ID tự sinh và giới hạn số lượng người
-      const createRoomPromises = breakoutRooms.map(async (room) => {
+      // Tạo / cập nhật từng phòng breakout
+      const upsertRoomPromises = breakoutRooms.map(async (room) => {
         const fullSubRoomId = `${mainMeetingCode}_${room.id}`;
 
+        const newMetadata = JSON.stringify({
+          room_type: "breakout",
+          parent_room: mainMeetingCode,
+          parent_metadata: currentMeta,
+          duration_minutes: room.durationMinutes,
+          status: "active",
+        });
+
         try {
-          await this.livekitRoomService.createRoom({
-            name: fullSubRoomId,
-            emptyTimeout: 10 * 60,
-            maxParticipants: room.maxParticipants, // Tận dụng tính năng chặn người của LiveKit
-            metadata: JSON.stringify({
-              room_type: "breakout",
-              parent_room: mainMeetingCode,
-              parent_metadata: currentMeta,
-              duration_minutes: room.durationMinutes, // Lưu thời lượng vào metadata của phòng phụ
-              status: "active",
-            }),
-          });
+          // Kiểm tra phòng đã tồn tại chưa
+          const existing = await this.livekitRoomService.listRooms([
+            fullSubRoomId,
+          ]);
+
+          if (existing.length > 0) {
+            // Phòng đã tồn tại → ghi đè metadata (quan trọng khi status cũ = closing)
+            await this.livekitRoomService.updateRoomMetadata(
+              fullSubRoomId,
+              newMetadata,
+            );
+            console.log(
+              `[Breakout] Đã ghi đè metadata phòng cũ: ${fullSubRoomId}`,
+            );
+          } else {
+            // Phòng chưa tồn tại → tạo mới
+            await this.livekitRoomService.createRoom({
+              name: fullSubRoomId,
+              emptyTimeout: 10 * 60,
+              departureTimeout: 10 * 60,
+              maxParticipants: room.maxParticipants,
+              metadata: newMetadata,
+            });
+            console.log(`[Breakout] Đã tạo phòng mới: ${fullSubRoomId}`);
+          }
         } catch (error) {
-          console.error(`Lỗi tạo phòng breakout ${fullSubRoomId}:`, error);
+          // Fallback an toàn: dù list/create lỗi vẫn cố update metadata
+          console.error(
+            `Lỗi khi upsert phòng breakout ${fullSubRoomId}, thử force update metadata:`,
+            error,
+          );
+          try {
+            await this.livekitRoomService.updateRoomMetadata(
+              fullSubRoomId,
+              newMetadata,
+            );
+          } catch (updateErr) {
+            console.error(
+              `Không thể update metadata cho ${fullSubRoomId}:`,
+              updateErr,
+            );
+          }
         }
       });
 
-      await Promise.all(createRoomPromises);
+      await Promise.all(upsertRoomPromises);
 
-      // Lưu danh sách phòng (đã có ID) vào Metadata phòng chính
+      // Cập nhật metadata phòng chính
       const metadataString = JSON.stringify({
         ...currentMeta,
         breakout_session: {
@@ -181,7 +221,7 @@ export class BreakoutRoomsService {
 
   /**
    * PARTICIPANT: Tham gia vào Breakout Room
-   * Vì phòng đã được Eager Init, chỉ cần check quyền và cấp Token
+   * Kiểm tra tính hợp lệ của phòng breakout, check quyền và cấp Token
    */
   async joinBreakoutRoom(
     mainMeetingCode: string,
@@ -192,6 +232,53 @@ export class BreakoutRoomsService {
     if (!this.livekitRoomService)
       throw new AppException(ErrorCode.SERVER_ERROR);
 
+    const fullBreakoutRoomName = `${mainMeetingCode}_${breakoutRoomId}`;
+
+    // ==========================================
+    // BƯỚC 1: KIỂM TRA TÍNH HỢP LỆ CỦA PHÒNG BREAKOUT
+    // ==========================================
+    try {
+      const subRooms = await this.livekitRoomService.listRooms([
+        fullBreakoutRoomName,
+      ]);
+
+      if (subRooms.length === 0) {
+        throw new BadRequestException(
+          "Phòng thảo luận không tồn tại hoặc đã đóng.",
+        );
+      }
+
+      if (subRooms[0].metadata) {
+        const meta = JSON.parse(subRooms[0].metadata);
+
+        console.log("meta", meta);
+
+        // Kiểm tra chắc chắn đây là phòng breakout
+        if (meta.room_type !== "breakout") {
+          throw new BadRequestException(
+            "Yêu cầu không hợp lệ. Đây không phải là phòng thảo luận.",
+          );
+        }
+
+        // (Tuỳ chọn) Kiểm tra thêm trạng thái phòng có đang active không
+        if (meta.status !== "active") {
+          throw new BadRequestException(
+            "Phòng thảo luận này không còn hoạt động.",
+          );
+        }
+      } else {
+        throw new BadRequestException("Dữ liệu phòng thảo luận không hợp lệ.");
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        "Lỗi hệ thống khi kiểm tra thông tin phòng.",
+      );
+    }
+
+    // ==========================================
+    // BƯỚC 2: KIỂM TRA NGƯỜI DÙNG CÓ Ở PHÒNG CHÍNH KHÔNG
+    // ==========================================
     try {
       const participants =
         await this.livekitRoomService.listParticipants(mainMeetingCode);
@@ -209,13 +296,14 @@ export class BreakoutRoomsService {
       throw new BadRequestException("Phòng họp chính không hoạt động.");
     }
 
+    // ==========================================
+    // BƯỚC 3: CẤP TOKEN VÀO PHÒNG
+    // ==========================================
     const user = await this.userModel.findOne({ supabaseId: userId }).exec();
     const finalDisplayName = user?.displayName || "Người dùng ẩn danh";
     const avatarUrl = user?.avatarUrl || "";
 
-    const fullBreakoutRoomName = `${mainMeetingCode}_${breakoutRoomId}`;
-
-    return this.generateLivekitToken(
+    return this.generateBreakoutToken(
       fullBreakoutRoomName,
       userId,
       finalDisplayName,
@@ -226,13 +314,14 @@ export class BreakoutRoomsService {
 
   /**
    * PARTICIPANT: Thoát Breakout Room để quay về
-   * KHÔNG cần Client truyền mainMeetingCode. Đọc trực tiếp từ Metadata của phòng Breakout.
+   * Nội suy meetingCode của phòng chính từ metadata
+   * Chỉ cho trở về phòng chính nếu đang trong phòng breakout
    */
   async returnToMainRoom(
-    fullBreakoutRoomName: string, // VD: meet-1234_sub_1. Client truyền lên cái này.
+    fullBreakoutRoomName: string,
     userId: string,
     deviceId: string,
-  ) {
+  ): Promise<MeetingJoinResponse> {
     if (!this.livekitRoomService)
       throw new AppException(ErrorCode.SERVER_ERROR);
 
@@ -286,22 +375,20 @@ export class BreakoutRoomsService {
     // Lấy thông tin User & Sinh Token để vào lại Main Room
     const user = await this.userModel.findOne({ supabaseId: userId }).exec();
     const finalDisplayName = user?.displayName || "Người dùng ẩn danh";
-    const avatarUrl = user?.avatarUrl || "";
 
     // Sinh token cấp quyền vào lại phòng chính
-    return this.generateLivekitToken(
+    return this.meetingsService.joinMeetingByCode(
       parentRoomCode,
       userId,
-      finalDisplayName,
-      avatarUrl,
       deviceId,
+      finalDisplayName,
     );
   }
 
   /**
-   * Helper: Hàm sinh Token chuẩn của LiveKit
+   * Helper: Sinh token cho breakout
    */
-  private async generateLivekitToken(
+  private async generateBreakoutToken(
     roomName: string,
     userId: string,
     displayName: string,

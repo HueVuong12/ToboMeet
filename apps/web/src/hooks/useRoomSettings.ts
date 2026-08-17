@@ -2,11 +2,16 @@ import { useState, useEffect } from "react";
 import { useLocalParticipant, useRoomInfo } from "@livekit/components-react";
 import { toast } from "sonner";
 import {
+  useEndBreakoutSessionMutation,
   useToggleMeetingChatMutation,
   useToggleWaitingRoomStatusMutation,
   useUpdateApprovalPermissionMutation,
 } from "@/lib/redux/api/meetingsApi";
 import { useTranslations } from "next-intl";
+import {
+  LivekitBreakoutRoom,
+  LivekitRoomMetadata,
+} from "@tobomeet/shared/types";
 
 // Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
 export function useRoomSettings({
@@ -28,6 +33,12 @@ export function useRoomSettings({
 
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
+  const [roomType, setRoomType] = useState<"main" | "breakout">("main");
+  const [breakoutRoomsList, setBreakoutRoomsList] = useState<
+    LivekitBreakoutRoom[]
+  >([]);
+  const [isBreakoutActive, setIsBreakoutActive] = useState(false);
+  const [endBreakoutApi] = useEndBreakoutSessionMutation();
 
   // State quản lý quyền duyệt
   const [approvalPermission, setApprovalPermission] = useState<
@@ -47,16 +58,14 @@ export function useRoomSettings({
   useEffect(() => {
     if (!roomMetadata) return;
     try {
-      const meta = JSON.parse(roomMetadata);
-      if (typeof meta.isChatEnabled === "boolean") {
-        setIsChatEnabled(meta.isChatEnabled);
-      }
-      if (typeof meta.isWaitingRoomEnabled === "boolean") {
-        setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
-      }
-      if (typeof meta.approvalPermission === "string") {
-        setApprovalPermission(meta.approvalPermission); // Parse metadata quyền duyệt
-      }
+      const meta: LivekitRoomMetadata = JSON.parse(roomMetadata);
+
+      if (meta.room_type === "breakout") setRoomType("breakout");
+      setIsChatEnabled(meta.isChatEnabled);
+      setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
+      setApprovalPermission(meta.approvalPermission);
+      setIsBreakoutActive(meta.breakout_session?.status === "active");
+      setBreakoutRoomsList(meta.breakout_session?.rooms || []);
     } catch (e) {}
   }, [roomMetadata]);
 
@@ -89,7 +98,7 @@ export function useRoomSettings({
   // Toggle Phòng chờ
   const handleToggleWaitingRoom = async () => {
     const newState = !isWaitingRoomEnabled;
-    setIsWaitingRoomEnabled(newState); // Optimistic UI
+    setIsWaitingRoomEnabled(newState);
 
     // API không trả về roomId và channelId cho người dùng không có trong phòng
     if (!roomId || !channelId || !meetingCode) return;
@@ -136,14 +145,31 @@ export function useRoomSettings({
     }
   };
 
+  const handleEndBreakout = async () => {
+    if (!roomId || !channelId || !meetingCode) return;
+    try {
+      await endBreakoutApi({
+        code: meetingCode,
+      }).unwrap();
+    } catch (error) {
+      console.error("Lỗi khi kết thúc breakout", error);
+      toast.error("Không thể kết thúc thảo luận lúc này.");
+    }
+  };
+
   return {
     isChatEnabled,
     canChat,
     isWaitingRoomEnabled,
     approvalPermission,
+    isBreakoutActive,
+    breakoutRoomsList,
     isHost,
+    roomType,
+
     handleToggleChat,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
+    handleEndBreakout,
   };
 }
