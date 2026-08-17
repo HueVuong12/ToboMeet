@@ -90,6 +90,11 @@ export default function ChannelFilesTab({
   const [newNameInput, setNewNameInput] = useState("");
   const [fileToDelete, setFileToDelete] = useState<ChannelFileResponse | null>(null);
 
+  // Create Folder Modal state
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
   // Upload Dropdown State
   const locale = useLocale();
   const [isUploadDropdownOpen, setIsUploadDropdownOpen] = useState(false);
@@ -340,6 +345,28 @@ export default function ChannelFilesTab({
       setUploadProgress(0);
       setUploadStatusText("");
       if (folderInputRef.current) folderInputRef.current.value = "";
+    }
+  };
+
+  // Handle Create Empty Folder
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setIsCreatingFolder(true);
+    try {
+      await saveFileMeta({
+        roomId,
+        channelId,
+        fileName: newFolderName.trim(),
+        isFolder: true,
+        parentFolderId: currentFolderId,
+      }).unwrap();
+      toast.success(locale === "vi" ? "Tạo thư mục thành công" : "Folder created successfully");
+      setIsCreateFolderModalOpen(false);
+      setNewFolderName("");
+    } catch (err: any) {
+      toast.error(err?.data?.message || (locale === "vi" ? "Tạo thư mục thất bại" : "Failed to create folder"));
+    } finally {
+      setIsCreatingFolder(false);
     }
   };
 
@@ -597,12 +624,29 @@ export default function ChannelFilesTab({
                 ) : (
                   <Upload size={16} />
                 )}
-                <span>{locale === "vi" ? "Tải lên" : "Upload"}</span>
+                <span>{locale === "vi" ? "Tạo hoặc tải lên" : "Create or upload"}</span>
                 <ChevronDown size={14} className={`transition-transform duration-200 ${isUploadDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {isUploadDropdownOpen && (
-                <div className="absolute right-0 mt-1.5 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                  {/* Mục 1: Tạo thư mục rỗng */}
+                  <button
+                    onClick={() => {
+                      setIsUploadDropdownOpen(false);
+                      setNewFolderName("");
+                      setIsCreateFolderModalOpen(true);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
+                  >
+                    <FolderPlus size={14} className="text-amber-500" />
+                    <span>{locale === "vi" ? "Thư mục" : "New folder"}</span>
+                  </button>
+
+                  {/* Divider */}
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {/* Mục 2: Tải tệp lên */}
                   <button
                     onClick={() => {
                       setIsUploadDropdownOpen(false);
@@ -611,8 +655,10 @@ export default function ChannelFilesTab({
                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
                   >
                     <Upload size={14} className="text-slate-400" />
-                    <span>{locale === "vi" ? "Tải tệp" : "Upload file"}</span>
+                    <span>{locale === "vi" ? "Tải tệp lên" : "Upload file"}</span>
                   </button>
+
+                  {/* Mục 3: Tải thư mục lên */}
                   <button
                     onClick={() => {
                       setIsUploadDropdownOpen(false);
@@ -620,8 +666,8 @@ export default function ChannelFilesTab({
                     }}
                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
                   >
-                    <FolderPlus size={14} className="text-slate-400" />
-                    <span>{locale === "vi" ? "Thư mục" : "Folder"}</span>
+                    <FolderOpen size={14} className="text-slate-400" />
+                    <span>{locale === "vi" ? "Tải thư mục lên" : "Upload folder"}</span>
                   </button>
                 </div>
               )}
@@ -877,6 +923,63 @@ export default function ChannelFilesTab({
                 className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl"
               >
                 {t("files_action_rename")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tạo Thư Mục Mới */}
+      {isCreateFolderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold text-slate-800">
+                {locale === "vi" ? "Tạo thư mục mới" : "New folder"}
+              </h3>
+              <button
+                onClick={() => {
+                  setIsCreateFolderModalOpen(false);
+                  setNewFolderName("");
+                }}
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newFolderName.trim()) {
+                  handleCreateFolder();
+                }
+              }}
+              placeholder={locale === "vi" ? "Nhập tên thư mục" : "Folder name"}
+              autoFocus
+              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 mb-5"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setIsCreateFolderModalOpen(false);
+                  setNewFolderName("");
+                }}
+                disabled={isCreatingFolder}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl disabled:opacity-50"
+              >
+                {locale === "vi" ? "Huỷ" : "Cancel"}
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim() || isCreatingFolder}
+                className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isCreatingFolder && <Loader2 size={14} className="animate-spin" />}
+                {locale === "vi" ? "Tạo thư mục" : "Create folder"}
               </button>
             </div>
           </div>
