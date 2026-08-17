@@ -34,6 +34,7 @@ import { useMeetingLauncher } from "@/hooks/useMeetingLauncher";
 import NewsFeed from "./NewsFeed";
 import ChannelFilesTab from "./ChannelFilesTab";
 import RoomRightSidebar from "./RoomRightSidebar";
+import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
 
 interface RoomContentProps {
   roomId: string;
@@ -72,6 +73,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showChannelMeetingModal, setShowChannelMeetingModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
     userId: string;
     displayName: string;
@@ -134,8 +136,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   }, [room?.channels, activeChannel]);
 
   const isCurrentUserRoomOwner =
-    isCurrentUserOwner || 
-    (currentUserRoomRole && ["owner", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase()));
+    !!(isCurrentUserOwner || 
+    (currentUserRoomRole && ["owner", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase())));
 
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
@@ -145,15 +147,15 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   // 1. Phó nhóm cấp phòng (role "admin" ở cấp room)
   // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
   const isCurrentUserRoomAdmin =
-    !isCurrentUserRoomOwner &&
+    !!(!isCurrentUserRoomOwner &&
     ((currentUserRoomRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserRoomRole.toLowerCase())) ||
       (currentChannel?.isPrivate !== true &&
-        currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase())));
+        currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase()))));
 
   const canUserManageChannel =
-    isCurrentUserRoomOwner ||
+    !!(isCurrentUserRoomOwner ||
     isCurrentUserRoomAdmin ||
-    (currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase()));
+    (currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase())));
 
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: currentChannel?._id || "" },
@@ -415,7 +417,13 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                         >
                           <Video size={16} /> {t("start_now")}
                         </button>
-                        <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setIsMeetingMenuOpen(false);
+                            setShowChannelMeetingModal(true);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
                           <Calendar size={16} /> {t("schedule_meeting")}
                         </button>
                       </div>
@@ -584,6 +592,14 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           roomType={room.type || "meeting"}
         />
       )}
+
+      {/* Modal Lên lịch cuộc họp kênh dùng chung */}
+      <ChannelMeetingModal
+        isOpen={showChannelMeetingModal}
+        onClose={() => setShowChannelMeetingModal(false)}
+        initialRoom={room}
+        initialChannel={currentChannel}
+      />
     </div>
   );
 }

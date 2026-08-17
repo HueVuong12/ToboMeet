@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import {
   useGetChannelFilesQuery,
   useCreateSignedUploadUrlMutation,
@@ -36,6 +36,7 @@ import {
   Loader2,
   X,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -88,6 +89,29 @@ export default function ChannelFilesTab({
   const [fileToRename, setFileToRename] = useState<ChannelFileResponse | null>(null);
   const [newNameInput, setNewNameInput] = useState("");
   const [fileToDelete, setFileToDelete] = useState<ChannelFileResponse | null>(null);
+
+  // Upload Dropdown State
+  const locale = useLocale();
+  const [isUploadDropdownOpen, setIsUploadDropdownOpen] = useState(false);
+  const uploadDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close upload dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        uploadDropdownRef.current &&
+        !uploadDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsUploadDropdownOpen(false);
+      }
+    };
+    if (isUploadDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isUploadDropdownOpen]);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [uploadStatusText, setUploadStatusText] = useState("");
@@ -562,27 +586,46 @@ export default function ChannelFilesTab({
               onChange={(e) => handleFolderUpload(e.target.files)}
               className="hidden"
             />
-            <button
-              disabled={isUploading}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold shadow-xs transition-colors disabled:opacity-50"
-            >
-              {isUploading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Upload size={16} />
-              )}
-              <span>{t("files_upload_btn")}</span>
-            </button>
+            <div className="relative" ref={uploadDropdownRef}>
+              <button
+                disabled={isUploading}
+                onClick={() => setIsUploadDropdownOpen(!isUploadDropdownOpen)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold shadow-xs transition-colors disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                <span>{locale === "vi" ? "Tải lên" : "Upload"}</span>
+                <ChevronDown size={14} className={`transition-transform duration-200 ${isUploadDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
 
-            <button
-              disabled={isUploading}
-              onClick={() => folderInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 transition-colors disabled:opacity-50"
-            >
-              <FolderPlus size={16} />
-              <span className="hidden sm:inline">{t("files_new_folder_btn")}</span>
-            </button>
+              {isUploadDropdownOpen && (
+                <div className="absolute right-0 mt-1.5 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                  <button
+                    onClick={() => {
+                      setIsUploadDropdownOpen(false);
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
+                  >
+                    <Upload size={14} className="text-slate-400" />
+                    <span>{locale === "vi" ? "Tải tệp" : "Upload file"}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsUploadDropdownOpen(false);
+                      folderInputRef.current?.click();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
+                  >
+                    <FolderPlus size={14} className="text-slate-400" />
+                    <span>{locale === "vi" ? "Thư mục" : "Folder"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -757,17 +800,6 @@ export default function ChannelFilesTab({
                                     <span className="text-sm">📌</span> {file.isPinned ? t("files_action_unpin") : t("files_action_pin")}
                                   </button>
 
-                                {!file.isFolder && (
-                                  <button
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      handleCopyLink(file);
-                                    }}
-                                    className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                  >
-                                    <Copy size={14} /> {t("files_action_copy_link")}
-                                  </button>
-                                )}
 
                                 {/* ẨN HOÀN TOÀN ĐỔI TÊN / XÓA NẾU LÀ MEMBER */}
                                 {canManageFiles && (
