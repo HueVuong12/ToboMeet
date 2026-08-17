@@ -17,6 +17,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
 import {
   useGetChannelFilesQuery,
   useCreateSignedUploadUrlMutation,
@@ -67,6 +68,14 @@ export default function ChannelFilesTab({
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newNameInput, setNewNameInput] = useState("");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
+  // Upload Action Menu state
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+
+  // Create Folder Modal state
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   // Preview State
   const [previewFile, setPreviewFile] = useState<ChannelFileResponse | null>(null);
@@ -177,6 +186,97 @@ export default function ChannelFilesTab({
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
       Alert.alert("Lỗi", errorObj?.data?.message || errorObj?.message || "Tải tệp lên thất bại.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Handle Create Empty Folder
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setIsCreatingFolder(true);
+    try {
+      await saveFileMeta({
+        roomId,
+        channelId,
+        fileName: newFolderName.trim(),
+        isFolder: true,
+        parentFolderId: currentFolderId,
+      }).unwrap();
+      setIsCreateFolderModalOpen(false);
+      setNewFolderName("");
+      refetch();
+      Alert.alert("Thành công", "Tạo thư mục thành công");
+    } catch (err) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      Alert.alert("Lỗi", errorObj?.data?.message || "Tạo thư mục thất bại.");
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
+  // Handle Pick and Upload Media (Hình ảnh và video)
+  const handlePickAndUploadMedia = async () => {
+    if (!canManageFiles) {
+      Alert.alert("Lỗi", "Bạn không có quyền tải lên");
+      return;
+    }
+
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Lỗi", "Cần quyền truy cập thư viện ảnh để tải lên");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      const fileName = asset.fileName || `media_${Date.now()}`;
+      const mimeType = asset.mimeType || (asset.type === "video" ? "video/mp4" : "image/jpeg");
+
+      setIsUploading(true);
+
+      // 1. Xin signed upload url
+      const res = await createSignedUploadUrl({
+        roomId,
+        channelId,
+        fileName,
+      }).unwrap();
+
+      // 2. Upload file
+      const uploadResult = await FileSystem.uploadAsync(res.signedUrl, asset.uri, {
+        httpMethod: "PUT",
+        headers: { "Content-Type": mimeType },
+      });
+
+      if (uploadResult.status !== 200) {
+        throw new Error("Lỗi khi đẩy file lên cloud");
+      }
+
+      // 3. Lưu meta — parentFolderId là thư mục hiện tại
+      await saveFileMeta({
+        roomId,
+        channelId,
+        fileName,
+        storagePath: res.storagePath,
+        publicUrl: res.publicUrl,
+        mimeType,
+        fileSize: asset.fileSize || 0,
+        parentFolderId: currentFolderId,
+      }).unwrap();
+
+      Alert.alert("Thành công", "Tải lên thành công");
+      refetch();
+    } catch (err) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      Alert.alert("Lỗi", errorObj?.data?.message || errorObj?.message || "Tải lên thất bại.");
     } finally {
       setIsUploading(false);
     }
@@ -410,11 +510,23 @@ export default function ChannelFilesTab({
 
   // Ghim tệp/thư mục
   const handlePin = async (file: ChannelFileResponse) => {
+    // Đếm số lượng tệp/thư mục đang được ghim trong kênh hiện tại
+    const pinnedCount = files.filter((f: any) => f.isPinned).length;
+    if (pinnedCount >= 3) {
+      Alert.alert("Thông báo", "Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục.");
+      return;
+    }
+
     try {
       await pinFile({ fileId: file._id, channelId }).unwrap();
       Alert.alert("Thành công", "Đã ghim tệp/thư mục thành công");
     } catch (err: any) {
-      Alert.alert("Lỗi", err?.data?.message || "Không thể ghim tệp/thư mục.");
+      const serverMsg = err?.data?.message || err?.message;
+      if (serverMsg && (serverMsg.includes("tối đa 3") || serverMsg.includes("max") || serverMsg.includes("limit"))) {
+        Alert.alert("Thông báo", "Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục.");
+      } else {
+        Alert.alert("Lỗi", serverMsg || "Không thể ghim tệp/thư mục.");
+      }
     }
   };
 
@@ -476,17 +588,17 @@ export default function ChannelFilesTab({
           />
         </View>
 
-        {/* Chỉ hiển thị nút Upload với Owner / Admin */}
+        {/* Chỉ hiển thị nút + với Owner / Admin */}
         {canManageFiles && (
           <TouchableOpacity
-            onPress={handlePickAndUpload}
+            onPress={() => setShowUploadMenu(true)}
             disabled={isUploading}
             className="w-10 h-10 bg-blue-600 rounded-xl items-center justify-center active:opacity-80 disabled:opacity-50"
           >
             {isUploading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Feather name="upload" size={18} color="#ffffff" />
+              <Feather name="plus" size={20} color="#ffffff" />
             )}
           </TouchableOpacity>
         )}
@@ -739,6 +851,131 @@ export default function ChannelFilesTab({
           </SafeAreaView>
         </Modal>
       )}
+      {/* ===== Upload Action Menu Bottom Sheet ===== */}
+      <Modal
+        visible={showUploadMenu}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowUploadMenu(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/40 justify-end"
+          activeOpacity={1}
+          onPress={() => setShowUploadMenu(false)}
+        >
+          <View className="bg-white rounded-t-3xl p-5 pb-10">
+            <View className="w-12 h-1.5 bg-slate-200 rounded-full self-center mb-5" />
+            <Text className="font-bold text-slate-800 text-base mb-4 px-2">
+              Tạo hoặc tải lên
+            </Text>
+
+            {/* 1. Tạo thư mục rỗng */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowUploadMenu(false);
+                setNewFolderName("");
+                setIsCreateFolderModalOpen(true);
+              }}
+              className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
+            >
+              <View className="w-9 h-9 rounded-xl bg-amber-50 items-center justify-center mr-3">
+                <Feather name="folder-plus" size={18} color="#D97706" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-slate-800 text-sm">Thư mục</Text>
+                <Text className="text-xs text-slate-400 mt-0.5">Tạo thư mục mới</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View className="h-px bg-slate-100 my-1" />
+
+            {/* 2. Upload tệp */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowUploadMenu(false);
+                handlePickAndUpload();
+              }}
+              className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
+            >
+              <View className="w-9 h-9 rounded-xl bg-blue-50 items-center justify-center mr-3">
+                <Feather name="file" size={18} color="#2563EB" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-slate-800 text-sm">Tệp</Text>
+                <Text className="text-xs text-slate-400 mt-0.5">Chọn tệp từ thiết bị</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View className="h-px bg-slate-100 my-1" />
+
+            {/* 3. Upload hình ảnh và video */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowUploadMenu(false);
+                handlePickAndUploadMedia();
+              }}
+              className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
+            >
+              <View className="w-9 h-9 rounded-xl bg-purple-50 items-center justify-center mr-3">
+                <Feather name="image" size={18} color="#7C3AED" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-slate-800 text-sm">Hình ảnh và video</Text>
+                <Text className="text-xs text-slate-400 mt-0.5">Chọn từ thư viện</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ===== Create Folder Modal ===== */}
+      <Modal
+        visible={isCreateFolderModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCreateFolderModalOpen(false)}
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center p-6">
+          <View className="bg-white rounded-2xl w-full p-5">
+            <Text className="font-bold text-slate-800 text-base mb-1">Tạo thư mục mới</Text>
+            {currentFolderId !== null && (
+              <Text className="text-xs text-slate-400 mb-3">
+                Thư mục con trong: {files.find((f: any) => f._id === currentFolderId)?.fileName || "Thư mục hiện tại"}
+              </Text>
+            )}
+            <TextInput
+              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 mb-4 mt-2"
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              placeholder="Nhập tên thư mục..."
+              autoFocus
+              onSubmitEditing={handleCreateFolder}
+            />
+            <View className="flex-row justify-end gap-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setIsCreateFolderModalOpen(false);
+                  setNewFolderName("");
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 active:bg-slate-200"
+              >
+                <Text className="text-slate-600 font-semibold text-sm">Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCreateFolder}
+                disabled={isCreatingFolder || !newFolderName.trim()}
+                className="px-4 py-2.5 rounded-xl bg-blue-600 active:bg-blue-700 disabled:opacity-50"
+              >
+                {isCreatingFolder ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text className="text-white font-semibold text-sm">Tạo</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

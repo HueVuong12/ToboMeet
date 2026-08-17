@@ -462,13 +462,24 @@ export class ChannelFilesService {
       return { success: true };
     }
 
-    // Đếm tổng số mục đã ghim của user trong kênh này
-    const pinCount = await this.userPinnedFileModel.countDocuments({
+    // Lấy tất cả pinned files của user trong kênh này để kiểm tra và đếm các tệp thực sự còn hoạt động
+    const pins = await this.userPinnedFileModel.find({
       userId,
       channelId: file.channelId,
     });
 
-    if (pinCount >= 3) {
+    let activePinCount = 0;
+    for (const pin of pins) {
+      const targetFile = await this.fileModel.findById(pin.fileId);
+      if (targetFile && !targetFile.isDeleted) {
+        activePinCount++;
+      } else {
+        // Tự động dọn dẹp bản ghi ghim mồ côi/rác của tệp đã bị xóa hoặc không tồn tại
+        await this.userPinnedFileModel.deleteOne({ _id: pin._id });
+      }
+    }
+
+    if (activePinCount >= 3) {
       throw new BadRequestException("Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục.");
     }
 
@@ -479,6 +490,14 @@ export class ChannelFilesService {
       roomId: file.roomId,
       channelId: file.channelId,
     });
+
+    // Kích hoạt notify socket realtime
+    this.roomsGateway.notifyFilePinned(
+      file.roomId,
+      file.channelId,
+      file._id.toString(),
+      userId,
+    );
 
     return { success: true };
   }
@@ -498,6 +517,14 @@ export class ChannelFilesService {
       userId,
       fileId: file._id,
     });
+
+    // Kích hoạt notify socket realtime
+    this.roomsGateway.notifyFileUnpinned(
+      file.roomId,
+      file.channelId,
+      file._id.toString(),
+      userId,
+    );
 
     return { success: true };
   }

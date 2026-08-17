@@ -163,6 +163,8 @@ export function useRoomUpdateListener(
         case "channel_file_uploaded":
         case "channel_file_renamed":
         case "channel_file_deleted":
+        case "channel_file_pinned":
+        case "channel_file_unpinned":
           if (data.channelId) {
             dispatch(
               channelFilesApi.util.invalidateTags([

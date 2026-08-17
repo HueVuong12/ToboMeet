@@ -412,7 +412,12 @@ export default function ChannelFilesTab({
       await pinFile({ fileId: file._id, channelId }).unwrap();
       toast.success(t("files_pin_success"));
     } catch (err: any) {
-      toast.error(err?.data?.message || t("files_pin_failed"));
+      const serverMsg = err?.data?.message || err?.message;
+      if (serverMsg && (serverMsg.includes("tối đa 3") || serverMsg.includes("max") || serverMsg.includes("limit"))) {
+        toast.error(locale === "vi" ? "Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục." : "You can only pin up to 3 files or folders.");
+      } else {
+        toast.error(serverMsg || (locale === "vi" ? "Không thể ghim tệp/thư mục." : "Failed to pin file/folder."));
+      }
     }
   };
 

@@ -132,4 +132,42 @@ export class RoomsGateway {
       fileId,
     });
   }
+
+  /**
+   * Phát tín hiệu khi tệp trong kênh được ghim
+   */
+  notifyFilePinned(
+    roomId: string,
+    channelId: string,
+    fileId: string,
+    userId: string,
+  ) {
+    this.server.to(`room_${roomId}`).emit("room_updated", {
+      type: "channel_file_pinned",
+      roomId,
+      channelId,
+      fileId,
+      userId,
+      isPinned: true,
+    });
+  }
+
+  /**
+   * Phát tín hiệu khi tệp trong kênh bị bỏ ghim
+   */
+  notifyFileUnpinned(
+    roomId: string,
+    channelId: string,
+    fileId: string,
+    userId: string,
+  ) {
+    this.server.to(`room_${roomId}`).emit("room_updated", {
+      type: "channel_file_unpinned",
+      roomId,
+      channelId,
+      fileId,
+      userId,
+      isPinned: false,
+    });
+  }
 }
