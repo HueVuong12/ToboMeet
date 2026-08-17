@@ -89,6 +89,9 @@ axiosInstance.interceptors.request.use(
         config.headers["x-device-model"] = Device?.modelName || defaultModel;
         config.headers["x-device-brand"] = Device?.brand || defaultBrand;
         config.headers["x-device-os"] = Device?.osName || defaultOS;
+        
+        // Bypass ngrok warning page
+        config.headers["ngrok-skip-browser-warning"] = "true";
       }
     } catch (error) {
       console.error("Lỗi khi lấy/gia hạn token:", error);
@@ -125,14 +128,24 @@ axiosInstance.interceptors.response.use(
       responseData?.code === 1003 ||
       (typeof responseData?.message === "string" && responseData.message.includes("Token"));
 
-    if (isTokenError && originalRequest && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const newToken = await getFreshAccessToken();
-      if (newToken) {
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        console.log("[axios] Đã cập nhật Token mới! Gửi lại yêu cầu...");
-        return axiosInstance(originalRequest);
+    if (isTokenError) {
+      if (originalRequest && !originalRequest._retry) {
+        originalRequest._retry = true;
+        const newToken = await getFreshAccessToken();
+        if (newToken) {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          console.log("[axios] Đã cập nhật Token mới! Gửi lại yêu cầu...");
+          return axiosInstance(originalRequest);
+        }
+      }
+
+      // Nếu không có token mới hoặc đã thử lại nhưng vẫn lỗi -> Phiên đăng nhập hết hạn hoàn toàn
+      console.log("[axios] Phiên đăng nhập hết hạn hoàn toàn. Tiến hành đăng xuất trên Mobile...");
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch (err) {
+        console.error("[axios] Lỗi khi đăng xuất trên Mobile:", err);
       }
     }
 

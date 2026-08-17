@@ -9,9 +9,12 @@ import {
   Alert,
   Linking,
   Modal,
-  Clipboard,
+  Image,
+  Platform,
+  StatusBar,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import {
@@ -26,7 +29,6 @@ import {
 } from "../../lib/redux/api/channelFilesApi";
 import { ChannelFileResponse } from "@tobomeet/shared/types";
 import { supabase } from "../../lib/supabase";
-import * as Sharing from "expo-sharing";
 
 interface ChannelFilesTabProps {
   roomId: string;
@@ -53,10 +55,8 @@ export default function ChannelFilesTab({
   const [pinFile] = usePinFileMutation();
   const [unpinFile] = useUnpinFileMutation();
 
-  // Search & Sort state
+  // Search state
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "date" | "size">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Uploading state
   const [isUploading, setIsUploading] = useState(false);
@@ -68,6 +68,11 @@ export default function ChannelFilesTab({
   const [newNameInput, setNewNameInput] = useState("");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
+  // Preview State
+  const [previewFile, setPreviewFile] = useState<ChannelFileResponse | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+
   // Format File Size
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 B";
@@ -75,6 +80,19 @@ export default function ChannelFilesTab({
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  // Format Date (thống nhất với Web)
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   // Helper File Icon
@@ -180,6 +198,119 @@ export default function ChannelFilesTab({
     }
   };
 
+  // Handle Open and Preview File
+  const handleOpenFile = async (file: ChannelFileResponse) => {
+    try {
+      // Gọi API lấy link download dạng preview (download=false)
+      const res = await triggerDownload({ fileId: file._id, download: false }).unwrap();
+      setPreviewUrl(res.downloadUrl);
+      setPreviewFile(file);
+      setIsPreviewVisible(true);
+    } catch (err) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      Alert.alert("Lỗi", errorObj?.data?.message || "Không thể lấy liên kết xem trước.");
+    }
+  };
+
+  // Render Preview Content by File Type
+  const renderPreviewContent = (file: ChannelFileResponse, url: string) => {
+    const ext = file.fileName.split(".").pop()?.toLowerCase() || "";
+    const mime = file.mimeType || "";
+
+    // 1. Hình ảnh
+    if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+      return (
+        <Image
+          source={{ uri: url }}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="contain"
+        />
+      );
+    }
+
+    // 2. Video
+    if (mime.startsWith("video/") || ["mp4", "mkv", "avi", "mov"].includes(ext)) {
+      return (
+        <View className="items-center justify-center p-6 bg-slate-900 rounded-2xl border border-slate-800 m-4">
+          <Feather name="video" size={64} color="#3B82F6" />
+          <Text className="text-white text-base font-bold mt-4 text-center" numberOfLines={2}>
+            {file.fileName}
+          </Text>
+          <Text className="text-slate-400 text-sm mt-3 text-center">
+            Xem trực tiếp video chưa hỗ trợ trên ứng dụng. Bạn có muốn tải xuống để xem?
+          </Text>
+          <TouchableOpacity
+            onPress={() => handleDownload(file)}
+            className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
+          >
+            <Text className="text-white font-bold text-sm">Tải xuống video</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // 3. Audio
+    if (mime.startsWith("audio/") || ["mp3", "wav", "ogg"].includes(ext)) {
+      return (
+        <View className="items-center justify-center p-6 bg-slate-900 rounded-2xl border border-slate-800 m-4">
+          <Feather name="music" size={64} color="#10B981" />
+          <Text className="text-white text-base font-bold mt-4 text-center" numberOfLines={2}>
+            {file.fileName}
+          </Text>
+          <Text className="text-slate-400 text-sm mt-3 text-center">
+            Nghe trực tiếp âm thanh chưa hỗ trợ trên ứng dụng. Bạn có muốn tải xuống để nghe?
+          </Text>
+          <TouchableOpacity
+            onPress={() => handleDownload(file)}
+            className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
+          >
+            <Text className="text-white font-bold text-sm">Tải xuống tệp âm thanh</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // 4. PDF
+    if (mime.includes("pdf") || ext === "pdf") {
+      return (
+        <View className="items-center justify-center p-6 bg-slate-900 rounded-2xl border border-slate-800 m-4">
+          <Feather name="file-text" size={64} color="#D97706" />
+          <Text className="text-white text-base font-bold mt-4 text-center" numberOfLines={2}>
+            {file.fileName}
+          </Text>
+          <Text className="text-slate-400 text-sm mt-3 text-center">
+            Xem trực tiếp tệp PDF chưa hỗ trợ trên ứng dụng. Bạn có muốn tải xuống để xem?
+          </Text>
+          <TouchableOpacity
+            onPress={() => handleDownload(file)}
+            className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
+          >
+            <Text className="text-white font-bold text-sm">Tải xuống PDF</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // 5. Loại tệp khác không hỗ trợ preview
+    return (
+      <View className="items-center justify-center p-6 bg-slate-900 rounded-2xl border border-slate-800 m-4">
+        <Feather name="file" size={64} color="#94A3B8" />
+        <Text className="text-white text-base font-bold mt-4 text-center" numberOfLines={2}>
+          {file.fileName}
+        </Text>
+        <Text className="text-slate-400 text-sm mt-3 text-center">
+          Ứng dụng chưa hỗ trợ xem trước trực tiếp loại tệp này.
+        </Text>
+        <TouchableOpacity
+          onPress={() => handleDownload(file)}
+          className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
+        >
+          <Text className="text-white font-bold text-sm">Tải xuống tệp</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   // Tải xuống thư mục dưới dạng ZIP (Mobile)
   const handleDownloadFolder = async (file: ChannelFileResponse) => {
     try {
@@ -202,15 +333,25 @@ export default function ChannelFilesTab({
       });
 
       if (downloadResult.status === 200) {
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: "application/zip",
-            dialogTitle: `Tải xuống ${file.fileName}.zip`,
-          });
-        } else {
-          Alert.alert("Thành công", `Thư mục đã được tải xuống và lưu tại: ${downloadResult.uri}`);
+        let Sharing: any;
+        try {
+          Sharing = require("expo-sharing");
+        } catch (e) {
+          console.warn("expo-sharing module is not available natively:", e);
         }
+
+        if (Sharing && typeof Sharing.isAvailableAsync === "function") {
+          const canShare = await Sharing.isAvailableAsync();
+          if (canShare) {
+            await Sharing.shareAsync(downloadResult.uri, {
+              mimeType: "application/zip",
+              dialogTitle: `Tải xuống ${file.fileName}.zip`,
+            });
+            return;
+          }
+        }
+
+        Alert.alert("Thành công", `Thư mục đã được tải xuống và lưu tại: ${downloadResult.uri}`);
       } else {
         throw new Error(`Mã lỗi tải xuống: ${downloadResult.status}`);
       }
@@ -220,20 +361,7 @@ export default function ChannelFilesTab({
     }
   };
 
-  // Copy Link
-  const handleCopyLink = async (file: ChannelFileResponse) => {
-    try {
-      const res = await triggerDownload({ fileId: file._id, download: false }).unwrap();
-      if (Clipboard?.setString) {
-        Clipboard.setString(res.downloadUrl);
-      } else {
-        await Linking.openURL(res.downloadUrl);
-      }
-      Alert.alert("Thành công", "Đã sao chép liên kết tải xuống tệp (hiệu lực 60s)");
-    } catch {
-      Alert.alert("Lỗi", "Không thể sao chép liên kết.");
-    }
-  };
+
 
   // Rename File
   const handleRename = async () => {
@@ -300,7 +428,7 @@ export default function ChannelFilesTab({
     }
   };
 
-  // Filter & Sort
+  // Search & folder filtering (default sorted by createdAt desc for unpinned files)
   const filteredFiles = useMemo(() => {
     let result = [...files];
     if (searchTerm.trim() !== "") {
@@ -324,25 +452,15 @@ export default function ChannelFilesTab({
       return timeA - timeB;
     });
 
-    // Sắp xếp các mục chưa ghim theo tiêu chí bình thường
+    // Sắp xếp các mục chưa ghim mặc định theo thời gian tạo giảm dần (mới nhất lên đầu)
     unpinned.sort((a: ChannelFileResponse, b: ChannelFileResponse) => {
-      if (sortBy === "name") {
-        return sortOrder === "asc"
-          ? a.fileName.localeCompare(b.fileName)
-          : b.fileName.localeCompare(a.fileName);
-      }
-      if (sortBy === "size") {
-        return sortOrder === "asc"
-          ? a.fileSize - b.fileSize
-          : b.fileSize - a.fileSize;
-      }
       const timeA = new Date(a.createdAt).getTime();
       const timeB = new Date(b.createdAt).getTime();
-      return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+      return timeB - timeA;
     });
 
     return [...pinned, ...unpinned];
-  }, [files, searchTerm, sortBy, sortOrder, currentFolderId]);
+  }, [files, searchTerm, currentFolderId]);
 
   return (
     <View className="flex-1 bg-slate-50">
@@ -374,45 +492,7 @@ export default function ChannelFilesTab({
         )}
       </View>
 
-      {/* Sort options bar */}
-      <View className="px-4 py-2 flex-row items-center justify-between border-b border-slate-100 bg-white">
-        <View className="flex-row items-center gap-3">
-          <Text className="text-xs text-slate-500">Sắp xếp theo:</Text>
-          <TouchableOpacity
-            onPress={() => {
-              if (sortBy === "date") {
-                setSortOrder((p) => (p === "asc" ? "desc" : "asc"));
-              } else {
-                setSortBy("date");
-                setSortOrder("desc");
-              }
-            }}
-            className={`px-2 py-1 rounded-md ${sortBy === "date" ? "bg-blue-50" : ""}`}
-          >
-            <Text className={`text-xs font-bold ${sortBy === "date" ? "text-blue-600" : "text-slate-600"}`}>
-              Ngày {sortBy === "date" && (sortOrder === "asc" ? "↑" : "↓")}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              if (sortBy === "name") {
-                setSortOrder((p) => (p === "asc" ? "desc" : "asc"));
-              } else {
-                setSortBy("name");
-                setSortOrder("asc");
-              }
-            }}
-            className={`px-2 py-1 rounded-md ${sortBy === "name" ? "bg-blue-50" : ""}`}
-          >
-            <Text className={`text-xs font-bold ${sortBy === "name" ? "text-blue-600" : "text-slate-600"}`}>
-              Tên {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <Text className="text-xs text-slate-400">
-          Tổng số: {filteredFiles.length} tệp
-        </Text>
-      </View>
+
 
       {/* Mobile Breadcrumb navigation */}
       {currentFolderId !== null && (
@@ -458,7 +538,7 @@ export default function ChannelFilesTab({
                   if (item.isFolder) {
                     setCurrentFolderId(item._id);
                   } else {
-                    handleDownload(item);
+                    handleOpenFile(item);
                   }
                 }}
                 className="flex-row items-center flex-1 mr-3"
@@ -478,7 +558,7 @@ export default function ChannelFilesTab({
                     {item.isPinned && "📌 "}{item.fileName}
                   </Text>
                   <Text className="text-xs text-slate-400 mt-1">
-                    {item.isFolder ? "Thư mục" : formatFileSize(item.fileSize)} • {item.uploadedByName}
+                    {item.isFolder ? "Thư mục" : formatDate(item.createdAt)} • {item.uploadedByName}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -528,22 +608,11 @@ export default function ChannelFilesTab({
             <View className="bg-white rounded-t-3xl p-5 pb-8">
               <View className="w-12 h-1.5 bg-slate-200 rounded-full self-center mb-5" />
 
-              <Text className="font-bold text-slate-800 text-base mb-4 px-2" numberOfLines={1}>
-                {selectedFileForMenu.fileName}
+              <Text className="font-bold text-slate-800 text-base mb-4 px-2 text-center" numberOfLines={1}>
+                {selectedFileForMenu.isFolder ? "Thao tác thư mục" : "Thao tác tệp"}
               </Text>
 
-              {!selectedFileForMenu.isFolder && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowMenuModal(false);
-                    handleCopyLink(selectedFileForMenu);
-                  }}
-                  className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
-                >
-                  <Feather name="copy" size={18} color="#475569" />
-                  <Text className="ml-3 font-semibold text-slate-700 text-sm">Sao chép liên kết</Text>
-                </TouchableOpacity>
-              )}
+
 
               <TouchableOpacity
                 onPress={() => {
@@ -623,6 +692,51 @@ export default function ChannelFilesTab({
               </View>
             </View>
           </View>
+        </Modal>
+      )}
+
+      {/* File Preview Modal */}
+      {isPreviewVisible && previewFile && previewUrl && (
+        <Modal
+          visible={isPreviewVisible}
+          transparent={false}
+          animationType="slide"
+          onRequestClose={() => {
+            setIsPreviewVisible(false);
+            setPreviewFile(null);
+            setPreviewUrl(null);
+          }}
+        >
+          <SafeAreaView className="flex-1 bg-slate-950" edges={["top", "bottom"]}>
+            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            {/* Header */}
+            <View className="bg-slate-900 px-4 py-4 flex-row items-center justify-between border-b border-slate-800">
+              <TouchableOpacity
+                onPress={() => {
+                  setIsPreviewVisible(false);
+                  setPreviewFile(null);
+                  setPreviewUrl(null);
+                }}
+                className="p-2"
+              >
+                <Feather name="arrow-left" size={24} color="#ffffff" />
+              </TouchableOpacity>
+              <Text className="text-white font-bold text-base flex-1 ml-3 truncate" numberOfLines={1}>
+                {previewFile.fileName}
+              </Text>
+              <TouchableOpacity
+                onPress={() => handleDownload(previewFile)}
+                className="p-2"
+              >
+                <Feather name="download" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content Container */}
+            <View className="flex-1 items-center justify-center bg-slate-950">
+              {renderPreviewContent(previewFile, previewUrl)}
+            </View>
+          </SafeAreaView>
         </Modal>
       )}
     </View>

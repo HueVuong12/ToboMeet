@@ -61,9 +61,9 @@ export default function MemberActionMenuModal({
   const [updateChannelMemberRole] = useUpdateChannelMemberRoleMutation();
   const [transferRoomOwnershipMutation] = useTransferRoomOwnershipMutation();
   const [removeChannelMember] = useRemoveChannelMemberMutation();
+  const insets = useSafeAreaInsets();
 
   if (!member || !room) return null;
-  const insets = useSafeAreaInsets();
 
   return (
     <Modal
