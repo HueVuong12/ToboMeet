@@ -33,6 +33,7 @@ import { useScreenRecorder } from "@/hooks/useScreenRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
 import CreateBreakoutModal from "./CreateBreakoutModal";
 import JoinBreakoutModal from "./JoinBreakoutModal";
+import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -46,7 +47,6 @@ export default function CustomToolbar({
   activeTab,
   onToggleSidebar,
   hasUnreadChat,
-  handleSwitchRoom,
 }: {
   meetingCode: string;
   activeTab: "chat" | "people" | null;
@@ -54,7 +54,6 @@ export default function CustomToolbar({
   roomId: string;
   channelId: string;
   hasUnreadChat: boolean;
-  handleSwitchRoom: (token: string, roomId: string) => void;
 }) {
   const t = useTranslations("meeting.toolbar");
 
@@ -63,8 +62,9 @@ export default function CustomToolbar({
   const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
   const [isJoinBreakoutModalOpen, setIsJoinBreakoutModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
+  const [isLeaveMenuOpen, setIsLeaveMenuOpen] = useState(false);
 
+  const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
   const isElectron = useIsElectron();
 
   const {
@@ -84,7 +84,7 @@ export default function CustomToolbar({
     handleLeaveClick,
     handleCopyLink,
     handleLeaveBreakout,
-  } = useToolbarActions({ meetingCode, handleSwitchRoom });
+  } = useToolbarActions();
 
   const {
     isRecording,
@@ -552,41 +552,67 @@ export default function CustomToolbar({
         </div>
       </div>
 
-      {/* ================= PHẦN BÊN PHẢI ================= */}
-      <div className="flex items-center h-full lg:flex-1 justify-center lg:justify-end lg:pr-2 shrink-0">
-        {/* NÚT RỜI NHÓM HIỂN THỊ DỰA VÀO METADATA */}
-        {isInBreakoutRoom && (
-          <button
-            onClick={handleLeaveBreakout}
-            disabled={isLeavingBreakout}
-            className="group h-full px-3 sm:px-4 mx-1 bg-transparent text-amber-500 hover:text-amber-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
-          >
-            {isLeavingBreakout ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <LogOut
-                size={18}
-                className="transition-transform duration-300 group-hover:-translate-x-1"
-              />
-            )}
-            <span className="hidden md:inline text-sm transition-all duration-300">
-              Rời nhóm
-            </span>
-          </button>
-        )}
-
+      {/* ================= PHẦN BÊN PHẢI (GỘP NÚT RỜI PHÒNG) ================= */}
+      <div className="relative flex items-center h-full lg:flex-1 justify-center lg:justify-end lg:pr-2 shrink-0">
         <button
-          onClick={handleLeaveClick}
+          onClick={() => {
+            if (isInBreakoutRoom) {
+              // Bật/tắt menu tooltip khi đang ở trong breakout room
+              setIsLeaveMenuOpen(!isLeaveMenuOpen);
+            } else {
+              // Nếu ở phòng họp chính, chạy thẳng hàm thoát
+              handleLeaveClick();
+            }
+          }}
+          disabled={isLeavingBreakout}
           className="group h-full px-3 sm:px-4 mx-1 lg:mx-0 bg-transparent text-red-500 hover:text-red-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
         >
-          <LogOut
-            size={18}
-            className="transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-110"
-          />
+          {isLeavingBreakout ? (
+            <Loader2 size={18} className="animate-spin text-red-500" />
+          ) : (
+            <LogOut
+              size={18}
+              className="transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-110"
+            />
+          )}
           <span className="hidden md:inline text-sm transition-all duration-300">
-            {t("leave_meeting")}
+            {isInBreakoutRoom ? "Rời đi" : t("leave_meeting")}
           </span>
         </button>
+
+        {/* TOOLTIP MENU KHI Ở PHÒNG BREAKOUT */}
+        {isLeaveMenuOpen && isInBreakoutRoom && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsLeaveMenuOpen(false)}
+            ></div>
+            <div className="absolute bottom-full right-2 lg:right-4 mb-2 z-50 w-52 bg-[#222] border border-[#333] rounded-lg shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in duration-200">
+              <button
+                onClick={() => {
+                  setIsLeaveMenuOpen(false);
+                  handleLeaveBreakout();
+                }}
+                disabled={isLeavingBreakout}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#333] flex items-center gap-2.5 transition-colors disabled:opacity-50"
+              >
+                <LogOut size={16} className="-scale-x-100" />
+                <span>Rời nhóm thảo luận</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsLeaveMenuOpen(false);
+                  handleLeaveClick();
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+              >
+                <LogOut size={16} />
+                <span>{t("leave_meeting")}</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ================= MODAL MỜI THÀNH VIÊN ================= */}
@@ -607,10 +633,8 @@ export default function CustomToolbar({
 
       {/* ================= MODAL JOIN BREAKOUT ================= */}
       <JoinBreakoutModal
-        handleSwitchRoom={handleSwitchRoom}
         isOpen={isJoinBreakoutModalOpen}
         onClose={() => setIsJoinBreakoutModalOpen(false)}
-        meetingCode={meetingCode}
         rooms={breakoutRoomsList}
       />
     </footer>

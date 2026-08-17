@@ -355,21 +355,16 @@ export class BreakoutRoomsService {
     }
 
     // Xác thực xem User có đang ở trong Breakout này không
-    try {
-      const participants =
-        await this.livekitRoomService.listParticipants(fullBreakoutRoomName);
-      const isActuallyInBreakout = participants.some(
-        (p) => p.identity === userId,
-      );
+    const participants =
+      await this.livekitRoomService.listParticipants(fullBreakoutRoomName);
+    const isActuallyInBreakout = participants.some(
+      (p) => p.identity === userId,
+    );
 
-      if (!isActuallyInBreakout) {
-        throw new BadRequestException(
-          "Yêu cầu không hợp lệ. Bạn không có mặt trong phòng thảo luận này.",
-        );
-      }
-    } catch (error) {
-      // Bỏ qua nếu user gọi API khi phòng vừa bị LiveKit xoá tự động do trống
-      console.log(error);
+    if (!isActuallyInBreakout) {
+      throw new BadRequestException(
+        "Bạn không có mặt trong phòng thảo luận này.",
+      );
     }
 
     // Lấy thông tin User & Sinh Token để vào lại Main Room

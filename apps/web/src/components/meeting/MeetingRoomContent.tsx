@@ -19,7 +19,6 @@ export default function MeetingRoomContent({
   roomId,
   channelId,
   meetingCode,
-  handleSwitchRoom,
 }: any) {
   const t = useTranslations("meeting");
   const room = useRoomContext();
@@ -243,7 +242,6 @@ export default function MeetingRoomContent({
         )}
 
         <CustomToolbar
-          handleSwitchRoom={handleSwitchRoom}
           meetingCode={meetingCode || ""}
           roomId={roomId}
           channelId={channelId}

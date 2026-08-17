@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useDeviceId } from "@/hooks/useDeviceId";
 import { useMeetingCacheManager } from "@/hooks/useMeetingCacheManager";
 import {
+  useJoinBreakoutRoomMutation,
   useJoinMeetingByCodeMutation,
   useLazyGetMemberStatusQuery,
   useReturnToMainRoomMutation,
@@ -19,7 +20,7 @@ export function useMeetingSession() {
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
   const [getMemberStatus] = useLazyGetMemberStatusQuery();
 
-  const meetingCode = params.code as string;
+  const meetingCode = params.code as string; // parent/main meeting code
 
   // Trạng thái thiết bị (Lobby)
   const [camOn, setCamOn] = useState(false);
@@ -49,12 +50,15 @@ export function useMeetingSession() {
     | "JOINED"
     | "RECONNECTING"
     | "SWITCHING_BREAKOUT"
-    | "RETURNING_MAIN"
+    | "RETURNING_TO_MAIN"
   >("LOOKING_FOR_TOKEN");
 
   const [joinMeetingByCodeApi, { isLoading: isJoining }] =
     useJoinMeetingByCodeMutation();
-  const [returnToMainRoomApi] = useReturnToMainRoomMutation();
+  const [returnToMainRoomApi, { isLoading: isLeavingBreakout }] =
+    useReturnToMainRoomMutation();
+  const [joinBreakoutApi, { isLoading: isJoiningBreakout }] =
+    useJoinBreakoutRoomMutation();
 
   const hasTriedReconnectRef = useRef(false);
   const isUnloadingRef = useRef(false);
@@ -146,43 +150,54 @@ export function useMeetingSession() {
     }
   };
 
-  const handleSwitchRoom = useCallback(
-    (newToken: string, newRoomId: string) => {
-      // Đổi trạng thái sang reconnecting để UI hiện loading
-      setStatus("SWITCHING_BREAKOUT");
+  // Tham gia phòng breakout
+  const handleSwitchToBreakout = useCallback(
+    async (newRoomId: string) => {
+      if (!deviceId) return;
 
-      // Cập nhật Token mới
-      setMeetingData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          token: newToken,
-          roomId: newRoomId,
-        };
-      });
+      try {
+        const response = await joinBreakoutApi({
+          code: meetingCode,
+          breakoutRoomId: newRoomId,
+          deviceId,
+        }).unwrap();
 
-      // Đợi một chút để LiveKit Room tự động unmount và mount lại với token mới
-      setTimeout(() => {
+        setStatus("SWITCHING_BREAKOUT");
+
+        // Cập nhật Token mới
+        setMeetingData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            token: response.token,
+            roomId: newRoomId,
+          };
+        });
+
+        setTimeout(() => {
+          setStatus("JOINED");
+        }, 1000);
+      } catch (error) {
+        toast.error("Không thể tham gia phiên thảo luận lúc này.");
         setStatus("JOINED");
-      }, 1000);
+      }
     },
-    [meetingCode],
+    [meetingCode, deviceId, joinBreakoutApi],
   );
 
-  // ===== HÀM MỚI: QUAY VỀ PHÒNG CHÍNH DỰA TRÊN PARENT CODE =====
+  // Quay về phòng chính
   const handleReturnToMain = useCallback(
     async (fullBreakoutRoomName: string) => {
       if (!deviceId) return;
       try {
-        setStatus("RETURNING_MAIN");
-
-        // Gọi API returnToMainRoom đã được cấu hình chặt chẽ ở Backend
         const response = await returnToMainRoomApi({
           fullBreakoutRoomName,
           deviceId: deviceId,
         }).unwrap();
 
-        // Ghi nhận Token phòng chính do Backend trả về
+        setStatus("RETURNING_TO_MAIN");
+
+        // Cập nhật lại token để tham gia phòng
         setMeetingData({
           token: response.token,
           roomId: response.roomId,
@@ -195,7 +210,7 @@ export function useMeetingSession() {
         }, 1000);
       } catch (error) {
         toast.error("Không thể quay về phòng chính lúc này.");
-        setStatus("JOINED"); // Rollback UI nếu lỗi
+        setStatus("JOINED");
       }
     },
     [deviceId, returnToMainRoomApi],
@@ -369,6 +384,8 @@ export function useMeetingSession() {
     status,
     meetingData,
     isDisconnecting,
+    isJoiningBreakout,
+    isLeavingBreakout,
     isJoining,
     camOn,
     micOn,
@@ -380,7 +397,7 @@ export function useMeetingSession() {
     setDisplayName,
     handleJoinByCode,
     handleDisconnect,
-    handleSwitchRoom,
+    handleSwitchToBreakout,
     handleReturnToMain,
   };
 }

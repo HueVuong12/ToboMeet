@@ -1,28 +1,25 @@
 import { useState } from "react";
 import { X, Users, Clock, LogIn, Network, Loader2 } from "lucide-react";
-import { useJoinBreakoutRoomMutation } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
 import { useDeviceId } from "@/hooks/useDeviceId";
 
-import {} from /* useGetBreakoutCountsQuery */ "@/lib/redux/api/meetingsApi";
-import { useMeetingSession } from "@/hooks/useMeetingSession";
+import {} from "@/lib/redux/api/meetingsApi";
+import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
 
 export default function JoinBreakoutModal({
   isOpen,
   onClose,
-  meetingCode,
   rooms,
-  handleSwitchRoom,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  meetingCode: string;
   rooms: any[];
-  handleSwitchRoom: (token: string, roomId: string) => void;
 }) {
   const deviceId = useDeviceId();
-  const [joinBreakoutApi, { isLoading }] = useJoinBreakoutRoomMutation();
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+
+  const { handleSwitchToBreakout, isJoiningBreakout } =
+    useMeetingSessionContext();
 
   // TODO: Tích hợp API đếm số người realtime.
   // pollingInterval: 3000 giúp component tự động gọi lại API mỗi 3 giây khi modal đang mở
@@ -44,16 +41,7 @@ export default function JoinBreakoutModal({
 
     try {
       setJoiningRoomId(breakoutRoomId);
-
-      // Gọi API xin Token vào phòng phụ
-      const response = await joinBreakoutApi({
-        code: meetingCode,
-        breakoutRoomId,
-        deviceId,
-      }).unwrap();
-
-      // Chuyền Token mới ra ngoài để cập nhật LiveKitRoom
-      handleSwitchRoom(response.token, response.roomId);
+      await handleSwitchToBreakout(breakoutRoomId);
       onClose();
     } catch (error) {
       toast.error("Không thể tham gia phòng thảo luận lúc này.");
@@ -109,7 +97,7 @@ export default function JoinBreakoutModal({
 
                     <button
                       onClick={() => handleJoin(room.id)}
-                      disabled={isFull || isLoading}
+                      disabled={isFull || isJoiningBreakout}
                       className={`px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
                         isFull
                           ? "bg-red-500/10 text-red-500 cursor-not-allowed"

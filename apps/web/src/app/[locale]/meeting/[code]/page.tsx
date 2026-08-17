@@ -16,8 +16,12 @@ import { RoomEvent } from "livekit-client";
 import { toast } from "sonner";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { useTranslations } from "next-intl";
+import {
+  MeetingSessionProvider,
+  useMeetingSessionContext,
+} from "@/components/meeting/contexts/MeetingSessionContext";
 
-export default function MeetingPage() {
+function MeetingPageContent() {
   const t = useTranslations("meeting.meeting_page");
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const {
@@ -37,9 +41,7 @@ export default function MeetingPage() {
     setDisplayName,
     handleJoinByCode,
     handleDisconnect,
-    handleSwitchRoom,
-    handleReturnToMain,
-  } = useMeetingSession();
+  } = useMeetingSessionContext();
 
   // GỘP CHUNG CÁC TRẠNG THÁI LOADING THÀNH 1 BIẾN
   const isLoadingState =
@@ -47,7 +49,7 @@ export default function MeetingPage() {
     status === "LOOKING_FOR_TOKEN" ||
     status === "RECONNECTING" ||
     status === "SWITCHING_BREAKOUT" ||
-    status === "RETURNING_MAIN";
+    status === "RETURNING_TO_MAIN";
 
   if (isLoadingState) {
     let loadingDesc = "";
@@ -61,7 +63,7 @@ export default function MeetingPage() {
       loadingDesc = t("loading_reconnecting");
     } else if (status === "SWITCHING_BREAKOUT") {
       loadingDesc = t("loading_joining_breakout");
-    } else if (status === "RETURNING_MAIN") {
+    } else if (status === "RETURNING_TO_MAIN") {
       loadingDesc = t("loading_returning_main");
     }
 
@@ -164,26 +166,23 @@ export default function MeetingPage() {
       onDisconnected={handleDisconnect}
     >
       <RoomAudioRenderer volume={1.0} />
-      <RoomContentGuard
-        meetingData={meetingData}
-        meetingCode={meetingCode}
-        handleDisconnect={handleDisconnect}
-        handleSwitchRoom={handleSwitchRoom}
-        handleReturnToMain={handleReturnToMain}
-      />
+      <RoomContentGuard meetingData={meetingData} meetingCode={meetingCode} />
     </LiveKitRoom>
   );
 }
 
-function RoomContentGuard({
-  meetingData,
-  meetingCode,
-  handleDisconnect,
-  handleSwitchRoom,
-  handleReturnToMain,
-}: any) {
+export default function MeetingPage() {
+  return (
+    <MeetingSessionProvider>
+      <MeetingPageContent />
+    </MeetingSessionProvider>
+  );
+}
+
+function RoomContentGuard({ meetingData, meetingCode }: any) {
   const t = useTranslations("meeting.meeting_page");
   const room = useRoomContext();
+  const { handleReturnToMain, handleDisconnect } = useMeetingSessionContext();
 
   const { displayParticipants } = useParticipantManager({
     roomId: meetingData.roomId,
@@ -200,7 +199,7 @@ function RoomContentGuard({
         const meta = JSON.parse(metadataStr);
 
         if (meta.room_type === "breakout" && meta.status === "closing") {
-          toast.info("Thời gian thảo luận đã hết");
+          toast.info("Phiên thảo luận đã kết thúc");
 
           // Truyền thẳng tên phòng (id của breakout)
           handleReturnToMain(room.name);
@@ -383,7 +382,6 @@ function RoomContentGuard({
       roomId={meetingData.roomId}
       channelId={meetingData.channelId}
       meetingCode={meetingCode}
-      handleSwitchRoom={handleSwitchRoom}
     />
   );
 }
