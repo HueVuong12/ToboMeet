@@ -28,7 +28,7 @@ export interface CreateBreakoutRoomDto {
 @Injectable()
 export class BreakoutRoomsService {
   private livekitRoomService: RoomServiceClient;
-
+  private breakoutTimers: Map<string, NodeJS.Timeout[]> = new Map();
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private meetingsService: MeetingsService,
@@ -42,6 +42,17 @@ export class BreakoutRoomsService {
         livekitHost,
         apiKey,
         apiSecret,
+      );
+    }
+  }
+
+  private clearTimersForMeeting(meetingCode: string) {
+    const timers = this.breakoutTimers.get(meetingCode);
+    if (timers) {
+      timers.forEach((timer) => clearTimeout(timer));
+      this.breakoutTimers.delete(meetingCode);
+      console.log(
+        `[Breakout] Đã huỷ các timer đếm ngược cũ của ${meetingCode}`,
       );
     }
   }
@@ -164,8 +175,12 @@ export class BreakoutRoomsService {
       // ========================================================
       // GIẢI PHÁP TẠM: SETTIMEOUT TỰ ĐỘNG ĐÓNG PHÒNG KHI HẾT GIỜ
       // ========================================================
+
+      this.clearTimersForMeeting(mainMeetingCode);
+
+      const currentTimers: NodeJS.Timeout[] = [];
       let maxDuration = 0;
-      const GRACE_PERIOD_MS = 3000;
+      const GRACE_PERIOD_MS = 2000;
 
       breakoutRooms.forEach((room) => {
         if (room.durationMinutes > 0) {
@@ -176,7 +191,7 @@ export class BreakoutRoomsService {
 
           const timeoutMs = room.durationMinutes * 60 * 1000 + GRACE_PERIOD_MS;
 
-          setTimeout(async () => {
+          const roomTimer = setTimeout(async () => {
             const fullSubRoomId = `${mainMeetingCode}_${room.id}`;
             try {
               const subRooms = await this.livekitRoomService.listRooms([
@@ -207,6 +222,8 @@ export class BreakoutRoomsService {
               );
             }
           }, timeoutMs);
+
+          currentTimers.push(roomTimer);
         }
       });
 
@@ -214,7 +231,7 @@ export class BreakoutRoomsService {
       if (maxDuration > 0) {
         const cleanupTimeoutMs = maxDuration * 60 * 1000 + GRACE_PERIOD_MS;
 
-        setTimeout(async () => {
+        const cleanupTimer = setTimeout(async () => {
           try {
             const mainRooms = await this.livekitRoomService.listRooms([
               mainMeetingCode,
@@ -248,6 +265,12 @@ export class BreakoutRoomsService {
             );
           }
         }, cleanupTimeoutMs);
+
+        currentTimers.push(cleanupTimer);
+      }
+
+      if (currentTimers.length > 0) {
+        this.breakoutTimers.set(mainMeetingCode, currentTimers);
       }
       // ========================================================
     } catch (error) {
@@ -264,6 +287,7 @@ export class BreakoutRoomsService {
     if (!this.livekitRoomService) return;
 
     try {
+      this.clearTimersForMeeting(mainMeetingCode);
       // BƯỚC A: Cập nhật Metadata phòng chính về lại bình thường
       const mainRooms = await this.livekitRoomService.listRooms([
         mainMeetingCode,

@@ -86,14 +86,14 @@ export default function CreateBreakoutModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm animate-fade-in transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[90vw] max-w-lg bg-[#222] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[90vw] max-w-lg bg-[#222] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in fade-in zoom-in duration-200">
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-[#333] flex items-center justify-between bg-[#1a1a1a]">
           <div className="flex items-center gap-2">
-            <Network className="text-blue-500" size={20} />
+            <Network size={20} />
             <h2 className="text-lg font-bold text-white">
               Tạo phòng thảo luận (Breakout)
             </h2>
@@ -134,7 +134,7 @@ export default function CreateBreakoutModal({
                   {/* Số người tối đa */}
                   <div className="flex-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                      Số người tối đa (Tối thiểu 2)
+                      Số người tối đa
                     </label>
                     <input
                       type="number"
@@ -154,7 +154,7 @@ export default function CreateBreakoutModal({
                   {/* Thời lượng */}
                   <div className="flex-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                      Thời lượng (phút, tối thiểu 1)
+                      Thời lượng (phút)
                     </label>
                     <input
                       type="number"

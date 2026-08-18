@@ -77,16 +77,14 @@ export default function JoinBreakoutModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm animate-fade-in transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[90vw] max-w-md bg-[#1a1a1a] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[90vw] max-w-md bg-[#1a1a1a] border border-[#333] rounded-2xl shadow-2xl flex flex-col animate-scale-in overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-[#333] flex items-center justify-between bg-[#111]">
           <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
-              <Network className="text-blue-400" size={18} />
-            </div>
+            <Network className="text-slate-300" size={18} />
             <h2 className="text-base font-bold text-slate-100">
               Chọn nhóm thảo luận
             </h2>
@@ -140,36 +138,31 @@ export default function JoinBreakoutModal({
               return (
                 <div
                   key={room.id}
-                  className="group flex flex-col p-4 bg-[#222] border border-[#333] hover:border-blue-500/50 rounded-xl transition-all duration-300 hover:shadow-[0_4px_20px_-4px_rgba(59,130,246,0.15)] hover:-translate-y-0.5"
+                  className="group flex flex-col p-4 bg-[#1f1f1f] border border-[#333] hover:border-blue-500/50 rounded-xl transition-all duration-300 hover:shadow-[0_4px_20px_-4px_rgba(59,130,246,0.15)] hover:-translate-y-0.5"
                 >
-                  <div className="flex flex-col gap-3 mb-4">
-                    <h3 className="font-bold text-slate-100 text-base line-clamp-1">
+                  <div className="flex flex-row items-center justify-between gap-4 mb-4">
+                    {/* Tên phòng (Bên trái) */}
+                    <h3 className="font-semibold text-slate-200 text-base truncate">
                       {room.name}
                     </h3>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${isFull ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"}`}
-                      >
-                        <Users size={14} />
+                    {/* Thông số (Bên phải) - Đã bỏ viền và nền, chỉ giữ lại text */}
+                    <div className="flex flex-row items-center gap-4 shrink-0">
+                      <div className="flex items-center gap-1.5 text-slate-300 text-xs font-medium">
+                        <Users size={14} className="opacity-60" />
                         <span>
                           {currentCount}{" "}
                           {hasLimit ? `/ ${room.maxParticipants}` : ""}
                         </span>
                       </div>
 
-                      {/* BADGE THỜI GIAN ĐÃ ĐƯỢC NÂNG CẤP */}
                       {room.durationMinutes > 0 && (
-                        <div
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${isExpired ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}
-                        >
-                          <Clock size={14} />
+                        <div className="flex items-center gap-1.5 text-slate-300 text-xs font-medium">
+                          <Clock size={14} className="opacity-60" />
                           <span
-                            className={
-                              isExpired
-                                ? "animate-pulse"
-                                : "w-10 text-center font-mono"
-                            }
+                            className={`font-mono tracking-wider text-center ${
+                              isExpired ? "opacity-50" : "w-9"
+                            }`}
                           >
                             {timeDisplay}
                           </span>
@@ -178,6 +171,7 @@ export default function JoinBreakoutModal({
                     </div>
                   </div>
 
+                  {/* Nút Join - Đã quay về phong cách màu xanh ban đầu */}
                   <button
                     onClick={() => handleJoin(room.id)}
                     disabled={isDisabled}
@@ -188,7 +182,7 @@ export default function JoinBreakoutModal({
                     }`}
                   >
                     {isCurrentlyJoining ? (
-                      <Loader2 size={18} className="animate-spin" />
+                      <Loader2 size={18} className="animate-spin text-white" />
                     ) : (
                       <LogIn
                         size={18}
