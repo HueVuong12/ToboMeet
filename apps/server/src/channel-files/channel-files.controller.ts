@@ -13,6 +13,7 @@ import {
   Res,
 } from "@nestjs/common";
 import { Request, Response } from "express";
+import type * as archiver from "archiver";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { ChannelFilesService } from "./channel-files.service";
 import {
@@ -120,10 +121,12 @@ export class ChannelFilesController {
       `attachment; filename="${safeFilename}.zip"; filename*=UTF-8''${safeFilename}.zip`
     );
 
-    const { ZipArchive } = await (eval('import("archiver")') as Promise<any>);
+    const { ZipArchive } = await (eval('import("archiver")') as Promise<{
+      ZipArchive: new (options?: unknown) => archiver.Archiver;
+    }>);
     const archive = new ZipArchive({ zlib: { level: 9 } });
 
-    archive.on("error", (err: any) => {
+    archive.on("error", (err: Error) => {
       console.error("Archive error:", err);
       if (!res.headersSent) {
         res.status(500).send("Không thể tải xuống thư mục. Vui lòng thử lại.");

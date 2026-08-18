@@ -259,7 +259,7 @@ export class ChannelFilesService {
 
     const pinMap = new Map<string, Date>();
     for (const pin of pins) {
-      pinMap.set(pin.fileId.toString(), (pin as any).createdAt);
+      pinMap.set(pin.fileId.toString(), (pin as unknown as { createdAt: Date }).createdAt);
     }
 
     return files.map((file) => {

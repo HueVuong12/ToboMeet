@@ -30,6 +30,7 @@ import {
 } from "../../lib/redux/api/channelFilesApi";
 import { ChannelFileResponse } from "@tobomeet/shared/types";
 import { supabase } from "../../lib/supabase";
+import { useTranslation } from "react-i18next";
 
 interface ChannelFilesTabProps {
   roomId: string;
@@ -43,6 +44,7 @@ export default function ChannelFilesTab({
   channelId,
   canManageFiles,
 }: ChannelFilesTabProps) {
+  const { t } = useTranslation();
   const { data: files = [], isLoading, refetch } = useGetChannelFilesQuery({
     roomId,
     channelId,
@@ -132,7 +134,7 @@ export default function ChannelFilesTab({
   // Handle Pick and Upload File
   const handlePickAndUpload = async () => {
     if (!canManageFiles) {
-      Alert.alert("Lỗi", "Bạn không có quyền tải tệp lên");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), t("files.error_permission_upload"));
       return;
     }
 
@@ -146,7 +148,7 @@ export default function ChannelFilesTab({
 
       const doc = result.assets[0];
       if (doc.size && doc.size > 50 * 1024 * 1024) {
-        Alert.alert("Lỗi", "Chỉ hỗ trợ file dưới 50MB!");
+        Alert.alert(t("room.error", { defaultValue: "Lỗi" }), t("files.error_size_limit"));
         return;
       }
 
@@ -166,7 +168,7 @@ export default function ChannelFilesTab({
       });
 
       if (uploadResult.status !== 200) {
-        throw new Error("Lỗi khi đẩy file lên cloud");
+        throw new Error(t("files.error_upload_cloud"));
       }
 
       // 3. Lưu meta
@@ -181,11 +183,11 @@ export default function ChannelFilesTab({
         parentFolderId: currentFolderId,
       }).unwrap();
 
-      Alert.alert("Thành công", "Tải tệp lên thành công");
+      Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_upload"));
       refetch();
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
-      Alert.alert("Lỗi", errorObj?.data?.message || errorObj?.message || "Tải tệp lên thất bại.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || errorObj?.message || t("files.error_upload_failed"));
     } finally {
       setIsUploading(false);
     }
@@ -206,10 +208,10 @@ export default function ChannelFilesTab({
       setIsCreateFolderModalOpen(false);
       setNewFolderName("");
       refetch();
-      Alert.alert("Thành công", "Tạo thư mục thành công");
+      Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_create_folder"));
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
-      Alert.alert("Lỗi", errorObj?.data?.message || "Tạo thư mục thất bại.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || t("files.error_create_folder_failed"));
     } finally {
       setIsCreatingFolder(false);
     }
@@ -218,14 +220,14 @@ export default function ChannelFilesTab({
   // Handle Pick and Upload Media (Hình ảnh và video)
   const handlePickAndUploadMedia = async () => {
     if (!canManageFiles) {
-      Alert.alert("Lỗi", "Bạn không có quyền tải lên");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), t("files.error_permission_upload_general"));
       return;
     }
 
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert("Lỗi", "Cần quyền truy cập thư viện ảnh để tải lên");
+        Alert.alert(t("room.error", { defaultValue: "Lỗi" }), t("files.error_permission_library"));
         return;
       }
 
@@ -257,7 +259,7 @@ export default function ChannelFilesTab({
       });
 
       if (uploadResult.status !== 200) {
-        throw new Error("Lỗi khi đẩy file lên cloud");
+        throw new Error(t("files.error_upload_cloud"));
       }
 
       // 3. Lưu meta — parentFolderId là thư mục hiện tại
@@ -272,11 +274,11 @@ export default function ChannelFilesTab({
         parentFolderId: currentFolderId,
       }).unwrap();
 
-      Alert.alert("Thành công", "Tải lên thành công");
+      Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_upload_general"));
       refetch();
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
-      Alert.alert("Lỗi", errorObj?.data?.message || errorObj?.message || "Tải lên thất bại.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || errorObj?.message || t("files.error_upload_general_failed"));
     } finally {
       setIsUploading(false);
     }
@@ -290,11 +292,11 @@ export default function ChannelFilesTab({
       if (supported) {
         await Linking.openURL(res.downloadUrl);
       } else {
-        Alert.alert("Lỗi", "Không thể mở liên kết tải xuống trên thiết bị này.");
+        Alert.alert(t("room.error", { defaultValue: "Lỗi" }), t("files.error_download_link_failed"));
       }
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
-      Alert.alert("Lỗi", errorObj?.data?.message || "Không thể lấy liên kết tải xuống.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || t("files.error_download_url_failed"));
     }
   };
 
@@ -308,7 +310,7 @@ export default function ChannelFilesTab({
       setIsPreviewVisible(true);
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
-      Alert.alert("Lỗi", errorObj?.data?.message || "Không thể lấy liên kết xem trước.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || t("files.error_preview_failed"));
     }
   };
 
@@ -337,13 +339,13 @@ export default function ChannelFilesTab({
             {file.fileName}
           </Text>
           <Text className="text-slate-400 text-sm mt-3 text-center">
-            Xem trực tiếp video chưa hỗ trợ trên ứng dụng. Bạn có muốn tải xuống để xem?
+            {t("files.preview_video_not_supported")}
           </Text>
           <TouchableOpacity
             onPress={() => handleDownload(file)}
             className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
           >
-            <Text className="text-white font-bold text-sm">Tải xuống video</Text>
+            <Text className="text-white font-bold text-sm">{t("files.download_video")}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -358,13 +360,13 @@ export default function ChannelFilesTab({
             {file.fileName}
           </Text>
           <Text className="text-slate-400 text-sm mt-3 text-center">
-            Nghe trực tiếp âm thanh chưa hỗ trợ trên ứng dụng. Bạn có muốn tải xuống để nghe?
+            {t("files.preview_audio_not_supported")}
           </Text>
           <TouchableOpacity
             onPress={() => handleDownload(file)}
             className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
           >
-            <Text className="text-white font-bold text-sm">Tải xuống tệp âm thanh</Text>
+            <Text className="text-white font-bold text-sm">{t("files.download_audio")}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -379,13 +381,13 @@ export default function ChannelFilesTab({
             {file.fileName}
           </Text>
           <Text className="text-slate-400 text-sm mt-3 text-center">
-            Xem trực tiếp tệp PDF chưa hỗ trợ trên ứng dụng. Bạn có muốn tải xuống để xem?
+            {t("files.preview_pdf_not_supported")}
           </Text>
           <TouchableOpacity
             onPress={() => handleDownload(file)}
             className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
           >
-            <Text className="text-white font-bold text-sm">Tải xuống PDF</Text>
+            <Text className="text-white font-bold text-sm">{t("files.download_pdf")}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -399,13 +401,13 @@ export default function ChannelFilesTab({
           {file.fileName}
         </Text>
         <Text className="text-slate-400 text-sm mt-3 text-center">
-          Ứng dụng chưa hỗ trợ xem trước trực tiếp loại tệp này.
+          {t("files.preview_general_not_supported")}
         </Text>
         <TouchableOpacity
           onPress={() => handleDownload(file)}
           className="mt-6 bg-blue-600 px-6 py-3 rounded-xl active:opacity-80"
         >
-          <Text className="text-white font-bold text-sm">Tải xuống tệp</Text>
+          <Text className="text-white font-bold text-sm">{t("files.download_file")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -421,7 +423,7 @@ export default function ChannelFilesTab({
       const downloadUrl = `${API_BASE_URL}/channel-files/${file._id}/download-folder`;
       const localUri = `${FileSystem.documentDirectory}${file.fileName}.zip`;
 
-      Alert.alert("Tải xuống", "Đang chuẩn bị tải xuống thư mục...");
+      Alert.alert(t("files.toast_preparing_download"), t("files.info_preparing_download"));
 
       const headers: Record<string, string> = {};
       if (token) {
@@ -445,19 +447,19 @@ export default function ChannelFilesTab({
           if (canShare) {
             await Sharing.shareAsync(downloadResult.uri, {
               mimeType: "application/zip",
-              dialogTitle: `Tải xuống ${file.fileName}.zip`,
+              dialogTitle: `${t("files.download_file")} ${file.fileName}.zip`,
             });
             return;
           }
         }
 
-        Alert.alert("Thành công", `Thư mục đã được tải xuống và lưu tại: ${downloadResult.uri}`);
+        Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_folder_download", { uri: downloadResult.uri }));
       } else {
-        throw new Error(`Mã lỗi tải xuống: ${downloadResult.status}`);
+        throw new Error(t("files.error_folder_download_code", { status: downloadResult.status }));
       }
     } catch (err) {
       console.error("Mobile download folder error:", err);
-      Alert.alert("Lỗi", "Không thể tải xuống thư mục. Vui lòng thử lại.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), t("files.error_folder_download_failed"));
     }
   };
 
@@ -475,32 +477,32 @@ export default function ChannelFilesTab({
       setShowRenameModal(false);
       setShowMenuModal(false);
       refetch();
-      Alert.alert("Thành công", "Đã đổi tên tệp thành công");
+      Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_rename"));
     } catch (err) {
       const errorObj = err as { data?: { message?: string }; message?: string };
-      Alert.alert("Lỗi", errorObj?.data?.message || "Đổi tên tệp thất bại.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || t("files.error_rename_failed"));
     }
   };
 
   // Delete File
   const handleDelete = (file: ChannelFileResponse) => {
     Alert.alert(
-      "Xác nhận xóa",
-      `Bạn có chắc chắn muốn xóa tệp "${file.fileName}"? Hành động này không thể hoàn tác.`,
+      t("files.confirm_delete_title"),
+      t("files.confirm_delete_msg", { name: file.fileName }),
       [
-        { text: "Hủy", style: "cancel" },
+        { text: t("files.btn_cancel"), style: "cancel" },
         {
-          text: "Xóa",
+          text: t("files.btn_delete"),
           style: "destructive",
           onPress: async () => {
             try {
               await deleteFile({ fileId: file._id, channelId }).unwrap();
               setShowMenuModal(false);
               refetch();
-              Alert.alert("Thành công", "Xóa tệp thành công");
+              Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_delete"));
             } catch (err) {
               const errorObj = err as { data?: { message?: string }; message?: string };
-              Alert.alert("Lỗi", errorObj?.data?.message || "Xóa tệp thất bại.");
+              Alert.alert(t("room.error", { defaultValue: "Lỗi" }), errorObj?.data?.message || t("files.error_delete_failed"));
             }
           },
         },
@@ -513,19 +515,19 @@ export default function ChannelFilesTab({
     // Đếm số lượng tệp/thư mục đang được ghim trong kênh hiện tại
     const pinnedCount = files.filter((f: any) => f.isPinned).length;
     if (pinnedCount >= 3) {
-      Alert.alert("Thông báo", "Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục.");
+      Alert.alert(t("room.notice", { defaultValue: "Thông báo" }), t("files.error_pin_limit_msg"));
       return;
     }
 
     try {
       await pinFile({ fileId: file._id, channelId }).unwrap();
-      Alert.alert("Thành công", "Đã ghim tệp/thư mục thành công");
+      Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_pin"));
     } catch (err: any) {
       const serverMsg = err?.data?.message || err?.message;
       if (serverMsg && (serverMsg.includes("tối đa 3") || serverMsg.includes("max") || serverMsg.includes("limit"))) {
-        Alert.alert("Thông báo", "Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục.");
+        Alert.alert(t("room.notice", { defaultValue: "Thông báo" }), t("files.error_pin_limit_msg"));
       } else {
-        Alert.alert("Lỗi", serverMsg || "Không thể ghim tệp/thư mục.");
+        Alert.alert(t("room.error", { defaultValue: "Lỗi" }), serverMsg || t("files.error_pin_failed"));
       }
     }
   };
@@ -534,9 +536,9 @@ export default function ChannelFilesTab({
   const handleUnpin = async (file: ChannelFileResponse) => {
     try {
       await unpinFile({ fileId: file._id, channelId }).unwrap();
-      Alert.alert("Thành công", "Đã bỏ ghim tệp/thư mục thành công");
+      Alert.alert(t("room.success", { defaultValue: "Thành công" }), t("files.success_unpin"));
     } catch (err: any) {
-      Alert.alert("Lỗi", err?.data?.message || "Không thể bỏ ghim tệp/thư mục.");
+      Alert.alert(t("room.error", { defaultValue: "Lỗi" }), err?.data?.message || t("files.error_unpin_failed"));
     }
   };
 
@@ -581,7 +583,7 @@ export default function ChannelFilesTab({
         <View className="flex-1 flex-row items-center bg-slate-100 rounded-xl px-3 py-2">
           <Feather name="search" size={16} color="#94A3B8" />
           <TextInput
-            placeholder="Tìm kiếm tệp và thư mục..."
+            placeholder={t("files.search_placeholder")}
             value={searchTerm}
             onChangeText={setSearchTerm}
             className="flex-1 ml-2 text-sm text-slate-800 focus:outline-none"
@@ -617,11 +619,11 @@ export default function ChannelFilesTab({
             className="flex-row items-center gap-1.5"
           >
             <Feather name="arrow-left" size={16} color="#0052FF" />
-            <Text className="text-sm font-bold text-blue-600">Quay lại</Text>
+            <Text className="text-sm font-bold text-blue-600">{t("files.btn_back")}</Text>
           </TouchableOpacity>
           <View className="w-px h-4 bg-slate-200 mx-3" />
           <Text className="text-sm text-slate-500 font-semibold truncate flex-1">
-            {files.find((f: any) => f._id === currentFolderId)?.fileName || "Thư mục"}
+            {files.find((f: any) => f._id === currentFolderId)?.fileName || t("files.folder_label")}
           </Text>
         </View>
       )}
@@ -635,7 +637,7 @@ export default function ChannelFilesTab({
         <View className="flex-1 justify-center items-center p-6">
           <Feather name="file" size={48} color="#CBD5E1" />
           <Text className="text-slate-500 font-bold text-sm mt-3">
-            {currentFolderId === null ? "Chưa có tệp nào trong kênh" : "Thư mục này trống"}
+            {currentFolderId === null ? t("files.empty_channel") : t("files.empty_folder")}
           </Text>
         </View>
       ) : (
@@ -670,7 +672,7 @@ export default function ChannelFilesTab({
                     {item.isPinned && "📌 "}{item.fileName}
                   </Text>
                   <Text className="text-xs text-slate-400 mt-1">
-                    {item.isFolder ? "Thư mục" : formatDate(item.createdAt)} • {item.uploadedByName}
+                    {item.isFolder ? t("files.folder_label") : formatDate(item.createdAt)} • {item.uploadedByName}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -721,7 +723,7 @@ export default function ChannelFilesTab({
               <View className="w-12 h-1.5 bg-slate-200 rounded-full self-center mb-5" />
 
               <Text className="font-bold text-slate-800 text-base mb-4 px-2 text-center" numberOfLines={1}>
-                {selectedFileForMenu.isFolder ? "Thao tác thư mục" : "Thao tác tệp"}
+                {selectedFileForMenu.isFolder ? t("files.action_folder") : t("files.action_file")}
               </Text>
 
 
@@ -735,7 +737,7 @@ export default function ChannelFilesTab({
               >
                 <Ionicons name="pin" size={18} color="#475569" />
                 <Text className="ml-3 font-semibold text-slate-700 text-sm">
-                  {selectedFileForMenu.isPinned ? "Bỏ ghim" : "Ghim"}
+                  {selectedFileForMenu.isPinned ? t("files.action_unpin") : t("files.action_pin")}
                 </Text>
               </TouchableOpacity>
 
@@ -752,7 +754,7 @@ export default function ChannelFilesTab({
                     className="flex-row items-center py-3.5 px-2 active:bg-slate-50 rounded-xl"
                   >
                     <Feather name="edit-2" size={18} color="#475569" />
-                    <Text className="ml-3 font-semibold text-slate-700 text-sm">Đổi tên</Text>
+                    <Text className="ml-3 font-semibold text-slate-700 text-sm">{t("files.action_rename")}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -762,7 +764,7 @@ export default function ChannelFilesTab({
                     className="flex-row items-center py-3.5 px-2 active:bg-red-50 rounded-xl"
                   >
                     <Feather name="trash-2" size={18} color="#EF4444" />
-                    <Text className="ml-3 font-semibold text-red-600 text-sm">Xóa</Text>
+                    <Text className="ml-3 font-semibold text-red-600 text-sm">{t("files.action_delete")}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -781,25 +783,25 @@ export default function ChannelFilesTab({
         >
           <View className="flex-1 bg-black/50 justify-center items-center p-6">
             <View className="bg-white rounded-2xl w-full p-5">
-              <Text className="font-bold text-slate-800 text-base mb-3">Đổi tên tệp</Text>
+              <Text className="font-bold text-slate-800 text-base mb-3">{t("files.rename_title")}</Text>
               <TextInput
                 className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-800 mb-4"
                 value={newNameInput}
                 onChangeText={setNewNameInput}
-                placeholder="Nhập tên mới..."
+                placeholder={t("files.rename_placeholder")}
               />
               <View className="flex-row justify-end gap-2">
                 <TouchableOpacity
                   onPress={() => setShowRenameModal(false)}
                   className="px-4 py-2.5 rounded-xl bg-slate-100 active:bg-slate-200"
                 >
-                  <Text className="text-slate-600 font-semibold text-sm">Hủy</Text>
+                  <Text className="text-slate-600 font-semibold text-sm">{t("files.btn_cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRename}
                   className="px-4 py-2.5 rounded-xl bg-blue-600 active:bg-blue-700"
                 >
-                  <Text className="text-white font-semibold text-sm">Đổi tên</Text>
+                  <Text className="text-white font-semibold text-sm">{t("files.btn_rename")}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -866,7 +868,7 @@ export default function ChannelFilesTab({
           <View className="bg-white rounded-t-3xl p-5 pb-10">
             <View className="w-12 h-1.5 bg-slate-200 rounded-full self-center mb-5" />
             <Text className="font-bold text-slate-800 text-base mb-4 px-2">
-              Tạo hoặc tải lên
+              {t("files.upload_menu_title")}
             </Text>
 
             {/* 1. Tạo thư mục rỗng */}
@@ -882,8 +884,8 @@ export default function ChannelFilesTab({
                 <Feather name="folder-plus" size={18} color="#D97706" />
               </View>
               <View className="flex-1">
-                <Text className="font-semibold text-slate-800 text-sm">Thư mục</Text>
-                <Text className="text-xs text-slate-400 mt-0.5">Tạo thư mục mới</Text>
+                <Text className="font-semibold text-slate-800 text-sm">{t("files.upload_menu_folder")}</Text>
+                <Text className="text-xs text-slate-400 mt-0.5">{t("files.upload_menu_folder_desc")}</Text>
               </View>
             </TouchableOpacity>
 
@@ -901,8 +903,8 @@ export default function ChannelFilesTab({
                 <Feather name="file" size={18} color="#2563EB" />
               </View>
               <View className="flex-1">
-                <Text className="font-semibold text-slate-800 text-sm">Tệp</Text>
-                <Text className="text-xs text-slate-400 mt-0.5">Chọn tệp từ thiết bị</Text>
+                <Text className="font-semibold text-slate-800 text-sm">{t("files.upload_menu_file")}</Text>
+                <Text className="text-xs text-slate-400 mt-0.5">{t("files.upload_menu_file_desc")}</Text>
               </View>
             </TouchableOpacity>
 
@@ -920,8 +922,8 @@ export default function ChannelFilesTab({
                 <Feather name="image" size={18} color="#7C3AED" />
               </View>
               <View className="flex-1">
-                <Text className="font-semibold text-slate-800 text-sm">Hình ảnh và video</Text>
-                <Text className="text-xs text-slate-400 mt-0.5">Chọn từ thư viện</Text>
+                <Text className="font-semibold text-slate-800 text-sm">{t("files.upload_menu_media")}</Text>
+                <Text className="text-xs text-slate-400 mt-0.5">{t("files.upload_menu_media_desc")}</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -937,17 +939,17 @@ export default function ChannelFilesTab({
       >
         <View className="flex-1 bg-black/50 justify-center items-center p-6">
           <View className="bg-white rounded-2xl w-full p-5">
-            <Text className="font-bold text-slate-800 text-base mb-1">Tạo thư mục mới</Text>
+            <Text className="font-bold text-slate-800 text-base mb-1">{t("files.create_folder_title")}</Text>
             {currentFolderId !== null && (
               <Text className="text-xs text-slate-400 mb-3">
-                Thư mục con trong: {files.find((f: any) => f._id === currentFolderId)?.fileName || "Thư mục hiện tại"}
+                {t("files.create_folder_sub_desc", { name: files.find((f: any) => f._id === currentFolderId)?.fileName || t("files.default_folder_name") })}
               </Text>
             )}
             <TextInput
               className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 mb-4 mt-2"
               value={newFolderName}
               onChangeText={setNewFolderName}
-              placeholder="Nhập tên thư mục..."
+              placeholder={t("files.create_folder_placeholder")}
               autoFocus
               onSubmitEditing={handleCreateFolder}
             />
@@ -959,7 +961,7 @@ export default function ChannelFilesTab({
                 }}
                 className="px-4 py-2.5 rounded-xl bg-slate-100 active:bg-slate-200"
               >
-                <Text className="text-slate-600 font-semibold text-sm">Hủy</Text>
+                <Text className="text-slate-600 font-semibold text-sm">{t("files.btn_cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreateFolder}
@@ -969,7 +971,7 @@ export default function ChannelFilesTab({
                 {isCreatingFolder ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text className="text-white font-semibold text-sm">Tạo</Text>
+                  <Text className="text-white font-semibold text-sm">{t("files.btn_create")}</Text>
                 )}
               </TouchableOpacity>
             </View>

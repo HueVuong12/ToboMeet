@@ -578,7 +578,7 @@ export default function RoomDetailScreen() {
             />
           ) : (
             <View className="flex-1 justify-center items-center">
-              <Text className="text-slate-400">Chọn kênh để xem tệp</Text>
+              <Text className="text-slate-400">{t("room.select_channel_to_view_files", { defaultValue: "Chọn kênh để xem tệp" })}</Text>
             </View>
           )
         ) : isLoadingPosts ? (
