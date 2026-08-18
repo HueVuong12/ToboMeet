@@ -178,6 +178,7 @@ export class MeetingsService {
         livekitRoom = await this.livekitRoomService.createRoom({
           name: meeting.meetingCode,
           emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
+          departureTimeout: 5 * 60,
           metadata: JSON.stringify({
             roomName: currentChannel?.name, // có thể tuỳ biến
             roomType: "main",
@@ -924,11 +925,15 @@ export class MeetingsService {
         const room = rooms[0];
 
         let isBreakoutRoom = false;
+        let hasActiveBreakoutSession = false;
+
         if (room.metadata) {
           try {
             const meta: LivekitRoomMetadata = JSON.parse(room.metadata);
             if (meta.roomType === "breakout") {
               isBreakoutRoom = true;
+            } else if (meta.breakoutSession?.status === "active") {
+              hasActiveBreakoutSession = true;
             }
           } catch (e) {
             console.error("Lỗi parse metadata phòng khi check empty:", e);
@@ -942,6 +947,13 @@ export class MeetingsService {
           );
           return;
         }
+
+        if (hasActiveBreakoutSession) {
+          console.log(
+            `Bỏ qua tự động dọn dẹp phòng chính ${meetingCode} vì đang có người trong breakout.`,
+          );
+          return;
+        }
       }
 
       // Nếu không phải phòng breakout, tiếp tục logic kiểm tra số người
@@ -951,7 +963,6 @@ export class MeetingsService {
 
       if (participants.length === 0) {
         await this.endMeetingByCode(meetingCode);
-
         await this.forceDeleteLiveKitRoom(meetingCode);
       }
     } catch (error) {

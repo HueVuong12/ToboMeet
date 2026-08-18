@@ -25,7 +25,7 @@ export default function JoinBreakoutModal({
   const { breakoutStartedAt } = useRoomSettings({ meetingCode: meetingCode });
 
   const [realTime, setRealTime] = useState(Date.now());
-  const [timeOffset, setTimeOffset] = useState(0);
+  const [timeOffset, setTimeOffset] = useState<number | null>(null);
 
   const { data, isLoading } = useGetBreakoutCountsQuery(
     { code: meetingCode },
@@ -39,14 +39,14 @@ export default function JoinBreakoutModal({
 
   // Khi nhận được giờ từ Server, tính toán Độ lệch (Offset)
   useEffect(() => {
-    if (data?.serverTime) {
+    if (data?.serverTime && timeOffset === null) {
       setTimeOffset(data.serverTime - Date.now());
     }
   }, [data?.serverTime]);
 
   // Chạy đếm ngược mượt mà mỗi 1 giây ở Local (áp dụng độ lệch)
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || timeOffset === null) return;
     const interval = setInterval(() => {
       // Giờ thực tế = Giờ máy tính + Độ lệch với Server
       setRealTime(Date.now() + timeOffset);
@@ -111,7 +111,7 @@ export default function JoinBreakoutModal({
               let timeDisplay = "";
 
               if (room.durationMinutes > 0 && breakoutStartedAt) {
-                if (isLoading || !data) {
+                if (timeOffset === null) {
                   timeDisplay = "--:--";
                 } else {
                   const endTime =
