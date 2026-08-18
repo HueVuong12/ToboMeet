@@ -180,6 +180,7 @@ export class MeetingsService {
           emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
           metadata: JSON.stringify({
             roomName: currentChannel?.name, // có thể tuỳ biến
+            roomType: "main",
             sessionId: currentSessionId,
             isWaitingRoomEnabled: false,
             isChatEnabled: true,
@@ -926,7 +927,7 @@ export class MeetingsService {
         if (room.metadata) {
           try {
             const meta: LivekitRoomMetadata = JSON.parse(room.metadata);
-            if (meta.room_type === "breakout") {
+            if (meta.roomType === "breakout") {
               isBreakoutRoom = true;
             }
           } catch (e) {

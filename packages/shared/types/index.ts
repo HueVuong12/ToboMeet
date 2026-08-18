@@ -270,19 +270,36 @@ export interface ParticipantMetadata {
   status: "joined" | "waiting";
 }
 
-export interface LivekitRoomMetadata {
+// Định nghĩa các trường dùng chung (nếu có)
+export interface BaseRoomMetadata {
   roomName: string;
-  room_type: "main" | "breakout";
+}
+
+// Dành riêng cho phòng họp chính
+export interface MainRoomMetadata extends BaseRoomMetadata {
+  roomType: "main";
   sessionId: string;
   isWaitingRoomEnabled: boolean;
   isChatEnabled: boolean;
   approvalPermission: "admin_only" | "member_and_admin" | "everyone";
-  breakout_session?: {
+  breakoutSession?: {
     status: string;
-    rooms: LivekitBreakoutRoom[]; // Mảng này giờ đã chứa sub_1, sub_2
+    rooms: LivekitBreakoutRoom[];
     startedAt: number;
   };
 }
+
+// Dành riêng cho phòng Breakout
+export interface BreakoutRoomMetadata extends BaseRoomMetadata {
+  roomType: "breakout";
+  parentRoom: string;
+  parentMetadata: MainRoomMetadata;
+  durationMinutes: number;
+  startedAt: number;
+  status: "active" | "closing";
+}
+
+export type LivekitRoomMetadata = MainRoomMetadata | BreakoutRoomMetadata;
 
 export interface LivekitBreakoutRoom {
   id: string;

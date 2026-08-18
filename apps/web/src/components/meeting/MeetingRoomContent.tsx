@@ -3,7 +3,7 @@
 
 import { useRoomContext } from "@livekit/components-react";
 import { RoomEvent } from "livekit-client";
-import { X } from "lucide-react";
+import { Network, X } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import localforage from "localforage";
 import "@livekit/components-styles";
@@ -14,6 +14,7 @@ import MeetingChat from "@/components/meeting/MeetingChat";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { useTranslations } from "next-intl";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
+import { useBreakoutTimer } from "@/hooks/useBreakoutTimer";
 
 export default function MeetingRoomContent({
   roomId,
@@ -22,8 +23,15 @@ export default function MeetingRoomContent({
 }: any) {
   const t = useTranslations("meeting");
   const room = useRoomContext();
-  const { roomName, roomType } = useRoomSettings({ meetingCode: meetingCode });
+  const { roomName, roomType, breakoutStartedAt, breakoutDuration } =
+    useRoomSettings({ meetingCode: meetingCode });
   const isBreakoutRoom = roomType === "breakout";
+
+  const timeDisplay = useBreakoutTimer({
+    startedAt: breakoutStartedAt,
+    durationMinutes: breakoutDuration,
+    meetingCode: meetingCode,
+  });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"chat" | "people">("chat");
@@ -145,8 +153,13 @@ export default function MeetingRoomContent({
     <div className="flex flex-col h-dvh w-screen bg-[#111] text-slate-100 overflow-hidden font-sans fixed inset-0">
       <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-[#111] border-[#333] z-10">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold tracking-wide">
+          {isBreakoutRoom && <Network size={16} />}
+
+          <span className="text-sm font-semibold tracking-wide flex items-center gap-2">
             {roomName || ""}
+            {isBreakoutRoom && timeDisplay && (
+              <span className="ml-1">{timeDisplay}</span>
+            )}
           </span>
         </div>
       </header>

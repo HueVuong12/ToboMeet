@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import {
   LivekitBreakoutRoom,
   LivekitRoomMetadata,
+  ParticipantMetadata,
 } from "@tobomeet/shared/types";
 
 // Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
@@ -40,6 +41,7 @@ export function useRoomSettings({
   const [isBreakoutActive, setIsBreakoutActive] = useState(false);
   const [endBreakoutApi] = useEndBreakoutSessionMutation();
   const [breakoutStartedAt, setBreakoutStartedAt] = useState<number>(0);
+  const [breakoutDuration, setBreakoutDuration] = useState<number>(0);
   const [roomName, setRoomName] = useState<string>("");
 
   // State quản lý quyền duyệt
@@ -51,7 +53,9 @@ export function useRoomSettings({
   let isHost = false;
   try {
     if (localParticipant?.metadata) {
-      const userMeta = JSON.parse(localParticipant.metadata);
+      const userMeta: ParticipantMetadata = JSON.parse(
+        localParticipant.metadata,
+      );
       isHost = userMeta.role === "owner" || userMeta.role === "admin";
     }
   } catch (e) {}
@@ -62,18 +66,34 @@ export function useRoomSettings({
     try {
       const meta: LivekitRoomMetadata = JSON.parse(roomMetadata);
 
-      if (meta.room_type === "breakout") setRoomType("breakout");
-
       setRoomName(meta.roomName);
-      setIsChatEnabled(meta.isChatEnabled);
-      setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
-      setApprovalPermission(meta.approvalPermission);
 
-      // breakout
-      setIsBreakoutActive(meta.breakout_session?.status === "active");
-      setBreakoutRoomsList(meta.breakout_session?.rooms || []);
-      setBreakoutStartedAt(meta.breakout_session?.startedAt || 0);
-    } catch (e) {}
+      if (meta.roomType === "breakout") {
+        setRoomType("breakout");
+        if (meta.parentMetadata) {
+          setIsChatEnabled(meta.parentMetadata.isChatEnabled);
+          setApprovalPermission(meta.parentMetadata.approvalPermission);
+        }
+
+        setBreakoutStartedAt(meta.startedAt || 0);
+        setBreakoutDuration(meta.durationMinutes || 0);
+        setIsWaitingRoomEnabled(false);
+      } else {
+        setRoomType("main");
+
+        // Cập nhật cài đặt của phòng họp
+        setIsChatEnabled(meta.isChatEnabled);
+        setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
+        setApprovalPermission(meta.approvalPermission);
+
+        // Cập nhật trạng thái và danh sách nhóm thảo luận (Breakout)
+        setIsBreakoutActive(meta.breakoutSession?.status === "active");
+        setBreakoutRoomsList(meta.breakoutSession?.rooms || []);
+        setBreakoutStartedAt(meta.breakoutSession?.startedAt || 0);
+      }
+    } catch (e) {
+      console.error("Lỗi parse metadata phòng:", e);
+    }
   }, [roomMetadata]);
 
   const canChat = isChatEnabled || isHost;
@@ -171,6 +191,7 @@ export function useRoomSettings({
     approvalPermission,
     isBreakoutActive,
     breakoutRoomsList,
+    breakoutDuration,
     breakoutStartedAt,
     isHost,
     roomType,

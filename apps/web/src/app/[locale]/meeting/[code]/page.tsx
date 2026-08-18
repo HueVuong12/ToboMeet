@@ -19,6 +19,7 @@ import {
   MeetingSessionProvider,
   useMeetingSessionContext,
 } from "@/components/meeting/contexts/MeetingSessionContext";
+import { LivekitRoomMetadata } from "@tobomeet/shared/types";
 
 function MeetingPageContent() {
   const t = useTranslations("meeting.meeting_page");
@@ -195,12 +196,10 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
       if (!metadataStr) return;
 
       try {
-        const meta = JSON.parse(metadataStr);
+        const meta: LivekitRoomMetadata = JSON.parse(metadataStr);
 
-        if (meta.room_type === "breakout" && meta.status === "closing") {
+        if (meta.roomType === "breakout" && meta.status === "closing") {
           toast.info("Phiên thảo luận đã kết thúc");
-
-          // Truyền thẳng tên phòng (id của breakout)
           handleReturnToMain(room.name);
         }
       } catch (error) {
