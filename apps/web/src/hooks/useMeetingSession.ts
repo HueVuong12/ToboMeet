@@ -41,7 +41,6 @@ export function useMeetingSession() {
     token: string;
     roomId: string;
     channelId: string;
-    channelName: string;
   } | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [status, setStatus] = useState<
@@ -202,7 +201,6 @@ export function useMeetingSession() {
           token: response.token,
           roomId: response.roomId,
           channelId: response.channelId,
-          channelName: response.channelName,
         });
 
         setTimeout(() => {
@@ -254,7 +252,6 @@ export function useMeetingSession() {
         token: response.token,
         roomId: response.roomId,
         channelId: response.channelId,
-        channelName: response.channelName,
       });
 
       setStatus("JOINED");
@@ -278,7 +275,7 @@ export function useMeetingSession() {
     }
   }, [meetingCode, displayName, deviceId, joinMeetingByCodeApi]);
 
-  // Kiểm tra Session hoặc xin Token qua BroadcastChannel
+  // Kiểm tra Session hoặc xin Token qua BroadcastChannel (loại bỏ gấp)
   useEffect(() => {
     if (!meetingCode || status !== "LOOKING_FOR_TOKEN") return;
 
@@ -314,7 +311,6 @@ export function useMeetingSession() {
           token: event.data.token,
           roomId: event.data.roomId,
           channelId: event.data.channelId,
-          channelName: event.data.channelName,
         });
         setStatus("JOINED");
         bc.close();

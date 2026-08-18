@@ -167,6 +167,11 @@ export class MeetingsService {
       }
     }
 
+    // Phân quyền theo kênh
+    const currentChannel = room.channels.find(
+      (c) => c._id?.toString() === channelId.toString(),
+    );
+
     // Khởi tạo phòng ngay lập tức (eager init) với metadata mặc định
     if (!livekitRoom && this.livekitRoomService) {
       try {
@@ -174,6 +179,7 @@ export class MeetingsService {
           name: meeting.meetingCode,
           emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
           metadata: JSON.stringify({
+            roomName: currentChannel?.name, // có thể tuỳ biến
             sessionId: currentSessionId,
             isWaitingRoomEnabled: false,
             isChatEnabled: true,
@@ -200,11 +206,6 @@ export class MeetingsService {
 
     // Chỉ dùng đúng userId làm định danh duy nhất
     const uniqueIdentity = userId;
-
-    // Phân quyền theo kênh
-    const currentChannel = room.channels.find(
-      (c) => c._id?.toString() === channelId.toString(),
-    );
 
     const userRole = this.getUserRoleInChannel(
       room,
@@ -260,7 +261,6 @@ export class MeetingsService {
 
       roomId: roomId.toString(),
       channelId: channelId.toString(),
-      channelName: currentChannel?.name,
     };
   }
 

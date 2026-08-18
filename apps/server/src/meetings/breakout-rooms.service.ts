@@ -85,6 +85,7 @@ export class BreakoutRoomsService {
         const fullSubRoomId = `${mainMeetingCode}_${room.id}`;
 
         const newMetadata = JSON.stringify({
+          roomName: room.name,
           room_type: "breakout",
           parent_room: mainMeetingCode,
           parent_metadata: currentMeta,
@@ -378,6 +379,59 @@ export class BreakoutRoomsService {
       deviceId,
       finalDisplayName,
     );
+  }
+
+  /**
+   * Lấy số lượng người tham gia trong từng phòng breakout
+   */
+  async getBreakoutRoomsParticipantCount(
+    mainMeetingCode: string,
+  ): Promise<{ counts: Record<string, number>; serverTime: number }> {
+    const serverTime = Date.now(); // Lấy giờ chuẩn xác từ Server
+    if (!this.livekitRoomService) return { counts: {}, serverTime };
+
+    try {
+      // 1. Lấy metadata của phòng chính để biết danh sách các phòng breakout đang mở
+      const mainRooms = await this.livekitRoomService.listRooms([
+        mainMeetingCode,
+      ]);
+      if (mainRooms.length === 0 || !mainRooms[0].metadata)
+        return { counts: {}, serverTime };
+
+      const currentMeta = JSON.parse(mainRooms[0].metadata);
+      const breakoutRooms: LivekitBreakoutRoom[] =
+        currentMeta.breakout_session?.rooms || [];
+
+      if (breakoutRooms.length === 0) return { counts: {}, serverTime };
+
+      // 2. Tạo mảng tên các phòng phụ (full ID) để truy vấn LiveKit
+      const subRoomNames = breakoutRooms.map(
+        (room) => `${mainMeetingCode}_${room.id}`,
+      );
+
+      // 3. Lấy thông tin các phòng phụ đang hoạt động
+      const activeSubRooms =
+        await this.livekitRoomService.listRooms(subRoomNames);
+
+      const counts: Record<string, number> = {};
+
+      // Khởi tạo tất cả số lượng ban đầu là 0
+      breakoutRooms.forEach((room) => {
+        counts[room.id] = 0;
+      });
+
+      // Cập nhật số lượng thực tế từ LiveKit trả về
+      activeSubRooms.forEach((subRoom) => {
+        // Cắt bỏ phần mainMeetingCode_ để lấy lại subRoomId (vd: sub_1)
+        const subId = subRoom.name.replace(`${mainMeetingCode}_`, "");
+        counts[subId] = subRoom.numParticipants;
+      });
+
+      return { counts, serverTime };
+    } catch (error) {
+      console.error("Lỗi khi đếm số lượng người phòng breakout:", error);
+      return { counts: {}, serverTime };
+    }
   }
 
   /**

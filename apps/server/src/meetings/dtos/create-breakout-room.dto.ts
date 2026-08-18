@@ -16,12 +16,12 @@ export class CreateBreakoutRoomDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  @Min(2)
   maxParticipants?: number;
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  @Min(1)
   durationMinutes?: number;
 }
 

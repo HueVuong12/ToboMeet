@@ -262,6 +262,17 @@ export const meetingsApi = baseApi.injectEndpoints({
         data: { deviceId },
       }),
     }),
+
+    // Lấy số lượng thành viên các phòng breakout
+    getBreakoutCounts: builder.query<
+      { counts: Record<string, number>; serverTime: number },
+      { code: string }
+    >({
+      query: ({ code }) => ({
+        url: `/meetings/${code}/breakout/counts`,
+        method: "GET",
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -284,9 +295,10 @@ export const {
   useSendMeetingInviteMutation,
   useLazyExchangeSessionQuery,
 
-  // Breakout room
-  useStartBreakoutSessionMutation,
-  useEndBreakoutSessionMutation,
-  useJoinBreakoutRoomMutation,
-  useReturnToMainRoomMutation,
+  // Breakout room APIs
+  useStartBreakoutSessionMutation, // Bắt đầu phiên breakout
+  useEndBreakoutSessionMutation, // Kết thúc phiên breakout
+  useJoinBreakoutRoomMutation, // Tham gia breakout
+  useReturnToMainRoomMutation, // Trở về phòng chính
+  useGetBreakoutCountsQuery, // Số lượng người trong từng phòng breakout
 } = meetingsApi;

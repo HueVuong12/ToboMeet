@@ -43,7 +43,7 @@ export function useMeetingLauncher({
       setShowPreviewModal(false);
 
       const meetingUrl = `/meeting/${response.meetingCode}`;
-      
+
       const bc = new BroadcastChannel(`token_channel_${response.meetingCode}`);
       bc.onmessage = (event) => {
         if (event.data === "TAB_B_READY") {
@@ -52,7 +52,6 @@ export function useMeetingLauncher({
             token: response.token,
             roomId: roomId,
             channelId: currentChannel._id,
-            channelName: activeChannel,
             deviceConfig: {
               camOn: config.isCamOn,
               micOn: config.isMicOn,

@@ -9,7 +9,6 @@ import {
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
 import { Loader2, Smartphone } from "lucide-react";
-import { useMeetingSession } from "@/hooks/useMeetingSession";
 import MeetingLobby from "@/components/meeting/MeetingLobby";
 import { useEffect, useState } from "react";
 import { RoomEvent } from "livekit-client";
@@ -378,7 +377,6 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
 
   return (
     <MeetingRoomContent
-      channelName={meetingData.channelName}
       roomId={meetingData.roomId}
       channelId={meetingData.channelId}
       meetingCode={meetingCode}

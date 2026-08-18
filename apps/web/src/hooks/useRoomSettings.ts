@@ -39,6 +39,8 @@ export function useRoomSettings({
   >([]);
   const [isBreakoutActive, setIsBreakoutActive] = useState(false);
   const [endBreakoutApi] = useEndBreakoutSessionMutation();
+  const [breakoutStartedAt, setBreakoutStartedAt] = useState<number>(0);
+  const [roomName, setRoomName] = useState<string>("");
 
   // State quản lý quyền duyệt
   const [approvalPermission, setApprovalPermission] = useState<
@@ -61,11 +63,16 @@ export function useRoomSettings({
       const meta: LivekitRoomMetadata = JSON.parse(roomMetadata);
 
       if (meta.room_type === "breakout") setRoomType("breakout");
+
+      setRoomName(meta.roomName);
       setIsChatEnabled(meta.isChatEnabled);
       setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
       setApprovalPermission(meta.approvalPermission);
+
+      // breakout
       setIsBreakoutActive(meta.breakout_session?.status === "active");
       setBreakoutRoomsList(meta.breakout_session?.rooms || []);
+      setBreakoutStartedAt(meta.breakout_session?.startedAt || 0);
     } catch (e) {}
   }, [roomMetadata]);
 
@@ -74,7 +81,7 @@ export function useRoomSettings({
   // Toggle Chat
   const handleToggleChat = async () => {
     const newState = !isChatEnabled;
-    setIsChatEnabled(newState); // Optimistic UI
+    setIsChatEnabled(newState);
 
     // API không trả về roomId và channelId cho người dùng không có trong phòng
     if (!roomId || !channelId || !meetingCode) return;
@@ -164,8 +171,10 @@ export function useRoomSettings({
     approvalPermission,
     isBreakoutActive,
     breakoutRoomsList,
+    breakoutStartedAt,
     isHost,
     roomType,
+    roomName,
 
     handleToggleChat,
     handleToggleWaitingRoom,

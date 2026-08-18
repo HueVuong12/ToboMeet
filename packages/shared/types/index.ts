@@ -207,7 +207,6 @@ export interface MeetingJoinResponse {
 
   roomId: string;
   channelId: string;
-  channelName: string;
 }
 
 export interface ActiveMeetingResponse {
@@ -272,6 +271,7 @@ export interface ParticipantMetadata {
 }
 
 export interface LivekitRoomMetadata {
+  roomName: string;
   room_type: "main" | "breakout";
   sessionId: string;
   isWaitingRoomEnabled: boolean;
@@ -280,7 +280,7 @@ export interface LivekitRoomMetadata {
   breakout_session?: {
     status: string;
     rooms: LivekitBreakoutRoom[]; // Mảng này giờ đã chứa sub_1, sub_2
-    startedAt: string;
+    startedAt: number;
   };
 }
 

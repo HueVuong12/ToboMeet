@@ -2,7 +2,6 @@ import { useState } from "react";
 import { X, Plus, Trash2, Loader2, Network } from "lucide-react";
 import { useStartBreakoutSessionMutation } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
-// import { useTranslations } from "next-intl"; // Bỏ comment nếu dùng đa ngôn ngữ
 
 export default function CreateBreakoutModal({
   isOpen,
@@ -13,13 +12,11 @@ export default function CreateBreakoutModal({
   onClose: () => void;
   meetingCode: string;
 }) {
-  // const t = useTranslations("meeting.toolbar");
   const [startBreakoutApi, { isLoading }] = useStartBreakoutSessionMutation();
 
-  // Khởi tạo mặc định 2 phòng
   const [rooms, setRooms] = useState([
-    { name: "Nhóm 1", maxParticipants: 0, durationMinutes: 0 },
-    { name: "Nhóm 2", maxParticipants: 0, durationMinutes: 0 },
+    { name: "Nhóm 1", maxParticipants: 2, durationMinutes: 1 },
+    { name: "Nhóm 2", maxParticipants: 2, durationMinutes: 1 },
   ]);
 
   if (!isOpen) return null;
@@ -29,8 +26,8 @@ export default function CreateBreakoutModal({
       ...rooms,
       {
         name: `Nhóm ${rooms.length + 1}`,
-        maxParticipants: 0,
-        durationMinutes: 0,
+        maxParticipants: 2,
+        durationMinutes: 1,
       },
     ]);
   };
@@ -50,8 +47,19 @@ export default function CreateBreakoutModal({
   };
 
   const handleSubmit = async () => {
+    // Validate trực tiếp ở Frontend trước khi gọi API
     if (rooms.some((r) => r.name.trim() === "")) {
       toast.error("Tên phòng không được để trống");
+      return;
+    }
+
+    if (rooms.some((r) => !r.maxParticipants || r.maxParticipants < 2)) {
+      toast.error("Số người tối đa mỗi nhóm phải từ 2 người trở lên");
+      return;
+    }
+
+    if (rooms.some((r) => !r.durationMinutes || r.durationMinutes < 1)) {
+      toast.error("Thời gian thảo luận tối thiểu phải là 1 phút");
       return;
     }
 
@@ -63,8 +71,14 @@ export default function CreateBreakoutModal({
 
       toast.success("Đã mở các phòng thảo luận nhóm!");
       onClose();
-    } catch (error) {
-      toast.error("Lỗi khi tạo phòng thảo luận. Vui lòng thử lại.");
+    } catch (error: any) {
+      if (error?.status === 400) {
+        toast.error(
+          "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại cấu hình phòng.",
+        );
+      } else {
+        toast.error("Lỗi khi tạo phòng thảo luận. Vui lòng thử lại.");
+      }
       console.error(error);
     }
   };
@@ -120,11 +134,11 @@ export default function CreateBreakoutModal({
                   {/* Số người tối đa */}
                   <div className="flex-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                      Số người tối đa
+                      Số người tối đa (Tối thiểu 2)
                     </label>
                     <input
                       type="number"
-                      min={0}
+                      min={2}
                       value={room.maxParticipants}
                       onChange={(e) =>
                         handleUpdateRoom(
@@ -140,11 +154,11 @@ export default function CreateBreakoutModal({
                   {/* Thời lượng */}
                   <div className="flex-1">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                      Thời lượng (phút)
+                      Thời lượng (phút, tối thiểu 1)
                     </label>
                     <input
                       type="number"
-                      min={0}
+                      min={1}
                       value={room.durationMinutes}
                       onChange={(e) =>
                         handleUpdateRoom(

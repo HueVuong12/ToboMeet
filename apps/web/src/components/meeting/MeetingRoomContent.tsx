@@ -13,15 +13,17 @@ import CustomVideoGrid from "@/components/meeting/CustomVideoGrid";
 import MeetingChat from "@/components/meeting/MeetingChat";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { useTranslations } from "next-intl";
+import { useRoomSettings } from "@/hooks/useRoomSettings";
 
 export default function MeetingRoomContent({
-  channelName,
   roomId,
   channelId,
   meetingCode,
 }: any) {
   const t = useTranslations("meeting");
   const room = useRoomContext();
+  const { roomName, roomType } = useRoomSettings({ meetingCode: meetingCode });
+  const isBreakoutRoom = roomType === "breakout";
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"chat" | "people">("chat");
@@ -143,9 +145,8 @@ export default function MeetingRoomContent({
     <div className="flex flex-col h-dvh w-screen bg-[#111] text-slate-100 overflow-hidden font-sans fixed inset-0">
       <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-[#111] border-[#333] z-10">
         <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
           <span className="text-sm font-semibold tracking-wide">
-            {channelName || "Phòng họp"}
+            {roomName || ""}
           </span>
         </div>
       </header>

@@ -633,6 +633,7 @@ export default function CustomToolbar({
 
       {/* ================= MODAL JOIN BREAKOUT ================= */}
       <JoinBreakoutModal
+        meetingCode={meetingCode}
         isOpen={isJoinBreakoutModalOpen}
         onClose={() => setIsJoinBreakoutModalOpen(false)}
         rooms={breakoutRoomsList}

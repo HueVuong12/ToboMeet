@@ -7,11 +7,12 @@ import {
   HttpCode,
   HttpStatus,
   Body,
+  Get,
+  UsePipes,
+  ValidationPipe,
 } from "@nestjs/common";
 import { BreakoutRoomsService } from "./breakout-rooms.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
-import { Roles } from "../core/decorators/roles.decorator";
-import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { StartBreakoutSessionDto } from "./dtos/create-breakout-room.dto";
 
 interface AuthenticatedRequest extends Request {
@@ -21,6 +22,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller("meetings")
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class BreakoutRoomsController {
   constructor(private readonly breakoutRoomsService: BreakoutRoomsService) {}
 
@@ -90,6 +92,18 @@ export class BreakoutRoomsController {
       fullBreakoutRoomName,
       req.user.id,
       body.deviceId,
+    );
+  }
+
+  /**
+   * GET /api/meetings/:code/breakout/counts
+   * PARTICIPANT: Lấy số lượng người đang trong các nhóm thảo luận
+   */
+  @Get(":code/breakout/counts")
+  @UseGuards(SupabaseGuard)
+  async getBreakoutCounts(@Param("code") meetingCode: string) {
+    return this.breakoutRoomsService.getBreakoutRoomsParticipantCount(
+      meetingCode,
     );
   }
 }
