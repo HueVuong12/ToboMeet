@@ -196,6 +196,9 @@ export class CalendarService {
       this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
     }
 
+    // Phát event tạo lịch biểu realtime cho tất cả các client
+    this.appGateway.server.emit("calendar_event_created", event);
+
     return { event, invitations };
   }
 

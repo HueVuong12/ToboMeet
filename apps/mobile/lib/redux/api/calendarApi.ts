@@ -15,7 +15,36 @@ export const calendarApi = baseApi.injectEndpoints({
         data: body,
       }),
     }),
+    updateCalendarEvent: builder.mutation<any, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/calendar/${id}?type=all`,
+        method: "PUT",
+        data: body,
+      }),
+    }),
+    deleteCalendarEvent: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/calendar/${id}?type=all`,
+        method: "DELETE",
+      }),
+    }),
+    searchUsers: builder.query<any[], string>({
+      query: (query) => ({
+        url: `/users/search?q=${encodeURIComponent(query)}`,
+        method: "GET",
+      }),
+      transformResponse: (response: any) => {
+        return response && Array.isArray(response.result) ? response.result : [];
+      },
+    }),
   }),
 });
 
-export const { useGetCalendarEventsQuery, useCreateCalendarEventMutation } = calendarApi;
+export const {
+  useGetCalendarEventsQuery,
+  useCreateCalendarEventMutation,
+  useUpdateCalendarEventMutation,
+  useDeleteCalendarEventMutation,
+  useLazySearchUsersQuery,
+} = calendarApi;
+

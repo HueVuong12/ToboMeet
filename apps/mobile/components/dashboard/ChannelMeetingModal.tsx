@@ -10,6 +10,8 @@ import {
   Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import DateTimePickerJS from "./DateTimePickerJS";
+import { useTranslation } from "react-i18next";
 import { useCreateCalendarEventMutation } from "../../lib/redux/api/calendarApi";
 import { useGetMyRoomsForCalendarQuery } from "../../lib/redux/api/roomsCalendarApi";
 
@@ -20,10 +22,15 @@ interface Props {
 }
 
 export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Props) {
+  const { t, i18n } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // DateTimePicker states
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<"start" | "end">("start");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
@@ -37,17 +44,37 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
   });
   const [createEvent, { isLoading: isCreating }] = useCreateCalendarEventMutation();
 
+  const handleDateChange = (isoString: string) => {
+    if (pickerTarget === "start") {
+      setStartDate(isoString);
+    } else {
+      setEndDate(isoString);
+    }
+    setShowPicker(false);
+  };
+
+  const formatDisplayDateTime = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const formattedDate = i18n.language === "vi"
+      ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+      : `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`;
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}  ${formattedDate}`;
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tiêu đề cuộc họp");
+      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_meeting_title_required"));
       return;
     }
     if (!startDate || !endDate) {
-      Alert.alert("Lỗi", "Vui lòng chọn thời gian bắt đầu và kết thúc");
+      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_select_time_required"));
       return;
     }
     if (!selectedRoom || !selectedChannel) {
-      Alert.alert("Lỗi", "Vui lòng chọn phòng và kênh");
+      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_select_channel_required"));
       return;
     }
 
@@ -63,11 +90,11 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
       };
 
       await createEvent(payload).unwrap();
-      Alert.alert("Thành công", "Đã tạo cuộc họp kênh thành công");
+      Alert.alert(t("password_reset.password_success"), t("calendar.alert_create_meeting_success"));
       onSuccess();
       handleClose();
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.data?.message || "Không thể tạo cuộc họp");
+      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", error?.data?.message || "Error");
     }
   };
 
@@ -93,7 +120,7 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
       <View style={{ flex: 1, backgroundColor: "rgba(15, 23, 42, 0.5)", justifyContent: "flex-end" }}>
         <View style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "85%" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <Text style={{ fontSize: 18, fontWeight: "bold", color: "#0F172A" }}>Cuộc họp kênh</Text>
+            <Text style={{ fontSize: 18, fontWeight: "bold", color: "#0F172A" }}>{t("calendar.channel_meeting_title")}</Text>
             <TouchableOpacity onPress={handleClose}>
               <Feather name="x" size={24} color="#64748B" />
             </TouchableOpacity>
@@ -103,11 +130,11 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
             <View style={{ gap: 16 }}>
               {/* Tiêu đề */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>TIÊU ĐỀ CUỘC HỌP</Text>
+                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>{t("calendar.meeting_title")}</Text>
                 <TextInput
                   value={title}
                   onChangeText={setTitle}
-                  placeholder="Ví dụ: Sprint Planning"
+                  placeholder={i18n.language === "vi" ? "Ví dụ: Sprint Planning" : "e.g., Sprint Planning"}
                   placeholderTextColor="#94A3B8"
                   style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: "#0F172A" }}
                 />
@@ -115,31 +142,51 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
 
               {/* Bắt đầu */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>BẮT ĐẦU (YYYY-MM-DDTHH:MM)</Text>
-                <TextInput
-                  value={startDate}
-                  onChangeText={setStartDate}
-                  placeholder="2026-08-13T22:00"
-                  placeholderTextColor="#94A3B8"
-                  style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: "#0F172A" }}
-                />
+                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>{t("calendar.start_time")}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setPickerTarget("start");
+                    setShowPicker(true);
+                  }}
+                  style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFFFFF" }}
+                >
+                  <Text style={{ fontSize: 14, color: startDate ? "#0F172A" : "#94A3B8" }}>
+                    {startDate ? formatDisplayDateTime(startDate) : t("calendar.select_start_time")}
+                  </Text>
+                  <Feather name="calendar" size={16} color="#64748B" />
+                </TouchableOpacity>
               </View>
 
               {/* Kết thúc */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>KẾT THÚC (YYYY-MM-DDTHH:MM)</Text>
-                <TextInput
-                  value={endDate}
-                  onChangeText={setEndDate}
-                  placeholder="2026-08-13T23:00"
-                  placeholderTextColor="#94A3B8"
-                  style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: "#0F172A" }}
-                />
+                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>{t("calendar.end_time")}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setPickerTarget("end");
+                    setShowPicker(true);
+                  }}
+                  style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFFFFF" }}
+                >
+                  <Text style={{ fontSize: 14, color: endDate ? "#0F172A" : "#94A3B8" }}>
+                    {endDate ? formatDisplayDateTime(endDate) : t("calendar.select_end_time")}
+                  </Text>
+                  <Feather name="calendar" size={16} color="#64748B" />
+                </TouchableOpacity>
               </View>
+
+              {/* DateTimePicker rendering */}
+              {showPicker && (
+                <DateTimePickerJS
+                  visible={showPicker}
+                  value={pickerTarget === "start" ? startDate : endDate}
+                  onClose={() => setShowPicker(false)}
+                  onChange={handleDateChange}
+                />
+              )}
 
               {/* Combobox Chọn phòng dạng Tree (Phòng / Kênh lồng nhau) */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>THÊM KÊNH</Text>
+                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>{i18n.language === "vi" ? "THÊM KÊNH" : "ADD CHANNEL"}</Text>
                 
                 {/* Input gõ tìm kiếm trực tiếp trên mobile */}
                 <View style={{ position: "relative" }}>
@@ -171,7 +218,7 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
                       setSearchQuery("");
                       setExpandedRoomsInputMode(false);
                     }}
-                    placeholder="Chọn phòng và kênh..."
+                    placeholder={t("calendar.select_channel_placeholder")}
                     placeholderTextColor="#94A3B8"
                     style={{
                       borderWidth: 1,
@@ -260,7 +307,9 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
                               {isExpanded && (
                                 <View style={{ paddingLeft: 28, gap: 4, marginVertical: 4 }}>
                                   {(!room.channels || room.channels.length === 0) ? (
-                                    <Text style={{ fontSize: 11, color: "#94A3B8", paddingLeft: 4 }}>Chưa có kênh</Text>
+                                    <Text style={{ fontSize: 11, color: "#94A3B8", paddingLeft: 4 }}>
+                                      {i18n.language === "vi" ? "Chưa có kênh" : "No channels"}
+                                    </Text>
                                   ) : (
                                     room.channels.map((channel: any) => {
                                       const isSelected = selectedChannel?._id === channel._id;
@@ -300,7 +349,9 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
                           );
                         })}
                         {filteredRooms.length === 0 && (
-                          <Text style={{ fontSize: 12, color: "#94A3B8", textAlign: "center", paddingVertical: 8 }}>Không tìm thấy phòng</Text>
+                          <Text style={{ fontSize: 12, color: "#94A3B8", textAlign: "center", paddingVertical: 8 }}>
+                            {i18n.language === "vi" ? "Không tìm thấy phòng" : "No rooms found"}
+                          </Text>
                         )}
                       </ScrollView>
                     )}
@@ -310,11 +361,11 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
 
               {/* Mô tả */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>MÔ TẢ</Text>
+                <Text style={{ fontSize: 12, fontWeight: "bold", color: "#64748B", marginBottom: 6 }}>{t("calendar.description")}</Text>
                 <TextInput
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="Nội dung cuộc họp..."
+                  placeholder={t("calendar.description_placeholder")}
                   placeholderTextColor="#94A3B8"
                   multiline
                   numberOfLines={4}
@@ -328,7 +379,7 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
                   onPress={handleClose}
                   style={{ flex: 1, paddingVertical: 12, borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, alignItems: "center" }}
                 >
-                  <Text style={{ color: "#475569", fontWeight: "bold", fontSize: 14 }}>Hủy</Text>
+                  <Text style={{ color: "#475569", fontWeight: "bold", fontSize: 14 }}>{t("calendar.cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSave}
@@ -338,7 +389,7 @@ export default function ChannelMeetingModal({ visible, onClose, onSuccess }: Pro
                   {isCreating ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 14 }}>Lưu</Text>
+                    <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 14 }}>{t("calendar.save")}</Text>
                   )}
                 </TouchableOpacity>
               </View>

@@ -2,8 +2,11 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 export default function DashboardLayout() {
+  const { t } = useTranslation();
+
   return (
     <Tabs
       screenOptions={{
@@ -29,7 +32,7 @@ export default function DashboardLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Nhóm",
+          title: t("dashboard.tab_rooms"),
           tabBarIcon: ({ color, size }) => (
             <Feather name="video" size={size} color={color} />
           ),
@@ -40,7 +43,7 @@ export default function DashboardLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: "Lịch",
+          title: t("dashboard.tab_calendar"),
           tabBarIcon: ({ color, size }) => (
             <Feather name="calendar" size={size} color={color} />
           ),
@@ -51,7 +54,7 @@ export default function DashboardLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Cài đặt",
+          title: t("dashboard.tab_settings"),
           tabBarIcon: ({ color, size }) => (
             <Feather name="settings" size={size} color={color} />
           ),
