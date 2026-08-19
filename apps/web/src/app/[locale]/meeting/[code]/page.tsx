@@ -20,6 +20,7 @@ import {
   useMeetingSessionContext,
 } from "@/components/meeting/contexts/MeetingSessionContext";
 import { LivekitRoomMetadata } from "@tobomeet/shared/types";
+import { useBreakoutSync } from "@/hooks/useBreakoutSync";
 
 function MeetingPageContent() {
   const t = useTranslations("meeting.meeting_page");
@@ -182,39 +183,16 @@ export default function MeetingPage() {
 function RoomContentGuard({ meetingData, meetingCode }: any) {
   const t = useTranslations("meeting.meeting_page");
   const room = useRoomContext();
-  const { handleReturnToMain, handleDisconnect } = useMeetingSessionContext();
+
+  // Lắng nghe các sự kiện breakout
+  useBreakoutSync();
+  const { handleDisconnect } = useMeetingSessionContext();
 
   const { displayParticipants } = useParticipantManager({
     roomId: meetingData.roomId,
     channelId: meetingData.channelId,
     meetingCode: meetingCode,
   });
-
-  // Lắng nghe sự kiện kết thúc breakout (do host hoặc timer đóng)
-  useEffect(() => {
-    const handleMetadataChanged = (metadataStr: string | undefined) => {
-      if (!metadataStr) return;
-
-      try {
-        const meta: LivekitRoomMetadata = JSON.parse(metadataStr);
-
-        if (meta.roomType === "breakout" && meta.status === "closing") {
-          toast.info("Phiên thảo luận đã kết thúc");
-          handleReturnToMain(room.name);
-        }
-      } catch (error) {
-        console.error("Lỗi parse metadata breakout:", error);
-      }
-    };
-
-    handleMetadataChanged(room.metadata);
-
-    room.on(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
-
-    return () => {
-      room.off(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
-    };
-  }, [room, handleReturnToMain]);
 
   const [participantStatus, setParticipantStatus] = useState(() => {
     try {

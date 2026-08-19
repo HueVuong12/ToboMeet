@@ -22,9 +22,9 @@ export function useParticipantManager({
   channelId,
   meetingCode,
 }: {
-  roomId: string | null;
-  channelId: string | null;
-  meetingCode: string | null;
+  roomId?: string;
+  channelId?: string;
+  meetingCode?: string;
 }) {
   const t = useTranslations("meeting.participant_list");
   const participants = useParticipants();

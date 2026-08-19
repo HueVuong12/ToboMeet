@@ -23,6 +23,11 @@ export class CreateBreakoutRoomDto {
   @IsNumber()
   @Min(1)
   durationMinutes?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignedUsers?: string[];
 }
 
 // Validate cho toàn bộ Payload gửi lên khi Start Breakout

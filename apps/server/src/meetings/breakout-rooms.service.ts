@@ -4,6 +4,7 @@ import { Model } from "mongoose";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import {
   AccessToken,
+  DataPacket_Kind,
   RoomServiceClient,
   TrackSource,
 } from "livekit-server-sdk";
@@ -18,12 +19,7 @@ import {
   ParticipantMetadata,
 } from "@tobomeet/shared/types";
 import { MeetingsService } from "./meetings.service";
-
-export interface CreateBreakoutRoomDto {
-  name: string; // VD: "Nhóm 1 - Thảo luận Frontend"
-  maxParticipants?: number; // Giới hạn số người (tuỳ chọn)
-  durationMinutes?: number; // Thời gian tồn tại của phòng (tuỳ chọn)
-}
+import { CreateBreakoutRoomDto } from "./dtos/create-breakout-room.dto";
 
 @Injectable()
 export class BreakoutRoomsService {
@@ -172,10 +168,41 @@ export class BreakoutRoomsService {
         metadataString,
       );
 
-      // ========================================================
-      // GIẢI PHÁP TẠM: SETTIMEOUT TỰ ĐỘNG ĐÓNG PHÒNG KHI HẾT GIỜ
-      // ========================================================
+      // ===== Gửi tín hiệu join cho người được chỉ định =====
+      for (const config of roomConfigs) {
+        if (config.assignedUsers && config.assignedUsers.length > 0) {
+          // Tìm ID phòng phụ tương ứng (vd: sub_1)
+          const assignedRoom = breakoutRooms.find(
+            (r) => r.name === config.name,
+          );
 
+          if (assignedRoom) {
+            const payload = JSON.stringify({
+              id: Date.now().toString(),
+              type: "SYSTEM",
+              command: "FORCE_JOIN_BREAKOUT",
+              breakoutRoomId: assignedRoom.id,
+              targetUsers: config.assignedUsers,
+              timestamp: Date.now(),
+            });
+
+            const encoder = new TextEncoder();
+            const data = encoder.encode(payload);
+
+            try {
+              await this.livekitRoomService.sendData(
+                mainMeetingCode,
+                data,
+                DataPacket_Kind.RELIABLE,
+              );
+            } catch (err) {
+              console.error("Lỗi khi bắn tín hiệu auto-join:", err);
+            }
+          }
+        }
+      }
+
+      // ===== Tự động đóng phòng khi hết giờ =====
       this.clearTimersForMeeting(mainMeetingCode);
 
       const currentTimers: NodeJS.Timeout[] = [];
@@ -272,7 +299,6 @@ export class BreakoutRoomsService {
       if (currentTimers.length > 0) {
         this.breakoutTimers.set(mainMeetingCode, currentTimers);
       }
-      // ========================================================
     } catch (error) {
       console.error("Lỗi khi tạo Breakout Session:", error);
       throw new BadRequestException("Không thể tạo phiên thảo luận nhóm.");

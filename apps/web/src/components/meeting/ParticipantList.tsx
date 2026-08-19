@@ -21,8 +21,8 @@ export default function ParticipantList({
   channelId,
   meetingCode,
 }: {
-  roomId: string | null;
-  channelId: string | null;
+  roomId?: string;
+  channelId?: string;
   meetingCode: string;
 }) {
   const t = useTranslations("room");

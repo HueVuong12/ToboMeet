@@ -308,6 +308,14 @@ export interface LivekitBreakoutRoom {
   durationMinutes: number;
 }
 
+// Đồng bộ với dto bên BE
+export interface CreateBreakoutRoomDto {
+  name: string;
+  maxParticipants?: number;
+  durationMinutes?: number;
+  assignedUsers?: string[];
+}
+
 export interface ChannelFileResponse {
   _id: string;
   roomId: string;

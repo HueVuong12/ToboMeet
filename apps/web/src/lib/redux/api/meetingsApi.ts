@@ -1,4 +1,5 @@
 import {
+  CreateBreakoutRoomDto,
   LivekitBreakoutRoom,
   MeetingDeviceStatus,
   MeetingJoinResponse,
@@ -221,7 +222,7 @@ export const meetingsApi = baseApi.injectEndpoints({
       void,
       {
         code: string;
-        rooms: Omit<LivekitBreakoutRoom, "id">[];
+        rooms: CreateBreakoutRoomDto[];
       }
     >({
       query: ({ code, rooms }) => ({
