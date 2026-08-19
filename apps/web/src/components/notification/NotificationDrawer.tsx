@@ -26,16 +26,14 @@ export default function NotificationDrawer({
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[2px] transition-all duration-300 ease-in-out ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
+        className={`fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[2px] transition-all duration-300 ease-in-out ${isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+          }`}
         onClick={onClose}
       />
 
       <div
-        className={`fixed top-0 left-17 bottom-0 w-95 bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-[-150%]"
-        }`}
+        className={`fixed top-0 left-17 bottom-0 w-95 bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-[-150%]"
+          }`}
       >
         <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 bg-white/80 backdrop-blur-md">
           <h2 className="text-lg font-bold text-slate-800">

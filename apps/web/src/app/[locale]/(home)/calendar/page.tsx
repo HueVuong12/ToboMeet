@@ -806,7 +806,7 @@ function CalendarContent() {
   return (
     <div className="h-screen bg-[#f5f5f5] font-sans flex flex-col overflow-hidden text-slate-800">
       {/* ── Local Header Bar ── */}
-      <div className="h-[72px] bg-white border-b border-slate-200/60 flex items-center flex-shrink-0 z-[45]">
+      <div className="h-[72px] bg-white border-b border-slate-200/60 flex items-center flex-shrink-0 z-35">
 
         {/* LEFT: Cố định = độ rộng sidebar (w-64 = 256px) — Menu + Lịch */}
         <div className="w-64 flex-shrink-0 flex items-center gap-3 px-4">
