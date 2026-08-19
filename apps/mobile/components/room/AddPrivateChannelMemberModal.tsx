@@ -12,7 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
 import { useAddChannelMemberMutation } from "../../lib/redux/features/rooms/roomsApi";
-import { useSearchUsersQuery } from "../../lib/redux/features/users/usersApi";
+import { useChannelMemberSearch } from "../../hooks/useChannelMemberSearch";
 import { toast } from "../../lib/toast";
 import { UserResponse } from "@tobomeet/shared/types";
 
@@ -40,13 +40,12 @@ export default function AddPrivateChannelMemberModal({
   const [addChannelMember, { isLoading: isSubmitting }] = useAddChannelMemberMutation();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: searchResults = [], isFetching: isSearching } = useSearchUsersQuery(
-    debouncedQuery,
-    { skip: debouncedQuery.length < 2 || !visible || !!selectedUser }
+  const { users: searchResults, isLoading: isSearching } = useChannelMemberSearch(
+    searchQuery,
+    !visible
   );
 
   const channelId = channel?._id || channel?.id || "";
@@ -54,18 +53,10 @@ export default function AddPrivateChannelMemberModal({
   useEffect(() => {
     if (visible) {
       setSearchQuery("");
-      setDebouncedQuery("");
       setSelectedUser(null);
       setError(null);
     }
   }, [visible]);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setDebouncedQuery(searchQuery.trim());
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
 
   if (!visible || !channel) return null;
 

@@ -27,7 +27,6 @@ import {
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
   useGetMeQuery,
-  useSearchUsersQuery,
 } from "../../lib/redux/features/users/usersApi";
 import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
@@ -38,6 +37,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomUpdateListener } from "../../hooks/socket/useRoomUpdateListener";
 import { useMeetingDeviceStatus } from "../../hooks/useMeetingDeviceStatus";
 import { useMeetingLauncher } from "../../hooks/useMeetingLauncher";
+import { useRoomMemberSearch } from "../../hooks/useRoomMemberSearch";
 import { meetingsApi } from "../../lib/redux/features/meetings/meetingsApi";
 import {
   useGetPostsQuery,
@@ -101,10 +101,10 @@ export default function RoomDetailScreen() {
   // Search User state (Invite Member)
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: searchResults, isFetching: isSearching } = useSearchUsersQuery(
-    searchQuery,
-    { skip: !searchQuery.trim() },
-  );
+  const {
+    users: searchResults,
+    isLoading: isSearching,
+  } = useRoomMemberSearch(searchQuery);
 
   // Handover state (Leave Room as Owner)
   const [showHandoverModal, setShowHandoverModal] = useState(false);

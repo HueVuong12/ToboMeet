@@ -36,9 +36,9 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       providesTags: ["User"],
     }),
-    searchUsers: builder.query<UserResponse[], string>({
-      query: (query) => ({
-        url: `/users/search?q=${encodeURIComponent(query)}`,
+    searchUsersPaginated: builder.query<{ users: UserResponse[]; total: number }, { q: string }>({
+      query: ({ q }) => ({
+        url: `/users/search?q=${encodeURIComponent(q)}`,
         method: "GET",
       }),
     }),
@@ -86,5 +86,5 @@ export const {
   useLazyGetLoggedOutSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
-  useSearchUsersQuery,
+  useSearchUsersPaginatedQuery,
 } = usersApi;
