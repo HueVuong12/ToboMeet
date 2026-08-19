@@ -34,6 +34,7 @@ import { useMeetingLauncher } from "@/hooks/useMeetingLauncher";
 import NewsFeed from "./NewsFeed";
 import ChannelFilesTab from "./ChannelFilesTab";
 import RoomRightSidebar from "./RoomRightSidebar";
+import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
 
 interface RoomContentProps {
   roomId: string;
@@ -72,6 +73,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
   const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showChannelMeetingModal, setShowChannelMeetingModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
     userId: string;
     displayName: string;
@@ -107,6 +109,22 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     return rawMember?.role;
   })();
 
+  // Đọc tham số URL "channel" khi tải trang để chuyển đổi kênh tự động nếu được trỏ đến từ liên kết bên ngoài
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlChannel = searchParams.get("channel");
+      if (urlChannel && room?.channels) {
+        const matchingChan = room.channels.find(
+          (c: any) => c.name === urlChannel || (c._id && c._id === urlChannel)
+        );
+        if (matchingChan) {
+          setActiveChannel(matchingChan.name);
+        }
+      }
+    }
+  }, [room?.channels]);
+
   // Navigation Guard: Nếu kênh hiện tại không còn thuộc room.channels (do bị xóa hoặc vừa rời), tự động switch về kênh đầu tiên
   useEffect(() => {
     if (room?.channels && room.channels.length > 0) {
@@ -118,7 +136,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   }, [room?.channels, activeChannel]);
 
   const isCurrentUserRoomOwner =
-    isCurrentUserOwner || currentUserRoomRole === "owner";
+    !!(isCurrentUserOwner || 
+    (currentUserRoomRole && ["owner", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase())));
 
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
@@ -128,15 +147,15 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   // 1. Phó nhóm cấp phòng (role "admin" ở cấp room)
   // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
   const isCurrentUserRoomAdmin =
-    !isCurrentUserRoomOwner &&
-    (currentUserRoomRole?.toLowerCase() === "admin" ||
+    !!(!isCurrentUserRoomOwner &&
+    ((currentUserRoomRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserRoomRole.toLowerCase())) ||
       (currentChannel?.isPrivate !== true &&
-        currentUserChannelRole?.toLowerCase() === "admin"));
+        currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase()))));
 
   const canUserManageChannel =
-    isCurrentUserRoomOwner ||
+    !!(isCurrentUserRoomOwner ||
     isCurrentUserRoomAdmin ||
-    currentUserChannelRole === "admin";
+    (currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase())));
 
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: currentChannel?._id || "" },
@@ -292,7 +311,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           activeChannel={activeChannel}
           setActiveChannel={setActiveChannel}
           onClose={() => setIsLeftSidebarOpen(false)}
+          roomMembers={members}
         />
+
       </div>
 
       {/* Lớp phủ đen cho Left Sidebar trên Mobile */}
@@ -334,6 +355,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               >
                 {t("class_feed")}
               </button>
+              {/* localized files tab */}
               <button
                 onClick={() => setActiveTab("files")}
                 className={`px-3 py-4 border-b-2 transition-colors ${
@@ -342,7 +364,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                     : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                Tệp
+                {t("files")}
               </button>
             </div>
           </div>
@@ -395,7 +417,13 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                         >
                           <Video size={16} /> {t("start_now")}
                         </button>
-                        <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setIsMeetingMenuOpen(false);
+                            setShowChannelMeetingModal(true);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
                           <Calendar size={16} /> {t("schedule_meeting")}
                         </button>
                       </div>
@@ -426,7 +454,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               roomId={roomId}
               channelId={currentChannel._id || ""}
               userId={userId}
-              canManageFiles={isCurrentUserRoomOwner || currentUserRoomRole === "admin"}
+              canManageFiles={isCurrentUserRoomOwner || isCurrentUserRoomAdmin}
             />
           ) : (
             <NewsFeed
@@ -561,9 +589,17 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           roomId={room._id}
           targetUserId={memberToTransfer.userId}
           targetUserName={memberToTransfer.displayName}
-          roomType={room.type}
+          roomType={room.type || "meeting"}
         />
       )}
+
+      {/* Modal Lên lịch cuộc họp kênh dùng chung */}
+      <ChannelMeetingModal
+        isOpen={showChannelMeetingModal}
+        onClose={() => setShowChannelMeetingModal(false)}
+        initialRoom={room}
+        initialChannel={currentChannel}
+      />
     </div>
   );
 }

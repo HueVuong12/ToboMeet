@@ -23,6 +23,7 @@ export class RoomActivity {
       "DISBANDED",
       "ROLE_UPDATED",
       "OWNER_TRANSFERRED",
+      "RENAMED",
     ],
   })
   type: string;

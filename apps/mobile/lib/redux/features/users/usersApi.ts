@@ -43,7 +43,7 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["User"],
     }),
 
-    // Tìm kiếm toàn cục + phân trang (tuyệt đối không đụng nữa)
+    // Dùng hàm này cho toàn cục
     searchUsers: builder.query<PageResponse<UserResponse>, SearchUsersArgs>({
       query: (args) => ({
         url: "/users/search",
@@ -81,6 +81,15 @@ export const usersApi = baseApi.injectEndpoints({
         );
       },
 
+      providesTags: ["UserSearch"],
+    }),
+
+    // đổi tên hàm 
+    searchUsersByKeyword: builder.query<UserResponse[], string>({
+      query: (query) => ({
+        url: `/users/search-by-keyword?q=${encodeURIComponent(query)}`,
+        method: "GET",
+      }),
       providesTags: ["UserSearch"],
     }),
 
@@ -134,5 +143,6 @@ export const {
   useLazyGetLoggedOutSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
+  useSearchUsersByKeywordQuery,
   useSearchUsersQuery,
 } = usersApi;

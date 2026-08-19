@@ -33,10 +33,12 @@ export const channelFilesApi = baseApi.injectEndpoints({
         roomId: string;
         channelId: string;
         fileName: string;
-        storagePath: string;
-        publicUrl: string;
-        mimeType: string;
-        fileSize: number;
+        storagePath?: string;
+        publicUrl?: string;
+        mimeType?: string;
+        fileSize?: number;
+        isFolder?: boolean;
+        parentFolderId?: string | null;
       }
     >({
       query: (body) => ({
@@ -85,6 +87,32 @@ export const channelFilesApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
+
+    pinFile: builder.mutation<
+      { success: boolean },
+      { fileId: string; channelId: string }
+    >({
+      query: ({ fileId }) => ({
+        url: `/channel-files/${fileId}/pin`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { channelId }) => [
+        { type: "ChannelFile", id: channelId },
+      ],
+    }),
+
+    unpinFile: builder.mutation<
+      { success: boolean },
+      { fileId: string; channelId: string }
+    >({
+      query: ({ fileId }) => ({
+        url: `/channel-files/${fileId}/pin`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { channelId }) => [
+        { type: "ChannelFile", id: channelId },
+      ],
+    }),
   }),
   overrideExisting: true,
 });
@@ -96,4 +124,6 @@ export const {
   useRenameFileMutation,
   useDeleteFileMutation,
   useLazyGetDownloadUrlQuery,
+  usePinFileMutation,
+  useUnpinFileMutation,
 } = channelFilesApi;

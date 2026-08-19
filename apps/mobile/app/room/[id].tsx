@@ -27,7 +27,7 @@ import {
 } from "../../lib/redux/features/rooms/roomsApi";
 import {
   useGetMeQuery,
-  useSearchUsersQuery,
+  useSearchUsersByKeywordQuery,
 } from "../../lib/redux/features/users/usersApi";
 import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
@@ -49,7 +49,9 @@ import ReportUserModal from "../../components/room/ReportUserModal";
 import ReportRoomModal from "../../components/room/ReportRoomModal";
 import CreateChannelModal from "../../components/room/CreateChannelModal";
 import AddPrivateChannelMemberModal from "../../components/room/AddPrivateChannelMemberModal";
+import RenameChannelModal from "../../components/room/RenameChannelModal";
 import { ChannelResponse, RoomMemberResponse } from "@tobomeet/shared/types";
+
 import RoomRightDrawer from "../../components/room/RoomRightDrawer";
 import RoomLeftDrawer from "../../components/room/RoomLeftDrawer";
 import MemberActionMenuModal from "../../components/room/MemberActionMenuModal";
@@ -87,6 +89,9 @@ export default function RoomDetailScreen() {
   ] = useState(false);
   // State cho Modal xác nhận rời kênh riêng tư
   const [channelToLeave, setChannelToLeave] = useState<ChannelResponse | null>(null);
+  const [channelToRename, setChannelToRename] = useState<ChannelResponse | null>(null);
+  const [showRenameChannelModal, setShowRenameChannelModal] = useState(false);
+
 
   // Member options menu & Report user state
   const [selectedMemberForMenu, setSelectedMemberForMenu] =
@@ -101,7 +106,7 @@ export default function RoomDetailScreen() {
   // Search User state (Invite Member)
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: searchResults, isFetching: isSearching } = useSearchUsersQuery(
+  const { data: searchResults, isFetching: isSearching } = useSearchUsersByKeywordQuery(
     searchQuery,
     { skip: !searchQuery.trim() },
   );
@@ -542,7 +547,7 @@ export default function RoomDetailScreen() {
               activeTab === "feed" ? "text-blue-600" : "text-slate-500"
             }`}
           >
-            Bảng tin
+            {t("room.feed", { defaultValue: "Bảng tin" })}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -556,7 +561,7 @@ export default function RoomDetailScreen() {
               activeTab === "files" ? "text-blue-600" : "text-slate-500"
             }`}
           >
-            Tệp
+            {t("room.files", { defaultValue: "Tệp" })}
           </Text>
         </TouchableOpacity>
       </View>
@@ -573,7 +578,7 @@ export default function RoomDetailScreen() {
             />
           ) : (
             <View className="flex-1 justify-center items-center">
-              <Text className="text-slate-400">Chọn kênh để xem tệp</Text>
+              <Text className="text-slate-400">{t("room.select_channel_to_view_files", { defaultValue: "Chọn kênh để xem tệp" })}</Text>
             </View>
           )
         ) : isLoadingPosts ? (
@@ -661,6 +666,7 @@ export default function RoomDetailScreen() {
         activeChannelId={activeChannelId}
         onSelectChannel={setActiveChannelId}
         isOwner={isOwner}
+        isRoomVice={isCurrentUserRoomVice}
         currentUserId={profile?.supabaseId}
         onAddChannel={() => setShowAddChannelModal(true)}
         onManagePrivateChannel={(channel) => {
@@ -668,10 +674,15 @@ export default function RoomDetailScreen() {
           setShowAddPrivateChannelMemberModal(true);
         }}
         onLeaveChannel={handleLeaveChannel}
+        onRenameChannel={(channel) => {
+          setChannelToRename(channel);
+          setShowRenameChannelModal(true);
+        }}
         onOpenGroupActions={() => setShowGroupActionsModal(true)}
         onCopyLink={handleCopyLink}
         onGoBack={() => router.replace("/dashboard")}
       />
+
 
       {/* RIGHT DRAWER (Room Info & Members Sidebar Overlay) */}
       <RoomRightDrawer
@@ -1162,6 +1173,20 @@ export default function RoomDetailScreen() {
         </View>
       </Modal>
 
+      {/* Modal Đổi tên Kênh */}
+      {room && (
+        <RenameChannelModal
+          visible={showRenameChannelModal}
+          onClose={() => {
+            setShowRenameChannelModal(false);
+            setChannelToRename(null);
+          }}
+          roomId={room._id}
+          channel={channelToRename}
+        />
+      )}
+
     </KeyboardAvoidingView>
   );
 }
+

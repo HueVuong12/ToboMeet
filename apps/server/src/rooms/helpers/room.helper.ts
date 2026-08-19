@@ -45,6 +45,7 @@ export function mapToRoomResponse(
           role: effectiveRole,
           displayRole: getDisplayRole(effectiveRole),
           joinedAt: safeToIsoString(member.joinedAt),
+          supabaseId: member.userId.includes("-") ? member.userId : undefined,
         };
       }) ?? [];
 

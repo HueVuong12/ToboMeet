@@ -6,7 +6,7 @@ import { X, Loader2 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
 import { useAddChannelMemberMutation, roomsApi } from "@/lib/redux/api/roomsApi";
-import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
+import { useLazySearchUsersByKeywordQuery } from "@/lib/redux/api/usersApi";
 import { toast } from "sonner";
 
 import { useTranslations } from "next-intl";
@@ -41,8 +41,8 @@ export default function AddPrivateChannelMemberModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [searchUsers, { data: searchResults = [], isFetching: isSearching }] =
-    useLazySearchUsersQuery();
+  const [searchUsersByKeyword, { data: searchResults = [], isFetching: isSearching }] =
+    useLazySearchUsersByKeywordQuery();
 
   const channelId = channel?._id || channel?.id || "";
 
@@ -57,11 +57,11 @@ export default function AddPrivateChannelMemberModal({
   useEffect(() => {
     if (searchQuery.trim().length >= 2 && !selectedUser) {
       const delayDebounceFn = setTimeout(() => {
-        searchUsers(searchQuery.trim());
+        searchUsersByKeyword(searchQuery.trim());
       }, 300);
       return () => clearTimeout(delayDebounceFn);
     }
-  }, [searchQuery, selectedUser, searchUsers]);
+  }, [searchQuery, selectedUser, searchUsersByKeyword]);
 
   if (!isOpen || !channel) return null;
 

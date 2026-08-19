@@ -155,7 +155,38 @@ export const roomsApi = baseApi.injectEndpoints({
       ],
     }),
 
+    /**
+     * Đổi tên phòng họp
+     */
+    renameRoom: builder.mutation<RoomResponse, { roomId: string; name: string }>({
+      query: ({ roomId, name }) => ({
+        url: `/rooms/${roomId}/rename`,
+        method: "PATCH",
+        data: { name },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
+    renameChannel: builder.mutation<
+      RoomResponse,
+      { roomId: string; channelId: string; name: string }
+    >({
+      query: ({ roomId, channelId, name }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/rename`,
+        method: "PATCH",
+        data: { name },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
+
     addChannel: builder.mutation<
+
       RoomResponse,
       {
         roomId: string;
@@ -264,6 +295,8 @@ export const {
   useCheckMemberByCodeQuery,
   useUpdateMemberRoleMutation,
   useTransferRoomOwnershipMutation,
+  useRenameRoomMutation,
+  useRenameChannelMutation,
   useUpdateChannelMemberRoleMutation,
   useAddChannelMemberMutation,
   useRemoveChannelMemberMutation,

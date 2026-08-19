@@ -242,6 +242,21 @@ export const roomsApi = baseApi.injectEndpoints({
         "Room",
       ],
     }),
+
+    renameChannel: builder.mutation<
+      RoomResponse,
+      { roomId: string; channelId: string; name: string }
+    >({
+      query: ({ roomId, channelId, name }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/rename`,
+        method: "PATCH",
+        data: { name },
+      }),
+      invalidatesTags: (_result, _error, { roomId }) => [
+        { type: "Room", id: roomId },
+        "Room",
+      ],
+    }),
   }),
 
   overrideExisting: true,
@@ -267,4 +282,6 @@ export const {
   useAddChannelMemberMutation,
   useRemoveChannelMemberMutation,
   useLeaveChannelMutation,
+  useRenameChannelMutation,
 } = roomsApi;
+

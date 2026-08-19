@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -12,8 +12,9 @@ import {
   useGetRoomMembersQuery,
   useDisbandRoomMutation,
   useLeaveChannelMutation,
+  useRenameRoomMutation,
 } from "@/lib/redux/api/roomsApi";
-import { useLazySearchUsersQuery } from "@/lib/redux/api/usersApi";
+import { useLazySearchUsersByKeywordQuery } from "@/lib/redux/api/usersApi";
 import {
   Hash,
   ChevronDown,
@@ -34,12 +35,15 @@ import {
   Flag,
   Lock,
   MoreVertical,
+  Edit3,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import ReportRoomModal from "./ReportRoomModal";
 import CreateChannelModal from "./CreateChannelModal";
 import AddPrivateChannelMemberModal from "./AddPrivateChannelMemberModal";
+import RenameChannelModal from "./RenameChannelModal";
 import { axiosInstance as axios } from "@/lib/axios";
+
 
 interface SidebarProps {
   room: RoomResponse;
@@ -47,6 +51,7 @@ interface SidebarProps {
   onClose?: () => void;
   activeChannel: string;
   setActiveChannel: (channelName: string) => void;
+  roomMembers?: any[];
 }
 
 export default function Sidebar({
@@ -55,7 +60,9 @@ export default function Sidebar({
   activeChannel,
   setActiveChannel,
   onClose,
+  roomMembers: propRoomMembers,
 }: SidebarProps) {
+
   const t = useTranslations("room");
   const tDashboard = useTranslations("dashboard");
   const router = useRouter();
@@ -66,14 +73,19 @@ export default function Sidebar({
     setIsMounted(true);
   }, []);
 
+  const roomMenuRef = useRef<HTMLDivElement>(null);
+  const channelMenuRef = useRef<HTMLDivElement>(null);
+
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelToManage, setChannelToManage] = useState<any | null>(null);
   const [channelToLeave, setChannelToLeave] = useState<any | null>(null);
+  const [channelToRename, setChannelToRename] = useState<any | null>(null);
   const [leaveChannelMutation, { isLoading: isLeavingChannel }] =
     useLeaveChannelMutation();
   const [openChannelMenuId, setOpenChannelMenuId] = useState<string | null>(
     null,
   );
+
   const [newChannelName, setNewChannelName] = useState("");
   const [addChannel, { isLoading }] = useAddChannelMutation();
   const [error, setError] = useState<string | null>(null);
@@ -86,8 +98,31 @@ export default function Sidebar({
   const [leaveRoom, { isLoading: isLeaving }] = useLeaveRoomMutation();
   const [showDisbandConfirm, setShowDisbandConfirm] = useState(false);
   const [disbandRoom, { isLoading: isDisbanding }] = useDisbandRoomMutation();
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renamingName, setRenamingName] = useState(room.name || "");
+  const [renameRoom, { isLoading: isRenaming }] = useRenameRoomMutation();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  // Sync renamingName state when room.name changes
+  useEffect(() => {
+    setRenamingName(room.name || "");
+  }, [room.name]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (showMenu && roomMenuRef.current && !roomMenuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+      if (openChannelMenuId && channelMenuRef.current && !channelMenuRef.current.contains(event.target as Node)) {
+        setOpenChannelMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMenu, openChannelMenuId]);
 
   // State cho Báo cáo phòng
   const [showReportModal, setShowReportModal] = useState(false);
@@ -95,8 +130,12 @@ export default function Sidebar({
 
   // States và Hooks cho bàn giao quyền chủ phòng
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
-  const { data: roomMembers = [] } = useGetRoomMembersQuery(room._id);
+  const { data: queryRoomMembers = [] } = useGetRoomMembersQuery(room._id, {
+    skip: !!propRoomMembers,
+  });
+  const roomMembers = propRoomMembers || queryRoomMembers;
   const otherMembers = roomMembers.filter((m: any) => m.userId !== userId);
+
 
   // States và Hooks cho tính năng tìm kiếm gợi ý & mời thành viên
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,18 +143,18 @@ export default function Sidebar({
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
-  const [searchUsers, { data: searchResults = [], isFetching: isSearching }] =
-    useLazySearchUsersQuery();
+  const [searchUsersByKeyword, { data: searchResults = [], isFetching: isSearching }] =
+    useLazySearchUsersByKeywordQuery();
   const [inviteMember, { isLoading: isInviting }] = useInviteMemberMutation();
 
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
       const delayDebounceFn = setTimeout(() => {
-        searchUsers(searchQuery.trim());
+        searchUsersByKeyword(searchQuery.trim());
       }, 300);
       return () => clearTimeout(delayDebounceFn);
     }
-  }, [searchQuery, searchUsers]);
+  }, [searchQuery, searchUsersByKeyword]);
 
   const handleInviteUser = async () => {
     setInviteError(null);
@@ -182,9 +221,25 @@ export default function Sidebar({
     }
   };
 
-  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)
-    ?.role as string | undefined;
+  // Tìm role trong roomMembers (từ API) trước, fallback sang room.members (từ response phòng)
+  const rawUserRole = (
+    roomMembers.find(
+      (m: any) => m.userId === userId || (m.supabaseId && m.supabaseId === userId),
+    )
+    ?? room.members?.find(
+      (m: any) => m.userId === userId || (m.supabaseId && m.supabaseId === userId),
+    )
+  )?.role as string | undefined;
+
+  const currentUserRole = rawUserRole
+    ? ["owner", "teacher", "leader"].includes(rawUserRole.toLowerCase())
+      ? "owner"
+      : ["vice", "vice_leader", "assistant", "admin"].includes(rawUserRole.toLowerCase())
+        ? "admin"
+        : "member"
+    : "member";
   const isOwner = room.ownerId === userId || currentUserRole === "owner";
+
 
   const handleCreateChannel = async () => {
     if (!newChannelName.trim()) return;
@@ -235,7 +290,7 @@ export default function Sidebar({
 
         <div className="flex items-center gap-1.5">
           {/* Dropdown Menu Toggle */}
-          <div className="relative">
+          <div className="relative" ref={roomMenuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="w-7 h-7 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-500 hover:text-slate-800"
@@ -246,10 +301,6 @@ export default function Sidebar({
 
             {showMenu && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowMenu(false)}
-                />
                 <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
                   <button
                     onClick={() => {
@@ -271,6 +322,18 @@ export default function Sidebar({
                     <LinkIcon className="w-3.5 h-3.5 text-slate-500" />
                     {t("copy_link")}
                   </button>
+                  {(isOwner || currentUserRole === "admin") && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowRenameModal(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                      {t("rename_room")}
+                    </button>
+                  )}
                   <div className="border-t border-slate-100 my-1" />
                   {!isOwner && (
                     <button
@@ -353,8 +416,11 @@ export default function Sidebar({
               const isActive = channel.name === activeChannel;
               const isDefaultChannel =
                 index === 0 || channel.name === "General";
+              // Phó nhóm cấp phòng (currentUserRole === "admin") có quyền quản lý mọi kênh
+              // Phó nhóm cấp kênh (channel.members role === "admin") có quyền quản lý kênh đó
               const canManageThisChannel =
                 isOwner ||
+                currentUserRole === "admin" ||
                 channel.members?.some(
                   (m: any) => m.userId === userId && m.role === "admin",
                 );
@@ -365,14 +431,13 @@ export default function Sidebar({
                   false)
                 : false;
 
-              // Hiển thị 3-dot menu chỉ cho kênh riêng tư:
-              // - Owner/Admin có quyền quản lý (Thêm thành viên)
-              // - Member là thành viên của kênh (Rời khỏi kênh)
-              // Kênh công khai không có menu 3-dot theo spec
+              // Hiển thị 3-dot menu cho kênh:
+              // - Trưởng nhóm hoặc Phó nhóm có toàn quyền quản lý/đổi tên trên bất kỳ kênh nào.
+              // - Đối với thành viên thường, chỉ hiện 3-dot ở kênh riêng tư (không phải mặc định) để họ rời kênh.
               const showThreeDots =
-                channel.isPrivate &&
-                !isDefaultChannel &&
-                (canManageThisChannel || isChannelMember);
+                canManageThisChannel ||
+                (channel.isPrivate && !isDefaultChannel && isChannelMember);
+
 
               return (
                 <div
@@ -400,7 +465,7 @@ export default function Sidebar({
                   </button>
 
                   {showThreeDots && (
-                    <div className="relative">
+                    <div className="relative" ref={openChannelMenuId === (channel._id || channel.name) ? channelMenuRef : null}>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -410,7 +475,7 @@ export default function Sidebar({
                             openChannelMenuId === chId ? null : chId,
                           );
                         }}
-                        title="Tùy chọn kênh"
+                        title={t("channel_options", { defaultValue: "Tùy chọn kênh" })}
                         className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 opacity-70 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -418,13 +483,6 @@ export default function Sidebar({
 
                       {openChannelMenuId === (channel._id || channel.name) && (
                         <>
-                          <div
-                            className="fixed inset-0 z-40"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenChannelMenuId(null);
-                            }}
-                          />
                           <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-100">
                             {channel.isPrivate && canManageThisChannel && (
                               <button
@@ -438,6 +496,21 @@ export default function Sidebar({
                               >
                                 <UserPlus className="w-3.5 h-3.5 text-slate-500" />
                                 <span>{t("add_member_to_channel")}</span>
+                              </button>
+                            )}
+
+                            {canManageThisChannel && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChannelMenuId(null);
+                                  setChannelToRename(channel);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                                <span>{t("rename_channel_title", { defaultValue: "Đổi tên kênh" })}</span>
                               </button>
                             )}
 
@@ -526,6 +599,17 @@ export default function Sidebar({
           roomOwnerId={room.ownerId}
         />
       )}
+
+      {/* Rename Channel Modal */}
+      {channelToRename && (
+        <RenameChannelModal
+          isOpen={!!channelToRename}
+          onClose={() => setChannelToRename(null)}
+          roomId={room._id}
+          channel={channelToRename}
+        />
+      )}
+
 
       {/* Modal Thêm thành viên */}
       {showInviteModal &&
@@ -878,6 +962,94 @@ export default function Sidebar({
                 >
                   {isDisbanding && <Loader2 className="w-4 h-4 animate-spin" />}
                   {t("dissolve_room")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Modal Đổi tên phòng */}
+      {showRenameModal &&
+        isMounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowRenameModal(false)}
+            />
+
+            {/* Dialog */}
+            <div className="relative bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {t("rename_room_title")}
+                </h2>
+                <button
+                  onClick={() => setShowRenameModal(false)}
+                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4 flex flex-col gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    {t("room_name_label")}
+                  </label>
+                  <input
+                    type="text"
+                    value={renamingName}
+                    onChange={(e) => setRenamingName(e.target.value)}
+                    placeholder={t("room_name_label")}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-slate-900"
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 px-6 pb-6 pt-2">
+                <button
+                  onClick={() => {
+                    setRenamingName(room.name || "");
+                    setShowRenameModal(false);
+                  }}
+                  disabled={isRenaming}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!renamingName.trim()) {
+                      toast.error("Tên phòng không được để trống");
+                      return;
+                    }
+                    try {
+                      await renameRoom({
+                        roomId: room._id,
+                        name: renamingName.trim(),
+                      }).unwrap();
+                      toast.success(t("rename_room_success"));
+                      setShowRenameModal(false);
+                    } catch (err: any) {
+                      toast.error(
+                        err?.data?.message ||
+                          err?.message ||
+                          t("rename_room_error")
+                      );
+                    }
+                  }}
+                  disabled={isRenaming || !renamingName.trim() || renamingName.trim() === room.name}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                >
+                  {isRenaming && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {t("confirm")}
                 </button>
               </div>
             </div>

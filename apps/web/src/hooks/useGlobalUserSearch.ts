@@ -7,6 +7,7 @@ interface UseGlobalUserSearchOptions {
   skip?: boolean;
 }
 
+// Tuyệt đối không sửa hook này nữa
 export function useGlobalUserSearch({
   q,
   limit = 20,

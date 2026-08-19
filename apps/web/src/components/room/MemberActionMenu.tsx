@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   ShieldCheck,
   UserCheck,
@@ -56,6 +57,20 @@ export default function MemberActionMenu({
   const [updateChannelMemberRole] = useUpdateChannelMemberRoleMutation();
   const [addChannelMember] = useAddChannelMemberMutation();
   const [removeChannelMember] = useRemoveChannelMemberMutation();
+
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [onClose]);
 
   const handleUpdateRole = async (role: "admin" | "member") => {
     onClose();
@@ -172,9 +187,7 @@ export default function MemberActionMenu({
       (currentChannel?.isPrivate === true || targetChannelRole !== "admin"));
 
   return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-4 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 mt-1 text-xs">
+    <div ref={menuRef} className="absolute right-4 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 mt-1 text-xs">
         {/* Xem hồ sơ & Report */}
         <button
           onClick={onClose}
@@ -285,6 +298,5 @@ export default function MemberActionMenu({
           </button>
         )}
       </div>
-    </>
   );
 }

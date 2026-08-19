@@ -8,7 +8,7 @@ export class CreateEventDto {
   description?: string;
   roomId?: string;
   channelId?: string;
-  roomType?: "meeting" | "classroom";
+  roomType?: "meeting" | "classroom" | "channel_meeting";
   startDate: string;
   endDate: string;
   timezone?: string;

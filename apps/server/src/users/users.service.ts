@@ -507,7 +507,7 @@ export class UsersService {
         } catch (err) {
           this.logger.error(
             "Lỗi khi bắn WebSocket session_list_changed (new session): " +
-              String(err),
+            String(err),
           );
         }
       }
@@ -697,7 +697,7 @@ export class UsersService {
     } catch (err) {
       this.logger.error(
         "Lỗi khi bắn WebSocket session_revoked/session_list_changed: " +
-          String(err),
+        String(err),
       );
     }
 
@@ -758,7 +758,7 @@ export class UsersService {
 
     this.logger.log(
       `[RevokeAll] userId=${userId} | currentSessionId=${currentSessionId} | ` +
-        `currentSocketId="${currentSocketId || "N/A"}" | userAgent="${userAgent.slice(0, 80)}"`,
+      `currentSocketId="${currentSocketId || "N/A"}" | userAgent="${userAgent.slice(0, 80)}"`,
     );
 
     // ─── FIX LỖI 2: Verify session hiện tại (A) tồn tại trong DB ───────────────
@@ -771,7 +771,7 @@ export class UsersService {
     if (!currentSessionDoc) {
       this.logger.error(
         `[RevokeAll] ❌ ABORT – Không tìm thấy session hiện tại (${currentSessionId}) trong DB. ` +
-          `Có thể extractSessionId() tính sai. Hủy thao tác để tránh revoke nhầm session A.`,
+        `Có thể extractSessionId() tính sai. Hủy thao tác để tránh revoke nhầm session A.`,
       );
       throw new BadRequestException(
         "Không xác định được phiên làm việc hiện tại trong hệ thống. Vui lòng thử lại.",
@@ -858,7 +858,7 @@ export class UsersService {
         if (socketsInRoom.size === 0) {
           this.logger.warn(
             `[RevokeAll][Socket] ⚠️ Room "${room}" không có socket nào. ` +
-              `B/C có thể chưa join room hoặc đã disconnect. force_logout sẽ không được nhận realtime.`,
+            `B/C có thể chưa join room hoặc đã disconnect. force_logout sẽ không được nhận realtime.`,
           );
         } else {
           const emitter = this.appGateway.server.to(room);
@@ -877,15 +877,15 @@ export class UsersService {
 
           const targetCount = currentSocketId
             ? Math.max(
-                0,
-                socketsInRoom.size -
-                  (allSocketIds.includes(currentSocketId) ? 1 : 0),
-              )
+              0,
+              socketsInRoom.size -
+              (allSocketIds.includes(currentSocketId) ? 1 : 0),
+            )
             : socketsInRoom.size;
 
           this.logger.log(
             `[RevokeAll][Socket] ✅ Đã emit "force_logout" tới ${targetCount} socket(s) trong room "${room}" và phát "session_list_changed". ` +
-              `Excluded: "${currentSocketId || "không có"}". Payload: ${revokedSessionIds.length} sessionId(s).`,
+            `Excluded: "${currentSocketId || "không có"}". Payload: ${revokedSessionIds.length} sessionId(s).`,
           );
         }
       }
@@ -938,7 +938,7 @@ export class UsersService {
         if (!res.ok && res.status !== 404) {
           this.logger.warn(
             `Không thể xóa Supabase session ${sessionId} (HTTP ${res.status}). ` +
-              `MongoDB đã revoke – Guard sẽ block token này.`,
+            `MongoDB đã revoke – Guard sẽ block token này.`,
           );
         }
       } catch (err) {
@@ -972,116 +972,7 @@ export class UsersService {
     }
   }
 
-  // async searchUsers(query: string): Promise<User[]> {
-  //   const logger = new Logger("UsersSearch");
-  //   logger.log(`[SearchUsers] Từ khóa tìm kiếm thô nhận từ client: "${query}"`);
-  //   if (!query || !query.trim()) return [];
-
-  //   // Hàm loại bỏ dấu tiếng Việt để so khớp không dấu
-  //   const removeVietnameseTones = (str: string): string => {
-  //     str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
-  //     str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
-  //     str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
-  //     str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
-  //     str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
-  //     str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
-  //     str = str.replace(/đ/g, "d");
-  //     str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
-  //     str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
-  //     str = str.replace(/Ì|Í|Ị|B̉|Ĩ/g, "I");
-  //     str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
-  //     str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
-  //     str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
-  //     str = str.replace(/Đ/g, "D");
-  //     // Một số bộ gõ unicode dựng sẵn khác
-  //     str = str.replace(/\u0300|\u0301|\u0309|\u0303|\u0323/g, ""); // Huyền sắc hỏi ngã nặng
-  //     str = str.replace(/\u02C6|\u0306|\u031B/g, ""); // Â, Ă, Ơ, Ư
-  //     return str.trim();
-  //   };
-
-  //   const cleanQuery = query.trim().toLowerCase();
-  //   const queryNoDiacritics = removeVietnameseTones(cleanQuery);
-
-  //   // Tách các từ trong query để tìm kiếm đa từ ghép
-  //   const words = cleanQuery.split(/\s+/).filter(Boolean);
-  //   const wordsNoDiacritics = queryNoDiacritics.split(/\s+/).filter(Boolean);
-
-  //   // Lấy tất cả user đang hoạt động để lọc & sắp xếp trên bộ nhớ
-  //   const allUsers = await this.userModel
-  //     .find({
-  //       status: { $nin: ["BLOCKED"] }
-  //     })
-  //     .select("supabaseId email displayName avatarUrl status")
-  //     .lean()
-  //     .exec();
-
-  //   logger.log(`[SearchUsers] Tổng số người dùng hoạt động trong DB: ${allUsers.length}`);
-
-  //   const matchedUsersWithScore = allUsers.map((user: any) => {
-  //     const email = (user.email || "").toLowerCase();
-  //     const displayName = (user.displayName || "").toLowerCase();
-  //     const displayNameNoDiacritics = removeVietnameseTones(displayName);
-
-  //     let score = 0;
-  //     let isMatch = false;
-
-  //     // 1. So khớp Email
-  //     if (email === cleanQuery) {
-  //       score += 100;
-  //       isMatch = true;
-  //     } else if (email.startsWith(cleanQuery)) {
-  //       score += 80;
-  //       isMatch = true;
-  //     } else if (email.includes(cleanQuery)) {
-  //       score += 50;
-  //       isMatch = true;
-  //     }
-
-  //     // 2. So khớp Display Name (Tên hiển thị)
-  //     if (displayName === cleanQuery || displayNameNoDiacritics === queryNoDiacritics) {
-  //       score += 90;
-  //       isMatch = true;
-  //     } else if (displayName.startsWith(cleanQuery) || displayNameNoDiacritics.startsWith(queryNoDiacritics)) {
-  //       score += 70;
-  //       isMatch = true;
-  //     } else if (displayName.includes(cleanQuery) || displayNameNoDiacritics.includes(queryNoDiacritics)) {
-  //       score += 40;
-  //       isMatch = true;
-  //     }
-
-  //     // 3. So khớp từng từ (từ ghép)
-  //     if (!isMatch && words.length > 0) {
-  //       const matchedWords = words.filter((w, idx) => {
-  //         const wNoDia = wordsNoDiacritics[idx];
-  //         return (
-  //           email.includes(w) ||
-  //           displayName.includes(w) ||
-  //           displayNameNoDiacritics.includes(wNoDia)
-  //         );
-  //       });
-  //       if (matchedWords.length > 0) {
-  //         score += matchedWords.length * 10;
-  //         isMatch = true;
-  //       }
-  //     }
-
-  //     return { user, score, isMatch };
-  //   });
-
-  //   // Lọc các bản ghi khớp, sắp xếp theo điểm số mức độ liên quan (Relevance Score) giảm dần và giới hạn 10 kết quả
-  //   const results = matchedUsersWithScore
-  //     .filter((item) => item.isMatch)
-  //     .sort((a, b) => b.score - a.score)
-  //     .map((item) => {
-  //       logger.log(`[SearchUsers] Khớp: ${item.user.email} (${item.user.displayName || "No Name"}) | Score: ${item.score}`);
-  //       return item.user as any;
-  //     })
-  //     .slice(0, 10);
-
-  //   logger.log(`[SearchUsers] Tổng số kết quả trả về: ${results.length}`);
-  //   return results;
-  // }
-
+  // FE đã cung cấp hook useGlobalUserSearch để sử dụng
   async searchUsers(
     query: string,
     page: number = 1,
@@ -1142,6 +1033,123 @@ export class UsersService {
       totalPages,
       hasNext,
     };
+  }
+
+  async searchUsersByKeyword(query: string): Promise<User[]> {
+    const logger = new Logger("UsersSearch");
+    logger.log(`[SearchUsersByKeyword] Từ khóa tìm kiếm thô nhận từ client: "${query}"`);
+    if (!query || !query.trim()) return [];
+
+
+
+
+    // Xoá hàm này gấp, dùng hàm trên (searchUser)
+
+
+
+    // Hàm loại bỏ dấu tiếng Việt để so khớp không dấu
+    const removeVietnameseTones = (str: string): string => {
+      str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+      str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+      str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+      str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+      str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+      str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+      str = str.replace(/đ/g, "d");
+      str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+      str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+      str = str.replace(/Ì|Í|Ị|B̉|Ĩ/g, "I");
+      str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+      str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+      str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+      str = str.replace(/Đ/g, "D");
+      // Một số bộ gõ unicode dựng sẵn khác
+      str = str.replace(/\u0300|\u0301|\u0309|\u0303|\u0323/g, ""); // Huyền sắc hỏi ngã nặng
+      str = str.replace(/\u02C6|\u0306|\u031B/g, ""); // Â, Ă, Ơ, Ư
+      return str.trim();
+    };
+
+    const cleanQuery = query.trim().toLowerCase();
+    const queryNoDiacritics = removeVietnameseTones(cleanQuery);
+
+    // Tách các từ trong query để tìm kiếm đa từ ghép
+    const words = cleanQuery.split(/\s+/).filter(Boolean);
+    const wordsNoDiacritics = queryNoDiacritics.split(/\s+/).filter(Boolean);
+
+    // Lấy tất cả user đang hoạt động để lọc & sắp xếp trên bộ nhớ
+    const allUsers = await this.userModel
+      .find({
+        status: { $nin: ["BLOCKED"] }
+      })
+      .select("supabaseId email displayName avatarUrl status")
+      .lean()
+      .exec();
+
+    logger.log(`[SearchUsers] Tổng số người dùng hoạt động trong DB: ${allUsers.length}`);
+
+    const matchedUsersWithScore = allUsers.map((user: any) => {
+      const email = (user.email || "").toLowerCase();
+      const displayName = (user.displayName || "").toLowerCase();
+      const displayNameNoDiacritics = removeVietnameseTones(displayName);
+
+      let score = 0;
+      let isMatch = false;
+
+      // 1. So khớp Email
+      if (email === cleanQuery) {
+        score += 100;
+        isMatch = true;
+      } else if (email.startsWith(cleanQuery)) {
+        score += 80;
+        isMatch = true;
+      } else if (email.includes(cleanQuery)) {
+        score += 50;
+        isMatch = true;
+      }
+
+      // 2. So khớp Display Name (Tên hiển thị)
+      if (displayName === cleanQuery || displayNameNoDiacritics === queryNoDiacritics) {
+        score += 90;
+        isMatch = true;
+      } else if (displayName.startsWith(cleanQuery) || displayNameNoDiacritics.startsWith(queryNoDiacritics)) {
+        score += 70;
+        isMatch = true;
+      } else if (displayName.includes(cleanQuery) || displayNameNoDiacritics.includes(queryNoDiacritics)) {
+        score += 40;
+        isMatch = true;
+      }
+
+      // 3. So khớp từng từ (từ ghép)
+      if (!isMatch && words.length > 0) {
+        const matchedWords = words.filter((w, idx) => {
+          const wNoDia = wordsNoDiacritics[idx];
+          return (
+            email.includes(w) ||
+            displayName.includes(w) ||
+            displayNameNoDiacritics.includes(wNoDia)
+          );
+        });
+        if (matchedWords.length > 0) {
+          score += matchedWords.length * 10;
+          isMatch = true;
+        }
+      }
+
+      return { user, score, isMatch };
+    });
+
+    // Lọc các bản ghi khớp, sắp xếp theo điểm số mức độ liên quan (Relevance Score) giảm dần và giới hạn 10 kết quả
+    const results = matchedUsersWithScore
+      .filter((item) => item.isMatch)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => {
+        logger.log(`[SearchUsers] Khớp: ${item.user.email} (${item.user.displayName || "No Name"}) | Score: ${item.score}`);
+        return item.user as any;
+      })
+      .slice(0, 10);
+
+    logger.log(`[SearchUsers] Tổng số kết quả trả về: ${results.length}`);
+    return results;
   }
 
   /**
@@ -1289,7 +1297,7 @@ export class UsersService {
         } catch (wsErr) {
           this.logger.error(
             "Lỗi khi bắn WebSocket thông báo session list changed lúc đồng bộ: " +
-              String(wsErr),
+            String(wsErr),
           );
         }
       }

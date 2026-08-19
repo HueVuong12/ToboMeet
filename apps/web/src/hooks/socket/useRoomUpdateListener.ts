@@ -25,6 +25,7 @@ export function useRoomUpdateListener(
   const {
     removeMemberFromRoomCache,
     addMemberToRoomCache,
+    updateRoomDetailsCache,
     invalidateRoomList,
     invalidateRoom,
   } = useRoomCacheManager();
@@ -124,9 +125,22 @@ export function useRoomUpdateListener(
           invalidateRoom(roomId);
           break;
 
+        case "room_renamed":
+          updateRoomDetailsCache(data.roomId, { name: data.name });
+          invalidateRoomList();
+          break;
+
+        case "channel_renamed":
+          invalidateRoom(data.roomId);
+          invalidateRoomList();
+          break;
+
+
         case "channel_file_uploaded":
         case "channel_file_renamed":
         case "channel_file_deleted":
+        case "channel_file_pinned":
+        case "channel_file_unpinned":
           // Invalidate ChannelFile RTK Query cache để danh sách tệp tự làm mới realtime
           if (data.channelId) {
             dispatch(

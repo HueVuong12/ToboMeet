@@ -15,13 +15,7 @@ import { SupabaseGuard } from "../core/guards/supabase.guard";
 
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
-
-  // @UseGuards(SupabaseGuard)
-  // @Get("search")
-  // async searchUsers(@Query("q") query: string) {
-  //   return this.usersService.searchUsers(query);
-  // }
+  constructor(private readonly usersService: UsersService) { }
 
   /**
    * GET /api/users/search
@@ -42,6 +36,18 @@ export class UsersController {
     }
 
     return this.usersService.searchUsers(query, page, limit);
+  }
+
+  // Xoá hàm này gấp, dùng hàm trên
+  @Get("search-by-keyword")
+  @UseGuards(SupabaseGuard)
+  async searchUsersByKeyword(
+    @Query("q") query?: string,
+    @Query("email") emailQuery?: string
+  ) {
+    const finalQuery = query || emailQuery || "";
+
+    return this.usersService.searchUsersByKeyword(finalQuery);
   }
 
   private getClientIp(req: any): string {
@@ -96,7 +102,7 @@ export class UsersController {
           clientIp,
           deviceHeaders,
         )
-        .catch(() => {});
+        .catch(() => { });
     }
 
     return userDoc;

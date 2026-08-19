@@ -272,6 +272,7 @@ export interface RoomResponse {
   description?: string;
   code: string;
   ownerId: string;
+  type?: string;
   members?: RoomMemberResponse[];
   channels: ChannelResponse[];
   createdAt: string;
@@ -428,6 +429,10 @@ export interface ChannelFileResponse {
   fileSize: number;
   createdAt: string;
   updatedAt: string;
+  isFolder?: boolean;
+  parentFolderId?: string | null;
+  isPinned?: boolean;
+  pinnedAt?: string;
 }
 
 export interface PageResponse<T> {

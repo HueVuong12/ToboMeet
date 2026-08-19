@@ -12,7 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
 import { useAddChannelMemberMutation } from "../../lib/redux/features/rooms/roomsApi";
-import { useSearchUsersQuery } from "../../lib/redux/features/users/usersApi";
+import { useSearchUsersByKeywordQuery } from "../../lib/redux/features/users/usersApi";
 import { toast } from "../../lib/toast";
 import { UserResponse } from "@tobomeet/shared/types";
 
@@ -37,6 +37,7 @@ export default function AddPrivateChannelMemberModal({
   channel,
 }: AddPrivateChannelMemberModalProps) {
   const { t } = useTranslation();
+
   const [addChannelMember, { isLoading: isSubmitting }] = useAddChannelMemberMutation();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,7 +45,7 @@ export default function AddPrivateChannelMemberModal({
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: searchResults = [], isFetching: isSearching } = useSearchUsersQuery(
+  const { data: searchResults = [], isFetching: isSearching } = useSearchUsersByKeywordQuery(
     debouncedQuery,
     { skip: debouncedQuery.length < 2 || !visible || !!selectedUser }
   );

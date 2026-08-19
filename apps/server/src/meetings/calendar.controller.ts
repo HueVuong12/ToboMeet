@@ -32,6 +32,21 @@ export class CalendarController {
     return this.calendarService.createEvent(req.user.id, body);
   }
 
+  @Get("search")
+  async searchEvents(
+    @Req() req: AuthenticatedRequest,
+    @Query("q") query: string,
+  ) {
+    console.log(`[Backend Search API] User: ${req.user.id}, Keyword: "${query}"`);
+    const result = await this.calendarService.searchEvents(req.user.id, query);
+    console.log(`[Backend Search API] Found ${result.length} results`);
+    return {
+      code: 200,
+      message: "Tìm kiếm lịch họp thành công",
+      result,
+    };
+  }
+
   @Get()
   async getEvents(
     @Req() req: AuthenticatedRequest,

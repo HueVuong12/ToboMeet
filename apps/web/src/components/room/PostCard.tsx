@@ -16,6 +16,7 @@ import {
   Heart,
   Laugh,
   CheckCircle,
+  CalendarDays,
 } from "lucide-react";
 import {
   PostDto,
@@ -30,7 +31,7 @@ import {
 import { parseMarkdownToHtml } from "@/utils/markdownParser";
 import ReactionsListModal from "./ReactionsListModal";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useConfirm } from "@/providers/ConfirmProvider";
 
 interface PostCardProps {
@@ -54,6 +55,7 @@ const REACTION_LABELS: Record<string, string> = {
 
 export default function PostCard({ post, userId, userRole, onEdit }: PostCardProps) {
   const t = useTranslations("news_feed");
+  const locale = useLocale();
   const confirm = useConfirm();
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -344,7 +346,7 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 mt-1 z-20 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1">
-                {(isAuthor || isTeacher) && (
+                {!post.isMeeting && (isAuthor || isTeacher) && (
                   <>
                     {isAuthor && (
                       <button
@@ -381,40 +383,92 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
         </div>
       </div>
 
-      {/* Content Text */}
-      <div className="text-sm text-slate-700 text-left leading-relaxed">
-        {post.content.length > 300 && !isContentExpanded ? (
-          <div>
-            <div
-              className="rich-text-content"
-              dangerouslySetInnerHTML={{
-                __html: parseMarkdownToHtml(post.content.substring(0, 300) + "..."),
-              }}
-            />
+      {/* Content Text hoặc Meeting Card */}
+      {post.isMeeting ? (
+        <div className="space-y-4">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4.5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-100/40">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 flex items-center justify-center rounded-xl text-indigo-600 shrink-0">
+                <CalendarDays className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-slate-800 tracking-tight truncate">
+                  {post.meetingTitle}
+                </h4>
+                <p className="text-xs text-slate-400 font-semibold mt-1">
+                  {(() => {
+                    if (!post.meetingStartDate) return "";
+                    const date = new Date(post.meetingStartDate);
+                    const daysVi = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+                    const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                    const isVi = locale === "vi";
+                    const dayName = isVi ? daysVi[date.getDay()] : daysEn[date.getDay()];
+                    
+                    const hours = date.getHours().toString().padStart(2, "0");
+                    const minutes = date.getMinutes().toString().padStart(2, "0");
+                    
+                    // Định dạng text
+                    if (isVi) {
+                      return `${dayName}, ${date.getDate()} tháng ${date.getMonth() + 1}, ${date.getFullYear()} ${hours}:${minutes}`;
+                    } else {
+                      const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                      return `${dayName}, ${monthsEn[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} ${hours}:${minutes}`;
+                    }
+                  })()}
+                </p>
+              </div>
+            </div>
+            
             <button
-              onClick={() => setIsContentExpanded(true)}
-              className="text-xs font-bold text-brand-600 hover:underline mt-1"
+              onClick={() => {
+                // Tham gia cuộc họp kênh: điều hướng trực tiếp vào room/channel
+                window.location.href = `/${locale}/room/${post.roomId}?channel=${post.channelId}`;
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors shadow-xs shrink-0 self-start sm:self-center"
             >
-              {t("view_more")}
+              {locale === "vi" ? "Tham gia" : "Join"}
             </button>
           </div>
-        ) : (
-          <div>
-            <div
-              className="rich-text-content"
-              dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(post.content) }}
-            />
-            {post.content.length > 300 && (
+          
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left pl-1 select-none">
+            {locale === "vi" ? "Đã lên lịch cuộc họp" : "Scheduled a meeting"}
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm text-slate-700 text-left leading-relaxed">
+          {post.content.length > 300 && !isContentExpanded ? (
+            <div>
+              <div
+                className="rich-text-content"
+                dangerouslySetInnerHTML={{
+                  __html: parseMarkdownToHtml(post.content.substring(0, 300) + "..."),
+                }}
+              />
               <button
-                onClick={() => setIsContentExpanded(false)}
+                onClick={() => setIsContentExpanded(true)}
                 className="text-xs font-bold text-brand-600 hover:underline mt-1"
               >
-                {t("show_less")}
+                {t("view_more")}
               </button>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div>
+              <div
+                className="rich-text-content"
+                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(post.content) }}
+              />
+              {post.content.length > 300 && (
+                <button
+                  onClick={() => setIsContentExpanded(false)}
+                  className="text-xs font-bold text-brand-600 hover:underline mt-1"
+                >
+                  {t("show_less")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grid Images */}
       {renderImagesGrid()}

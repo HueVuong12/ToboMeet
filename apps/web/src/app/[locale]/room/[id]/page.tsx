@@ -10,13 +10,13 @@ export default async function RoomPage({ params }: RoomPageProps) {
   const { id } = await params;
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error || !data?.claims?.sub) {
+  if (error || !user) {
     return;
   }
 
-  const userId = data?.claims.sub;
+  const userId = user.id;
 
   return (
     <StoreProvider>

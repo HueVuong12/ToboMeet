@@ -18,6 +18,7 @@ export class CalendarService {
     @InjectModel(MeetingInvitation.name) private meetingInvitationModel: Model<MeetingInvitationDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    @InjectModel("Post") private postModel: Model<any>,
     private readonly appGateway: AppGateway,
   ) {
     // Khởi tạo mail transporter từ SMTP Env
@@ -46,7 +47,7 @@ export class CalendarService {
       description?: string;
       roomId?: string;
       channelId?: string;
-      roomType?: "meeting" | "classroom";
+      roomType?: "meeting" | "classroom" | "channel_meeting";
       startDate: string;
       endDate: string;
       timezone?: string;
@@ -66,6 +67,33 @@ export class CalendarService {
 
     if (start >= end) {
       throw new BadRequestException("Thời gian bắt đầu phải trước thời gian kết thúc");
+    }
+
+    // Validate dữ liệu riêng cho cuộc họp kênh (channel_meeting)
+    if (data.roomType === "channel_meeting") {
+      if (!data.roomId || !data.channelId) {
+        throw new BadRequestException(
+          "Cuộc họp kênh yêu cầu phải chọn phòng và kênh.",
+        );
+      }
+      // Kiểm tra channelId phải thuộc roomId đã chọn
+      const room = await this.roomModel.findOne({
+        _id: data.roomId,
+        isDeleted: { $ne: true },
+      });
+      if (!room) {
+        throw new BadRequestException(
+          "Phòng không tồn tại hoặc đã bị giải tán.",
+        );
+      }
+      const channelExists = room.channels.some(
+        (ch) => ch._id?.toString() === data.channelId,
+      );
+      if (!channelExists) {
+        throw new BadRequestException(
+          "Kênh không thuộc phòng đã chọn. Dữ liệu không hợp lệ.",
+        );
+      }
     }
 
     // Tự động sinh meeting code duy nhất
@@ -123,9 +151,53 @@ export class CalendarService {
     }
 
     // Nếu tạo trong Group/Channel, gửi cho mọi thành viên trong kênh qua Socket
-    if (data.channelId) {
+    if (data.channelId && data.roomType === "channel_meeting" && data.roomId) {
+      this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
+      
+      // Tự động tạo meeting post trong bảng tin kênh
+      try {
+        const meetingPost = await this.postModel.create({
+          roomId: data.roomId,
+          channelId: data.channelId,
+          authorId: userId,
+          content: "Đã lên lịch cuộc họp",
+          isMeeting: true,
+          meetingId: event._id.toString(),
+          meetingTitle: event.title,
+          meetingStartDate: event.startDate,
+          meetingEndDate: event.endDate,
+          meetingCode: event.meetingCode,
+          attachments: [],
+          reactions: [],
+          isEdited: false,
+        });
+
+        // Lấy thông tin user để emit realtime
+        const authorUser = await this.userModel.findOne({ supabaseId: userId }).exec();
+        const postWithAuthor = {
+          ...meetingPost.toObject(),
+          author: {
+            userId: userId,
+            displayName: authorUser?.displayName || authorUser?.email?.split('@')[0] || "Người dùng ẩn danh",
+            avatarUrl: authorUser?.avatarUrl || "",
+            role: "member",
+          },
+          commentsCount: 0,
+          reactionStats: [],
+          userReaction: null,
+        };
+
+        // Phát realtime qua Socket IO cho kênh bảng tin
+        this.appGateway.server.to(`room_${data.roomId}`).emit("post_created", postWithAuthor);
+      } catch (err) {
+        console.error("Lỗi khi tự động tạo post lịch họp kênh:", err);
+      }
+    } else if (data.channelId) {
       this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
     }
+
+    // Phát event tạo lịch biểu realtime cho tất cả các client
+    this.appGateway.server.emit("calendar_event_created", event);
 
     return { event, invitations };
   }
@@ -165,12 +237,18 @@ export class CalendarService {
       } else {
         // Sự kiện lặp chuẩn RFC 5545
         try {
-          const rule = rrulestr(event.recurrenceRule, { dtstart: event.startDate });
-          const occurrences = rule.between(rangeStart, rangeEnd, true);
+          const offsetMs = 7 * 60 * 60 * 1000; // GMT+07:00 (Asia/Ho_Chi_Minh)
+          const localStart = new Date(event.startDate.getTime() + offsetMs);
+          const localRangeStart = new Date(rangeStart.getTime() + offsetMs);
+          const localRangeEnd = new Date(rangeEnd.getTime() + offsetMs);
+
+          const rule = rrulestr(event.recurrenceRule, { dtstart: localStart });
+          const occurrences = rule.between(localRangeStart, localRangeEnd, true);
 
           const duration = event.endDate.getTime() - event.startDate.getTime();
 
           for (const occ of occurrences) {
+            // occ.toISOString().substring(0, 10) sẽ là ngày theo múi giờ địa phương (do occ đã được dịch chuyển +7h)
             const dateStr = occ.toISOString().substring(0, 10);
             
             // Bỏ qua nếu ngày này nằm trong danh sách ngoại lệ (bị hủy)
@@ -178,8 +256,8 @@ export class CalendarService {
               continue;
             }
 
-            const occStart = occ;
-            const occEnd = new Date(occ.getTime() + duration);
+            const occStart = new Date(occ.getTime() - offsetMs);
+            const occEnd = new Date(occStart.getTime() + duration);
 
             // Clone Event
             resultEvents.push({
@@ -196,7 +274,24 @@ export class CalendarService {
       }
     }
 
-    return resultEvents;
+    // Đính kèm thông tin người tổ chức (hostEmail, hostDisplayName)
+    const finalEvents = [];
+    for (const e of resultEvents) {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: e.hostId })
+        .select("email displayName avatarUrl")
+        .exec();
+
+      const eventObj = typeof e.toObject === "function" ? e.toObject() : e;
+      finalEvents.push({
+        ...eventObj,
+        hostEmail: hostUser ? hostUser.email : "",
+        hostDisplayName: hostUser ? (hostUser.displayName || hostUser.email.split('@')[0]) : "",
+        hostAvatarUrl: hostUser ? hostUser.avatarUrl : "",
+      });
+    }
+
+    return finalEvents;
   }
 
   /**
@@ -251,6 +346,40 @@ export class CalendarService {
         { new: true },
       );
 
+      // Cập nhật lại bài đăng meeting post nếu là cuộc họp kênh
+      if (updatedEvent.roomType === "channel_meeting" && updatedEvent.roomId && updatedEvent.channelId) {
+        try {
+          const post = await this.postModel.findOneAndUpdate(
+            { meetingId: eventId, isDeleted: { $ne: true } },
+            {
+              $set: {
+                meetingTitle: updatedEvent.title,
+                meetingStartDate: updatedEvent.startDate,
+                meetingEndDate: updatedEvent.endDate,
+              }
+            },
+            { new: true }
+          );
+
+          if (post) {
+            // Lấy thông tin user để emit realtime
+            const authorUser = await this.userModel.findOne({ supabaseId: post.authorId }).exec();
+            const postWithAuthor = {
+              ...post.toObject(),
+              author: {
+                userId: post.authorId,
+                displayName: authorUser?.displayName || authorUser?.email?.split('@')[0] || "Người dùng ẩn danh",
+                avatarUrl: authorUser?.avatarUrl || "",
+                role: "member",
+              },
+            };
+            this.appGateway.server.to(`room_${updatedEvent.roomId}`).emit("post_updated", postWithAuthor);
+          }
+        } catch (err) {
+          console.error("Lỗi cập nhật post lịch họp:", err);
+        }
+      }
+
       this.appGateway.server.emit("calendar_event_updated", { eventId, updateType, event: updatedEvent });
       return updatedEvent;
     }
@@ -267,6 +396,22 @@ export class CalendarService {
 
     if (event.hostId !== userId) {
       throw new ForbiddenException("Bạn không có quyền hủy lịch họp này");
+    }
+
+    // Xử lý xóa bài đăng cuộc họp kênh trong bảng tin
+    if (event.roomType === "channel_meeting" && event.roomId && event.channelId) {
+      try {
+        const post = await this.postModel.findOneAndUpdate(
+          { meetingId: eventId, isDeleted: { $ne: true } },
+          { $set: { isDeleted: true } },
+          { new: true }
+        );
+        if (post) {
+          this.appGateway.server.to(`room_${event.roomId}`).emit("post_deleted", { postId: post._id });
+        }
+      } catch (err) {
+        console.error("Lỗi xóa bài đăng lịch họp:", err);
+      }
     }
 
     if (deleteType === "single" && event.recurrenceRule && occurrenceDate) {
@@ -339,6 +484,46 @@ export class CalendarService {
         }
       }
     }
+  }
+
+  /**
+   * Tìm kiếm sự kiện của người dùng theo từ khóa (gần đúng, không phân biệt hoa thường)
+   */
+  async searchEvents(userId: string, queryText: string) {
+    if (!queryText || queryText.trim() === "") {
+      return [];
+    }
+
+    const trimmedQuery = queryText.trim();
+
+    // Query toàn bộ sự kiện có title hoặc description chứa keyword (Global Search)
+    const query: any = {
+      $or: [
+        { title: { $regex: trimmedQuery, $options: "i" } }
+      ]
+    };
+
+    // Chỉ select những trường phục vụ Search UI và giới hạn tối đa 10 kết quả
+    const events = await this.calendarEventModel
+      .find(query)
+      .select("_id title startDate endDate roomType hostId")
+      .sort({ startDate: -1 })
+      .limit(10)
+      .exec();
+
+    // Đính kèm nhanh email host (chỉ select email từ userModel)
+    const results = [];
+    for (const event of events) {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: event.hostId })
+        .select("email")
+        .exec();
+      results.push({
+        ...event.toObject(),
+        hostEmail: hostUser ? hostUser.email : "",
+      });
+    }
+    return results;
   }
 
   /**

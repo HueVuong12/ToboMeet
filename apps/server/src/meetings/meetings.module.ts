@@ -45,6 +45,7 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
       { name: Room.name, schema: RoomSchema },
       { name: RoomActivity.name, schema: RoomActivitySchema },
       { name: MeetingSession.name, schema: MeetingSessionSchema },
+      { name: "Post", schema: require("../news-feed/schemas/post.schema").PostSchema },
     ]),
     SupabaseModule,
     NotificationsModule,
@@ -71,4 +72,4 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
     MeetingsGateway,
   ],
 })
-export class MeetingsModule {}
+export class MeetingsModule { }

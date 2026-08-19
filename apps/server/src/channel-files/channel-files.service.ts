@@ -11,9 +11,12 @@ import * as crypto from "crypto";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { ChannelFile, ChannelFileDocument } from "./schemas/channel-file.schema";
+import { UserPinnedFile, UserPinnedFileDocument } from "./schemas/user-pinned-file.schema";
 import { SupabaseService } from "../supabase/supabase.service";
 import { RoomsGateway } from "../rooms/rooms.gateway";
 import { CreateFileMetaDto } from "./dto/channel-files.dto";
+import type * as archiver from "archiver";
+import { normalizeRole } from "../rooms/helpers/room-role.helper";
 
 @Injectable()
 export class ChannelFilesService {
@@ -24,6 +27,8 @@ export class ChannelFilesService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(ChannelFile.name)
     private readonly fileModel: Model<ChannelFileDocument>,
+    @InjectModel(UserPinnedFile.name)
+    private readonly userPinnedFileModel: Model<UserPinnedFileDocument>,
     private readonly supabaseService: SupabaseService,
     private readonly roomsGateway: RoomsGateway,
   ) {}
@@ -117,9 +122,10 @@ export class ChannelFilesService {
   /**
    * Kiểm tra quyền quản lý file (Owner hoặc Admin/Phó nhóm)
    */
-  private assertCanManageFiles(room: RoomDocument, userId: string): void {
+  private assertCanManageFiles(room: RoomDocument, channelId: string, userId: string): void {
     if (room.ownerId === userId) return;
 
+    // 1. Kiểm tra vai trò cấp phòng (Room level)
     const member = room.members?.find(
       (m) =>
         m.userId === userId &&
@@ -127,7 +133,17 @@ export class ChannelFilesService {
         m.status !== "left",
     );
 
-    if (!member || !["owner", "admin"].includes(member.role)) {
+    const isRoomAdmin = member && ["owner", "admin"].includes(normalizeRole(member.role));
+
+    // 2. Kiểm tra vai trò cấp kênh (Channel level)
+    const channel = room.channels?.find((c) => c._id?.toString() === channelId);
+    const channelMember = channel?.members?.find((m) => m.userId === userId);
+    const isChannelAdmin = channelMember && normalizeRole(channelMember.role) === "admin";
+
+    // Cho phép nếu là room admin HOẶC (kênh công khai và là channel admin)
+    const isAllowed = isRoomAdmin || (channel?.isPrivate !== true && isChannelAdmin);
+
+    if (!isAllowed) {
       throw new ForbiddenException({
         success: false,
         message: "You do not have permission to upload files.",
@@ -145,7 +161,7 @@ export class ChannelFilesService {
     originalFileName: string,
   ) {
     const room = await this.assertChannelAccess(userId, roomId, channelId);
-    this.assertCanManageFiles(room, userId);
+    this.assertCanManageFiles(room, channelId, userId);
 
     await this.ensureBucketExists();
 
@@ -188,7 +204,7 @@ export class ChannelFilesService {
       dto.roomId,
       dto.channelId,
     );
-    this.assertCanManageFiles(room, userId);
+    this.assertCanManageFiles(room, dto.channelId, userId);
 
     // Fetch user info for cache
     const user = await this.userModel
@@ -202,10 +218,12 @@ export class ChannelFilesService {
       uploadedBy: userId,
       uploadedByName: user?.displayName || user?.email || "Thành viên",
       fileName: dto.fileName,
-      storagePath: dto.storagePath,
-      publicUrl: dto.publicUrl,
-      mimeType: dto.mimeType,
-      fileSize: dto.fileSize,
+      storagePath: dto.storagePath || "",
+      publicUrl: dto.publicUrl || "",
+      mimeType: dto.mimeType || (dto.isFolder ? "directory" : "application/octet-stream"),
+      fileSize: dto.fileSize || 0,
+      isFolder: dto.isFolder || false,
+      parentFolderId: dto.parentFolderId || null,
       isDeleted: false,
     });
 
@@ -223,7 +241,7 @@ export class ChannelFilesService {
   async getChannelFiles(userId: string, roomId: string, channelId: string) {
     await this.assertChannelAccess(userId, roomId, channelId);
 
-    return this.fileModel
+    const files = await this.fileModel
       .find({
         roomId,
         channelId,
@@ -232,6 +250,26 @@ export class ChannelFilesService {
       .sort({ createdAt: -1 })
       .lean()
       .exec();
+
+    // Lấy danh sách các tệp/thư mục được ghim của người dùng hiện tại trong kênh này
+    const pins = await this.userPinnedFileModel
+      .find({ userId, channelId })
+      .lean()
+      .exec();
+
+    const pinMap = new Map<string, Date>();
+    for (const pin of pins) {
+      pinMap.set(pin.fileId.toString(), (pin as unknown as { createdAt: Date }).createdAt);
+    }
+
+    return files.map((file) => {
+      const isPinned = pinMap.has(file._id.toString());
+      return {
+        ...file,
+        isPinned,
+        pinnedAt: isPinned ? pinMap.get(file._id.toString()) : undefined,
+      };
+    });
   }
 
   /**
@@ -248,7 +286,7 @@ export class ChannelFilesService {
       file.roomId,
       file.channelId,
     );
-    this.assertCanManageFiles(room, userId);
+    this.assertCanManageFiles(room, file.channelId, userId);
 
     file.fileName = newName.trim();
     await file.save();
@@ -278,24 +316,41 @@ export class ChannelFilesService {
       file.roomId,
       file.channelId,
     );
-    this.assertCanManageFiles(room, userId);
+    this.assertCanManageFiles(room, file.channelId, userId);
 
+    await this.recursivelyDelete(file);
+
+    return { success: true };
+  }
+
+  private async recursivelyDelete(file: ChannelFileDocument) {
     file.isDeleted = true;
     await file.save();
 
-    // Remove from Supabase storage (soft delete in db, hard delete in storage)
-    try {
-      await this.supabaseService.admin.storage
-        .from(this.bucketName)
-        .remove([file.storagePath]);
-    } catch (err) {
-      console.error(`Failed to remove file from Supabase storage:`, err);
+    if (!file.isFolder) {
+      if (file.storagePath) {
+        try {
+          await this.supabaseService.admin.storage
+            .from(this.bucketName)
+            .remove([file.storagePath]);
+        } catch (err) {
+          console.error(`Failed to remove file from Supabase storage:`, err);
+        }
+      }
+    } else {
+      const children = await this.fileModel.find({
+        parentFolderId: file._id.toString(),
+        isDeleted: { $ne: true },
+      });
+      for (const child of children) {
+        await this.recursivelyDelete(child);
+      }
     }
 
-    // Socket notification
-    this.roomsGateway.notifyFileDeleted(file.roomId, file.channelId, fileId);
+    // Tự động xóa trạng thái ghim của tệp này (nếu có)
+    await this.userPinnedFileModel.deleteMany({ fileId: file._id });
 
-    return { success: true };
+    this.roomsGateway.notifyFileDeleted(file.roomId, file.channelId, file._id.toString());
   }
 
   /**
@@ -309,7 +364,17 @@ export class ChannelFilesService {
 
     await this.assertChannelAccess(userId, file.roomId, file.channelId);
 
-    const options = download ? { download: file.fileName } : undefined;
+    let downloadName = file.fileName;
+    if (download) {
+      if (file.storagePath) {
+        const ext = path.extname(file.storagePath); // e.g. ".png"
+        if (ext && !downloadName.toLowerCase().endsWith(ext.toLowerCase())) {
+          downloadName = `${downloadName}${ext}`;
+        }
+      }
+    }
+
+    const options = download ? { download: downloadName } : undefined;
 
     const { data, error } = await this.supabaseService.admin.storage
       .from(this.bucketName)
@@ -319,6 +384,148 @@ export class ChannelFilesService {
       throw new BadRequestException("Không thể tạo liên kết tải xuống.");
     }
 
-    return { downloadUrl: data.signedUrl, fileName: file.fileName };
+    return { downloadUrl: data.signedUrl, fileName: downloadName };
+  }
+
+  /**
+   * Lấy thông tin thư mục và kiểm tra quyền truy cập tải xuống
+   */
+  async getFolderForDownload(userId: string, folderId: string) {
+    const folder = await this.fileModel.findById(folderId);
+    if (!folder || folder.isDeleted || !folder.isFolder) {
+      throw new NotFoundException("Thư mục không tồn tại");
+    }
+    await this.assertChannelAccess(userId, folder.roomId, folder.channelId);
+    return folder;
+  }
+
+  /**
+   * Đóng gói đệ quy toàn bộ thư mục/file con vào archive (ZIP)
+   */
+  async archiveFolderContents(
+    userId: string,
+    folderId: string,
+    currentPath: string,
+    archive: archiver.Archiver,
+  ) {
+    const items = await this.fileModel.find({
+      parentFolderId: folderId,
+      isDeleted: { $ne: true },
+    }).lean().exec();
+
+    if (items.length === 0) {
+      // Thư mục rỗng
+      archive.append("", { name: currentPath });
+      return;
+    }
+
+    for (const item of items) {
+      const itemPath = `${currentPath}${item.fileName}`;
+      if (item.isFolder) {
+        await this.archiveFolderContents(userId, item._id.toString(), `${itemPath}/`, archive);
+      } else {
+        if (!item.storagePath) continue;
+        try {
+          const { data, error } = await this.supabaseService.admin.storage
+            .from(this.bucketName)
+            .download(item.storagePath);
+          if (error || !data) {
+            console.error(`Failed to download file ${item.fileName} from Supabase:`, error);
+            continue;
+          }
+          const buffer = Buffer.from(await data.arrayBuffer());
+          archive.append(buffer, { name: itemPath });
+        } catch (err) {
+          console.error(`Error downloading file ${item.fileName}:`, err);
+        }
+      }
+    }
+  }
+
+  /**
+   * Ghim tệp hoặc thư mục (Tối đa 3 mục mỗi người dùng trên mỗi kênh)
+   */
+  async pinFile(userId: string, fileId: string) {
+    const file = await this.fileModel.findById(fileId);
+    if (!file || file.isDeleted) {
+      throw new NotFoundException("Tệp không tồn tại");
+    }
+
+    await this.assertChannelAccess(userId, file.roomId, file.channelId);
+
+    // Kiểm tra xem đã ghim tệp này chưa
+    const existingPin = await this.userPinnedFileModel.findOne({
+      userId,
+      fileId: file._id,
+    });
+    if (existingPin) {
+      return { success: true };
+    }
+
+    // Lấy tất cả pinned files của user trong kênh này để kiểm tra và đếm các tệp thực sự còn hoạt động
+    const pins = await this.userPinnedFileModel.find({
+      userId,
+      channelId: file.channelId,
+    });
+
+    let activePinCount = 0;
+    for (const pin of pins) {
+      const targetFile = await this.fileModel.findById(pin.fileId);
+      if (targetFile && !targetFile.isDeleted) {
+        activePinCount++;
+      } else {
+        // Tự động dọn dẹp bản ghi ghim mồ côi/rác của tệp đã bị xóa hoặc không tồn tại
+        await this.userPinnedFileModel.deleteOne({ _id: pin._id });
+      }
+    }
+
+    if (activePinCount >= 3) {
+      throw new BadRequestException("Bạn chỉ có thể ghim tối đa 3 tệp hoặc thư mục.");
+    }
+
+    // Tạo bản ghi ghim
+    await this.userPinnedFileModel.create({
+      userId,
+      fileId: file._id,
+      roomId: file.roomId,
+      channelId: file.channelId,
+    });
+
+    // Kích hoạt notify socket realtime
+    this.roomsGateway.notifyFilePinned(
+      file.roomId,
+      file.channelId,
+      file._id.toString(),
+      userId,
+    );
+
+    return { success: true };
+  }
+
+  /**
+   * Bỏ ghim tệp hoặc thư mục
+   */
+  async unpinFile(userId: string, fileId: string) {
+    const file = await this.fileModel.findById(fileId);
+    if (!file || file.isDeleted) {
+      throw new NotFoundException("Tệp không tồn tại");
+    }
+
+    await this.assertChannelAccess(userId, file.roomId, file.channelId);
+
+    await this.userPinnedFileModel.deleteOne({
+      userId,
+      fileId: file._id,
+    });
+
+    // Kích hoạt notify socket realtime
+    this.roomsGateway.notifyFileUnpinned(
+      file.roomId,
+      file.channelId,
+      file._id.toString(),
+      userId,
+    );
+
+    return { success: true };
   }
 }
