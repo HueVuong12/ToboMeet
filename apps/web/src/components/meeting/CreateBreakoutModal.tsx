@@ -15,6 +15,7 @@ import { useStartBreakoutSessionMutation } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { CreateBreakoutRoomDto } from "@tobomeet/shared/types";
+import { useTranslations } from "next-intl";
 
 export default function CreateBreakoutModal({
   isOpen,
@@ -25,6 +26,7 @@ export default function CreateBreakoutModal({
   onClose: () => void;
   meetingCode: string;
 }) {
+  const t = useTranslations("meeting.create_breakout_modal");
   const { displayParticipants: participants } = useParticipantManager({
     meetingCode: meetingCode,
   });
@@ -44,9 +46,9 @@ export default function CreateBreakoutModal({
   const [isAutoAssign, setIsAutoAssign] = useState(true);
 
   // STATE CHẾ ĐỘ 2: THỦ CÔNG (MANUAL)
-  const [manualRooms, setManualRooms] = useState([
-    { id: "room-1", name: "Nhóm 1", durationMinutes: 10 },
-    { id: "room-2", name: "Nhóm 2", durationMinutes: 10 },
+  const [manualRooms, setManualRooms] = useState(() => [
+    { id: "room-1", name: `${t("room_prefix")} 1`, durationMinutes: 10 },
+    { id: "room-2", name: `${t("room_prefix")} 2`, durationMinutes: 10 },
   ]);
   const [manualAssignments, setManualAssignments] = useState<
     Record<string, string>
@@ -55,9 +57,9 @@ export default function CreateBreakoutModal({
   const [draggedOverRoom, setDraggedOverRoom] = useState<string | null>(null);
 
   // STATE CHẾ ĐỘ 3: TỰ CHỌN (SELF)
-  const [selfRooms, setSelfRooms] = useState([
-    { name: "Nhóm 1", maxParticipants: 2, durationMinutes: 10 },
-    { name: "Nhóm 2", maxParticipants: 2, durationMinutes: 10 },
+  const [selfRooms, setSelfRooms] = useState(() => [
+    { name: `${t("room_prefix")} 1`, maxParticipants: 2, durationMinutes: 10 },
+    { name: `${t("room_prefix")} 2`, maxParticipants: 2, durationMinutes: 10 },
   ]);
 
   if (!isOpen) return null;
@@ -93,15 +95,15 @@ export default function CreateBreakoutModal({
     let finalRoomsPayload: CreateBreakoutRoomDto[] = [];
 
     if (activeTab === "auto") {
-      if (autoConfig.roomCount < 1) return toast.error("Cần ít nhất 1 phòng");
+      if (autoConfig.roomCount < 1) return toast.error(t("error_min_room"));
       if (autoConfig.durationMinutes < 1)
-        return toast.error("Thời gian tối thiểu 1 phút");
+        return toast.error(t("error_min_duration"));
 
       const shuffled = [...participants].sort(() => 0.5 - Math.random());
       finalRoomsPayload = Array.from(
         { length: autoConfig.roomCount },
         (_, i) => ({
-          name: `Nhóm ${i + 1}`,
+          name: `${t("room_prefix")} ${i + 1}`,
           maxParticipants: autoConfig.maxParticipants,
           durationMinutes: autoConfig.durationMinutes,
           assignedUsers: [] as string[],
@@ -118,7 +120,7 @@ export default function CreateBreakoutModal({
       }
     } else if (activeTab === "manual") {
       if (manualRooms.some((r) => r.name.trim() === ""))
-        return toast.error("Tên phòng không được để trống");
+        return toast.error(t("error_room_name_empty"));
       finalRoomsPayload = manualRooms.map((room) => ({
         name: room.name,
         maxParticipants: 2,
@@ -129,11 +131,11 @@ export default function CreateBreakoutModal({
       }));
     } else if (activeTab === "self") {
       if (selfRooms.some((r) => r.name.trim() === ""))
-        return toast.error("Tên phòng không được để trống");
+        return toast.error(t("error_room_name_empty"));
       if (selfRooms.some((r) => r.maxParticipants < 2))
-        return toast.error("Cần từ 2 người trở lên");
+        return toast.error(t("error_min_participants"));
       if (selfRooms.some((r) => r.durationMinutes < 1))
-        return toast.error("Tối thiểu 1 phút");
+        return toast.error(t("error_min_duration"));
       finalRoomsPayload = selfRooms;
     }
 
@@ -143,11 +145,11 @@ export default function CreateBreakoutModal({
         rooms: finalRoomsPayload,
       }).unwrap();
 
-      toast.success("Đã mở các phòng thảo luận nhóm!");
+      toast.success(t("success_start"));
       onClose();
     } catch (error: any) {
-      if (error?.status === 400) toast.error("Dữ liệu không hợp lệ.");
-      else toast.error("Lỗi khi tạo phòng thảo luận.");
+      if (error?.status === 400) toast.error(t("error_invalid_data"));
+      else toast.error(t("error_create_failed"));
     }
   };
 
@@ -169,7 +171,7 @@ export default function CreateBreakoutModal({
               <Network className="text-blue-400" size={18} />
             </div>
             <h2 className="text-base font-bold text-slate-100">
-              Chia nhóm thảo luận
+              {t("modal_title")}
             </h2>
           </div>
           <button
@@ -190,7 +192,7 @@ export default function CreateBreakoutModal({
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <Wand2 size={16} /> Tự động
+            <Wand2 size={16} /> {t("tab_auto")}
           </button>
           <button
             onClick={() => setActiveTab("manual")}
@@ -200,7 +202,7 @@ export default function CreateBreakoutModal({
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <Hand size={16} /> Thủ công
+            <Hand size={16} /> {t("tab_manual")}
           </button>
           <button
             onClick={() => setActiveTab("self")}
@@ -210,7 +212,7 @@ export default function CreateBreakoutModal({
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <Settings size={16} /> Tự chọn
+            <Settings size={16} /> {t("tab_self")}
           </button>
         </div>
 
@@ -224,14 +226,13 @@ export default function CreateBreakoutModal({
                   <Users className="text-blue-400" size={28} />
                 </div>
                 <h3 className="text-xl font-bold text-slate-100">
-                  Chia nhóm tự động
+                  {t("auto_title")}
                 </h3>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  Hệ thống sẽ tạo phòng và ngẫu nhiên phân bổ người tham gia.
-                  Mỗi phòng sẽ có tối thiểu{" "}
-                  <strong className="text-white">2 người</strong>. Hiện đang có{" "}
-                  <strong className="text-white">{participants.length}</strong>{" "}
-                  người tham gia.
+                  {t.rich("auto_desc", {
+                    count: participants.length,
+                    strong: (chunks) => <strong className="text-white">{chunks}</strong>,
+                  })}
                 </p>
               </div>
 
@@ -248,18 +249,17 @@ export default function CreateBreakoutModal({
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">
-                      Tự động thêm thành viên vào phòng
+                      {t("auto_assign_label")}
                     </span>
                     <span className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                      Người tham gia sẽ được hệ thống chuyển hướng vào các phòng
-                      thảo luận.
+                      {t("auto_assign_sub")}
                     </span>
                   </div>
                 </label>
 
                 <div className="flex-1">
                   <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                    Số người tối đa / phòng
+                    {t("max_participants_label")}
                   </label>
                   <input
                     type="number"
@@ -277,7 +277,7 @@ export default function CreateBreakoutModal({
 
                 <div>
                   <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                    Số lượng phòng
+                    {t("room_count_label")}
                   </label>
                   <input
                     type="number"
@@ -292,18 +292,19 @@ export default function CreateBreakoutModal({
                     className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
                   />
                   <p className="text-xs text-slate-500 mt-2 text-right italic">
-                    Gợi ý: Cần tối thiểu{" "}
-                    {Math.ceil(
-                      participants.length /
-                        Math.max(1, autoConfig.maxParticipants),
-                    )}{" "}
-                    phòng cho {participants.length} người.
+                    {t("room_count_hint", {
+                      minRooms: Math.ceil(
+                        participants.length /
+                          Math.max(1, autoConfig.maxParticipants),
+                      ),
+                      count: participants.length,
+                    })}
                   </p>
                 </div>
 
                 <div>
                   <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                    Thời gian (Phút)
+                    {t("duration_label")}
                   </label>
                   <input
                     type="number"
@@ -327,9 +328,9 @@ export default function CreateBreakoutModal({
             <div className="flex flex-col h-full w-full">
               <div className="px-5 py-3 border-b border-[#333] bg-[#1a1a1a]">
                 <p className="text-slate-400 text-sm">
-                  Phân bổ người tham gia vào các nhóm cụ thể bằng cách{" "}
-                  <strong className="text-white">kéo và thả</strong> tên người
-                  dùng.
+                  {t.rich("manual_desc", {
+                    strong: (chunks) => <strong className="text-white">{chunks}</strong>,
+                  })}
                 </p>
               </div>
               <div className="flex flex-1 overflow-hidden w-full">
@@ -341,7 +342,7 @@ export default function CreateBreakoutModal({
                 >
                   <div className="p-3 border-b border-[#333] bg-[#111]">
                     <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Danh sách chờ ({unassignedParticipants.length})
+                      {t("waiting_list", { count: unassignedParticipants.length })}
                     </h3>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
@@ -362,7 +363,7 @@ export default function CreateBreakoutModal({
                     ))}
                     {unassignedParticipants.length === 0 && (
                       <div className="text-center text-slate-500 text-xs mt-10 italic">
-                        Đã phân công tất cả
+                        {t("all_assigned")}
                       </div>
                     )}
                   </div>
@@ -389,7 +390,7 @@ export default function CreateBreakoutModal({
                                 : "border-[#333]"
                             }`}
                           >
-                            {/* Tiêu đề phòng thủ công đã được fix UI */}
+                            {/* Tiêu đề phòng thủ công */}
                             <div className="p-3 border-b border-[#333] bg-[#1a1a1a] flex gap-2 items-center justify-between">
                               <input
                                 type="text"
@@ -419,7 +420,7 @@ export default function CreateBreakoutModal({
                                     className="w-10 bg-transparent border-none text-xs text-center font-mono text-amber-400 outline-none"
                                   />
                                   <span className="text-[10px] text-slate-400 font-medium">
-                                    phút
+                                    {t("minutes_unit")}
                                   </span>
                                 </div>
                                 {/* Nút xoá phòng */}
@@ -443,7 +444,7 @@ export default function CreateBreakoutModal({
                                     });
                                   }}
                                   className="text-slate-500 hover:text-red-400 hover:bg-red-500/10 p-1.5 rounded transition-colors"
-                                  title="Xoá phòng này"
+                                  title={t("delete_room_tooltip")}
                                 >
                                   <Trash2 size={16} />
                                 </button>
@@ -454,7 +455,7 @@ export default function CreateBreakoutModal({
                             <div className="p-3 min-h-25 max-h-50 overflow-y-auto custom-scrollbar flex flex-col gap-2">
                               {roomUsers.length === 0 ? (
                                 <div className="m-auto text-slate-500 text-xs italic">
-                                  Kéo thả người dùng vào đây
+                                  {t("drag_drop_placeholder")}
                                 </div>
                               ) : (
                                 roomUsers.map((p) => (
@@ -484,7 +485,7 @@ export default function CreateBreakoutModal({
                             ...manualRooms,
                             {
                               id: `room-${Date.now()}`,
-                              name: `Nhóm ${manualRooms.length + 1}`,
+                              name: `${t("room_prefix")} ${manualRooms.length + 1}`,
                               durationMinutes: 10,
                             },
                           ])
@@ -493,7 +494,7 @@ export default function CreateBreakoutModal({
                       >
                         <Plus size={20} />
                         <span className="text-sm font-semibold">
-                          Thêm nhóm mới
+                          {t("add_room_button")}
                         </span>
                       </button>
                     </div>
@@ -508,9 +509,9 @@ export default function CreateBreakoutModal({
             <div className="flex flex-col h-full w-full">
               <div className="px-5 py-3 border-b border-[#333] bg-[#1a1a1a]">
                 <p className="text-slate-400 text-sm">
-                  Tạo các phòng trống. Người tham gia có thể tự do{" "}
-                  <strong className="text-white">lựa chọn phòng</strong> muốn
-                  vào.
+                  {t.rich("self_desc", {
+                    strong: (chunks) => <strong className="text-white">{chunks}</strong>,
+                  })}
                 </p>
               </div>
               <div className="p-5 overflow-y-auto flex-1 space-y-3 custom-scrollbar">
@@ -522,7 +523,7 @@ export default function CreateBreakoutModal({
                     <div className="flex-1 space-y-4">
                       <div>
                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">
-                          Tên phòng
+                          {t("room_name_label")}
                         </label>
                         <input
                           type="text"
@@ -538,7 +539,7 @@ export default function CreateBreakoutModal({
                       <div className="flex gap-4">
                         <div className="flex-1">
                           <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
-                            Số người tối đa
+                            {t("max_participants_self_label")}
                           </label>
                           <input
                             type="number"
@@ -556,7 +557,7 @@ export default function CreateBreakoutModal({
                         </div>
                         <div className="flex-1">
                           <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
-                            Thời gian (phút)
+                            {t("duration_self_label")}
                           </label>
                           <input
                             type="number"
@@ -577,7 +578,7 @@ export default function CreateBreakoutModal({
                     <button
                       onClick={() => {
                         if (selfRooms.length <= 1)
-                          return toast.error("Cần ít nhất 1 phòng");
+                          return toast.error(t("error_min_room"));
                         setSelfRooms(selfRooms.filter((_, i) => i !== index));
                       }}
                       className="text-slate-500 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
@@ -591,7 +592,7 @@ export default function CreateBreakoutModal({
                     setSelfRooms([
                       ...selfRooms,
                       {
-                        name: `Nhóm ${selfRooms.length + 1}`,
+                        name: `${t("room_prefix")} ${selfRooms.length + 1}`,
                         maxParticipants: 2,
                         durationMinutes: 10,
                       },
@@ -599,7 +600,7 @@ export default function CreateBreakoutModal({
                   }
                   className="w-full py-3 border-2 border-dashed border-[#444] hover:border-blue-500 hover:bg-blue-500/5 rounded-xl flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-blue-400 font-semibold transition-colors mt-2"
                 >
-                  <Plus size={18} /> Thêm phòng mới
+                  <Plus size={18} /> {t("add_room_self_button")}
                 </button>
               </div>
             </div>
@@ -612,7 +613,7 @@ export default function CreateBreakoutModal({
             onClick={onClose}
             className="px-5 py-2 text-sm font-semibold text-gray-300 hover:bg-[#333] rounded-lg transition-colors"
           >
-            Huỷ
+            {t("cancel")}
           </button>
           <button
             onClick={handleSubmit}
@@ -620,7 +621,7 @@ export default function CreateBreakoutModal({
             className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
           >
             {isLoading && <Loader2 size={16} className="animate-spin" />}
-            Bắt đầu phân chia
+            {t("start_breakout")}
           </button>
         </div>
       </div>

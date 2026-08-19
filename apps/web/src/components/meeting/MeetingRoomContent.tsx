@@ -210,7 +210,7 @@ export default function MeetingRoomContent({
             <div className="bg-[#222] border border-[#444] rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh]">
               <div className="p-4 border-b border-slate-800 flex justify-between items-center shrink-0">
                 <h2 className="text-lg font-bold text-slate-100">
-                  Chọn nội dung chia sẻ
+                  {t("screen_share_modal.title")}
                 </h2>
                 <button
                   onClick={() => handleSelectSource(null)}
@@ -248,7 +248,7 @@ export default function MeetingRoomContent({
                   onClick={() => handleSelectSource(null)}
                   className="px-6 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
                 >
-                  Hủy
+                  {t("screen_share_modal.cancel")}
                 </button>
               </div>
             </div>

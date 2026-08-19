@@ -313,7 +313,7 @@ export default function CustomToolbar({
               className="text-blue-400 animate-pulse drop-shadow-md"
             />
             <span className="text-[10px] mt-1 hidden sm:block font-medium text-blue-400">
-              Breakout
+              {t("breakout")}
             </span>
           </button>
         )}
@@ -380,7 +380,7 @@ export default function CustomToolbar({
                       >
                         <div className="flex items-center gap-2.5">
                           <Network size={16} className="text-blue-400" />
-                          <span>Chia nhóm thảo luận</span>
+                          <span>{t("create_breakout")}</span>
                         </div>
                       </div>
                     ) : (
@@ -398,7 +398,7 @@ export default function CustomToolbar({
                             className="text-red-500"
                             fill="currentColor"
                           />
-                          <span>Kết thúc thảo luận</span>
+                          <span>{t("end_breakout")}</span>
                         </div>
                       </div>
                     )}
@@ -576,7 +576,7 @@ export default function CustomToolbar({
             />
           )}
           <span className="hidden md:inline text-sm transition-all duration-300">
-            {isInBreakoutRoom ? "Rời đi" : t("leave_meeting")}
+            {isInBreakoutRoom ? t("leave_short") : t("leave_meeting")}
           </span>
         </button>
 
@@ -597,7 +597,7 @@ export default function CustomToolbar({
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#333] flex items-center gap-2.5 transition-colors disabled:opacity-50"
               >
                 <LogOut size={16} className="-scale-x-100" />
-                <span>Rời nhóm thảo luận</span>
+                <span>{t("leave_breakout_room")}</span>
               </button>
 
               <button

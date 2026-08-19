@@ -133,17 +133,29 @@
       {
         "name": "Trình duyệt Web",
         "description": "Không cần cài đặt, mở trình duyệt là họp ngay",
-        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
+        "badges": [
+          "Chrome",
+          "Safari",
+          "Firefox",
+          "Edge"
+        ]
       },
       {
         "name": "Desktop App",
         "description": "Ứng dụng native hiệu năng cao, tích hợp hệ thống",
-        "badges": ["Windows", "macOS", "Linux"]
+        "badges": [
+          "Windows",
+          "macOS",
+          "Linux"
+        ]
       },
       {
         "name": "Di động",
         "description": "Họp mọi lúc mọi nơi, tối ưu cho màn hình nhỏ",
-        "badges": ["iOS", "Android"]
+        "badges": [
+          "iOS",
+          "Android"
+        ]
       }
     ]
   },
@@ -1066,7 +1078,13 @@
       "confirm_leave_description": "Bạn sẽ bị ngắt kết nối khỏi phòng hiện tại.",
       "confirm_leave_action": "Rời đi",
       "cancel": "Hủy",
-      "leave_meeting": "Rời cuộc họp"
+      "leave_meeting": "Rời cuộc họp",
+      "breakout": "Breakout",
+      "create_breakout": "Chia nhóm thảo luận",
+      "end_breakout": "Kết thúc thảo luận",
+      "leave_short": "Rời đi",
+      "leave_breakout_room": "Rời nhóm thảo luận",
+      "end_breakout_error": "Không thể kết thúc thảo luận lúc này."
     },
     "chat": {
       "you_text": "Bạn",
@@ -1171,6 +1189,67 @@
       "sharing_screen": "Đang chia sẻ",
       "pinned": "Đã ghim",
       "guest": "Khách"
+    },
+    "create_breakout_modal": {
+      "modal_title": "Chia nhóm thảo luận",
+      "tab_auto": "Tự động",
+      "tab_manual": "Thủ công",
+      "tab_self": "Tự chọn",
+      "auto_title": "Chia nhóm tự động",
+      "auto_desc": "Hệ thống sẽ tạo phòng và ngẫu nhiên phân bổ người tham gia. Mỗi phòng sẽ có tối thiểu 2 người. Hiện đang có {count} người tham gia.",
+      "auto_assign_label": "Tự động thêm thành viên vào phòng",
+      "auto_assign_sub": "Người tham gia sẽ được hệ thống chuyển hướng vào các phòng thảo luận.",
+      "max_participants_label": "Số người tối đa / phòng",
+      "max_participants_self_label": "Số người tối đa",
+      "room_count_label": "Số lượng phòng",
+      "room_count_hint": "Gợi ý: Cần tối thiểu {minRooms} phòng cho {count} người.",
+      "duration_label": "Thời gian (Phút)",
+      "duration_self_label": "Thời gian (phút)",
+      "manual_desc": "Phân bổ người tham gia vào các nhóm cụ thể bằng cách kéo và thả tên người dùng.",
+      "waiting_list": "Danh sách chờ ({count})",
+      "all_assigned": "Đã phân công tất cả",
+      "minutes_unit": "phút",
+      "delete_room_tooltip": "Xoá phòng này",
+      "drag_drop_placeholder": "Kéo thả người dùng vào đây",
+      "add_room_button": "Thêm nhóm mới",
+      "add_room_self_button": "Thêm phòng mới",
+      "room_prefix": "Nhóm",
+      "self_desc": "Tạo các phòng trống. Người tham gia có thể tự do lựa chọn phòng muốn vào.",
+      "room_name_label": "Tên phòng",
+      "cancel": "Huỷ",
+      "start_breakout": "Bắt đầu phân chia",
+      "error_min_room": "Cần ít nhất 1 phòng",
+      "error_min_duration": "Thời gian tối thiểu 1 phút",
+      "error_room_name_empty": "Tên phòng không được để trống",
+      "error_min_participants": "Cần từ 2 người trở lên",
+      "success_start": "Đã mở các phòng thảo luận nhóm!",
+      "error_invalid_data": "Dữ liệu không hợp lệ.",
+      "error_create_failed": "Lỗi khi tạo phòng thảo luận."
+    },
+    "join_breakout_modal": {
+      "modal_title": "Chọn nhóm thảo luận",
+      "device_not_found": "Không tìm thấy thiết bị, vui lòng tải lại trang.",
+      "join_error": "Không thể tham gia phòng thảo luận lúc này.",
+      "time_expired": "Hết giờ",
+      "duration_minutes": "{count} phút",
+      "room_closed": "Phòng đã đóng",
+      "room_full": "Phòng đã đầy",
+      "join": "Tham gia",
+      "no_rooms_created": "Chưa có nhóm thảo luận nào được tạo."
+    },
+    "breakout_sync": {
+      "session_ended": "Phiên thảo luận đã kết thúc",
+      "assigned_by_host": "Host đã chỉ định bạn vào phòng thảo luận. Đang chuyển hướng..."
+    },
+    "session": {
+      "join_breakout_error": "Không thể tham gia phiên thảo luận lúc này.",
+      "return_main_error": "Không thể quay về phòng chính lúc này.",
+      "reconnect_error": "Không thể kết nối lại cuộc họp. Vui lòng thử lại.",
+      "general_action_error": "Chưa thể thực hiện thao tác này"
+    },
+    "screen_share_modal": {
+      "title": "Chọn nội dung chia sẻ",
+      "cancel": "Hủy"
     }
   },
   "notification": {

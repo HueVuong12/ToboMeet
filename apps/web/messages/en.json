@@ -133,17 +133,29 @@
       {
         "name": "Web Browser",
         "description": "No installation needed — just open and start meeting",
-        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
+        "badges": [
+          "Chrome",
+          "Safari",
+          "Firefox",
+          "Edge"
+        ]
       },
       {
         "name": "Desktop App",
         "description": "Native app with high performance and deep system integration",
-        "badges": ["Windows", "macOS", "Linux"]
+        "badges": [
+          "Windows",
+          "macOS",
+          "Linux"
+        ]
       },
       {
         "name": "Mobile",
         "description": "Meet anytime, anywhere — optimized for small screens",
-        "badges": ["iOS", "Android"]
+        "badges": [
+          "iOS",
+          "Android"
+        ]
       }
     ]
   },
@@ -1080,7 +1092,13 @@
       "confirm_leave_description": "You will be disconnected from the current room.",
       "confirm_leave_action": "Leave",
       "cancel": "Cancel",
-      "leave_meeting": "Leave meeting"
+      "leave_meeting": "Leave meeting",
+      "breakout": "Breakout",
+      "create_breakout": "Breakout rooms",
+      "end_breakout": "End breakout rooms",
+      "leave_short": "Leave",
+      "leave_breakout_room": "Leave breakout room",
+      "end_breakout_error": "Cannot end breakout session at this time."
     },
     "chat": {
       "you_text": "You",
@@ -1185,55 +1203,67 @@
       "sharing_screen": "Sharing",
       "pinned": "Pinned",
       "guest": "Guest"
-    }
-  },
-  "notification": {
-    "time": {
-      "just_now": "Just now",
-      "minutes_ago": "{count} minutes ago",
-      "hours_ago": "{count} hours ago",
-      "days_ago": "{count} days ago"
     },
-    "drawer": {
-      "title": "Notifications",
-      "loading": "Loading notifications...",
-      "empty": "You have no notifications"
+    "create_breakout_modal": {
+      "modal_title": "Breakout Rooms",
+      "tab_auto": "Automatic",
+      "tab_manual": "Manual",
+      "tab_self": "Self-select",
+      "auto_title": "Automatic Breakout",
+      "auto_desc": "The system will create rooms and randomly assign participants. Each room has a minimum of 2 people. Currently {count} participants.",
+      "auto_assign_label": "Automatically move participants into rooms",
+      "auto_assign_sub": "Participants will be automatically redirected into breakout rooms.",
+      "max_participants_label": "Max participants / room",
+      "max_participants_self_label": "Max participants",
+      "room_count_label": "Number of rooms",
+      "room_count_hint": "Tip: Minimum {minRooms} rooms needed for {count} participants.",
+      "duration_label": "Duration (Minutes)",
+      "duration_self_label": "Duration (minutes)",
+      "manual_desc": "Assign participants to specific groups by dragging and dropping usernames.",
+      "waiting_list": "Unassigned ({count})",
+      "all_assigned": "All participants assigned",
+      "minutes_unit": "mins",
+      "delete_room_tooltip": "Delete this room",
+      "drag_drop_placeholder": "Drag and drop participants here",
+      "add_room_button": "Add new group",
+      "add_room_self_button": "Add new room",
+      "room_prefix": "Room",
+      "self_desc": "Create empty rooms. Participants can freely choose a room to join.",
+      "room_name_label": "Room name",
+      "cancel": "Cancel",
+      "start_breakout": "Start Breakout",
+      "error_min_room": "At least 1 room is required",
+      "error_min_duration": "Minimum duration is 1 minute",
+      "error_room_name_empty": "Room name cannot be empty",
+      "error_min_participants": "At least 2 participants required",
+      "success_start": "Breakout rooms have started!",
+      "error_invalid_data": "Invalid data.",
+      "error_create_failed": "Error creating breakout rooms."
     },
-    "types": {
-      "kicked": {
-        "title": "Removed from room",
-        "content": "You have been removed from {roomName}."
-      },
-      "room_disbanded": {
-        "title": "Room disbanded",
-        "content": "The leader has disbanded {roomName}."
-      },
-      "meeting_invite": {
-        "title": "Meeting Invitation",
-        "content": "{inviterName} invited you to join a meeting in {roomName}."
-      },
-      "room_reported": {
-        "title": "Room reported",
-        "content": "Your room has been reported for a violation."
-      },
-      "report_resolved": {
-        "title": "Report resolved",
-        "content": "Your violation report has been resolved by an administrator."
-      },
-      "system": {
-        "title": "System Notification",
-        "content": "Event occurred ({type})."
-      }
+    "join_breakout_modal": {
+      "modal_title": "Choose Breakout Room",
+      "device_not_found": "Device not found, please reload the page.",
+      "join_error": "Cannot join breakout room at this time.",
+      "time_expired": "Time's up",
+      "duration_minutes": "{count} mins",
+      "room_closed": "Room closed",
+      "room_full": "Room is full",
+      "join": "Join",
+      "no_rooms_created": "No breakout rooms created yet."
     },
-    "actions": {
-      "join": "Join"
+    "breakout_sync": {
+      "session_ended": "Breakout session has ended",
+      "assigned_by_host": "Host assigned you to a breakout room. Redirecting..."
     },
-    "errors": {
-      "session_ended": "The meeting session may have ended."
+    "session": {
+      "join_breakout_error": "Cannot join breakout session at this time.",
+      "return_main_error": "Cannot return to main room at this time.",
+      "reconnect_error": "Cannot reconnect to meeting. Please try again.",
+      "general_action_error": "Cannot perform this action at this time"
     },
-    "common": {
-      "room": "the room",
-      "someone": "Someone"
+    "screen_share_modal": {
+      "title": "Select content to share",
+      "cancel": "Cancel"
     }
   },
   "notification": {

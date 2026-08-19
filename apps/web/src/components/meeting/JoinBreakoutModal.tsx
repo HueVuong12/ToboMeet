@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { X, Users, Clock, LogIn, Network, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useDeviceId } from "@/hooks/useDeviceId";
+import { useTranslations } from "next-intl";
 
 import { useGetBreakoutCountsQuery } from "@/lib/redux/api/meetingsApi";
 import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
@@ -18,6 +19,7 @@ export default function JoinBreakoutModal({
   rooms: any[];
   meetingCode: string;
 }) {
+  const t = useTranslations("meeting.join_breakout_modal");
   const deviceId = useDeviceId();
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
 
@@ -58,7 +60,7 @@ export default function JoinBreakoutModal({
 
   const handleJoin = async (breakoutRoomId: string) => {
     if (!deviceId) {
-      toast.error("Không tìm thấy thiết bị, vui lòng tải lại trang.");
+      toast.error(t("device_not_found"));
       return;
     }
 
@@ -67,7 +69,7 @@ export default function JoinBreakoutModal({
       await handleSwitchToBreakout(breakoutRoomId);
       onClose();
     } catch (error) {
-      toast.error("Không thể tham gia phòng thảo luận lúc này.");
+      toast.error(t("join_error"));
       console.error(error);
     } finally {
       setJoiningRoomId(null);
@@ -86,7 +88,7 @@ export default function JoinBreakoutModal({
           <div className="flex items-center gap-2.5">
             <Network className="text-slate-300" size={18} />
             <h2 className="text-base font-bold text-slate-100">
-              Chọn nhóm thảo luận
+              {t("modal_title")}
             </h2>
           </div>
           <button
@@ -120,7 +122,7 @@ export default function JoinBreakoutModal({
 
                   if (remainingMs <= 0) {
                     isExpired = true;
-                    timeDisplay = "Hết giờ";
+                    timeDisplay = t("time_expired");
                   } else {
                     const totalSeconds = Math.floor(remainingMs / 1000);
                     const m = Math.floor(totalSeconds / 60);
@@ -129,7 +131,7 @@ export default function JoinBreakoutModal({
                   }
                 }
               } else if (room.durationMinutes > 0) {
-                timeDisplay = `${room.durationMinutes} phút`;
+                timeDisplay = t("duration_minutes", { count: room.durationMinutes });
               }
 
               // Vô hiệu hoá nút nếu: Đầy phòng, đang join, hoặc đã HẾT GIỜ
@@ -171,7 +173,7 @@ export default function JoinBreakoutModal({
                     </div>
                   </div>
 
-                  {/* Nút Join - Đã quay về phong cách màu xanh ban đầu */}
+                  {/* Nút Join */}
                   <button
                     onClick={() => handleJoin(room.id)}
                     disabled={isDisabled}
@@ -194,10 +196,10 @@ export default function JoinBreakoutModal({
                       />
                     )}
                     {isExpired
-                      ? "Phòng đã đóng"
+                      ? t("room_closed")
                       : isFull
-                        ? "Phòng đã đầy"
-                        : "Tham gia"}
+                        ? t("room_full")
+                        : t("join")}
                   </button>
                 </div>
               );
@@ -208,7 +210,7 @@ export default function JoinBreakoutModal({
                 <Network className="text-slate-500" size={24} />
               </div>
               <p className="text-slate-400 text-sm font-medium">
-                Chưa có nhóm thảo luận nào được tạo.
+                {t("no_rooms_created")}
               </p>
             </div>
           )}

@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl";
 
 export function useMeetingSession() {
   const t = useTranslations("server.errors");
+  const tSession = useTranslations("meeting.session");
   const params = useParams();
   const deviceId = useDeviceId();
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
@@ -177,11 +178,11 @@ export function useMeetingSession() {
           setStatus("JOINED");
         }, 1000);
       } catch (error) {
-        toast.error("Không thể tham gia phiên thảo luận lúc này.");
+        toast.error(tSession("join_breakout_error"));
         setStatus("JOINED");
       }
     },
-    [meetingCode, deviceId, joinBreakoutApi],
+    [meetingCode, deviceId, joinBreakoutApi, tSession],
   );
 
   // Quay về phòng chính
@@ -207,11 +208,11 @@ export function useMeetingSession() {
           setStatus("JOINED");
         }, 1000);
       } catch (error) {
-        toast.error("Không thể quay về phòng chính lúc này.");
+        toast.error(tSession("return_main_error"));
         setStatus("JOINED");
       }
     },
-    [deviceId, returnToMainRoomApi],
+    [deviceId, returnToMainRoomApi, tSession],
   );
 
   const handleJoinByCode = useCallback(async () => {
@@ -269,11 +270,11 @@ export function useMeetingSession() {
         toast.error(t(errorCode) || "Cuộc họp chưa bắt đầu hoặc đã kết thúc");
         await handleSmartRedirect();
       } else {
-        toast.error("Không thể kết nối lại cuộc họp. Vui lòng thử lại.");
+        toast.error(tSession("reconnect_error"));
         setStatus("IN_LOBBY");
       }
     }
-  }, [meetingCode, displayName, deviceId, joinMeetingByCodeApi]);
+  }, [meetingCode, displayName, deviceId, joinMeetingByCodeApi, t, tSession]);
 
   // Kiểm tra Session hoặc xin Token qua BroadcastChannel (loại bỏ gấp)
   useEffect(() => {

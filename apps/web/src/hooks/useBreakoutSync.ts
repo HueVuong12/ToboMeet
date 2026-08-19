@@ -4,8 +4,10 @@ import { LivekitRoomMetadata } from "@tobomeet/shared/types";
 import { RoomEvent } from "livekit-client";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 export function useBreakoutSync() {
+  const t = useTranslations("meeting.breakout_sync");
   const room = useRoomContext();
   const { handleSwitchToBreakout, handleReturnToMain } =
     useMeetingSessionContext();
@@ -17,7 +19,7 @@ export function useBreakoutSync() {
       try {
         const meta: LivekitRoomMetadata = JSON.parse(metadataStr);
         if (meta.roomType === "breakout" && meta.status === "closing") {
-          toast.info("Phiên thảo luận đã kết thúc");
+          toast.info(t("session_ended"));
           handleReturnToMain(room.name);
         }
       } catch (error) {
@@ -40,9 +42,7 @@ export function useBreakoutSync() {
             data.targetUsers?.includes(myIdentity) &&
             data.breakoutRoomId
           ) {
-            toast.info(
-              "Host đã chỉ định bạn vào phòng thảo luận. Đang chuyển hướng...",
-            );
+            toast.info(t("assigned_by_host"));
             handleSwitchToBreakout(data.breakoutRoomId);
           }
         }
@@ -58,5 +58,5 @@ export function useBreakoutSync() {
       room.off(RoomEvent.RoomMetadataChanged, handleMetadataChanged);
       room.off(RoomEvent.DataReceived, handleDataReceived);
     };
-  }, [room, handleReturnToMain, handleSwitchToBreakout]);
+  }, [room, handleReturnToMain, handleSwitchToBreakout, t]);
 }

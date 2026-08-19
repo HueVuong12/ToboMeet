@@ -25,6 +25,8 @@ export function useRoomSettings({
   meetingCode?: string;
 }) {
   const t = useTranslations("server.errors");
+  const tToolbar = useTranslations("meeting.toolbar");
+  const tSession = useTranslations("meeting.session");
   const { localParticipant } = useLocalParticipant();
   const { metadata: roomMetadata } = useRoomInfo();
 
@@ -117,7 +119,7 @@ export function useRoomSettings({
       if (error?.code) {
         const errorCode = String(error.code);
         toast.error(t(errorCode) || t("errors.5011"));
-      } else toast.error("Chưa thể thực hiện thao tác này");
+      } else toast.error(tSession("general_action_error"));
       setIsChatEnabled(!newState); // Rollback nếu lỗi
     }
   };
@@ -141,7 +143,7 @@ export function useRoomSettings({
       if (error?.code) {
         const errorCode = String(error.code);
         toast.error(t(errorCode) || t("errors.5011"));
-      } else toast.error("Chưa thể thực hiện thao tác này");
+      } else toast.error(tSession("general_action_error"));
       setIsWaitingRoomEnabled(!newState); // Rollback nếu lỗi
     }
   };
@@ -167,7 +169,7 @@ export function useRoomSettings({
       if (error?.code) {
         const errorCode = String(error.code);
         toast.error(t(errorCode) || t("errors.5011"));
-      } else toast.error("Chưa thể thực hiện thao tác này");
+      } else toast.error(tSession("general_action_error"));
       setApprovalPermission(oldState); // Rollback
     }
   };
@@ -180,7 +182,7 @@ export function useRoomSettings({
       }).unwrap();
     } catch (error) {
       console.error("Lỗi khi kết thúc breakout", error);
-      toast.error("Không thể kết thúc thảo luận lúc này.");
+      toast.error(tToolbar("end_breakout_error"));
     }
   };
 
