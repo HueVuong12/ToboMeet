@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { User, UserDocument } from "../users/schemas/user.schema";
@@ -301,7 +301,7 @@ export class BreakoutRoomsService {
       }
     } catch (error) {
       console.error("Lỗi khi tạo Breakout Session:", error);
-      throw new BadRequestException("Không thể tạo phiên thảo luận nhóm.");
+      throw new AppException(ErrorCode.START_BREAKOUT_FAILED);
     }
   }
 
@@ -364,7 +364,7 @@ export class BreakoutRoomsService {
       }
     } catch (error) {
       console.log(error);
-      throw new BadRequestException("Không thể kết thúc phiên thảo luận nhóm.");
+      throw new AppException(ErrorCode.END_BREAKOUT_FAILED);
     }
   }
 
@@ -392,8 +392,8 @@ export class BreakoutRoomsService {
       ]);
 
       if (subRooms.length === 0) {
-        throw new BadRequestException(
-          "Phòng thảo luận không tồn tại hoặc đã đóng.",
+        throw new AppException(
+          ErrorCode.BREAKOUT_ROOM_NOT_FOUND_OR_CLOSED,
         );
       }
 
@@ -402,25 +402,23 @@ export class BreakoutRoomsService {
 
         // Kiểm tra chắc chắn đây là phòng breakout
         if (meta.roomType !== "breakout") {
-          throw new BadRequestException(
-            "Yêu cầu không hợp lệ. Đây không phải là phòng thảo luận.",
+          throw new AppException(
+            ErrorCode.INVALID_BREAKOUT_ROOM,
           );
         }
 
         // (Tuỳ chọn) Kiểm tra thêm trạng thái phòng có đang active không
         if (meta.status !== "active") {
-          throw new BadRequestException(
-            "Phòng thảo luận này không còn hoạt động.",
+          throw new AppException(
+            ErrorCode.BREAKOUT_ROOM_NOT_ACTIVE,
           );
         }
       } else {
-        throw new BadRequestException("Dữ liệu phòng thảo luận không hợp lệ.");
+        throw new AppException(ErrorCode.BREAKOUT_ROOM_DATA_INVALID);
       }
     } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(
-        "Lỗi hệ thống khi kiểm tra thông tin phòng.",
-      );
+      if (error instanceof AppException) throw error;
+      throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
     // ==========================================
@@ -434,13 +432,13 @@ export class BreakoutRoomsService {
       );
 
       if (!isActuallyInMainRoom) {
-        throw new BadRequestException(
-          "Bạn phải đang ở phòng họp chính mới được vào phòng thảo luận.",
+        throw new AppException(
+          ErrorCode.MUST_BE_IN_MAIN_ROOM,
         );
       }
     } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException("Phòng họp chính không hoạt động.");
+      if (error instanceof AppException) throw error;
+      throw new AppException(ErrorCode.MAIN_ROOM_NOT_ACTIVE);
     }
 
     // ==========================================
@@ -479,8 +477,8 @@ export class BreakoutRoomsService {
         fullBreakoutRoomName,
       ]);
       if (subRooms.length === 0) {
-        throw new BadRequestException(
-          "Phòng thảo luận không tồn tại hoặc đã bị đóng.",
+        throw new AppException(
+          ErrorCode.BREAKOUT_ROOM_NOT_FOUND_OR_CLOSED,
         );
       }
 
@@ -491,15 +489,13 @@ export class BreakoutRoomsService {
       }
 
       if (!parentRoomCode) {
-        throw new BadRequestException(
-          "Không tìm thấy thông tin phòng họp chính.",
+        throw new AppException(
+          ErrorCode.MAIN_ROOM_INFO_NOT_FOUND,
         );
       }
     } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(
-        "Lỗi hệ thống khi trích xuất dữ liệu phòng.",
-      );
+      if (error instanceof AppException) throw error;
+      throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
     // Xác thực xem User có đang ở trong Breakout này không
@@ -510,8 +506,8 @@ export class BreakoutRoomsService {
     );
 
     if (!isActuallyInBreakout) {
-      throw new BadRequestException(
-        "Bạn không có mặt trong phòng thảo luận này.",
+      throw new AppException(
+        ErrorCode.NOT_IN_BREAKOUT_ROOM,
       );
     }
 

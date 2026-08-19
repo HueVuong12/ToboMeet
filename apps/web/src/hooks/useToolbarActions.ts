@@ -17,6 +17,7 @@ export function useToolbarActions() {
 
   const code = room.name; // code sẽ là phòng hiện tại (của main hoặc breakout)
   const t = useTranslations("meeting.toolbar");
+  const tServer = useTranslations("server.errors");
   const { handleReturnToMain, isLeavingBreakout } = useMeetingSessionContext();
 
   const {
@@ -82,6 +83,7 @@ export function useToolbarActions() {
       }
     } catch (error: any) {
       const errorMessage =
+        (error?.code && tServer(String(error.code))) ||
         error?.message ||
         t("error_occurred") ||
         "Không thể thực hiện thao tác này.";

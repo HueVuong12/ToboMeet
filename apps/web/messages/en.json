@@ -1172,7 +1172,9 @@
       "invite_button": "Invite",
       "no_search_results": "No matching results found.",
       "all_members_present": "All members are already in the room.",
-      "outsider_badge": "Outsider"
+      "outsider_badge": "Outsider",
+      "invite_success": "Invitation sent to {name}",
+      "invite_error": "Unable to send invitation at this time."
     },
     "lobby": {
       "title": "Getting ready",
@@ -1332,6 +1334,25 @@
       "4006": "The session does not exist or has ended",
       "4042": "Session not found",
       "4291": "You have already sent an invitation to this person. Please try again in a few minutes",
+      "4007": "Unable to update waiting room status",
+      "4008": "Unable to approve this participant",
+      "4009": "Unable to update approval permission settings",
+      "4015": "Another person is currently sharing screen. Please wait for them to finish",
+      "4016": "Unable to remove participant from the meeting",
+      "4017": "Unable to update chat status",
+      "4018": "Unable to perform this action on the user",
+      "4019": "Unable to create breakout session",
+      "4020": "Unable to end breakout session",
+      "4021": "Invalid request. This is not a breakout room",
+      "4022": "This breakout room is no longer active",
+      "4023": "Invalid breakout room data",
+      "4024": "You must be in the main meeting room to join a breakout room",
+      "4025": "Main meeting room is not active",
+      "4026": "You are not present in this breakout room",
+      "4043": "User is not in the meeting",
+      "4044": "Meeting not found",
+      "4045": "Breakout room does not exist or has closed",
+      "4046": "Main meeting room information not found",
       "5011": "System error, please try again later"
     }
   }

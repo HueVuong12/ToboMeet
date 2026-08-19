@@ -27,6 +27,7 @@ export function useParticipantManager({
   meetingCode?: string;
 }) {
   const t = useTranslations("meeting.participant_list");
+  const tServer = useTranslations("server.errors");
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
@@ -138,7 +139,12 @@ export function useParticipantManager({
         success: isAll
           ? t("approve_all_success")
           : t("approve_success", { name: name }),
-        error: isAll ? t("approve_all_error") : t("approve_error"),
+        error: (err: any) =>
+          err?.code
+            ? tServer(String(err.code))
+            : isAll
+              ? t("approve_all_error")
+              : t("approve_error"),
       },
     );
   };
@@ -168,9 +174,12 @@ export function useParticipantManager({
             toast.success(
               t("remove_success", { name: participant.name || "" }),
             );
-          } catch (error) {
+          } catch (error: any) {
             console.error(error);
-            toast.error(t("remove_error"));
+            const msg = error?.code
+              ? tServer(String(error.code))
+              : t("remove_error");
+            toast.error(msg);
           } finally {
             setKickingUserId(null);
           }
@@ -212,7 +221,9 @@ export function useParticipantManager({
         );
       }
     } catch (err: any) {
-      if (role === "admin") {
+      if (err?.code) {
+        toast.error(tServer(String(err.code)));
+      } else if (role === "admin") {
         const subTitle = t("role_vice_leader");
         toast.error(
           err?.data?.message ||
@@ -264,6 +275,7 @@ export function useParticipantManager({
               console.error("[TransferOwnership] Transfer error:", err);
 
               const msg =
+                (err?.code && tServer(String(err.code))) ||
                 err?.data?.message ||
                 err?.message ||
                 "Không thể chuyển quyền. Vui lòng thử lại.";
@@ -305,9 +317,12 @@ export function useParticipantManager({
           type: typeLabel,
           name: name,
         }),
-        error: t("mute_error", {
-          type: typeLabel,
-        }),
+        error: (err: any) =>
+          err?.code
+            ? tServer(String(err.code))
+            : t("mute_error", {
+                type: typeLabel,
+              }),
       },
     );
   };

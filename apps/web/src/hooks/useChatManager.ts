@@ -6,6 +6,7 @@ import {
 import { toast } from "sonner";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { useGeneratePresignedUploadUrlMutation } from "@/lib/redux/api/meetingsApi";
+import { useTranslations } from "next-intl";
 
 interface UseChatManagerProps {
   messages: ChatMessage[];
@@ -18,6 +19,7 @@ export function useChatManager({
   setMessages,
   meetingCode,
 }: UseChatManagerProps) {
+  const tServer = useTranslations("server.errors");
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants();
   const [generatePresignedUrl] = useGeneratePresignedUploadUrlMutation();
@@ -210,9 +212,11 @@ export function useChatManager({
 
       setMessages((prev) => [...prev, fileMsg]);
       toast.success("Tải file thành công!", { id: toastId });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Lỗi tải file lên", { id: toastId });
+      const msg =
+        (error?.code && tServer(String(error.code))) || "Lỗi tải file lên";
+      toast.error(msg, { id: toastId });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }

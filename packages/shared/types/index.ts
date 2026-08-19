@@ -138,6 +138,105 @@ export const ErrorCode: Record<string, ErrorDetail> = {
       "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút.",
     statusCode: 429,
   },
+
+  // Meeting & Control errors
+  WAITING_ROOM_UPDATE_FAILED: {
+    code: 4007,
+    message: "Không thể cập nhật trạng thái phòng chờ",
+    statusCode: 400,
+  },
+  APPROVE_PARTICIPANT_FAILED: {
+    code: 4008,
+    message: "Không thể duyệt người dùng này",
+    statusCode: 400,
+  },
+  APPROVAL_PERMISSION_UPDATE_FAILED: {
+    code: 4009,
+    message: "Không thể cập nhật cấu hình quyền duyệt",
+    statusCode: 400,
+  },
+  PARTICIPANT_NOT_IN_MEETING: {
+    code: 4043,
+    message: "Người dùng không tồn tại trong cuộc họp",
+    statusCode: 404,
+  },
+  SCREEN_SHARE_ALREADY_ACTIVE: {
+    code: 4015,
+    message: "Một người khác đang chia sẻ màn hình. Vui lòng đợi họ kết thúc.",
+    statusCode: 400,
+  },
+  REMOVE_PARTICIPANT_FAILED: {
+    code: 4016,
+    message: "Không thể xoá người dùng khỏi cuộc họp",
+    statusCode: 400,
+  },
+  TOGGLE_CHAT_FAILED: {
+    code: 4017,
+    message: "Không thể cập nhật trạng thái chat",
+    statusCode: 400,
+  },
+  MUTE_PARTICIPANT_FAILED: {
+    code: 4018,
+    message: "Không thể thao tác trên người dùng này",
+    statusCode: 400,
+  },
+  MEETING_NOT_FOUND: {
+    code: 4044,
+    message: "Không tìm thấy cuộc họp",
+    statusCode: 404,
+  },
+
+  // Breakout errors
+  START_BREAKOUT_FAILED: {
+    code: 4019,
+    message: "Không thể tạo phiên thảo luận nhóm",
+    statusCode: 400,
+  },
+  END_BREAKOUT_FAILED: {
+    code: 4020,
+    message: "Không thể kết thúc phiên thảo luận nhóm",
+    statusCode: 400,
+  },
+  BREAKOUT_ROOM_NOT_FOUND_OR_CLOSED: {
+    code: 4045,
+    message: "Phòng thảo luận không tồn tại hoặc đã đóng",
+    statusCode: 404,
+  },
+  INVALID_BREAKOUT_ROOM: {
+    code: 4021,
+    message: "Yêu cầu không hợp lệ. Đây không phải là phòng thảo luận",
+    statusCode: 400,
+  },
+  BREAKOUT_ROOM_NOT_ACTIVE: {
+    code: 4022,
+    message: "Phòng thảo luận này không còn hoạt động",
+    statusCode: 400,
+  },
+  BREAKOUT_ROOM_DATA_INVALID: {
+    code: 4023,
+    message: "Dữ liệu phòng thảo luận không hợp lệ",
+    statusCode: 400,
+  },
+  MUST_BE_IN_MAIN_ROOM: {
+    code: 4024,
+    message: "Bạn phải đang ở phòng họp chính mới được vào phòng thảo luận",
+    statusCode: 400,
+  },
+  MAIN_ROOM_NOT_ACTIVE: {
+    code: 4025,
+    message: "Phòng họp chính không hoạt động",
+    statusCode: 400,
+  },
+  MAIN_ROOM_INFO_NOT_FOUND: {
+    code: 4046,
+    message: "Không tìm thấy thông tin phòng họp chính",
+    statusCode: 404,
+  },
+  NOT_IN_BREAKOUT_ROOM: {
+    code: 4026,
+    message: "Bạn không có mặt trong phòng thảo luận này",
+    statusCode: 400,
+  },
 };
 
 export interface NavLink {

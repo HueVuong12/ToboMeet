@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Participant } from "livekit-client";
 import debounce from "lodash/debounce";
 
+import { useTranslations } from "next-intl";
+
 interface UseMeetingInviteProps {
   roomId: string | null;
   meetingCode: string;
@@ -19,6 +21,8 @@ export function useMeetingInvite({
   displayParticipants,
   isOpen,
 }: UseMeetingInviteProps) {
+  const t = useTranslations("meeting.invite_member_modal");
+  const tServer = useTranslations("server.errors");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
@@ -102,13 +106,21 @@ export function useMeetingInvite({
     setInvitingUserId(userId);
     try {
       await sendInvite({ meetingCode, inviteeId: userId }).unwrap();
-      toast.success(`Đã gửi lời mời đến ${displayName}`);
-    } catch (error: any) {
-      toast.error(
-        error?.data?.message ||
-          error?.message ||
-          "Không thể gửi lời mời lúc này.",
+      toast.success(
+        t("invite_success", {
+          name: displayName,
+          defaultValue: `Đã gửi lời mời đến ${displayName}`,
+        }),
       );
+    } catch (error: any) {
+      const msg =
+        (error?.code && tServer(String(error.code))) ||
+        error?.data?.message ||
+        error?.message ||
+        t("invite_error", {
+          defaultValue: "Không thể gửi lời mời lúc này.",
+        });
+      toast.error(msg);
     } finally {
       setInvitingUserId(null);
     }

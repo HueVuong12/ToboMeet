@@ -1,9 +1,5 @@
 // src/meetings/meetings.service.ts
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
@@ -117,10 +113,7 @@ export class MeetingsService {
           }
         }
       } catch (error) {
-        if (
-          error instanceof AppException ||
-          error instanceof BadRequestException
-        ) {
+        if (error instanceof AppException) {
           throw error;
         }
       }
@@ -336,7 +329,7 @@ export class MeetingsService {
       }
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái phòng chờ:", error);
-      throw new BadRequestException("Không thể cập nhật trạng thái phòng chờ");
+      throw new AppException(ErrorCode.WAITING_ROOM_UPDATE_FAILED);
     }
   }
 
@@ -354,19 +347,19 @@ export class MeetingsService {
 
     const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
     if (!meeting) {
-      throw new NotFoundException("Không tìm thấy cuộc họp");
+      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
     }
 
     const room = await this.roomModel.findById(meeting.roomId).exec();
     if (!room) {
-      throw new NotFoundException("Không tìm thấy phòng");
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
     }
 
     const channel = room.channels.find(
       (c) => c._id?.toString() === meeting.channelId.toString(),
     );
     if (!channel) {
-      throw new NotFoundException("Không tìm thấy kênh");
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
     }
 
     // Xác định role của requester (người đang gửi yêu cầu duyệt) để kiểm tra quyền
@@ -472,7 +465,7 @@ export class MeetingsService {
       }
     } catch (error) {
       console.error("Lỗi khi duyệt người dùng:", error);
-      throw new BadRequestException("Không thể duyệt người dùng này");
+      throw new AppException(ErrorCode.APPROVE_PARTICIPANT_FAILED);
     }
   }
 
@@ -514,7 +507,7 @@ export class MeetingsService {
       );
     } catch (error) {
       console.error("Lỗi khi cập nhật quyền duyệt:", error);
-      throw new BadRequestException("Không thể cập nhật cấu hình quyền duyệt");
+      throw new AppException(ErrorCode.APPROVAL_PERMISSION_UPDATE_FAILED);
     }
   }
 
@@ -589,7 +582,7 @@ export class MeetingsService {
 
     const participant = participants.find((p) => p.identity === identity);
     if (!participant) {
-      throw new BadRequestException("Người dùng không tồn tại trong phòng.");
+      throw new AppException(ErrorCode.PARTICIPANT_NOT_IN_MEETING);
     }
 
     // Tìm xem có ai ĐÃ ĐƯỢC CẤP QUYỀN chia sẻ màn hình chưa (ngoại trừ chính mình)
@@ -600,9 +593,7 @@ export class MeetingsService {
     );
 
     if (isSomeoneSharing) {
-      throw new BadRequestException(
-        "Một người khác đang chia sẻ màn hình. Vui lòng đợi họ kết thúc.",
-      );
+      throw new AppException(ErrorCode.SCREEN_SHARE_ALREADY_ACTIVE);
     }
 
     await this.livekitRoomService.updateParticipant(
@@ -891,9 +882,7 @@ export class MeetingsService {
       });
     } catch (error) {
       console.error("Lỗi khi kick:", error);
-      throw new BadRequestException(
-        "Không thể kick, có thể người này đã rời phòng",
-      );
+      throw new AppException(ErrorCode.REMOVE_PARTICIPANT_FAILED);
     }
   }
 
@@ -998,7 +987,7 @@ export class MeetingsService {
       );
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái chat:", error);
-      throw new BadRequestException("Không thể cập nhật trạng thái chat");
+      throw new AppException(ErrorCode.TOGGLE_CHAT_FAILED);
     }
   }
 
@@ -1032,7 +1021,7 @@ export class MeetingsService {
       }
     } catch (error) {
       console.error(`Lỗi khi tắt ${trackType}:`, error);
-      throw new BadRequestException("Không thể thao tác trên người dùng này");
+      throw new AppException(ErrorCode.MUTE_PARTICIPANT_FAILED);
     }
   }
 

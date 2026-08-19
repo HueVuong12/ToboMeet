@@ -17,16 +17,19 @@ import { useParticipantManager } from "@/hooks/useParticipantManager";
 import { CreateBreakoutRoomDto } from "@tobomeet/shared/types";
 import { useTranslations } from "next-intl";
 
+interface CreateBreakoutModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  meetingCode: string;
+}
+
 export default function CreateBreakoutModal({
   isOpen,
   onClose,
   meetingCode,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  meetingCode: string;
-}) {
+}: CreateBreakoutModalProps) {
   const t = useTranslations("meeting.create_breakout_modal");
+  const tServer = useTranslations("server.errors");
   const { displayParticipants: participants } = useParticipantManager({
     meetingCode: meetingCode,
   });
@@ -148,8 +151,13 @@ export default function CreateBreakoutModal({
       toast.success(t("success_start"));
       onClose();
     } catch (error: any) {
-      if (error?.status === 400) toast.error(t("error_invalid_data"));
-      else toast.error(t("error_create_failed"));
+      if (error?.code) {
+        toast.error(tServer(String(error.code)));
+      } else if (error?.status === 400) {
+        toast.error(t("error_invalid_data"));
+      } else {
+        toast.error(t("error_create_failed"));
+      }
     }
   };
 

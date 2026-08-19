@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { useJoinMeetingMutation } from "@/lib/redux/api/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
+import { useTranslations } from "next-intl";
 
 interface UseMeetingLauncherProps {
   roomId: string;
@@ -17,6 +18,7 @@ export function useMeetingLauncher({
   activeChannel,
   setShowPreviewModal,
 }: UseMeetingLauncherProps) {
+  const tServer = useTranslations("server.errors");
   const meetingWindowRef = useRef<Window | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinMeetingApi] = useJoinMeetingMutation();
@@ -73,7 +75,7 @@ export function useMeetingLauncher({
       if (error?.code === 4013) {
         setShowPreviewModal(false);
 
-        toast.warning("Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
+        toast.warning(tServer("4013") || "Bạn đang ở trong phòng này trên thiết bị/tab khác.", {
           duration: 10000,
           action: {
             label: "Ngắt kết nối máy kia & Vào phòng",
@@ -84,7 +86,8 @@ export function useMeetingLauncher({
           },
         });
       } else {
-        toast.error("Không thể tham gia cuộc họp lúc này.");
+        const msg = (error?.code && tServer(String(error.code))) || "Không thể tham gia cuộc họp lúc này.";
+        toast.error(msg);
       }
     } finally {
       setIsJoining(false);

@@ -118,7 +118,7 @@ export function useRoomSettings({
     } catch (error: any) {
       if (error?.code) {
         const errorCode = String(error.code);
-        toast.error(t(errorCode) || t("errors.5011"));
+        toast.error(t(errorCode) || t("5011"));
       } else toast.error(tSession("general_action_error"));
       setIsChatEnabled(!newState); // Rollback nếu lỗi
     }
@@ -142,7 +142,7 @@ export function useRoomSettings({
     } catch (error: any) {
       if (error?.code) {
         const errorCode = String(error.code);
-        toast.error(t(errorCode) || t("errors.5011"));
+        toast.error(t(errorCode) || t("5011"));
       } else toast.error(tSession("general_action_error"));
       setIsWaitingRoomEnabled(!newState); // Rollback nếu lỗi
     }
@@ -168,7 +168,7 @@ export function useRoomSettings({
     } catch (error: any) {
       if (error?.code) {
         const errorCode = String(error.code);
-        toast.error(t(errorCode) || t("errors.5011"));
+        toast.error(t(errorCode) || t("5011"));
       } else toast.error(tSession("general_action_error"));
       setApprovalPermission(oldState); // Rollback
     }
@@ -180,9 +180,13 @@ export function useRoomSettings({
       await endBreakoutApi({
         code: meetingCode,
       }).unwrap();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi kết thúc breakout", error);
-      toast.error(tToolbar("end_breakout_error"));
+      if (error?.code) {
+        toast.error(t(String(error.code)) || tToolbar("end_breakout_error"));
+      } else {
+        toast.error(tToolbar("end_breakout_error"));
+      }
     }
   };
 

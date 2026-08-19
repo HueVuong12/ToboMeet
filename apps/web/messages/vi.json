@@ -1158,7 +1158,9 @@
       "invite_button": "Mời",
       "no_search_results": "Không tìm thấy kết quả nào phù hợp.",
       "all_members_present": "Tất cả thành viên đều đã có mặt trong phòng.",
-      "outsider_badge": "Khách"
+      "outsider_badge": "Khách",
+      "invite_success": "Đã gửi lời mời đến {name}",
+      "invite_error": "Không thể gửi lời mời lúc này."
     },
     "lobby": {
       "title": "Chuẩn bị tham gia",
@@ -1318,6 +1320,25 @@
       "4006": "Phiên họp không tồn tại hoặc đã kết thúc",
       "4042": "Không tìm thấy phiên họp này",
       "4291": "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút",
+      "4007": "Không thể cập nhật trạng thái phòng chờ",
+      "4008": "Không thể duyệt người dùng này",
+      "4009": "Không thể cập nhật cấu hình quyền duyệt",
+      "4015": "Một người khác đang chia sẻ màn hình. Vui lòng đợi họ kết thúc",
+      "4016": "Không thể xoá người dùng khỏi cuộc họp",
+      "4017": "Không thể cập nhật trạng thái chat",
+      "4018": "Không thể thao tác trên người dùng này",
+      "4019": "Không thể tạo phiên thảo luận nhóm",
+      "4020": "Không thể kết thúc phiên thảo luận nhóm",
+      "4021": "Yêu cầu không hợp lệ. Đây không phải là phòng thảo luận",
+      "4022": "Phòng thảo luận này không còn hoạt động",
+      "4023": "Dữ liệu phòng thảo luận không hợp lệ",
+      "4024": "Bạn phải đang ở phòng họp chính mới được vào phòng thảo luận",
+      "4025": "Phòng họp chính không hoạt động",
+      "4026": "Bạn không có mặt trong phòng thảo luận này",
+      "4043": "Người dùng không tồn tại trong cuộc họp",
+      "4044": "Không tìm thấy cuộc họp",
+      "4045": "Phòng thảo luận không tồn tại hoặc đã đóng",
+      "4046": "Không tìm thấy thông tin phòng họp chính",
       "5011": "Lỗi hệ thống, vui lòng thử lại sau"
     }
   }

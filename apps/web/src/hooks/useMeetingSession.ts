@@ -177,12 +177,15 @@ export function useMeetingSession() {
         setTimeout(() => {
           setStatus("JOINED");
         }, 1000);
-      } catch (error) {
-        toast.error(tSession("join_breakout_error"));
+      } catch (error: any) {
+        const msg = error?.code
+          ? t(String(error.code))
+          : tSession("join_breakout_error");
+        toast.error(msg);
         setStatus("JOINED");
       }
     },
-    [meetingCode, deviceId, joinBreakoutApi, tSession],
+    [meetingCode, deviceId, joinBreakoutApi, t, tSession],
   );
 
   // Quay về phòng chính
@@ -207,12 +210,15 @@ export function useMeetingSession() {
         setTimeout(() => {
           setStatus("JOINED");
         }, 1000);
-      } catch (error) {
-        toast.error(tSession("return_main_error"));
+      } catch (error: any) {
+        const msg = error?.code
+          ? t(String(error.code))
+          : tSession("return_main_error");
+        toast.error(msg);
         setStatus("JOINED");
       }
     },
-    [deviceId, returnToMainRoomApi, tSession],
+    [deviceId, returnToMainRoomApi, t, tSession],
   );
 
   const handleJoinByCode = useCallback(async () => {
@@ -269,6 +275,9 @@ export function useMeetingSession() {
       } else if (error?.code === 4014) {
         toast.error(t(errorCode) || "Cuộc họp chưa bắt đầu hoặc đã kết thúc");
         await handleSmartRedirect();
+      } else if (error?.code && t(errorCode)) {
+        toast.error(t(errorCode));
+        setStatus("IN_LOBBY");
       } else {
         toast.error(tSession("reconnect_error"));
         setStatus("IN_LOBBY");
