@@ -8,8 +8,9 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Switch,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -68,13 +69,10 @@ export default function CreateBreakoutModal({
   const [manualAssignments, setManualAssignments] = useState<
     Record<string, string>
   >({});
-  const [selectingMemberForRoom, setSelectingMemberForRoom] = useState<
-    string | null
-  >(null);
-  const [assigningUser, setAssigningUser] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+
+  // STATE MULTI-SELECT CHO MODAL THÊM THÀNH VIÊN VÀO PHÒNG
+  const [selectingRoomId, setSelectingRoomId] = useState<string | null>(null);
+  const [tempSelectedUsers, setTempSelectedUsers] = useState<string[]>([]);
 
   // STATE CHẾ ĐỘ 3: TỰ CHỌN (SELF)
   const [selfRooms, setSelfRooms] = useState(() => [
@@ -92,9 +90,47 @@ export default function CreateBreakoutModal({
 
   if (!isOpen) return null;
 
-  const unassignedParticipants = participants.filter(
-    (p) => !manualAssignments[p.identity],
-  );
+  // Mở modal thêm thành viên đa chọn cho 1 phòng
+  const handleOpenAddMembersModal = (roomId: string) => {
+    setSelectingRoomId(roomId);
+    // Khởi tạo danh sách các thành viên hiện đang thuộc phòng này
+    const currentMembersInRoom = Object.entries(manualAssignments)
+      .filter(([_, rId]) => rId === roomId)
+      .map(([userId]) => userId);
+    setTempSelectedUsers(currentMembersInRoom);
+  };
+
+  // Toggle chọn / bỏ chọn thành viên trong modal
+  const handleToggleMember = (userId: string) => {
+    setTempSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+  };
+
+  // Xác nhận lưu danh sách thành viên cho phòng
+  const handleConfirmSelectedMembers = () => {
+    if (!selectingRoomId) return;
+
+    setManualAssignments((prev) => {
+      const next = { ...prev };
+      // Xóa gán cũ của phòng này
+      Object.keys(next).forEach((uid) => {
+        if (next[uid] === selectingRoomId) {
+          delete next[uid];
+        }
+      });
+      // Gán mới danh sách đã chọn
+      tempSelectedUsers.forEach((uid) => {
+        next[uid] = selectingRoomId;
+      });
+      return next;
+    });
+
+    setSelectingRoomId(null);
+    setTempSelectedUsers([]);
+  };
 
   const handleSubmit = async () => {
     let finalRoomsPayload: CreateBreakoutRoomDto[] = [];
@@ -204,9 +240,19 @@ export default function CreateBreakoutModal({
     }
   };
 
+  const selectedRoomForModal = manualRooms.find(
+    (r) => r.id === selectingRoomId,
+  );
+
   return (
-    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
-      <View
+    <Modal
+      visible={isOpen}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1 justify-end bg-black/60"
         style={{
           paddingTop: Math.max(insets.top, 20),
@@ -221,12 +267,12 @@ export default function CreateBreakoutModal({
 
         <View className="bg-[#111] h-[88%] rounded-t-3xl border-t border-[#333] flex-col overflow-hidden">
           {/* DRAG HANDLE */}
-          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-3 mb-2" />
+          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-3 mb-3" />
 
           {/* HEADER */}
-          <View className="px-5 py-3 border-b border-[#222] flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <View className="p-2 bg-[#222] rounded-lg border border-[#333]">
+          <View className="px-5 py-4 border-b border-[#222] flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2.5">
+              <View className="p-2 bg-[#222] rounded-xl border border-[#333]">
                 <Feather name="grid" size={18} color="#60a5fa" />
               </View>
               <Text className="text-white text-base font-bold">
@@ -235,18 +281,20 @@ export default function CreateBreakoutModal({
                 })}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} className="p-1.5 rounded-lg bg-[#222]">
+            <TouchableOpacity
+              onPress={onClose}
+              className="p-2 rounded-xl bg-[#222] active:bg-[#333]"
+            >
               <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
           </View>
 
           {/* TAB NAVIGATION */}
-          <View className="flex-row bg-[#1a1a1a] p-1.5 mx-5 my-3 rounded-xl border border-[#333]">
+          <View className="flex-row bg-[#1a1a1a] p-1.5 mx-5 my-4 rounded-xl border border-[#333]">
             <TouchableOpacity
               onPress={() => setActiveTab("auto")}
-              className={`flex-1 py-2 rounded-lg items-center justify-center flex-row gap-1.5 ${
-                activeTab === "auto" ? "bg-blue-600" : ""
-              }`}
+              className={`flex-1 py-2.5 rounded-lg items-center justify-center flex-row gap-1.5 ${activeTab === "auto" ? "bg-blue-600" : ""
+                }`}
             >
               <Ionicons
                 name="sparkles"
@@ -254,9 +302,8 @@ export default function CreateBreakoutModal({
                 color={activeTab === "auto" ? "#ffffff" : "#94a3b8"}
               />
               <Text
-                className={`text-xs font-bold ${
-                  activeTab === "auto" ? "text-white" : "text-gray-400"
-                }`}
+                className={`text-xs font-bold ${activeTab === "auto" ? "text-white" : "text-gray-400"
+                  }`}
               >
                 {t("meeting.create_breakout_modal.tab_auto", {
                   defaultValue: "Tự động",
@@ -266,9 +313,8 @@ export default function CreateBreakoutModal({
 
             <TouchableOpacity
               onPress={() => setActiveTab("manual")}
-              className={`flex-1 py-2 rounded-lg items-center justify-center flex-row gap-1.5 ${
-                activeTab === "manual" ? "bg-blue-600" : ""
-              }`}
+              className={`flex-1 py-2.5 rounded-lg items-center justify-center flex-row gap-1.5 ${activeTab === "manual" ? "bg-blue-600" : ""
+                }`}
             >
               <Ionicons
                 name="hand-left"
@@ -276,9 +322,8 @@ export default function CreateBreakoutModal({
                 color={activeTab === "manual" ? "#ffffff" : "#94a3b8"}
               />
               <Text
-                className={`text-xs font-bold ${
-                  activeTab === "manual" ? "text-white" : "text-gray-400"
-                }`}
+                className={`text-xs font-bold ${activeTab === "manual" ? "text-white" : "text-gray-400"
+                  }`}
               >
                 {t("meeting.create_breakout_modal.tab_manual", {
                   defaultValue: "Thủ công",
@@ -288,9 +333,8 @@ export default function CreateBreakoutModal({
 
             <TouchableOpacity
               onPress={() => setActiveTab("self")}
-              className={`flex-1 py-2 rounded-lg items-center justify-center flex-row gap-1.5 ${
-                activeTab === "self" ? "bg-blue-600" : ""
-              }`}
+              className={`flex-1 py-2.5 rounded-lg items-center justify-center flex-row gap-1.5 ${activeTab === "self" ? "bg-blue-600" : ""
+                }`}
             >
               <Ionicons
                 name="options"
@@ -298,9 +342,8 @@ export default function CreateBreakoutModal({
                 color={activeTab === "self" ? "#ffffff" : "#94a3b8"}
               />
               <Text
-                className={`text-xs font-bold ${
-                  activeTab === "self" ? "text-white" : "text-gray-400"
-                }`}
+                className={`text-xs font-bold ${activeTab === "self" ? "text-white" : "text-gray-400"
+                  }`}
               >
                 {t("meeting.create_breakout_modal.tab_self", {
                   defaultValue: "Tự chọn",
@@ -312,13 +355,14 @@ export default function CreateBreakoutModal({
           {/* TAB CONTENTS */}
           <ScrollView
             className="flex-1 px-5"
+            contentContainerClassName="pb-10 pt-2"
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             {/* ================= TAB 1: AUTO ================= */}
             {activeTab === "auto" && (
-              <View className="space-y-4 pb-6">
-                <Text className="text-slate-400 text-xs leading-5">
+              <View>
+                <Text className="text-slate-400 text-xs leading-5 mb-4">
                   {t("meeting.create_breakout_modal.auto_desc", {
                     count: participants.length,
                     defaultValue: `Hệ thống sẽ tạo phòng và ngẫu nhiên phân bổ người tham gia. Hiện có ${participants.length} người.`,
@@ -326,8 +370,8 @@ export default function CreateBreakoutModal({
                 </Text>
 
                 {/* Tiền tố tên phòng */}
-                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] space-y-1.5">
-                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] mb-3">
+                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                     {t("meeting.create_breakout_modal.room_prefix_label", {
                       defaultValue: "Tiền tố tên phòng",
                     })}
@@ -339,13 +383,13 @@ export default function CreateBreakoutModal({
                     }
                     placeholder="Nhóm"
                     placeholderTextColor="#666"
-                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3 py-2.5"
+                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3.5 py-3"
                   />
                 </View>
 
                 {/* Số người tối đa / phòng */}
-                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] space-y-1.5">
-                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] mb-3">
+                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                     {t("meeting.create_breakout_modal.max_participants_label", {
                       defaultValue: "Số người tối đa / phòng",
                     })}
@@ -359,13 +403,13 @@ export default function CreateBreakoutModal({
                       })
                     }
                     keyboardType="number-pad"
-                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3 py-2.5 font-mono"
+                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3.5 py-3 font-mono"
                   />
                 </View>
 
                 {/* Số lượng phòng */}
-                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] space-y-1.5">
-                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] mb-3">
+                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                     {t("meeting.create_breakout_modal.room_count_label", {
                       defaultValue: "Số lượng phòng",
                     })}
@@ -379,13 +423,13 @@ export default function CreateBreakoutModal({
                       })
                     }
                     keyboardType="number-pad"
-                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3 py-2.5 font-mono"
+                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3.5 py-3 font-mono"
                   />
                   <Text className="text-[10px] text-slate-500 italic mt-1 text-right">
                     {t("meeting.create_breakout_modal.room_count_hint", {
                       minRooms: Math.ceil(
                         participants.length /
-                          Math.max(1, autoConfig.maxParticipants),
+                        Math.max(1, autoConfig.maxParticipants),
                       ),
                       count: participants.length,
                       defaultValue: `Gợi ý: Cần tối thiểu ${Math.ceil(participants.length / Math.max(1, autoConfig.maxParticipants))} phòng cho ${participants.length} người.`,
@@ -394,8 +438,8 @@ export default function CreateBreakoutModal({
                 </View>
 
                 {/* Thời gian (phút) */}
-                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] space-y-1.5">
-                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] mb-3">
+                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                     {t("meeting.create_breakout_modal.duration_label", {
                       defaultValue: "Thời gian (phút)",
                     })}
@@ -409,7 +453,7 @@ export default function CreateBreakoutModal({
                       })
                     }
                     keyboardType="number-pad"
-                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3 py-2.5 font-mono"
+                    className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3.5 py-3 font-mono"
                   />
                 </View>
 
@@ -421,7 +465,7 @@ export default function CreateBreakoutModal({
                         defaultValue: "Tự động thêm thành viên vào phòng",
                       })}
                     </Text>
-                    <Text className="text-slate-400 text-xs mt-0.5">
+                    <Text className="text-slate-400 text-xs mt-1 leading-4">
                       {t("meeting.create_breakout_modal.auto_assign_sub", {
                         defaultValue:
                           "Người tham gia sẽ được tự động chuyển hướng.",
@@ -440,189 +484,162 @@ export default function CreateBreakoutModal({
 
             {/* ================= TAB 2: MANUAL ================= */}
             {activeTab === "manual" && (
-              <View className="space-y-4 pb-6">
-                <Text className="text-slate-400 text-xs leading-5">
+              <View>
+                <Text className="text-slate-400 text-xs leading-5 mb-4">
                   {t("meeting.create_breakout_modal.manual_desc", {
                     defaultValue:
-                      "Chạm vào thành viên để phân bổ vào các nhóm thảo luận cụ thể.",
+                      "Nhấn vào từng nhóm để thêm thành viên và tùy chỉnh thời lượng.",
                   })}
                 </Text>
 
-                {/* DANH SÁCH CHƯA PHÂN NHÓM */}
-                <View className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333]">
-                  <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">
-                    {t("meeting.create_breakout_modal.waiting_list", {
-                      count: unassignedParticipants.length,
-                      defaultValue: `Danh sách chờ (${unassignedParticipants.length})`,
-                    })}
-                  </Text>
-
-                  {unassignedParticipants.length > 0 ? (
-                    <View className="flex-row flex-wrap gap-2">
-                      {unassignedParticipants.map((p) => (
-                        <TouchableOpacity
-                          key={p.identity}
-                          onPress={() =>
-                            setAssigningUser({
-                              id: p.identity,
-                              name: p.name || "User",
-                            })
-                          }
-                          className="bg-[#222] border border-[#444] rounded-lg px-3 py-1.5 flex-row items-center gap-1.5 active:bg-[#333]"
-                        >
-                          <View className="w-5 h-5 rounded-full bg-blue-600 items-center justify-center">
-                            <Text className="text-[10px] font-bold text-white uppercase">
-                              {p.name?.charAt(0) || "?"}
-                            </Text>
-                          </View>
-                          <Text className="text-xs text-slate-200 font-medium max-w-[120px]" numberOfLines={1}>
-                            {p.name}
-                          </Text>
-                          <Feather name="plus" size={12} color="#60a5fa" />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text className="text-xs text-slate-500 italic">
-                      {t("meeting.create_breakout_modal.all_assigned", {
-                        defaultValue: "Đã phân công tất cả thành viên",
-                      })}
-                    </Text>
-                  )}
-                </View>
-
                 {/* DANH SÁCH CÁC PHÒNG THỦ CÔNG */}
-                {manualRooms.map((room, idx) => {
-                  const roomUsers = participants.filter(
-                    (p) => manualAssignments[p.identity] === room.id,
-                  );
+                <View>
+                  {manualRooms.map((room, idx) => {
+                    const roomUsers = participants.filter(
+                      (p) => manualAssignments[p.identity] === room.id,
+                    );
 
-                  return (
-                    <View
-                      key={room.id}
-                      className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden"
-                    >
-                      {/* Tiêu đề & Cài đặt phòng */}
-                      <View className="p-3.5 bg-[#222] border-b border-[#333] flex-row items-center justify-between">
-                        <TextInput
-                          value={room.name}
-                          onChangeText={(text) => {
-                            const newRooms = [...manualRooms];
-                            newRooms[idx].name = text;
-                            setManualRooms(newRooms);
-                          }}
-                          className="flex-1 text-white font-bold text-sm mr-2"
-                          placeholder="Tên phòng"
-                          placeholderTextColor="#666"
-                        />
-
-                        <View className="flex-row items-center gap-2">
-                          <View className="flex-row items-center bg-[#111] px-2 py-1 rounded border border-[#333]">
-                            <Feather name="clock" size={12} color="#94a3b8" />
-                            <TextInput
-                              value={String(room.durationMinutes)}
-                              onChangeText={(text) => {
-                                const newRooms = [...manualRooms];
-                                newRooms[idx].durationMinutes =
-                                  Number(text) || 1;
-                                setManualRooms(newRooms);
-                              }}
-                              keyboardType="number-pad"
-                              className="text-amber-400 text-xs font-mono w-8 text-center ml-1"
-                            />
-                            <Text className="text-[10px] text-slate-500">
-                              {t("meeting.create_breakout_modal.minutes_unit", {
-                                defaultValue: "p",
-                              })}
-                            </Text>
-                          </View>
-
-                          <TouchableOpacity
-                            onPress={() => {
-                              if (manualRooms.length <= 1) {
-                                toast.error(
-                                  t(
-                                    "meeting.create_breakout_modal.error_min_room",
-                                    { defaultValue: "Cần ít nhất 1 phòng" },
-                                  ),
-                                );
-                                return;
-                              }
-                              setManualRooms(
-                                manualRooms.filter((r) => r.id !== room.id),
-                              );
-                              setManualAssignments((prev) => {
-                                const next = { ...prev };
-                                Object.keys(next).forEach((uid) => {
-                                  if (next[uid] === room.id) delete next[uid];
-                                });
-                                return next;
-                              });
+                    return (
+                      <View
+                        key={room.id}
+                        className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden mb-3"
+                      >
+                        {/* Tiêu đề & Cài đặt phòng */}
+                        <View className="px-3.5 py-3 bg-[#222] border-b border-[#333] flex-row items-center justify-between">
+                          <TextInput
+                            value={room.name}
+                            onChangeText={(text) => {
+                              const newRooms = [...manualRooms];
+                              newRooms[idx].name = text;
+                              setManualRooms(newRooms);
                             }}
-                            className="p-1.5 rounded bg-red-500/10 active:bg-red-500/20"
-                          >
-                            <Feather name="trash-2" size={14} color="#f87171" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
+                            className="flex-1 text-white font-bold text-sm mr-2"
+                            placeholder="Tên phòng"
+                            placeholderTextColor="#666"
+                          />
 
-                      {/* Danh sách thành viên trong phòng */}
-                      <View className="p-3.5 space-y-2">
-                        {roomUsers.length > 0 ? (
-                          <View className="flex-row flex-wrap gap-2">
-                            {roomUsers.map((p) => (
-                              <View
-                                key={p.identity}
-                                className="bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 flex-row items-center gap-1.5"
-                              >
-                                <View className="w-4 h-4 rounded-full bg-emerald-600 items-center justify-center">
-                                  <Text className="text-[9px] font-bold text-white uppercase">
-                                    {p.name?.charAt(0) || "?"}
-                                  </Text>
-                                </View>
-                                <Text className="text-xs text-slate-200 font-medium max-w-[100px]" numberOfLines={1}>
-                                  {p.name}
-                                </Text>
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    setManualAssignments((prev) => {
-                                      const next = { ...prev };
-                                      delete next[p.identity];
-                                      return next;
-                                    });
-                                  }}
-                                  className="ml-1"
-                                >
-                                  <Feather name="x" size={12} color="#94a3b8" />
-                                </TouchableOpacity>
-                              </View>
-                            ))}
+                          <View className="flex-row items-center gap-2">
+                            {/* Ô nhập thời gian nhỏ gọn, hạ bớt chiều cao */}
+                            <View className="flex-row items-center bg-[#111] px-2 h-7 rounded border border-[#333]">
+                              <Feather name="clock" size={11} color="#94a3b8" />
+                              <TextInput
+                                value={String(room.durationMinutes)}
+                                onChangeText={(text) => {
+                                  const newRooms = [...manualRooms];
+                                  newRooms[idx].durationMinutes =
+                                    Number(text) || 1;
+                                  setManualRooms(newRooms);
+                                }}
+                                keyboardType="number-pad"
+                                className="text-amber-400 text-xs font-mono w-7 text-center py-0 h-6 leading-none"
+                              />
+                              <Text className="text-[10px] text-slate-500">
+                                {t("meeting.create_breakout_modal.minutes_unit", {
+                                  defaultValue: "p",
+                                })}
+                              </Text>
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => {
+                                if (manualRooms.length <= 1) {
+                                  toast.error(
+                                    t(
+                                      "meeting.create_breakout_modal.error_min_room",
+                                      { defaultValue: "Cần ít nhất 1 phòng" },
+                                    ),
+                                  );
+                                  return;
+                                }
+                                setManualRooms(
+                                  manualRooms.filter((r) => r.id !== room.id),
+                                );
+                                setManualAssignments((prev) => {
+                                  const next = { ...prev };
+                                  Object.keys(next).forEach((uid) => {
+                                    if (next[uid] === room.id) delete next[uid];
+                                  });
+                                  return next;
+                                });
+                              }}
+                              className="p-1.5 rounded bg-red-500/10 active:bg-red-500/20"
+                            >
+                              <Feather
+                                name="trash-2"
+                                size={14}
+                                color="#f87171"
+                              />
+                            </TouchableOpacity>
                           </View>
-                        ) : (
-                          <Text className="text-xs text-slate-500 italic py-1">
-                            {t(
-                              "meeting.create_breakout_modal.drag_drop_placeholder",
-                              { defaultValue: "Chưa có thành viên nào" },
-                            )}
-                          </Text>
-                        )}
+                        </View>
 
-                        {/* Nút thêm nhanh người vào phòng này */}
-                        {unassignedParticipants.length > 0 && (
+                        {/* Danh sách thành viên trong phòng */}
+                        <View className="p-3.5">
+                          {roomUsers.length > 0 ? (
+                            <View className="flex-row flex-wrap gap-2 mb-2">
+                              {roomUsers.map((p) => (
+                                <View
+                                  key={p.identity}
+                                  className="bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 flex-row items-center gap-1.5"
+                                >
+                                  <View className="w-4 h-4 rounded-full bg-emerald-600 items-center justify-center">
+                                    <Text className="text-[9px] font-bold text-white uppercase">
+                                      {p.name?.charAt(0) || "?"}
+                                    </Text>
+                                  </View>
+                                  <Text
+                                    className="text-xs text-slate-200 font-medium max-w-[100px]"
+                                    numberOfLines={1}
+                                  >
+                                    {p.name}
+                                  </Text>
+                                  <TouchableOpacity
+                                    onPress={() => {
+                                      setManualAssignments((prev) => {
+                                        const next = { ...prev };
+                                        delete next[p.identity];
+                                        return next;
+                                      });
+                                    }}
+                                    className="ml-1 p-0.5"
+                                  >
+                                    <Feather
+                                      name="x"
+                                      size={12}
+                                      color="#94a3b8"
+                                    />
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text className="text-xs text-slate-500 italic py-1">
+                              {t(
+                                "meeting.create_breakout_modal.drag_drop_placeholder",
+                                { defaultValue: "Chưa có thành viên nào" },
+                              )}
+                            </Text>
+                          )}
+
+                          {/* Nút thêm thành viên vào phòng này */}
                           <TouchableOpacity
-                            onPress={() => setSelectingMemberForRoom(room.id)}
-                            className="mt-2 py-2 px-3 bg-[#222] border border-dashed border-[#444] rounded-lg flex-row items-center justify-center gap-1.5 active:bg-[#2a2a2a]"
+                            onPress={() => handleOpenAddMembersModal(room.id)}
+                            className="py-2.5 px-3.5 bg-[#222] border border-dashed border-[#444] rounded-lg flex-row items-center justify-center gap-2 active:bg-[#2a2a2a]"
                           >
-                            <Feather name="user-plus" size={13} color="#60a5fa" />
+                            <Feather
+                              name="user-plus"
+                              size={13}
+                              color="#60a5fa"
+                            />
                             <Text className="text-xs text-blue-400 font-semibold">
                               + Thêm thành viên
                             </Text>
                           </TouchableOpacity>
-                        )}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
 
                 {/* NÚT THÊM PHÒNG THỦ CÔNG */}
                 <TouchableOpacity
@@ -636,7 +653,7 @@ export default function CreateBreakoutModal({
                       },
                     ])
                   }
-                  className="py-3 border-2 border-dashed border-[#444] rounded-xl flex-row items-center justify-center gap-2 active:bg-[#1a1a1a]"
+                  className="py-3.5 border-2 border-dashed border-[#444] rounded-xl flex-row items-center justify-center gap-2 active:bg-[#1a1a1a]"
                 >
                   <Feather name="plus" size={16} color="#60a5fa" />
                   <Text className="text-sm font-semibold text-blue-400">
@@ -650,97 +667,101 @@ export default function CreateBreakoutModal({
 
             {/* ================= TAB 3: SELF ================= */}
             {activeTab === "self" && (
-              <View className="space-y-4 pb-6">
-                <Text className="text-slate-400 text-xs leading-5">
+              <View>
+                <Text className="text-slate-400 mb-4 text-xs leading-5">
                   {t("meeting.create_breakout_modal.self_desc", {
                     defaultValue:
                       "Tạo các phòng trống. Người tham gia có thể tự do lựa chọn phòng muốn vào.",
                   })}
                 </Text>
 
-                {selfRooms.map((room, index) => (
-                  <View
-                    key={index}
-                    className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] space-y-3"
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        {t("meeting.create_breakout_modal.room_name_label", {
-                          defaultValue: "Tên phòng",
-                        })}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (selfRooms.length <= 1) {
-                            toast.error(
-                              t(
-                                "meeting.create_breakout_modal.error_min_room",
-                                { defaultValue: "Cần ít nhất 1 phòng" },
-                              ),
+                <View className="space-y-4">
+                  {selfRooms.map((room, index) => (
+                    <View
+                      key={index}
+                      className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333] mb-3"
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          {t("meeting.create_breakout_modal.room_name_label", {
+                            defaultValue: "Tên phòng",
+                          })}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (selfRooms.length <= 1) {
+                              toast.error(
+                                t(
+                                  "meeting.create_breakout_modal.error_min_room",
+                                  { defaultValue: "Cần ít nhất 1 phòng" },
+                                ),
+                              );
+                              return;
+                            }
+                            setSelfRooms(
+                              selfRooms.filter((_, i) => i !== index),
                             );
-                            return;
-                          }
-                          setSelfRooms(selfRooms.filter((_, i) => i !== index));
+                          }}
+                          className="p-1 rounded bg-red-500/10"
+                        >
+                          <Feather name="trash-2" size={14} color="#f87171" />
+                        </TouchableOpacity>
+                      </View>
+
+                      <TextInput
+                        value={room.name}
+                        onChangeText={(text) => {
+                          const newR = [...selfRooms];
+                          newR[index].name = text;
+                          setSelfRooms(newR);
                         }}
-                        className="p-1 rounded bg-red-500/10"
-                      >
-                        <Feather name="trash-2" size={14} color="#f87171" />
-                      </TouchableOpacity>
-                    </View>
+                        className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3.5 py-2.5 font-bold"
+                        placeholder="Tên phòng"
+                        placeholderTextColor="#666"
+                      />
 
-                    <TextInput
-                      value={room.name}
-                      onChangeText={(text) => {
-                        const newR = [...selfRooms];
-                        newR[index].name = text;
-                        setSelfRooms(newR);
-                      }}
-                      className="bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3 py-2.5 font-bold"
-                      placeholder="Tên phòng"
-                      placeholderTextColor="#666"
-                    />
+                      <View className="flex-row gap-3 mt-2">
+                        <View className="flex-1 space-y-1.5">
+                          <Text className="text-[10px] font-semibold text-slate-400 uppercase mb-2">
+                            {t(
+                              "meeting.create_breakout_modal.max_participants_self_label",
+                              { defaultValue: "Số người tối đa" },
+                            )}
+                          </Text>
+                          <TextInput
+                            value={String(room.maxParticipants)}
+                            onChangeText={(text) => {
+                              const newR = [...selfRooms];
+                              newR[index].maxParticipants = Number(text) || 2;
+                              setSelfRooms(newR);
+                            }}
+                            keyboardType="number-pad"
+                            className="bg-[#111] border border-[#444] text-white text-sm font-mono rounded-lg px-3 py-2.5 text-center"
+                          />
+                        </View>
 
-                    <View className="flex-row gap-3">
-                      <View className="flex-1 space-y-1">
-                        <Text className="text-[10px] font-semibold text-slate-400 uppercase">
-                          {t(
-                            "meeting.create_breakout_modal.max_participants_self_label",
-                            { defaultValue: "Số người tối đa" },
-                          )}
-                        </Text>
-                        <TextInput
-                          value={String(room.maxParticipants)}
-                          onChangeText={(text) => {
-                            const newR = [...selfRooms];
-                            newR[index].maxParticipants = Number(text) || 2;
-                            setSelfRooms(newR);
-                          }}
-                          keyboardType="number-pad"
-                          className="bg-[#111] border border-[#444] text-white text-sm font-mono rounded-lg px-3 py-2 text-center"
-                        />
-                      </View>
-
-                      <View className="flex-1 space-y-1">
-                        <Text className="text-[10px] font-semibold text-slate-400 uppercase">
-                          {t(
-                            "meeting.create_breakout_modal.duration_self_label",
-                            { defaultValue: "Thời gian (phút)" },
-                          )}
-                        </Text>
-                        <TextInput
-                          value={String(room.durationMinutes)}
-                          onChangeText={(text) => {
-                            const newR = [...selfRooms];
-                            newR[index].durationMinutes = Number(text) || 1;
-                            setSelfRooms(newR);
-                          }}
-                          keyboardType="number-pad"
-                          className="bg-[#111] border border-[#444] text-white text-sm font-mono rounded-lg px-3 py-2 text-center"
-                        />
+                        <View className="flex-1 space-y-1.5">
+                          <Text className="text-[10px] font-semibold text-slate-400 uppercase mb-2">
+                            {t(
+                              "meeting.create_breakout_modal.duration_self_label",
+                              { defaultValue: "Thời gian (phút)" },
+                            )}
+                          </Text>
+                          <TextInput
+                            value={String(room.durationMinutes)}
+                            onChangeText={(text) => {
+                              const newR = [...selfRooms];
+                              newR[index].durationMinutes = Number(text) || 1;
+                              setSelfRooms(newR);
+                            }}
+                            keyboardType="number-pad"
+                            className="bg-[#111] border border-[#444] text-white text-sm font-mono rounded-lg px-3 py-2.5 text-center"
+                          />
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))}
+                  ))}
+                </View>
 
                 <TouchableOpacity
                   onPress={() =>
@@ -753,7 +774,7 @@ export default function CreateBreakoutModal({
                       },
                     ])
                   }
-                  className="py-3 border-2 border-dashed border-[#444] rounded-xl flex-row items-center justify-center gap-2 active:bg-[#1a1a1a]"
+                  className="py-3.5 border-2 border-dashed border-[#444] rounded-xl flex-row items-center justify-center gap-2 active:bg-[#1a1a1a]"
                 >
                   <Feather name="plus" size={16} color="#60a5fa" />
                   <Text className="text-sm font-semibold text-blue-400">
@@ -767,10 +788,10 @@ export default function CreateBreakoutModal({
           </ScrollView>
 
           {/* FOOTER */}
-          <View className="px-5 py-3.5 border-t border-[#222] bg-[#161616] flex-row gap-3">
+          <View className="px-5 py-4 border-t border-[#222] bg-[#161616] flex-row gap-3">
             <TouchableOpacity
               onPress={onClose}
-              className="flex-1 py-3 bg-[#222] border border-[#333] rounded-xl items-center justify-center active:bg-[#2a2a2a]"
+              className="flex-1 py-3.5 bg-[#222] border border-[#333] rounded-xl items-center justify-center active:bg-[#2a2a2a]"
             >
               <Text className="text-gray-300 font-semibold text-sm">
                 {t("meeting.create_breakout_modal.cancel", {
@@ -782,7 +803,7 @@ export default function CreateBreakoutModal({
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={isLoading}
-              className="flex-1 py-3 bg-blue-600 rounded-xl items-center justify-center flex-row gap-2 active:bg-blue-700 shadow-md"
+              className="flex-1 py-3.5 bg-blue-600 rounded-xl items-center justify-center flex-row gap-2 active:bg-blue-700 shadow-md"
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -800,112 +821,132 @@ export default function CreateBreakoutModal({
           </View>
         </View>
 
-        {/* MODAL CHỌN PHÒNG CHO 1 THÀNH VIÊN (GIAO DIỆN CHẠM CHỌN) */}
-        {assigningUser && (
+        {/* MODAL MULTI-SELECT: CHỌN NHIỀU THÀNH VIÊN VÀO PHÒNG */}
+        {selectingRoomId && (
           <Modal transparent animationType="fade">
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={() => setAssigningUser(null)}
-              className="flex-1 bg-black/70 justify-center items-center p-6"
-            >
-              <View className="bg-[#1e1e1e] border border-[#333] rounded-2xl w-full max-w-sm p-5 space-y-3">
-                <Text className="text-white font-bold text-base text-center">
-                  {t("meeting.create_breakout_modal.select_room_for_member", {
-                    name: assigningUser.name,
-                    defaultValue: `Chọn nhóm cho ${assigningUser.name}`,
-                  })}
-                </Text>
-
-                <View className="space-y-2 mt-2">
-                  {manualRooms.map((room) => (
-                    <TouchableOpacity
-                      key={room.id}
-                      onPress={() => {
-                        setManualAssignments((prev) => ({
-                          ...prev,
-                          [assigningUser.id]: room.id,
-                        }));
-                        setAssigningUser(null);
-                      }}
-                      className="py-3 px-4 bg-[#282828] border border-[#3a3a3a] rounded-xl flex-row items-center justify-between active:bg-blue-600/20"
-                    >
-                      <Text className="text-white font-semibold text-sm">
-                        {room.name}
-                      </Text>
-                      <Feather name="chevron-right" size={16} color="#94a3b8" />
-                    </TouchableOpacity>
-                  ))}
+            <View className="flex-1 bg-black/75 justify-center items-center p-5">
+              <View className="bg-[#1c1c1c] border border-[#333] rounded-3xl w-full max-w-sm overflow-hidden flex-col max-h-[80%]">
+                {/* Header modal */}
+                <View className="p-4 border-b border-[#2a2a2a] flex-row items-center justify-between">
+                  <View className="flex-1 mr-2">
+                    <Text className="text-white font-bold text-base" numberOfLines={1}>
+                      Thêm thành viên
+                    </Text>
+                    <Text className="text-blue-400 text-xs mt-0.5" numberOfLines={1}>
+                      {selectedRoomForModal?.name || "Nhóm"}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setSelectingRoomId(null)}
+                    className="p-1.5 rounded-lg bg-[#282828]"
+                  >
+                    <Feather name="x" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => setAssigningUser(null)}
-                  className="py-2.5 mt-2 bg-[#2a2a2a] rounded-xl items-center"
+                {/* Danh sách thành viên để chọn nhiều */}
+                <ScrollView
+                  className="flex-1 p-4"
+                  contentContainerClassName="space-y-2.5 pb-4"
+                  showsVerticalScrollIndicator={false}
                 >
-                  <Text className="text-gray-400 font-medium text-xs">
-                    {t("meeting.create_breakout_modal.cancel", {
-                      defaultValue: "Hủy",
-                    })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </Modal>
-        )}
+                  {participants.length > 0 ? (
+                    participants.map((p) => {
+                      const isSelected = tempSelectedUsers.includes(p.identity);
+                      const currentAssignedRoomId = manualAssignments[p.identity];
+                      const isAssignedToOtherRoom =
+                        currentAssignedRoomId &&
+                        currentAssignedRoomId !== selectingRoomId;
+                      const otherRoom = isAssignedToOtherRoom
+                        ? manualRooms.find((r) => r.id === currentAssignedRoomId)
+                        : null;
 
-        {/* MODAL CHỌN THÀNH VIÊN ĐỂ THÊM VÀO PHÒNG CỤ THỂ */}
-        {selectingMemberForRoom && (
-          <Modal transparent animationType="fade">
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={() => setSelectingMemberForRoom(null)}
-              className="flex-1 bg-black/70 justify-center items-center p-6"
-            >
-              <View className="bg-[#1e1e1e] border border-[#333] rounded-2xl w-full max-w-sm p-5 space-y-3 max-h-[70%]">
-                <Text className="text-white font-bold text-base text-center">
-                  Chọn thành viên
-                </Text>
+                      return (
+                        <TouchableOpacity
+                          key={p.identity}
+                          onPress={() => handleToggleMember(p.identity)}
+                          className={`py-3 px-3.5 rounded-xl border flex-row items-center justify-between ${isSelected
+                            ? "bg-blue-600/15 border-blue-500"
+                            : "bg-[#252525] border-[#333] active:bg-[#2c2c2c]"
+                            }`}
+                        >
+                          <View className="flex-row items-center gap-2.5 flex-1 mr-2">
+                            <View
+                              className={`w-7 h-7 rounded-full items-center justify-center ${isSelected ? "bg-blue-600" : "bg-[#383838]"
+                                }`}
+                            >
+                              <Text className="text-[11px] font-bold text-white uppercase">
+                                {p.name?.charAt(0) || "?"}
+                              </Text>
+                            </View>
+                            <View className="flex-1">
+                              <Text
+                                className={`text-sm font-medium ${isSelected ? "text-white font-bold" : "text-slate-200"
+                                  }`}
+                                numberOfLines={1}
+                              >
+                                {p.name}
+                              </Text>
+                              {otherRoom && !isSelected && (
+                                <Text
+                                  className="text-[10px] text-amber-400 mt-0.5"
+                                  numberOfLines={1}
+                                >
+                                  (Đang ở: {otherRoom.name})
+                                </Text>
+                              )}
+                            </View>
+                          </View>
 
-                <ScrollView className="space-y-2 max-h-60">
-                  {unassignedParticipants.map((p) => (
-                    <TouchableOpacity
-                      key={p.identity}
-                      onPress={() => {
-                        setManualAssignments((prev) => ({
-                          ...prev,
-                          [p.identity]: selectingMemberForRoom,
-                        }));
-                        setSelectingMemberForRoom(null);
-                      }}
-                      className="py-2.5 px-3.5 bg-[#282828] border border-[#3a3a3a] rounded-xl flex-row items-center gap-2 active:bg-blue-600/20"
-                    >
-                      <View className="w-6 h-6 rounded-full bg-blue-600 items-center justify-center">
-                        <Text className="text-[10px] font-bold text-white uppercase">
-                          {p.name?.charAt(0) || "?"}
-                        </Text>
-                      </View>
-                      <Text className="text-white font-medium text-sm flex-1 truncate">
-                        {p.name}
-                      </Text>
-                      <Feather name="plus" size={14} color="#60a5fa" />
-                    </TouchableOpacity>
-                  ))}
+                          {/* Checkbox box indicator */}
+                          <View
+                            className={`w-5 h-5 rounded-md border items-center justify-center ${isSelected
+                              ? "bg-blue-600 border-blue-500"
+                              : "border-slate-500 bg-[#1e1e1e]"
+                              }`}
+                          >
+                            {isSelected && (
+                              <Feather name="check" size={13} color="#ffffff" />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <Text className="text-slate-400 text-xs text-center py-6">
+                      Không có thành viên nào trong cuộc họp
+                    </Text>
+                  )}
                 </ScrollView>
 
-                <TouchableOpacity
-                  onPress={() => setSelectingMemberForRoom(null)}
-                  className="py-2.5 bg-[#2a2a2a] rounded-xl items-center mt-2"
-                >
-                  <Text className="text-gray-400 font-medium text-xs">
-                    {t("meeting.create_breakout_modal.cancel", {
-                      defaultValue: "Hủy",
-                    })}
-                  </Text>
-                </TouchableOpacity>
+                {/* Footer với nút Xác nhận & Hủy */}
+                <View className="p-4 border-t border-[#2a2a2a] bg-[#181818] flex-row gap-2.5">
+                  <TouchableOpacity
+                    onPress={() => setSelectingRoomId(null)}
+                    className="flex-1 py-3 bg-[#262626] border border-[#383838] rounded-xl items-center"
+                  >
+                    <Text className="text-gray-400 font-semibold text-xs">
+                      {t("meeting.create_breakout_modal.cancel", {
+                        defaultValue: "Hủy",
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleConfirmSelectedMembers}
+                    className="flex-1 py-3 bg-blue-600 rounded-xl items-center justify-center flex-row gap-1.5 active:bg-blue-700"
+                  >
+                    <Feather name="check" size={14} color="#ffffff" />
+                    <Text className="text-white font-bold text-xs">
+                      Xác nhận ({tempSelectedUsers.length})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </TouchableOpacity>
+            </View>
           </Modal>
         )}
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

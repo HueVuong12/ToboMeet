@@ -222,7 +222,7 @@ export default function MeetingRoomContent({
       <View className="h-[70px] justify-center items-center bg-[#111] border-b border-[#333] px-4">
         {isBreakoutRoom ? (
           <View className="items-center">
-            <View className="flex-row items-center gap-1.5 mb-0.5">
+            <View className="flex-row items-center gap-1.5 mb-2">
               <Feather name="grid" size={12} color="#60a5fa" />
               <Text className="text-blue-400 text-[11px] font-bold uppercase tracking-wider">
                 {roomName || "Breakout Room"}

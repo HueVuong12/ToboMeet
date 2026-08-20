@@ -139,7 +139,7 @@ export default function JoinBreakoutModal({
 
           {/* BODY */}
           <ScrollView
-            className="flex-1 p-5"
+            className="flex-1 p-3"
             contentContainerClassName="space-y-3.5 pb-6"
             showsVerticalScrollIndicator={false}
           >
@@ -186,7 +186,7 @@ export default function JoinBreakoutModal({
                 return (
                   <View
                     key={room.id}
-                    className="p-4 bg-[#1a1a1a] border border-[#333] rounded-2xl space-y-3"
+                    className="p-4 bg-[#1a1a1a] my-2 border border-[#333] rounded-2xl space-y-3"
                   >
                     <View className="flex-row items-center justify-between">
                       <Text className="font-bold text-white text-base flex-1 mr-2" numberOfLines={1}>
@@ -207,9 +207,8 @@ export default function JoinBreakoutModal({
                           <View className="flex-row items-center gap-1 bg-[#222] px-2.5 py-1 rounded-lg border border-[#333]">
                             <Feather name="clock" size={13} color={isExpired ? "#ef4444" : "#f59e0b"} />
                             <Text
-                              className={`text-xs font-mono font-semibold ${
-                                isExpired ? "text-red-400" : "text-amber-400"
-                              }`}
+                              className={`text-xs font-mono font-semibold ${isExpired ? "text-red-400" : "text-amber-400"
+                                }`}
                             >
                               {timeDisplay}
                             </Text>
@@ -222,11 +221,10 @@ export default function JoinBreakoutModal({
                     <TouchableOpacity
                       onPress={() => handleJoin(room.id)}
                       disabled={isDisabled}
-                      className={`w-full py-3 rounded-xl flex-row items-center justify-center gap-2 active:opacity-90 ${
-                        isDisabled
-                          ? "bg-[#282828] border border-[#3a3a3a]"
-                          : "bg-blue-600 shadow-md shadow-blue-900/30"
-                      }`}
+                      className={`w-full py-3 mt-2 rounded-xl flex-row items-center justify-center gap-2 active:opacity-90 ${isDisabled
+                        ? "bg-[#282828] border border-[#3a3a3a]"
+                        : "bg-blue-600 shadow-md shadow-blue-900/30"
+                        }`}
                     >
                       {isCurrentlyJoining ? (
                         <ActivityIndicator size="small" color="#ffffff" />
@@ -238,21 +236,20 @@ export default function JoinBreakoutModal({
                             color={isDisabled ? "#64748b" : "#ffffff"}
                           />
                           <Text
-                            className={`font-bold text-sm ${
-                              isDisabled ? "text-slate-500" : "text-white"
-                            }`}
+                            className={`font-bold text-sm ${isDisabled ? "text-slate-500" : "text-white"
+                              }`}
                           >
                             {isExpired
                               ? t("meeting.join_breakout_modal.room_closed", {
-                                  defaultValue: "Phòng đã đóng",
-                                })
+                                defaultValue: "Phòng đã đóng",
+                              })
                               : isFull
                                 ? t("meeting.join_breakout_modal.room_full", {
-                                    defaultValue: "Phòng đã đầy",
-                                  })
+                                  defaultValue: "Phòng đã đầy",
+                                })
                                 : t("meeting.join_breakout_modal.join", {
-                                    defaultValue: "Tham gia",
-                                  })}
+                                  defaultValue: "Tham gia",
+                                })}
                           </Text>
                         </>
                       )}
