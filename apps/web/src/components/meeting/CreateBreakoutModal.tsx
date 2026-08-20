@@ -41,6 +41,7 @@ export default function CreateBreakoutModal({
 
   // STATE CHẾ ĐỘ 1: TỰ ĐỘNG (AUTO)
   const [autoConfig, setAutoConfig] = useState({
+    roomPrefix: t("room_prefix"),
     roomCount: 2,
     maxParticipants: 2,
     durationMinutes: 10,
@@ -106,7 +107,7 @@ export default function CreateBreakoutModal({
       finalRoomsPayload = Array.from(
         { length: autoConfig.roomCount },
         (_, i) => ({
-          name: `${t("room_prefix")} ${i + 1}`,
+          name: `${autoConfig.roomPrefix.trim() || t("room_prefix")} ${i + 1}`,
           maxParticipants: autoConfig.maxParticipants,
           durationMinutes: autoConfig.durationMinutes,
           assignedUsers: [] as string[],
@@ -165,13 +166,21 @@ export default function CreateBreakoutModal({
     (p) => !manualAssignments[p.identity],
   );
 
+  // Tính toán chiều rộng và chiều cao tuỳ theo Tab hiện tại
+  const containerClasses =
+    activeTab === "auto"
+      ? "max-w-lg h-[85vh] md:h-[75vh]"
+      : "max-w-3xl h-[85vh] md:h-[75vh]";
+
   return (
     <>
       <div
         className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm animate-fade-in transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[95vw] md:w-[85vw] max-w-4xl bg-[#1a1a1a] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in fade-in zoom-in duration-200 h-[85vh] md:h-[75vh]">
+      <div
+        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[95vw] bg-[#1a1a1a] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${containerClasses}`}
+      >
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-[#333] flex items-center justify-between bg-[#111] shrink-0">
           <div className="flex items-center gap-2.5">
@@ -189,7 +198,6 @@ export default function CreateBreakoutModal({
             <X size={18} />
           </button>
         </div>
-
         {/* TAB NAVIGATION */}
         <div className="flex items-center gap-2 px-5 pt-4 bg-[#111] border-b border-[#333] shrink-0">
           <button
@@ -223,109 +231,124 @@ export default function CreateBreakoutModal({
             <Settings size={16} /> {t("tab_self")}
           </button>
         </div>
-
         {/* BODY */}
         <div className="flex-1 overflow-hidden bg-[#161616]">
           {/* TAB 1: TỰ ĐỘNG */}
           {activeTab === "auto" && (
-            <div className="p-6 h-full flex flex-col items-center overflow-y-auto custom-scrollbar">
-              <div className="text-center space-y-2 mb-6 max-w-md">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20 mb-2">
-                  <Users className="text-blue-400" size={28} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-100">
-                  {t("auto_title")}
-                </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
+            <div className="flex flex-col h-full w-full animate-fade-in">
+              <div className="px-5 py-3 border-b border-[#333] bg-[#1a1a1a]">
+                <p className="text-slate-400 text-sm">
                   {t.rich("auto_desc", {
                     count: participants.length,
-                    strong: (chunks) => <strong className="text-white">{chunks}</strong>,
+                    strong: (chunks) => (
+                      <strong className="text-white">{chunks}</strong>
+                    ),
                   })}
                 </p>
               </div>
 
-              <div className="w-full max-w-sm space-y-5 bg-[#222] p-5 rounded-xl border border-[#333]">
-                {/* Checkbox thêm người */}
-                <label className="flex items-start gap-3 cursor-pointer p-3 bg-[#111] border border-[#444] rounded-lg hover:border-blue-500 transition-colors group">
-                  <div className="flex items-center h-5 mt-0.5">
+              <div className="flex-1 p-6 flex flex-col items-center overflow-y-auto custom-scrollbar">
+                <div className="w-full max-w-sm space-y-5 bg-[#222] p-5 rounded-xl border border-[#333] my-auto">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                      {t("room_prefix_label")}
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={isAutoAssign}
-                      onChange={(e) => setIsAutoAssign(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-[#222] border-[#555] rounded focus:ring-blue-500 focus:ring-offset-[#111]"
+                      type="text"
+                      value={autoConfig.roomPrefix}
+                      onChange={(e) =>
+                        setAutoConfig({
+                          ...autoConfig,
+                          roomPrefix: e.target.value,
+                        })
+                      }
+                      placeholder={t("room_prefix")}
+                      className="w-full bg-[#111] border border-[#444] text-white text-sm rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
                     />
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">
-                      {t("auto_assign_label")}
-                    </span>
-                    <span className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                      {t("auto_assign_sub")}
-                    </span>
+
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                      {t("max_participants_label")}
+                    </label>
+                    <input
+                      type="number"
+                      min={2}
+                      value={autoConfig.maxParticipants}
+                      onChange={(e) =>
+                        setAutoConfig({
+                          ...autoConfig,
+                          maxParticipants: Number(e.target.value),
+                        })
+                      }
+                      className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
+                    />
                   </div>
-                </label>
 
-                <div className="flex-1">
-                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                    {t("max_participants_label")}
-                  </label>
-                  <input
-                    type="number"
-                    min={2}
-                    value={autoConfig.maxParticipants}
-                    onChange={(e) =>
-                      setAutoConfig({
-                        ...autoConfig,
-                        maxParticipants: Number(e.target.value),
-                      })
-                    }
-                    className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
-                  />
-                </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                      {t("room_count_label")}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={autoConfig.roomCount}
+                      onChange={(e) =>
+                        setAutoConfig({
+                          ...autoConfig,
+                          roomCount: Number(e.target.value),
+                        })
+                      }
+                      className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
+                    />
+                    <p className="text-xs text-slate-500 mt-2 text-right italic">
+                      {t("room_count_hint", {
+                        minRooms: Math.ceil(
+                          participants.length /
+                            Math.max(1, autoConfig.maxParticipants),
+                        ),
+                        count: participants.length,
+                      })}
+                    </p>
+                  </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                    {t("room_count_label")}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={autoConfig.roomCount}
-                    onChange={(e) =>
-                      setAutoConfig({
-                        ...autoConfig,
-                        roomCount: Number(e.target.value),
-                      })
-                    }
-                    className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
-                  />
-                  <p className="text-xs text-slate-500 mt-2 text-right italic">
-                    {t("room_count_hint", {
-                      minRooms: Math.ceil(
-                        participants.length /
-                          Math.max(1, autoConfig.maxParticipants),
-                      ),
-                      count: participants.length,
-                    })}
-                  </p>
-                </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                      {t("duration_label")}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={autoConfig.durationMinutes}
+                      onChange={(e) =>
+                        setAutoConfig({
+                          ...autoConfig,
+                          durationMinutes: Number(e.target.value),
+                        })
+                      }
+                      className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
+                    />
+                  </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                    {t("duration_label")}
+                  {/* Checkbox thêm người */}
+                  <label className="flex items-start gap-3 cursor-pointer p-3 bg-[#111] border border-[#444] rounded-lg hover:border-blue-500 transition-colors group">
+                    <div className="flex items-center h-5 mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={isAutoAssign}
+                        onChange={(e) => setIsAutoAssign(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-[#222] border-[#555] rounded focus:ring-blue-500 focus:ring-offset-[#111]"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">
+                        {t("auto_assign_label")}
+                      </span>
+                      <span className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        {t("auto_assign_sub")}
+                      </span>
+                    </div>
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={autoConfig.durationMinutes}
-                    onChange={(e) =>
-                      setAutoConfig({
-                        ...autoConfig,
-                        durationMinutes: Number(e.target.value),
-                      })
-                    }
-                    className="w-full bg-[#111] border border-[#444] text-white text-base font-mono rounded-lg px-3 py-2.5 focus:border-blue-500 outline-none transition-colors"
-                  />
                 </div>
               </div>
             </div>
@@ -337,7 +360,9 @@ export default function CreateBreakoutModal({
               <div className="px-5 py-3 border-b border-[#333] bg-[#1a1a1a]">
                 <p className="text-slate-400 text-sm">
                   {t.rich("manual_desc", {
-                    strong: (chunks) => <strong className="text-white">{chunks}</strong>,
+                    strong: (chunks) => (
+                      <strong className="text-white">{chunks}</strong>
+                    ),
                   })}
                 </p>
               </div>
@@ -350,7 +375,9 @@ export default function CreateBreakoutModal({
                 >
                   <div className="p-3 border-b border-[#333] bg-[#111]">
                     <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      {t("waiting_list", { count: unassignedParticipants.length })}
+                      {t("waiting_list", {
+                        count: unassignedParticipants.length,
+                      })}
                     </h3>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
@@ -518,7 +545,9 @@ export default function CreateBreakoutModal({
               <div className="px-5 py-3 border-b border-[#333] bg-[#1a1a1a]">
                 <p className="text-slate-400 text-sm">
                   {t.rich("self_desc", {
-                    strong: (chunks) => <strong className="text-white">{chunks}</strong>,
+                    strong: (chunks) => (
+                      <strong className="text-white">{chunks}</strong>
+                    ),
                   })}
                 </p>
               </div>
@@ -614,7 +643,6 @@ export default function CreateBreakoutModal({
             </div>
           )}
         </div>
-
         {/* FOOTER */}
         <div className="px-5 py-4 border-t border-[#333] bg-[#1a1a1a] flex justify-end gap-3 shrink-0">
           <button

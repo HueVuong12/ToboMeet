@@ -1278,6 +1278,7 @@
       "tab_manual": "Manual",
       "tab_self": "Self-select",
       "auto_title": "Automatic Breakout",
+      "room_prefix_label": "Name prefix (Ex: Room, Team)",
       "auto_desc": "The system will create rooms and randomly assign participants. Each room has a minimum of 2 people. Currently {count} participants.",
       "auto_assign_label": "Automatically move participants into rooms",
       "auto_assign_sub": "Participants will be automatically redirected into breakout rooms.",

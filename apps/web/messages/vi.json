@@ -133,29 +133,17 @@
       {
         "name": "Trình duyệt Web",
         "description": "Không cần cài đặt, mở trình duyệt là họp ngay",
-        "badges": [
-          "Chrome",
-          "Safari",
-          "Firefox",
-          "Edge"
-        ]
+        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
       },
       {
         "name": "Desktop App",
         "description": "Ứng dụng native hiệu năng cao, tích hợp hệ thống",
-        "badges": [
-          "Windows",
-          "macOS",
-          "Linux"
-        ]
+        "badges": ["Windows", "macOS", "Linux"]
       },
       {
         "name": "Di động",
         "description": "Họp mọi lúc mọi nơi, tối ưu cho màn hình nhỏ",
-        "badges": [
-          "iOS",
-          "Android"
-        ]
+        "badges": ["iOS", "Android"]
       }
     ]
   },
@@ -1264,6 +1252,7 @@
       "tab_manual": "Thủ công",
       "tab_self": "Tự chọn",
       "auto_title": "Chia nhóm tự động",
+      "room_prefix_label": "Tiền tố tên phòng (VD: Nhóm, Đội)",
       "auto_desc": "Hệ thống sẽ tạo phòng và ngẫu nhiên phân bổ người tham gia. Mỗi phòng sẽ có tối thiểu 2 người. Hiện đang có {count} người tham gia.",
       "auto_assign_label": "Tự động thêm thành viên vào phòng",
       "auto_assign_sub": "Người tham gia sẽ được hệ thống chuyển hướng vào các phòng thảo luận.",
