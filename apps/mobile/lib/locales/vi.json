@@ -354,6 +354,8 @@
       "leave_waiting_room": "Rời phòng chờ",
       "room_header": "Phòng họp",
       "leaving_meeting": "Đang rời...",
+      "loading_joining_breakout": "Đang tham gia nhóm thảo luận...",
+      "loading_returning_main": "Đang quay về phòng chính...",
       "participant_metadata_error": "Lỗi phân tích metadata của người tham gia:"
     },
     "invite_member_modal": {
@@ -476,7 +478,7 @@
       "leave_action": "Rời đi",
       "general_options": "Tùy chọn chung",
       "copy_link": "Sao chép liên kết",
-      "link_copied": "Đã sao chép liên kết",
+      "link_copied": "Đã sao chép liên kết!",
       "invite_participants": "Mời người tham gia",
       "admin_tools": "Công cụ quản trị",
       "enable_chat": "Cho phép Chat",
@@ -490,6 +492,7 @@
       "breakout": "Breakout",
       "create_breakout": "Chia nhóm thảo luận",
       "end_breakout": "Kết thúc thảo luận",
+      "end_breakout_success": "Đã kết thúc phiên thảo luận nhóm",
       "leave_short": "Rời đi",
       "leave_breakout_room": "Rời nhóm thảo luận",
       "end_breakout_error": "Không thể kết thúc thảo luận lúc này.",
@@ -536,7 +539,12 @@
       "select_room_for_member": "Chọn nhóm cho {{name}}",
       "unassigned": "Chưa phân nhóm",
       "assigned_members": "Thành viên ({{count}})",
-      "no_members_in_room": "Chưa có thành viên nào"
+      "no_members_in_room": "Chưa có thành viên nào",
+      "add_member_button": "+ Thêm thành viên",
+      "add_members_title": "Thêm thành viên",
+      "currently_in_room": "(Đang ở: {{name}})",
+      "no_participants_in_meeting": "Không có thành viên nào trong cuộc họp",
+      "confirm_selected": "Xác nhận ({{count}})"
     },
     "join_breakout_modal": {
       "modal_title": "Chọn nhóm thảo luận",

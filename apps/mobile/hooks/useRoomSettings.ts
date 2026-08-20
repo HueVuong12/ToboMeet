@@ -13,6 +13,7 @@ import {
   LivekitRoomMetadata,
   ParticipantMetadata,
 } from "@tobomeet/shared/types";
+import { useTranslation } from "react-i18next";
 
 export function useRoomSettings({
   roomId,
@@ -158,16 +159,26 @@ export function useRoomSettings({
     }
   };
 
+  const { t } = useTranslation();
+
   const handleEndBreakout = async () => {
     if (!meetingCode) return;
     try {
       await endBreakoutApi({
         code: meetingCode,
       }).unwrap();
-      toast.success("Đã kết thúc phiên thảo luận nhóm");
+      toast.success(
+        t("meeting.toolbar.end_breakout_success", {
+          defaultValue: "Đã kết thúc phiên thảo luận nhóm",
+        }),
+      );
     } catch (error: any) {
       console.error("Lỗi khi kết thúc breakout", error);
-      toast.error("Không thể kết thúc thảo luận lúc này.");
+      toast.error(
+        t("meeting.toolbar.end_breakout_error", {
+          defaultValue: "Không thể kết thúc thảo luận lúc này.",
+        }),
+      );
     }
   };
 

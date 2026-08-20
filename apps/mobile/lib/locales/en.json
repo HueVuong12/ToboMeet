@@ -355,6 +355,8 @@
       "leave_waiting_room": "Leave waiting room",
       "room_header": "Meeting Room",
       "leaving_meeting": "Leaving...",
+      "loading_joining_breakout": "Joining breakout session...",
+      "loading_returning_main": "Returning to main room...",
       "participant_metadata_error": "Error analyzing participant metadata:"
     },
     "invite_member_modal": {
@@ -488,6 +490,7 @@
       "breakout": "Breakout",
       "create_breakout": "Breakout rooms",
       "end_breakout": "End breakout rooms",
+      "end_breakout_success": "Breakout session has ended",
       "leave_short": "Leave",
       "leave_breakout_room": "Leave breakout room",
       "end_breakout_error": "Cannot end breakout session at this time.",
@@ -534,7 +537,12 @@
       "select_room_for_member": "Select room for {{name}}",
       "unassigned": "Unassigned",
       "assigned_members": "Members ({{count}})",
-      "no_members_in_room": "No members in this room"
+      "no_members_in_room": "No members in this room",
+      "add_member_button": "+ Add member",
+      "add_members_title": "Add members",
+      "currently_in_room": "(In: {{name}})",
+      "no_participants_in_meeting": "No participants in this meeting",
+      "confirm_selected": "Confirm ({{count}})"
     },
     "join_breakout_modal": {
       "modal_title": "Choose Breakout Room",

@@ -632,7 +632,9 @@ export default function CreateBreakoutModal({
                               color="#60a5fa"
                             />
                             <Text className="text-xs text-blue-400 font-semibold">
-                              + Thêm thành viên
+                              {t("meeting.create_breakout_modal.add_member_button", {
+                                defaultValue: "+ Thêm thành viên",
+                              })}
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -824,13 +826,15 @@ export default function CreateBreakoutModal({
         {/* MODAL MULTI-SELECT: CHỌN NHIỀU THÀNH VIÊN VÀO PHÒNG */}
         {selectingRoomId && (
           <Modal transparent animationType="fade">
-            <View className="flex-1 bg-black/75 justify-center items-center p-5">
-              <View className="bg-[#1c1c1c] border border-[#333] rounded-3xl w-full max-w-sm overflow-hidden flex-col max-h-[80%]">
+            <View className="flex-1 bg-black/75 justify-center items-center p-4">
+              <View className="bg-[#1c1c1c] border border-[#333] rounded-3xl w-full max-w-md h-[50%] overflow-hidden flex-col">
                 {/* Header modal */}
-                <View className="p-4 border-b border-[#2a2a2a] flex-row items-center justify-between">
+                <View className="px-5 py-4 border-b border-[#2a2a2a] flex-row items-center justify-between">
                   <View className="flex-1 mr-2">
                     <Text className="text-white font-bold text-base" numberOfLines={1}>
-                      Thêm thành viên
+                      {t("meeting.create_breakout_modal.add_members_title", {
+                        defaultValue: "Thêm thành viên",
+                      })}
                     </Text>
                     <Text className="text-blue-400 text-xs mt-0.5" numberOfLines={1}>
                       {selectedRoomForModal?.name || "Nhóm"}
@@ -846,9 +850,10 @@ export default function CreateBreakoutModal({
 
                 {/* Danh sách thành viên để chọn nhiều */}
                 <ScrollView
-                  className="flex-1 p-4"
+                  className="flex-1 px-4 py-3"
                   contentContainerClassName="space-y-2.5 pb-4"
-                  showsVerticalScrollIndicator={false}
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
                 >
                   {participants.length > 0 ? (
                     participants.map((p) => {
@@ -865,17 +870,17 @@ export default function CreateBreakoutModal({
                         <TouchableOpacity
                           key={p.identity}
                           onPress={() => handleToggleMember(p.identity)}
-                          className={`py-3 px-3.5 rounded-xl border flex-row items-center justify-between ${isSelected
+                          className={`py-3 px-3.5 rounded-xl border mb-2 flex-row items-center justify-between ${isSelected
                             ? "bg-blue-600/15 border-blue-500"
                             : "bg-[#252525] border-[#333] active:bg-[#2c2c2c]"
                             }`}
                         >
                           <View className="flex-row items-center gap-2.5 flex-1 mr-2">
                             <View
-                              className={`w-7 h-7 rounded-full items-center justify-center ${isSelected ? "bg-blue-600" : "bg-[#383838]"
+                              className={`w-8 h-8 rounded-full items-center justify-center ${isSelected ? "bg-blue-600" : "bg-[#383838]"
                                 }`}
                             >
-                              <Text className="text-[11px] font-bold text-white uppercase">
+                              <Text className="text-xs font-bold text-white uppercase">
                                 {p.name?.charAt(0) || "?"}
                               </Text>
                             </View>
@@ -892,7 +897,10 @@ export default function CreateBreakoutModal({
                                   className="text-[10px] text-amber-400 mt-0.5"
                                   numberOfLines={1}
                                 >
-                                  (Đang ở: {otherRoom.name})
+                                  {t("meeting.create_breakout_modal.currently_in_room", {
+                                    name: otherRoom.name,
+                                    defaultValue: `(Đang ở: ${otherRoom.name})`,
+                                  })}
                                 </Text>
                               )}
                             </View>
@@ -914,7 +922,9 @@ export default function CreateBreakoutModal({
                     })
                   ) : (
                     <Text className="text-slate-400 text-xs text-center py-6">
-                      Không có thành viên nào trong cuộc họp
+                      {t("meeting.create_breakout_modal.no_participants_in_meeting", {
+                        defaultValue: "Không có thành viên nào trong cuộc họp",
+                      })}
                     </Text>
                   )}
                 </ScrollView>
@@ -938,7 +948,10 @@ export default function CreateBreakoutModal({
                   >
                     <Feather name="check" size={14} color="#ffffff" />
                     <Text className="text-white font-bold text-xs">
-                      Xác nhận ({tempSelectedUsers.length})
+                      {t("meeting.create_breakout_modal.confirm_selected", {
+                        count: tempSelectedUsers.length,
+                        defaultValue: `Xác nhận (${tempSelectedUsers.length})`,
+                      })}
                     </Text>
                   </TouchableOpacity>
                 </View>
