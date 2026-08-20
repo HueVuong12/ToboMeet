@@ -1,5 +1,5 @@
 // hooks/useMeetingSession.ts
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MeetingPayload, MeetingStore } from "../lib/meetingStore";
 import { AudioSession } from "@livekit/react-native";
@@ -7,8 +7,10 @@ import { Room } from "livekit-client";
 import { toast } from "../lib/toast";
 import { useMeetingCacheManager } from "./useMeetingCacheManager";
 import {
+  useJoinBreakoutRoomMutation,
   useJoinMeetingByCodeMutation,
   useLazyGetMemberStatusQuery,
+  useReturnToMainRoomMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
 import { useGetMeQuery } from "../lib/redux/features/users/usersApi";
@@ -31,9 +33,13 @@ export function useMeetingSession() {
   const [showChatModal, setShowChatModal] = useState(false);
 
   const [customRoom, setCustomRoom] = useState<Room | null>(null);
-  const [status, setStatus] = useState<"LOADING" | "IN_LOBBY" | "JOINED">(
-    "LOADING",
-  );
+  const [status, setStatus] = useState<
+    | "LOADING"
+    | "IN_LOBBY"
+    | "JOINED"
+    | "SWITCHING_BREAKOUT"
+    | "RETURNING_TO_MAIN"
+  >("LOADING");
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const { data: myProfile } = useGetMeQuery();
@@ -41,6 +47,10 @@ export function useMeetingSession() {
   const [getMemberStatus] = useLazyGetMemberStatusQuery();
   const [joinMeetingByCodeApi, { isLoading: isJoining }] =
     useJoinMeetingByCodeMutation();
+  const [returnToMainRoomApi, { isLoading: isLeavingBreakout }] =
+    useReturnToMainRoomMutation();
+  const [joinBreakoutApi, { isLoading: isJoiningBreakout }] =
+    useJoinBreakoutRoomMutation();
 
   useEffect(() => {
     if (!myProfile) return;
@@ -108,21 +118,7 @@ export function useMeetingSession() {
     customRoom?.disconnect();
   };
 
-  // Hàm xử lý dọn dẹp và điều hướng khi ngắt kết nối
-  const onRoomDisconnected = () => {
-    setIsDisconnecting(true); // Kích hoạt trạng thái loading ngắt kết nối
-
-    // Tạo một khoảng trễ nhỏ để UI kịp render màn hình loading rời phòng
-    setTimeout(() => {
-      if (meetingData) {
-        clearMeetingDeviceStatus(meetingData.roomId, meetingData.channelId);
-      }
-
-      handleSmartRedirect();
-    }, 600);
-  };
-
-  const handleSmartRedirect = async () => {
+  const handleSmartRedirect = useCallback(async () => {
     try {
       const memberStatus = await getMemberStatus({ meetingCode }).unwrap();
 
@@ -135,7 +131,106 @@ export function useMeetingSession() {
       console.log(error);
       router.replace("/dashboard");
     }
-  };
+  }, [getMemberStatus, meetingCode, router]);
+
+  // Hàm xử lý dọn dẹp và điều hướng khi ngắt kết nối
+  const onRoomDisconnected = useCallback(() => {
+    setIsDisconnecting(true); // Kích hoạt trạng thái loading ngắt kết nối
+
+    // Tạo một khoảng trễ nhỏ để UI kịp render màn hình loading rời phòng
+    setTimeout(() => {
+      if (meetingData) {
+        clearMeetingDeviceStatus(meetingData.roomId, meetingData.channelId);
+      }
+
+      handleSmartRedirect();
+    }, 600);
+  }, [meetingData, clearMeetingDeviceStatus, handleSmartRedirect]);
+
+  const handleDisconnect = useCallback(() => {
+    if (customRoom) {
+      customRoom.disconnect();
+    } else {
+      onRoomDisconnected();
+    }
+  }, [customRoom, onRoomDisconnected]);
+
+  // Tham gia phòng breakout
+  const handleSwitchToBreakout = useCallback(
+    async (newRoomId: string) => {
+      if (!deviceId || !meetingCode) return;
+
+      try {
+        const response = await joinBreakoutApi({
+          code: meetingCode,
+          breakoutRoomId: newRoomId,
+          deviceId,
+        }).unwrap();
+
+        setStatus("SWITCHING_BREAKOUT");
+
+        // Cập nhật Token mới
+        setMeetingData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            token: response.token,
+            roomId: newRoomId,
+          };
+        });
+
+        setTimeout(() => {
+          setStatus("JOINED");
+        }, 1000);
+      } catch (error: any) {
+        const msg =
+          error?.data?.message ||
+          error?.message ||
+          "Không thể tham gia nhóm thảo luận lúc này.";
+        toast.error(msg);
+        setStatus("JOINED");
+      }
+    },
+    [meetingCode, deviceId, joinBreakoutApi],
+  );
+
+  // Quay về phòng chính
+  const handleReturnToMain = useCallback(
+    async (fullBreakoutRoomName: string) => {
+      if (!deviceId) return;
+      try {
+        const response = await returnToMainRoomApi({
+          fullBreakoutRoomName,
+          deviceId,
+        }).unwrap();
+
+        setStatus("RETURNING_TO_MAIN");
+
+        // Cập nhật lại token để tham gia phòng chính
+        setMeetingData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            token: response.token,
+            roomId: response.roomId,
+            channelId: response.channelId,
+          };
+        });
+
+        setTimeout(() => {
+          setStatus("JOINED");
+        }, 1000);
+      } catch (error: any) {
+        const msg =
+          error?.data?.message ||
+          error?.message ||
+          "Không thể quay về phòng chính lúc này.";
+        toast.error(msg);
+        setStatus("JOINED");
+      }
+    },
+    [deviceId, returnToMainRoomApi],
+  );
 
   const handleJoinByCode = async () => {
     if (!meetingCode || !deviceId) {
@@ -179,6 +274,8 @@ export function useMeetingSession() {
     customRoom,
     handleJoinByCode,
     isJoining,
+    isJoiningBreakout,
+    isLeavingBreakout,
     camOn,
     setCamOn,
     micOn,
@@ -195,5 +292,9 @@ export function useMeetingSession() {
     setShowChatModal,
     onRoomError,
     onRoomDisconnected,
+    handleDisconnect,
+    handleSwitchToBreakout,
+    handleReturnToMain,
   };
 }
+

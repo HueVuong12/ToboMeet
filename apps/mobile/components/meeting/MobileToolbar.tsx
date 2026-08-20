@@ -8,7 +8,6 @@ import {
   ScrollView,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-// import * as Clipboard from "expo-clipboard";
 
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { toast } from "../../lib/toast";
@@ -16,7 +15,10 @@ import { useHandRaise } from "../../hooks/useHandRaise";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomSettings } from "../../hooks/useRoomSettings";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
+import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
 import InviteMemberModal from "./InviteMemberModal";
+import CreateBreakoutModal from "./CreateBreakoutModal";
+import JoinBreakoutModal from "./JoinBreakoutModal";
 import { useTranslation } from "react-i18next";
 
 export default function MobileToolbar({
@@ -40,20 +42,27 @@ export default function MobileToolbar({
   const { isMicrophoneEnabled, isCameraEnabled, localParticipant } =
     useLocalParticipant();
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
+  const { handleReturnToMain, isLeavingBreakout } = useMeetingSessionContext();
 
   const {
     isHost,
     isChatEnabled,
     isWaitingRoomEnabled,
     approvalPermission,
+    isBreakoutActive,
+    breakoutRoomsList,
+    roomType,
     handleToggleChat,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
+    handleEndBreakout,
   } = useRoomSettings({
     roomId,
     channelId,
     meetingCode,
   });
+
+  const isInBreakoutRoom = roomType === "breakout";
 
   const { displayParticipants } = useParticipantManager({
     roomId,
@@ -62,6 +71,8 @@ export default function MobileToolbar({
   });
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
+  const [isJoinBreakoutModalOpen, setIsJoinBreakoutModalOpen] = useState(false);
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
     initialFacingMode || "user",
@@ -95,14 +106,58 @@ export default function MobileToolbar({
   };
 
   const handleCopyLink = async () => {
-    // const meetingLink = `https://tobomeet.com/meeting/${meetingCode}`;
-    // await Clipboard.setStringAsync(meetingLink);
     setIsCopied(true);
     toast.success(t("meeting.toolbar.toast_link_copied"));
 
     setTimeout(() => {
       setIsCopied(false);
     }, 2000);
+  };
+
+  const handleLeaveClick = () => {
+    if (isInBreakoutRoom) {
+      Alert.alert(
+        t("meeting.toolbar.leave_breakout_confirm_title", {
+          defaultValue: "Rời phòng thảo luận",
+        }),
+        t("meeting.toolbar.leave_breakout_confirm_desc", {
+          defaultValue:
+            "Bạn muốn quay về phòng họp chính hay rời hẳn cuộc họp?",
+        }),
+        [
+          {
+            text: t("meeting.toolbar.cancel", { defaultValue: "Hủy" }),
+            style: "cancel",
+          },
+          {
+            text: t("meeting.toolbar.return_to_main_action", {
+              defaultValue: "Quay về phòng chính",
+            }),
+            onPress: () => handleReturnToMain(room.name),
+          },
+          {
+            text: t("meeting.toolbar.leave_meeting", {
+              defaultValue: "Rời cuộc họp",
+            }),
+            style: "destructive",
+            onPress: () => room.disconnect(),
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        t("meeting.toolbar.confirm_leave_title"),
+        t("meeting.toolbar.confirm_leave_desc"),
+        [
+          { text: t("meeting.toolbar.cancel"), style: "cancel" },
+          {
+            text: t("meeting.toolbar.leave_action"),
+            style: "destructive",
+            onPress: () => room.disconnect(),
+          },
+        ],
+      );
+    }
   };
 
   // UI Component: Nút Switch tùy chỉnh
@@ -213,6 +268,19 @@ export default function MobileToolbar({
             </Text>
           </TouchableOpacity>
 
+          {/* Nút Breakout (Nếu đang có phiên) */}
+          {isBreakoutActive && (
+            <TouchableOpacity
+              onPress={() => setIsJoinBreakoutModalOpen(true)}
+              className="min-w-[60px] h-14 justify-center items-center"
+            >
+              <Feather name="grid" size={20} color="#60a5fa" />
+              <Text className="text-blue-400 text-[10px] mt-1 font-bold">
+                {t("meeting.toolbar.breakout", { defaultValue: "Breakout" })}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* Nút Quản lý/Tùy chọn */}
           <TouchableOpacity
             onPress={() => setShowAdminMenu(true)}
@@ -226,25 +294,15 @@ export default function MobileToolbar({
 
           {/* Nút Rời đi */}
           <TouchableOpacity
-            onPress={() => {
-              Alert.alert(
-                t("meeting.toolbar.confirm_leave_title"),
-                t("meeting.toolbar.confirm_leave_desc"),
-                [
-                  { text: t("meeting.toolbar.cancel"), style: "cancel" },
-                  {
-                    text: t("meeting.toolbar.leave_action"),
-                    style: "destructive",
-                    onPress: () => room.disconnect(),
-                  },
-                ],
-              );
-            }}
+            onPress={handleLeaveClick}
+            disabled={isLeavingBreakout}
             className="min-w-[60px] h-14 justify-center items-center px-3"
           >
             <Feather name="log-out" size={20} color="#ef4444" />
             <Text className="text-red-500 text-[10px] mt-1 font-bold">
-              {t("meeting.toolbar.leave_meeting")}
+              {isInBreakoutRoom
+                ? t("meeting.toolbar.leave_short", { defaultValue: "Rời đi" })
+                : t("meeting.toolbar.leave_meeting")}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -311,6 +369,44 @@ export default function MobileToolbar({
                 <Text className="text-gray-400 text-[11px] font-bold mb-3 uppercase">
                   {t("meeting.toolbar.admin_tools")}
                 </Text>
+
+                {/* Quản lý Breakout Room (Tạo / Kết thúc) */}
+                {!isBreakoutActive ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowAdminMenu(false);
+                      setTimeout(() => setIsBreakoutModalOpen(true), 300);
+                    }}
+                    className="flex-row items-center justify-between py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
+                  >
+                    <View className="flex-row items-center">
+                      <Feather name="grid" size={20} color="#60a5fa" />
+                      <Text className="text-gray-300 ml-3 text-sm font-medium">
+                        {t("meeting.toolbar.create_breakout", {
+                          defaultValue: "Chia nhóm thảo luận",
+                        })}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      setShowAdminMenu(false);
+                      await handleEndBreakout();
+                    }}
+                    className="flex-row items-center justify-between py-3.5 px-3 bg-red-500/10 rounded-lg border border-red-500/30 mb-2"
+                  >
+                    <View className="flex-row items-center">
+                      <Feather name="square" size={20} color="#ef4444" />
+                      <Text className="text-red-400 ml-3 text-sm font-bold">
+                        {t("meeting.toolbar.end_breakout", {
+                          defaultValue: "Kết thúc thảo luận",
+                        })}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
 
                 {/* Switch Bật/Tắt Chat */}
                 <TouchableOpacity
@@ -452,6 +548,20 @@ export default function MobileToolbar({
         meetingCode={meetingCode}
         displayParticipants={displayParticipants}
       />
+
+      <CreateBreakoutModal
+        isOpen={isBreakoutModalOpen}
+        onClose={() => setIsBreakoutModalOpen(false)}
+        meetingCode={meetingCode}
+      />
+
+      <JoinBreakoutModal
+        isOpen={isJoinBreakoutModalOpen}
+        onClose={() => setIsJoinBreakoutModalOpen(false)}
+        rooms={breakoutRoomsList}
+        meetingCode={meetingCode}
+      />
     </>
   );
 }
+

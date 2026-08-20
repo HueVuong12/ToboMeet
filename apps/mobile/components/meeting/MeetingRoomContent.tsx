@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useRoomContext } from "@livekit/react-native";
 import { Participant, RoomEvent } from "livekit-client";
+import { Feather } from "@expo/vector-icons";
 import { toast } from "../../lib/toast";
 
 import MobileToolbar from "../../components/meeting/MobileToolbar";
@@ -16,6 +17,9 @@ import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useTranslation } from "react-i18next";
+import { useBreakoutSync } from "../../hooks/useBreakoutSync";
+import { useRoomSettings } from "../../hooks/useRoomSettings";
+import { useBreakoutTimer } from "../../hooks/useBreakoutTimer";
 
 export default function MeetingRoomContent({
   meetingData,
@@ -24,6 +28,24 @@ export default function MeetingRoomContent({
 }: any) {
   const { t } = useTranslation();
   const room = useRoomContext();
+
+  // Lắng nghe các sự kiện đồng bộ breakout
+  useBreakoutSync();
+
+  const { roomName, roomType, breakoutStartedAt, breakoutDuration } =
+    useRoomSettings({
+      roomId: meetingData.roomId,
+      channelId: meetingData.channelId,
+      meetingCode,
+    });
+
+  const isBreakoutRoom = roomType === "breakout";
+
+  const timeDisplay = useBreakoutTimer({
+    startedAt: breakoutStartedAt,
+    durationMinutes: breakoutDuration,
+    meetingCode,
+  });
 
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -197,11 +219,32 @@ export default function MeetingRoomContent({
   // GIAO DIỆN KHI ĐÃ ĐƯỢC DUYỆT VÀO PHÒNG
   return (
     <View className="flex-1 bg-black">
-      <View className="h-[70px] justify-center items-center bg-[#111] border-b border-[#333]">
-        <Text className="text-gray-400 text-xs uppercase font-bold">
-          {t("meeting.meeting_page.room_header")}
-        </Text>
-        <Text className="text-white font-bold text-base">{meetingCode}</Text>
+      <View className="h-[70px] justify-center items-center bg-[#111] border-b border-[#333] px-4">
+        {isBreakoutRoom ? (
+          <View className="items-center">
+            <View className="flex-row items-center gap-1.5 mb-0.5">
+              <Feather name="grid" size={12} color="#60a5fa" />
+              <Text className="text-blue-400 text-[11px] font-bold uppercase tracking-wider">
+                {roomName || "Breakout Room"}
+              </Text>
+            </View>
+            {timeDisplay && (
+              <View className="flex-row items-center gap-1 bg-[#222] px-2.5 py-0.5 rounded-full border border-[#333]">
+                <Feather name="clock" size={11} color="#f59e0b" />
+                <Text className="text-amber-400 font-mono font-bold text-xs">
+                  {timeDisplay}
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <>
+            <Text className="text-gray-400 text-xs uppercase font-bold">
+              {t("meeting.meeting_page.room_header")}
+            </Text>
+            <Text className="text-white font-bold text-base">{meetingCode}</Text>
+          </>
+        )}
       </View>
 
       <View className="flex-1">

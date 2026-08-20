@@ -3,11 +3,14 @@ import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { LiveKitRoom } from "@livekit/react-native";
 import MobileMeetingLobby from "../../components/meeting/MobileMeetingLobby";
-import { useMeetingSession } from "../../hooks/useMeetingSession";
+import {
+  MeetingSessionProvider,
+  useMeetingSessionContext,
+} from "../../components/meeting/contexts/MeetingSessionContext";
 import { useTranslation } from "react-i18next";
 import MeetingRoomContent from "../../components/meeting/MeetingRoomContent";
 
-export default function MobileMeetingScreen() {
+function MobileMeetingContent() {
   const { t } = useTranslation();
   const {
     code,
@@ -29,17 +32,36 @@ export default function MobileMeetingScreen() {
     handleJoinByCode,
     onRoomError,
     onRoomDisconnected,
-  } = useMeetingSession();
+  } = useMeetingSessionContext();
 
-  if (status === "LOADING" || isDisconnecting) {
+  const isLoadingState =
+    status === "LOADING" ||
+    status === "SWITCHING_BREAKOUT" ||
+    status === "RETURNING_TO_MAIN" ||
+    isDisconnecting;
+
+  if (isLoadingState) {
+    let loadingDesc = "";
+    if (isDisconnecting) {
+      loadingDesc = t("meeting.meeting_page.leaving_meeting", {
+        defaultValue: "Đang rời cuộc họp...",
+      });
+    } else if (status === "SWITCHING_BREAKOUT") {
+      loadingDesc = t("meeting.meeting_page.loading_joining_breakout", {
+        defaultValue: "Đang tham gia nhóm thảo luận...",
+      });
+    } else if (status === "RETURNING_TO_MAIN") {
+      loadingDesc = t("meeting.meeting_page.loading_returning_main", {
+        defaultValue: "Đang quay về phòng chính...",
+      });
+    }
+
     return (
       <View className="flex-1 justify-center items-center bg-black">
         <ActivityIndicator size="large" color="#3b82f6" />
-        {isDisconnecting && (
-          <Text className="text-gray-400 mt-4 font-bold">
-            {t("meeting.meeting_page.leaving_meeting")}
-          </Text>
-        )}
+        {loadingDesc ? (
+          <Text className="text-gray-400 mt-4 font-bold">{loadingDesc}</Text>
+        ) : null}
       </View>
     );
   }
@@ -85,3 +107,12 @@ export default function MobileMeetingScreen() {
     </LiveKitRoom>
   );
 }
+
+export default function MobileMeetingScreen() {
+  return (
+    <MeetingSessionProvider>
+      <MobileMeetingContent />
+    </MeetingSessionProvider>
+  );
+}
+

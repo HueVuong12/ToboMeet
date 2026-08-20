@@ -1,5 +1,6 @@
 import {
   ActiveMeetingResponse,
+  CreateBreakoutRoomDto,
   MeetingDeviceStatus,
   MeetingJoinResponse,
   PresignedUploadResponse,
@@ -199,6 +200,66 @@ export const meetingsApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
+
+    // ====== Breakout room APIs =======
+
+    // Khởi tạo Breakout Room (Gọi bởi Host)
+    startBreakoutSession: builder.mutation<
+      void,
+      {
+        code: string;
+        rooms: CreateBreakoutRoomDto[];
+      }
+    >({
+      query: ({ code, rooms }) => ({
+        url: `/meetings/${code}/breakout/start`,
+        method: "POST",
+        data: { rooms },
+      }),
+    }),
+
+    // Kết thúc Breakout Room (Gọi bởi Host)
+    endBreakoutSession: builder.mutation<void, { code: string }>({
+      query: ({ code }) => ({
+        url: `/meetings/${code}/breakout/end`,
+        method: "POST",
+      }),
+    }),
+
+    // Xin vào phòng Breakout (Gọi bởi Participant)
+    joinBreakoutRoom: builder.mutation<
+      MeetingJoinResponse,
+      { code: string; breakoutRoomId: string; deviceId: string }
+    >({
+      query: ({ code, breakoutRoomId, deviceId }) => ({
+        url: `/meetings/${code}/breakout/join`,
+        method: "POST",
+        data: { breakoutRoomId, deviceId },
+      }),
+    }),
+
+    // Quay lại phòng họp chính (Gọi bởi Participant)
+    returnToMainRoom: builder.mutation<
+      MeetingJoinResponse,
+      { fullBreakoutRoomName: string; deviceId: string }
+    >({
+      query: ({ fullBreakoutRoomName, deviceId }) => ({
+        url: `/meetings/breakout/${fullBreakoutRoomName}/return`,
+        method: "POST",
+        data: { deviceId },
+      }),
+    }),
+
+    // Lấy số lượng thành viên các phòng breakout
+    getBreakoutCounts: builder.query<
+      { counts: Record<string, number>; serverTime: number },
+      { code: string }
+    >({
+      query: ({ code }) => ({
+        url: `/meetings/${code}/breakout/counts`,
+        method: "GET",
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -218,4 +279,11 @@ export const {
   useGeneratePresignedUploadUrlMutation,
   useLazyExchangeSessionQuery,
   useSendMeetingInviteMutation,
+
+  // Breakout room APIs
+  useStartBreakoutSessionMutation,
+  useEndBreakoutSessionMutation,
+  useJoinBreakoutRoomMutation,
+  useReturnToMainRoomMutation,
+  useGetBreakoutCountsQuery,
 } = meetingsApi;

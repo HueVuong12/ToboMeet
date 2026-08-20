@@ -25,9 +25,9 @@ export function useParticipantManager({
   channelId,
   meetingCode,
 }: {
-  roomId: string;
-  channelId: string;
-  meetingCode: string;
+  roomId?: string;
+  channelId?: string;
+  meetingCode?: string;
 }) {
   const { t } = useTranslation();
   const participants = useParticipants();
@@ -133,6 +133,7 @@ export function useParticipantManager({
 
   // Hàm duyệt người dùng (Dùng toast của React Native)
   const handleApprove = async (identity: string, name: string) => {
+    if (!roomId || !channelId || !meetingCode) return;
     const isAll = identity === "all";
 
     try {
@@ -153,6 +154,7 @@ export function useParticipantManager({
 
   // Xử lý Đuổi
   const handleRemove = (participant: Participant) => {
+    if (!roomId || !channelId || !meetingCode) return;
     Alert.alert(t("meeting.member_modal.confirm"), t("meeting.member_modal.remove_confirm", { name: participant.name }), [
       { text: t("meeting.member_modal.cancel"), style: "cancel" },
       {
@@ -294,6 +296,7 @@ export function useParticipantManager({
     name: string,
     trackType: "audio" | "video",
   ) => {
+    if (!roomId || !channelId || !meetingCode) return;
     const typeLabel = trackType === "audio" ? "Mic" : "Camera";
     try {
       toast.success(
