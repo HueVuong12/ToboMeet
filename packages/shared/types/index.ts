@@ -237,6 +237,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Bạn không có mặt trong phòng thảo luận này",
     statusCode: 400,
   },
+  NOT_ASSIGNED_TO_BREAKOUT_ROOM: {
+    code: 4027,
+    message: "Bạn không được phân công vào phòng thảo luận này",
+    statusCode: 403,
+  },
 };
 
 export interface NavLink {
@@ -397,6 +402,7 @@ export interface BreakoutRoomMetadata extends BaseRoomMetadata {
   durationMinutes: number;
   startedAt: number;
   status: "active" | "closing";
+  assignedUsers?: string[];
 }
 
 export type LivekitRoomMetadata = MainRoomMetadata | BreakoutRoomMetadata;
@@ -406,6 +412,7 @@ export interface LivekitBreakoutRoom {
   name: string;
   maxParticipants: number;
   durationMinutes: number;
+  assignedUsers?: string[];
 }
 
 // Đồng bộ với dto bên BE

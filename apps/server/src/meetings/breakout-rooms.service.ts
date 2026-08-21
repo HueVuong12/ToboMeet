@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { User, UserDocument } from "../users/schemas/user.schema";
+import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import {
   AccessToken,
   DataPacket_Kind,
@@ -27,6 +28,7 @@ export class BreakoutRoomsService {
   private breakoutTimers: Map<string, NodeJS.Timeout[]> = new Map();
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     private meetingsService: MeetingsService,
   ) {
     const livekitHost = process.env.LIVEKIT_API_URL;
@@ -91,6 +93,7 @@ export class BreakoutRoomsService {
           name: config.name,
           maxParticipants: config.maxParticipants || 0,
           durationMinutes: config.durationMinutes || 0,
+          assignedUsers: config.assignedUsers,
         }),
       );
 
@@ -107,7 +110,8 @@ export class BreakoutRoomsService {
           durationMinutes: room.durationMinutes,
           startedAt: sessionStartedAt,
           status: "active",
-        } as LivekitRoomMetadata);
+          assignedUsers: room.assignedUsers,
+        } as BreakoutRoomMetadata);
 
         try {
           // Kiểm tra phòng đã tồn tại chưa
@@ -412,6 +416,23 @@ export class BreakoutRoomsService {
           throw new AppException(
             ErrorCode.BREAKOUT_ROOM_NOT_ACTIVE,
           );
+        }
+
+        // KIỂM TRA QUYỀN: Nếu có cấu hình assignedUsers (auto/manual), chỉ cho phép người được gán hoặc host vào phòng
+        const breakoutMeta = meta as BreakoutRoomMetadata;
+        if (Array.isArray(breakoutMeta.assignedUsers)) {
+          const isAssigned = breakoutMeta.assignedUsers.includes(userId);
+          if (!isAssigned) {
+            const meeting = await this.meetingModel
+              .findOne({ meetingCode: mainMeetingCode })
+              .lean();
+            const isHost = meeting?.hostId === userId;
+            if (!isHost) {
+              throw new AppException(
+                ErrorCode.NOT_ASSIGNED_TO_BREAKOUT_ROOM,
+              );
+            }
+          }
         }
       } else {
         throw new AppException(ErrorCode.BREAKOUT_ROOM_DATA_INVALID);
