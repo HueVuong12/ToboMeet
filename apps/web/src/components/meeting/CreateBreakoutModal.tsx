@@ -416,10 +416,82 @@ export default function CreateBreakoutModal({
           {/* ================= STEP 1: SETUP & MODE SELECTION ================= */}
           {step === 1 && (
             <div className="flex-1 p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
+              {/* Form Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#1e1e22] p-4 rounded-xl border border-[#27272a]">
+                {/* Room Count */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
+                    {t("room_count")}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRoomCount((c) => Math.max(1, c - 1))}
+                      className="w-9 h-9 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-lg transition-colors"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={roomCount}
+                      onChange={(e) => setRoomCount(Math.max(1, Number(e.target.value)))}
+                      className="flex-1 h-10 bg-[#121214] border border-[#3f3f46] text-white text-center font-mono font-bold text-base rounded-lg focus:border-blue-500 outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setRoomCount((c) => c + 1)}
+                      className="w-9 h-9 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-lg transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {mode === "auto" && assignableParticipants.length > 0 && (
+                    <p className="text-[11px] text-blue-400 mt-1.5 font-medium">
+                      {t("auto_calc_hint", {
+                        count: Math.ceil(assignableParticipants.length / Math.max(1, roomCount)),
+                      })}
+                    </p>
+                  )}
+                </div>
+
+                {/* Duration */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
+                    {t("duration")}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      max={300}
+                      value={durationMinutes}
+                      onChange={(e) =>
+                        setDurationMinutes(Math.max(1, Number(e.target.value)))
+                      }
+                      className="w-full h-10 pl-10 pr-12 bg-[#121214] border border-[#3f3f46] text-white font-mono font-bold text-base rounded-lg focus:border-blue-500 outline-none transition-colors"
+                    />
+                    <Clock
+                      size={16}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
+                      {t("minutes_unit")}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    {t("total_participants_hint", {
+                      count: assignableParticipants.length,
+                    })}
+                  </p>
+                </div>
+              </div>
+
               {/* Mode Selection Cards */}
               <div className="space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
-                  Phương thức phân chia
+                  {t("mode_title")}
                 </label>
 
                 {/* Option 1: Auto */}
@@ -543,78 +615,6 @@ export default function CreateBreakoutModal({
                       {t("mode_free_desc")}
                     </p>
                   </div>
-                </div>
-              </div>
-
-              {/* Form Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#1e1e22] p-4 rounded-xl border border-[#27272a]">
-                {/* Room Count */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
-                    {t("room_count")}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRoomCount((c) => Math.max(1, c - 1))}
-                      className="w-10 h-10 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-lg transition-colors"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={roomCount}
-                      onChange={(e) => setRoomCount(Math.max(1, Number(e.target.value)))}
-                      className="flex-1 h-10 bg-[#121214] border border-[#3f3f46] text-white text-center font-mono font-bold text-base rounded-lg focus:border-blue-500 outline-none transition-colors"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setRoomCount((c) => c + 1)}
-                      className="w-10 h-10 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-lg transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                  {mode === "auto" && assignableParticipants.length > 0 && (
-                    <p className="text-[11px] text-blue-400 mt-1.5 font-medium">
-                      {t("auto_calc_hint", {
-                        count: Math.ceil(assignableParticipants.length / Math.max(1, roomCount)),
-                      })}
-                    </p>
-                  )}
-                </div>
-
-                {/* Duration */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
-                    {t("duration")}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      value={durationMinutes}
-                      onChange={(e) =>
-                        setDurationMinutes(Math.max(1, Number(e.target.value)))
-                      }
-                      className="w-full h-10 pl-10 pr-12 bg-[#121214] border border-[#3f3f46] text-white font-mono font-bold text-base rounded-lg focus:border-blue-500 outline-none transition-colors"
-                    />
-                    <Clock
-                      size={16}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
-                      {t("minutes_unit")}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1.5">
-                    {t("total_participants_hint", {
-                      count: assignableParticipants.length,
-                    })}
-                  </p>
                 </div>
               </div>
             </div>

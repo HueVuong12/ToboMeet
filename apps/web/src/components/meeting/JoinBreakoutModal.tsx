@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { X, Users, Clock, LogIn, Network, Loader2 } from "lucide-react";
+import { X, Users, Clock, LogIn, Network, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useDeviceId } from "@/hooks/useDeviceId";
 import { useTranslations } from "next-intl";
+import { useLocalParticipant } from "@livekit/components-react";
 
 import { useGetBreakoutCountsQuery } from "@/lib/redux/api/meetingsApi";
 import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
@@ -23,8 +24,9 @@ export default function JoinBreakoutModal({
   const deviceId = useDeviceId();
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
 
+  const { localParticipant } = useLocalParticipant();
   const { handleSwitchToBreakout } = useMeetingSessionContext();
-  const { breakoutStartedAt } = useRoomSettings({ meetingCode: meetingCode });
+  const { breakoutStartedAt, isHost } = useRoomSettings({ meetingCode: meetingCode });
 
   const [realTime, setRealTime] = useState(Date.now());
   const [timeOffset, setTimeOffset] = useState<number | null>(null);
@@ -57,6 +59,8 @@ export default function JoinBreakoutModal({
   }, [isOpen, timeOffset]);
 
   if (!isOpen) return null;
+
+  const myIdentity = localParticipant?.identity;
 
   const handleJoin = async (breakoutRoomId: string) => {
     if (!deviceId) {
@@ -108,6 +112,12 @@ export default function JoinBreakoutModal({
               const isFull = hasLimit && currentCount >= room.maxParticipants;
               const isCurrentlyJoining = joiningRoomId === room.id;
 
+              // Kiểm tra quyền vào phòng: nếu có assignedUsers thì chỉ cho phép người được gán hoặc Host
+              const isAssigned = Array.isArray(room.assignedUsers)
+                ? (myIdentity ? room.assignedUsers.includes(myIdentity) : false)
+                : true;
+              const canJoin = isHost || isAssigned;
+
               // Tính toán lại thời gian còn lại cho phòng
               let isExpired = false;
               let timeDisplay = "";
@@ -148,7 +158,7 @@ export default function JoinBreakoutModal({
                       {room.name}
                     </h3>
 
-                    {/* Thông số (Bên phải) - Đã bỏ viền và nền, chỉ giữ lại text */}
+                    {/* Thông số (Bên phải) */}
                     <div className="flex flex-row items-center gap-4 shrink-0">
                       <div className="flex items-center gap-1.5 text-slate-300 text-xs font-medium">
                         <Users size={14} className="opacity-60" />
@@ -173,34 +183,41 @@ export default function JoinBreakoutModal({
                     </div>
                   </div>
 
-                  {/* Nút Join */}
-                  <button
-                    onClick={() => handleJoin(room.id)}
-                    disabled={isDisabled}
-                    className={`w-full py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 ${
-                      isDisabled
-                        ? "bg-[#333] text-slate-500 cursor-not-allowed border border-[#444]"
-                        : "bg-blue-600 hover:bg-blue-500 text-white shadow-md hover:shadow-blue-900/30 border border-blue-500 hover:border-blue-400"
-                    }`}
-                  >
-                    {isCurrentlyJoining ? (
-                      <Loader2 size={18} className="animate-spin text-white" />
-                    ) : (
-                      <LogIn
-                        size={18}
-                        className={
-                          isDisabled
-                            ? ""
-                            : "group-hover:translate-x-1 transition-transform"
-                        }
-                      />
-                    )}
-                    {isExpired
-                      ? t("room_closed")
-                      : isFull
-                        ? t("room_full")
-                        : t("join")}
-                  </button>
+                  {/* Nút Join hoặc Khóa nếu không được phân công */}
+                  {canJoin ? (
+                    <button
+                      onClick={() => handleJoin(room.id)}
+                      disabled={isDisabled}
+                      className={`w-full py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 ${
+                        isDisabled
+                          ? "bg-[#333] text-slate-500 cursor-not-allowed border border-[#444]"
+                          : "bg-blue-600 hover:bg-blue-500 text-white shadow-md hover:shadow-blue-900/30 border border-blue-500 hover:border-blue-400"
+                      }`}
+                    >
+                      {isCurrentlyJoining ? (
+                        <Loader2 size={18} className="animate-spin text-white" />
+                      ) : (
+                        <LogIn
+                          size={18}
+                          className={
+                            isDisabled
+                              ? ""
+                              : "group-hover:translate-x-1 transition-transform"
+                          }
+                        />
+                      )}
+                      {isExpired
+                        ? t("room_closed")
+                        : isFull
+                          ? t("room_full")
+                          : t("join")}
+                    </button>
+                  ) : (
+                    <div className="w-full py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 bg-[#18181b] text-slate-500 border border-[#2e2e33]">
+                      <Lock size={14} className="text-slate-500" />
+                      <span>{t("assigned_only")}</span>
+                    </div>
+                  )}
                 </div>
               );
             })

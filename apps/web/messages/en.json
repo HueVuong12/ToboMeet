@@ -1274,6 +1274,8 @@
     },
     "create_breakout_modal": {
       "modal_title": "Breakout Rooms",
+      "mode_title": "Choose division mode",
+      "duration_title": "Choose duration",
       "step_1_title": "Create Breakout Rooms",
       "step_1_subtitle": "Choose room creation mode and duration",
       "step_2_title": "Assign Participants",
@@ -1290,7 +1292,6 @@
       "room_count": "Number of rooms",
       "room_count_label": "Number of rooms",
       "duration": "Duration (minutes)",
-      "duration_label": "Duration (minutes)",
       "duration_minutes": "{count} mins",
       "minutes_unit": "mins",
       "room_prefix": "Room",

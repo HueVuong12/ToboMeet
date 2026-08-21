@@ -133,17 +133,29 @@
       {
         "name": "Trình duyệt Web",
         "description": "Không cần cài đặt, mở trình duyệt là họp ngay",
-        "badges": ["Chrome", "Safari", "Firefox", "Edge"]
+        "badges": [
+          "Chrome",
+          "Safari",
+          "Firefox",
+          "Edge"
+        ]
       },
       {
         "name": "Desktop App",
         "description": "Ứng dụng native hiệu năng cao, tích hợp hệ thống",
-        "badges": ["Windows", "macOS", "Linux"]
+        "badges": [
+          "Windows",
+          "macOS",
+          "Linux"
+        ]
       },
       {
         "name": "Di động",
         "description": "Họp mọi lúc mọi nơi, tối ưu cho màn hình nhỏ",
-        "badges": ["iOS", "Android"]
+        "badges": [
+          "iOS",
+          "Android"
+        ]
       }
     ]
   },
@@ -1248,6 +1260,7 @@
     },
     "create_breakout_modal": {
       "modal_title": "Chia nhóm thảo luận",
+      "mode_title": "Chọn phương thức chia phòng",
       "step_1_title": "Tạo phòng theo nhóm",
       "step_1_subtitle": "Chọn phương thức chia phòng và thời lượng",
       "step_2_title": "Phân chia thành viên",
