@@ -136,33 +136,36 @@ export default function MobileChatModal({
       {/* Backdrop */}
       <TouchableOpacity
         activeOpacity={1}
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/60"
         onPress={onClose}
       />
 
       <View className="flex-1 mt-20 justify-end">
         <View
-          className="flex-1 rounded-t-3xl overflow-hidden border-t border-white/10"
+          className="flex-1 rounded-t-3xl overflow-hidden border-t border-[#333]"
           style={{
             position: "absolute",
             top: 50,
             left: 0,
             right: 0,
             bottom: keyboardHeight, // bàn phím mở → đáy panel nhích lên
-            backgroundColor: "#0a0a0a",
+            backgroundColor: "#111",
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             overflow: "hidden",
           }}
         >
+          {/* Drag Handle */}
+          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-2 mb-1" />
+
           {/* HEADER */}
-          <View className="flex-row justify-between items-center px-4 py-3.5 border-b border-white/10 shrink-0">
-            <Text className="text-white font-semibold text-base">
+          <View className="flex-row justify-between items-center px-4 py-3 border-b border-[#222] shrink-0">
+            <Text className="text-white font-bold text-base">
               {t("meeting.chat.chat_header")}
             </Text>
             <TouchableOpacity
               onPress={onClose}
-              className="p-2 rounded-full bg-white/10"
+              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
             >
               <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
@@ -191,8 +194,8 @@ export default function MobileChatModal({
                   <View
                     className={`flex-row items-center mb-1 ${isMe ? "justify-end" : "justify-start"}`}
                   >
-                    <Text className="text-[11px] text-slate-500 font-medium">
-                      {realtimeSenderName}
+                    <Text className="text-[11px] text-slate-400 font-medium">
+                      {isMe ? t("meeting.chat.you_text", { defaultValue: "Bạn" }) : realtimeSenderName}
                     </Text>
                   </View>
 
@@ -243,13 +246,13 @@ export default function MobileChatModal({
                               <View
                                 className={`px-2.5 py-1.5 mb-0.5 rounded-lg border-l-2 max-w-[240px] ${
                                   isMe
-                                    ? "border-emerald-400/60 bg-emerald-900/30"
-                                    : "border-slate-500 bg-slate-800/80"
+                                    ? "border-blue-400/60 bg-blue-900/30"
+                                    : "border-slate-500 bg-[#222]"
                                 }`}
                               >
                                 <Text
                                   className={`font-semibold text-[11px] ${
-                                    isMe ? "text-emerald-200" : "text-slate-300"
+                                    isMe ? "text-blue-200" : "text-slate-300"
                                   }`}
                                 >
                                   {realtimeReplySenderName}
@@ -257,7 +260,7 @@ export default function MobileChatModal({
                                 <Text
                                   className={`text-[11px] ${
                                     isMe
-                                      ? "text-emerald-100/90"
+                                      ? "text-blue-100/90"
                                       : "text-slate-400"
                                   }`}
                                   numberOfLines={2}
@@ -269,20 +272,22 @@ export default function MobileChatModal({
 
                             {/* Ảnh */}
                             {item.fileType?.startsWith("image/") ? (
-                              <Image
-                                source={{ uri: item.publicUrl }}
-                                style={{ backgroundColor: "#1c1c1e" }}
-                                className="w-44 h-44 rounded-xl"
-                                resizeMode="cover"
-                              />
+                              <View className="rounded-xl overflow-hidden border border-[#333] bg-[#222]">
+                                <Image
+                                  source={{ uri: item.publicUrl }}
+                                  style={{ backgroundColor: "#222" }}
+                                  className="w-44 h-44 rounded-xl"
+                                  resizeMode="cover"
+                                />
+                              </View>
                             ) : item.fileName ? (
                               /* File */
-                              <View className="flex-row items-center gap-2.5 p-3 rounded-xl min-w-[150px] max-w-[220px] bg-[#1c1c1e] border border-white/10">
-                                <View className="p-2 rounded-lg bg-white/5">
+                              <View className="flex-row items-center gap-2.5 p-3 rounded-xl min-w-[150px] max-w-[220px] bg-[#222] border border-[#333]">
+                                <View className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
                                   <Feather
                                     name="download"
                                     size={15}
-                                    color="#34d399"
+                                    color="#60a5fa"
                                   />
                                 </View>
                                 <Text
@@ -294,12 +299,12 @@ export default function MobileChatModal({
                                 </Text>
                               </View>
                             ) : (
-                              /* Text bubble — emerald khi isMe */
+                              /* Text bubble — blue-600 khi isMe */
                               <View
                                 className={`px-3.5 py-2.5 ${
                                   isMe
-                                    ? `bg-emerald-600 ${isFirst ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tr-lg"} ${isLast ? "" : "rounded-br-lg"}`
-                                    : `bg-[#1c1c1e] ${isFirst ? "rounded-2xl rounded-tl-md" : "rounded-2xl rounded-tl-lg"} ${isLast ? "" : "rounded-bl-lg"}`
+                                    ? `bg-blue-600 ${isFirst ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tr-lg"} ${isLast ? "" : "rounded-br-lg"}`
+                                    : `bg-[#222] border border-[#333] ${isFirst ? "rounded-2xl rounded-tl-md" : "rounded-2xl rounded-tl-lg"} ${isLast ? "" : "rounded-bl-lg"}`
                                 }`}
                               >
                                 <Text className="text-white text-[15px] leading-5">
@@ -317,7 +322,7 @@ export default function MobileChatModal({
                               }`}
                             >
                               <Feather name="lock" size={10} color="#f59e0b" />
-                              <Text className="text-[10px] text-amber-500/90">
+                              <Text className="text-[10px] text-amber-400/90">
                                 {isMe
                                   ? t("meeting.chat.private_to_sender", {
                                       name: item.targetIdentity
@@ -359,8 +364,8 @@ export default function MobileChatModal({
                                         }
                                         className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full border ${
                                           hasReacted
-                                            ? "bg-emerald-900/40 border-emerald-500/40"
-                                            : "bg-[#1c1c1e] border-white/10"
+                                            ? "bg-blue-900/40 border-blue-500/40"
+                                            : "bg-[#222] border-[#333]"
                                         }`}
                                       >
                                         <Text className="text-[11px]">
@@ -369,7 +374,7 @@ export default function MobileChatModal({
                                         <Text
                                           className={`text-[11px] font-medium ${
                                             hasReacted
-                                              ? "text-emerald-400"
+                                              ? "text-blue-400"
                                               : "text-slate-400"
                                           }`}
                                         >
@@ -392,9 +397,9 @@ export default function MobileChatModal({
 
           {/* BANNER REPLY */}
           {replyingTo && (
-            <View className="px-4 py-2 flex-row justify-between items-center border-t border-white/10 bg-[#0a0a0a]">
+            <View className="px-4 py-2 flex-row justify-between items-center border-t border-[#222] bg-[#1a1a1a]">
               <View className="flex-1 mr-2">
-                <Text className="font-semibold text-emerald-400 text-xs mb-0.5">
+                <Text className="font-semibold text-blue-400 text-xs mb-0.5">
                   {t("meeting.chat.replying_to", {
                     name: replyingTo.senderName,
                   })}
@@ -408,7 +413,7 @@ export default function MobileChatModal({
               </View>
               <TouchableOpacity
                 onPress={() => setReplyingTo(null)}
-                className="p-1.5 bg-white/10 rounded-full"
+                className="p-1.5 bg-[#222] border border-[#333] rounded-full"
               >
                 <Feather name="x" size={14} color="#94a3b8" />
               </TouchableOpacity>
@@ -419,7 +424,7 @@ export default function MobileChatModal({
           {!canChat ? (
             <View
               style={{ paddingBottom: bottomPad }}
-              className="px-3 pt-3 border-t border-white/10 items-center justify-center"
+              className="px-3 pt-3 border-t border-[#222] items-center justify-center bg-[#111]"
             >
               <View className="bg-rose-500/10 px-4 py-2.5 rounded-xl flex-row items-center gap-2 border border-rose-500/20">
                 <Feather name="lock" size={15} color="#f87171" />
@@ -433,11 +438,11 @@ export default function MobileChatModal({
               style={{
                 paddingBottom: Math.max(insets.bottom + 10, 10),
               }}
-              className="px-3 pt-2.5 border-t border-white/10 gap-2"
+              className="px-3 pt-2.5 border-t border-[#222] bg-[#111] gap-2"
             >
               <TouchableOpacity
                 onPress={() => setShowTargetSelector(true)}
-                className="self-start px-3 py-1.5 rounded-lg flex-row items-center bg-white/5 border border-white/10"
+                className="self-start px-3 py-1.5 rounded-lg flex-row items-center bg-[#222] border border-[#333]"
               >
                 <Text className="text-xs font-medium text-slate-300 mr-1.5">
                   {t("meeting.chat.send_label")}{" "}
@@ -453,8 +458,8 @@ export default function MobileChatModal({
               <View className="flex-row items-center gap-2">
                 {isProcessing ? (
                   <View className="flex-1 flex-row justify-center items-center py-2.5 opacity-70">
-                    <ActivityIndicator size="small" color="#34d399" />
-                    <Text className="text-emerald-400 font-medium ml-2 text-sm">
+                    <ActivityIndicator size="small" color="#60a5fa" />
+                    <Text className="text-blue-400 font-medium ml-2 text-sm">
                       {t("meeting.chat.uploading_file")}
                     </Text>
                   </View>
@@ -462,18 +467,18 @@ export default function MobileChatModal({
                   <>
                     <TouchableOpacity
                       onPress={handlePickImage}
-                      className="p-2.5 rounded-full bg-white/5"
+                      className="p-2.5 rounded-full bg-[#222] border border-[#333]"
                     >
-                      <Feather name="image" size={18} color="#34d399" />
+                      <Feather name="image" size={18} color="#60a5fa" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handlePickDocument}
-                      className="p-2.5 rounded-full bg-white/5"
+                      className="p-2.5 rounded-full bg-[#222] border border-[#333]"
                     >
-                      <Feather name="paperclip" size={18} color="#34d399" />
+                      <Feather name="paperclip" size={18} color="#60a5fa" />
                     </TouchableOpacity>
 
-                    <View className="flex-1 rounded-full flex-row items-center px-3.5 bg-white/5 border border-white/10">
+                    <View className="flex-1 rounded-full flex-row items-center px-3.5 bg-[#222] border border-[#333]">
                       <TextInput
                         value={inputValue}
                         onChangeText={setInputValue}
@@ -490,7 +495,7 @@ export default function MobileChatModal({
                         <Feather
                           name="send"
                           size={18}
-                          color={inputValue.trim() ? "#34d399" : "#475569"}
+                          color={inputValue.trim() ? "#60a5fa" : "#475569"}
                         />
                       </TouchableOpacity>
                     </View>
@@ -514,8 +519,8 @@ export default function MobileChatModal({
           }}
           onPress={() => setShowTargetSelector(false)}
         >
-          <View className="bg-[#1c1c1e] px-5 pt-5 pb-4 rounded-t-2xl border border-white/10 max-h-[50%]">
-            <Text className="text-slate-500 text-xs font-semibold mb-3 uppercase tracking-wide">
+          <View className="bg-[#1c1c1c] px-5 pt-5 pb-4 rounded-t-2xl border border-[#333] max-h-[50%]">
+            <Text className="text-slate-400 text-xs font-semibold mb-3 uppercase tracking-wide">
               {t("meeting.chat.select_recipient")}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -524,17 +529,17 @@ export default function MobileChatModal({
                   setSelectedTarget("all");
                   setShowTargetSelector(false);
                 }}
-                className="flex-row items-center py-3.5 border-b border-white/5"
+                className="flex-row items-center py-3.5 border-b border-[#262626]"
               >
                 <Feather
                   name="users"
                   size={17}
-                  color={selectedTarget === "all" ? "#34d399" : "#94a3b8"}
+                  color={selectedTarget === "all" ? "#60a5fa" : "#94a3b8"}
                 />
                 <Text
                   className={`ml-3 text-[15px] ${
                     selectedTarget === "all"
-                      ? "text-emerald-400 font-semibold"
+                      ? "text-blue-400 font-semibold"
                       : "text-slate-200"
                   }`}
                 >
@@ -549,7 +554,7 @@ export default function MobileChatModal({
                     setSelectedTarget(p.identity);
                     setShowTargetSelector(false);
                   }}
-                  className="flex-row items-center py-3.5 border-b border-white/5"
+                  className="flex-row items-center py-3.5 border-b border-[#262626]"
                 >
                   <Feather
                     name="lock"
@@ -582,17 +587,17 @@ export default function MobileChatModal({
           onPress={() => setActiveMessage(null)}
         >
           <View
-            className="w-full rounded-2xl p-4 bg-[#1c1c1e] border border-white/10"
+            className="w-full rounded-2xl p-4 bg-[#1c1c1c] border border-[#333]"
             onStartShouldSetResponder={() => true}
           >
-            <View className="flex-row justify-between mb-4 border-b border-white/10 pb-4">
+            <View className="flex-row justify-between mb-4 border-b border-[#333] pb-4">
               {QUICK_EMOJIS.map((emj) => (
                 <TouchableOpacity
                   key={emj}
                   onPress={() =>
                     activeMessage && handleReact(activeMessage.id, emj)
                   }
-                  className="p-2 bg-white/5 rounded-full"
+                  className="p-2 bg-[#222] border border-[#333] rounded-full"
                 >
                   <Text className="text-2xl">{emj}</Text>
                 </TouchableOpacity>
@@ -605,7 +610,7 @@ export default function MobileChatModal({
                 setActiveMessage(null);
               }}
             >
-              <Feather name="corner-up-left" size={18} color="#34d399" />
+              <Feather name="corner-up-left" size={18} color="#60a5fa" />
               <Text className="ml-3 text-[15px] font-medium text-slate-200">
                 {t("meeting.chat.reply_message")}
               </Text>
@@ -614,7 +619,7 @@ export default function MobileChatModal({
         </TouchableOpacity>
       </Modal>
 
-      {/* ===== CHI TIẾT CẢM XÚC (theme emerald) ===== */}
+      {/* ===== CHI TIẾT CẢM XÚC (theme blue) ===== */}
       <Modal visible={!!reactionDetails} transparent animationType="fade">
         <TouchableOpacity
           activeOpacity={1}
@@ -622,26 +627,29 @@ export default function MobileChatModal({
           onPress={() => setReactionDetails(null)}
         >
           <View
-            className="w-full max-w-[320px] max-h-[60%] rounded-2xl border border-white/10 overflow-hidden bg-[#1c1c1e]"
+            className="w-full max-w-[320px] max-h-[60%] rounded-2xl border border-[#333] overflow-hidden bg-[#1c1c1c]"
             onStartShouldSetResponder={() => true}
           >
-            <View className="flex-row justify-between items-center px-4 py-3.5 border-b border-white/10">
+            <View className="flex-row justify-between items-center px-4 py-3.5 border-b border-[#333] bg-[#111]">
               <Text className="text-white font-semibold text-[15px]">
                 {t("meeting.chat.reaction_details_title")}
               </Text>
-              <TouchableOpacity onPress={() => setReactionDetails(null)}>
+              <TouchableOpacity
+                onPress={() => setReactionDetails(null)}
+                className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
+              >
                 <Feather name="x" size={18} color="#94a3b8" />
               </TouchableOpacity>
             </View>
-            <ScrollView className="p-3" showsVerticalScrollIndicator={false}>
+            <ScrollView className="p-3 bg-[#111]" showsVerticalScrollIndicator={false}>
               {reactionDetails &&
                 Object.entries(reactionDetails).map(([emoji, users]) => {
                   if (users.length === 0) return null;
                   return (
                     <View key={emoji} className="mb-3">
-                      <View className="flex-row items-center gap-2 mb-1.5 border-b border-white/5 pb-1.5">
+                      <View className="flex-row items-center gap-2 mb-1.5 border-b border-[#262626] pb-1.5">
                         <Text className="text-base">{emoji}</Text>
-                        <Text className="text-[11px] text-slate-500 font-medium">
+                        <Text className="text-[11px] text-slate-400 font-medium">
                           {t("meeting.chat.people_count", {
                             count: users.length,
                           })}
@@ -653,21 +661,21 @@ export default function MobileChatModal({
                         return (
                           <View
                             key={userId}
-                            className="flex-row items-center gap-2.5 py-1.5 px-1"
+                            className="flex-row items-center gap-2.5 py-1.5 px-1 hover:bg-[#222] rounded-lg"
                           >
                             {avatarUrl ? (
                               <Image
                                 source={{ uri: avatarUrl }}
-                                className="w-6 h-6 rounded-full bg-slate-700"
+                                className="w-6 h-6 rounded-full bg-slate-700 ring-1 ring-[#333]"
                               />
                             ) : (
-                              <View className="w-6 h-6 rounded-full bg-emerald-600 justify-center items-center">
+                              <View className="w-6 h-6 rounded-full bg-blue-600 justify-center items-center">
                                 <Text className="text-[10px] text-white font-bold">
                                   {initial}
                                 </Text>
                               </View>
                             )}
-                            <Text className="text-slate-200 text-sm">
+                            <Text className="text-slate-200 text-sm font-medium">
                               {displayName}
                             </Text>
                           </View>
@@ -685,7 +693,7 @@ export default function MobileChatModal({
       <Modal visible={!!previewMedia} transparent animationType="fade">
         <View className="flex-1 bg-black/95 justify-center items-center">
           <TouchableOpacity
-            className="absolute top-12 right-4 p-3 z-50 bg-white/10 rounded-full"
+            className="absolute top-12 right-4 p-3 z-50 bg-[#222] border border-[#333] rounded-full"
             onPress={() => setPreviewMedia(null)}
             style={{ marginTop: insets.top }}
           >
@@ -699,7 +707,7 @@ export default function MobileChatModal({
             />
           )}
           <TouchableOpacity
-            className="absolute bottom-14 flex-row items-center bg-[#1c1c1e]/90 px-5 py-3 rounded-full border border-white/10"
+            className="absolute bottom-14 flex-row items-center bg-[#1c1c1c]/90 px-5 py-3 rounded-full border border-[#333]"
             onPress={() => previewMedia && Linking.openURL(previewMedia.url)}
             style={{ marginBottom: insets.bottom }}
           >

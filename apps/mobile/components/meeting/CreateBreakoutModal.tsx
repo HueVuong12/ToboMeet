@@ -289,9 +289,9 @@ export default function CreateBreakoutModal({
       prev.map((r) =>
         r.id === roomId
           ? {
-              ...r,
-              assignedUserIds: r.assignedUserIds.filter((id) => id !== userId),
-            }
+            ...r,
+            assignedUserIds: r.assignedUserIds.filter((id) => id !== userId),
+          }
           : r,
       ),
     );
@@ -373,12 +373,12 @@ export default function CreateBreakoutModal({
       prev.map((r) =>
         r.id === addModalTargetRoomId
           ? {
-              ...r,
-              assignedUserIds: [
-                ...r.assignedUserIds,
-                ...selectedUserIdsToAdd,
-              ],
-            }
+            ...r,
+            assignedUserIds: [
+              ...r.assignedUserIds,
+              ...selectedUserIdsToAdd,
+            ],
+          }
           : r,
       ),
     );
@@ -503,16 +503,13 @@ export default function CreateBreakoutModal({
           className="flex-1"
         />
 
-        <View className="bg-[#141418] h-[85%] rounded-t-3xl border-t border-[#2d2d38] flex-col overflow-hidden">
+        <View className="bg-[#111] h-[85%] rounded-t-3xl border-t border-[#333] flex-col overflow-hidden">
           {/* DRAG HANDLE */}
-          <View className="w-10 h-1 bg-[#3a3a46] rounded-full self-center mt-3 mb-2" />
+          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-3 mb-2" />
 
           {/* HEADER */}
-          <View className="px-5 py-3 border-b border-[#262632] flex-row items-center justify-between bg-[#181822]">
+          <View className="px-5 py-3 border-b border-[#222] flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-2">
-              <View className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20 mr-2.5">
-                <Feather name="grid" size={18} color="#60a5fa" />
-              </View>
               <View className="flex-1">
                 <View className="flex-row items-center">
                   <Text
@@ -521,45 +518,45 @@ export default function CreateBreakoutModal({
                   >
                     {step === 1
                       ? t("meeting.create_breakout_modal.step_1_title", {
-                          defaultValue: "Tạo phòng theo nhóm",
-                        })
+                        defaultValue: "Tạo phòng theo nhóm",
+                      })
                       : t("meeting.create_breakout_modal.step_2_title", {
-                          defaultValue: "Phân chia thành viên",
-                        })}
+                        defaultValue: "Phân chia thành viên",
+                      })}
                   </Text>
-                  <View className="px-2 py-0.5 rounded-full bg-[#272734] border border-[#3f3f4e]">
-                    <Text className="text-[10px] font-semibold text-slate-400">
+                  <View className="px-2 py-0.5 rounded-full bg-[#222] border border-[#333]">
+                    <Text className="text-[10px] font-semibold text-gray-400">
                       {step === 1 ? "1 / 2" : "2 / 2"}
                     </Text>
                   </View>
                 </View>
                 <Text
-                  className="text-[11px] text-slate-400 mt-0.5"
+                  className="text-[11px] text-gray-400 mt-0.5"
                   numberOfLines={1}
                 >
                   {step === 1
                     ? t("meeting.create_breakout_modal.step_1_subtitle", {
-                        defaultValue:
-                          "Chọn số lượng phòng và phương thức chia phòng",
-                      })
+                      defaultValue:
+                        "Chọn số lượng phòng và phương thức chia phòng",
+                    })
                     : t("meeting.create_breakout_modal.step_2_subtitle", {
-                        defaultValue:
-                          "Xem và tuỳ chỉnh thành viên trong từng nhóm",
-                      })}
+                      defaultValue:
+                        "Xem và tuỳ chỉnh thành viên trong từng nhóm",
+                    })}
                 </Text>
               </View>
             </View>
 
             <TouchableOpacity
               onPress={onClose}
-              className="p-1.5 rounded-lg bg-[#272734]"
+              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
             >
               <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
           </View>
 
           {/* BODY */}
-          <View className="flex-1 bg-[#141418] relative">
+          <View className="flex-1 bg-[#111] relative">
             {/* ================= STEP 1: SETUP & MODE SELECTION ================= */}
             {step === 1 && (
               <ScrollView
@@ -568,15 +565,15 @@ export default function CreateBreakoutModal({
                 showsVerticalScrollIndicator={false}
               >
                 {/* Room Count Card */}
-                <View className="bg-[#1e1e26] p-4 rounded-2xl border border-[#2d2d3a] mb-4">
+                <View className="bg-[#222] p-4 rounded-2xl border border-[#333] mb-4">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1 mr-3">
-                      <Text className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                      <Text className="text-xs font-bold uppercase tracking-wider text-gray-300">
                         {t("meeting.create_breakout_modal.room_count", {
                           defaultValue: "Số lượng phòng",
                         })}
                       </Text>
-                      <Text className="text-[11px] text-slate-400 mt-0.5">
+                      <Text className="text-[11px] text-gray-400 mt-0.5">
                         {t(
                           "meeting.create_breakout_modal.total_participants_hint",
                           {
@@ -590,12 +587,12 @@ export default function CreateBreakoutModal({
                     <View className="flex-row items-center">
                       <TouchableOpacity
                         onPress={() => setRoomCount((c) => Math.max(1, c - 1))}
-                        className="w-8 h-8 rounded-lg bg-[#272734] border border-[#3f3f4e] items-center justify-center mr-2 active:bg-[#333344]"
+                        className="w-8 h-8 rounded-lg bg-[#333] border border-[#444] items-center justify-center mr-2 active:bg-[#444]"
                       >
                         <Feather name="minus" size={16} color="#ffffff" />
                       </TouchableOpacity>
 
-                      <View className="w-12 h-8 bg-[#121216] border border-[#3f3f4e] rounded-lg items-center justify-center mr-2">
+                      <View className="w-12 h-8 bg-[#1a1a1a] border border-[#444] rounded-lg items-center justify-center mr-2">
                         <Text className="text-white text-sm font-mono font-bold">
                           {roomCount}
                         </Text>
@@ -603,7 +600,7 @@ export default function CreateBreakoutModal({
 
                       <TouchableOpacity
                         onPress={() => setRoomCount((c) => Math.min(50, c + 1))}
-                        className="w-8 h-8 rounded-lg bg-[#272734] border border-[#3f3f4e] items-center justify-center active:bg-[#333344]"
+                        className="w-8 h-8 rounded-lg bg-[#333] border border-[#444] items-center justify-center active:bg-[#444]"
                       >
                         <Feather name="plus" size={16} color="#ffffff" />
                       </TouchableOpacity>
@@ -611,8 +608,8 @@ export default function CreateBreakoutModal({
                   </View>
 
                   {mode === "auto" && assignableParticipants.length > 0 && (
-                    <View className="mt-3 pt-3 border-t border-[#2a2a38] flex-row items-center justify-between">
-                      <Text className="text-slate-400 text-xs">
+                    <View className="mt-3 pt-3 border-t border-[#333] flex-row items-center justify-between">
+                      <Text className="text-gray-400 text-xs">
                         {t(
                           "meeting.create_breakout_modal.expected_distribution",
                           {
@@ -624,11 +621,11 @@ export default function CreateBreakoutModal({
                         {t("meeting.create_breakout_modal.auto_calc_hint", {
                           count: Math.ceil(
                             assignableParticipants.length /
-                              Math.max(1, roomCount),
+                            Math.max(1, roomCount),
                           ),
                           defaultValue: `~${Math.ceil(
                             assignableParticipants.length /
-                              Math.max(1, roomCount),
+                            Math.max(1, roomCount),
                           )} người / phòng`,
                         })}
                       </Text>
@@ -637,7 +634,7 @@ export default function CreateBreakoutModal({
                 </View>
 
                 {/* Division Mode Options */}
-                <Text className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">
+                <Text className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2.5">
                   {t("meeting.create_breakout_modal.mode_title", {
                     defaultValue: "Chọn phương thức chia phòng",
                   })}
@@ -647,18 +644,16 @@ export default function CreateBreakoutModal({
                 <TouchableOpacity
                   onPress={() => setMode("auto")}
                   activeOpacity={0.8}
-                  className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${
-                    mode === "auto"
-                      ? "border-blue-500 bg-blue-500/10"
-                      : "border-[#2d2d3a] bg-[#1e1e26]"
-                  }`}
+                  className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${mode === "auto"
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-[#333] bg-[#222]"
+                    }`}
                 >
                   <View
-                    className={`p-2 rounded-xl mr-3 ${
-                      mode === "auto"
-                        ? "bg-blue-600"
-                        : "bg-[#272734] border border-[#383846]"
-                    }`}
+                    className={`p-2 rounded-xl mr-3 ${mode === "auto"
+                      ? "bg-blue-600"
+                      : "bg-[#333] border border-[#444]"
+                      }`}
                   >
                     <Feather
                       name="zap"
@@ -670,16 +665,15 @@ export default function CreateBreakoutModal({
                   <View className="flex-1 mr-2">
                     <View className="flex-row items-center justify-between">
                       <Text
-                        className={`text-xs font-bold ${
-                          mode === "auto" ? "text-blue-400" : "text-slate-200"
-                        }`}
+                        className={`text-xs font-bold ${mode === "auto" ? "text-blue-400" : "text-gray-200"
+                          }`}
                       >
                         {t("meeting.create_breakout_modal.mode_auto", {
                           defaultValue: "Tự động gán",
                         })}
                       </Text>
                     </View>
-                    <Text className="text-[11px] text-slate-400 mt-1 leading-4">
+                    <Text className="text-[11px] text-gray-400 mt-1 leading-4">
                       {t("meeting.create_breakout_modal.mode_auto_desc", {
                         defaultValue:
                           "Hệ thống tự động chia đều người tham gia vào các phòng",
@@ -688,11 +682,10 @@ export default function CreateBreakoutModal({
                   </View>
 
                   <View
-                    className={`w-4 h-4 rounded-full border items-center justify-center mt-0.5 ${
-                      mode === "auto"
-                        ? "border-blue-500 bg-blue-500"
-                        : "border-[#52525b]"
-                    }`}
+                    className={`w-4 h-4 rounded-full border items-center justify-center mt-0.5 ${mode === "auto"
+                      ? "border-blue-500 bg-blue-500"
+                      : "border-gray-500"
+                      }`}
                   >
                     {mode === "auto" && (
                       <View className="w-1.5 h-1.5 rounded-full bg-white" />
@@ -704,18 +697,16 @@ export default function CreateBreakoutModal({
                 <TouchableOpacity
                   onPress={() => setMode("manual")}
                   activeOpacity={0.8}
-                  className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${
-                    mode === "manual"
-                      ? "border-blue-500 bg-blue-500/10"
-                      : "border-[#2d2d3a] bg-[#1e1e26]"
-                  }`}
+                  className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${mode === "manual"
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-[#333] bg-[#222]"
+                    }`}
                 >
                   <View
-                    className={`p-2 rounded-xl mr-3 ${
-                      mode === "manual"
-                        ? "bg-blue-600"
-                        : "bg-[#272734] border border-[#383846]"
-                    }`}
+                    className={`p-2 rounded-xl mr-3 ${mode === "manual"
+                      ? "bg-blue-600"
+                      : "bg-[#333] border border-[#444]"
+                      }`}
                   >
                     <Feather
                       name="user-check"
@@ -726,15 +717,14 @@ export default function CreateBreakoutModal({
 
                   <View className="flex-1 mr-2">
                     <Text
-                      className={`text-xs font-bold ${
-                        mode === "manual" ? "text-blue-400" : "text-slate-200"
-                      }`}
+                      className={`text-xs font-bold ${mode === "manual" ? "text-blue-400" : "text-gray-200"
+                        }`}
                     >
                       {t("meeting.create_breakout_modal.mode_manual", {
                         defaultValue: "Gán thủ công",
                       })}
                     </Text>
-                    <Text className="text-[11px] text-slate-400 mt-1 leading-4">
+                    <Text className="text-[11px] text-gray-400 mt-1 leading-4">
                       {t("meeting.create_breakout_modal.mode_manual_desc", {
                         defaultValue:
                           "Tự tay chọn và phân công người tham gia vào từng phòng",
@@ -743,11 +733,10 @@ export default function CreateBreakoutModal({
                   </View>
 
                   <View
-                    className={`w-4 h-4 rounded-full border items-center justify-center mt-0.5 ${
-                      mode === "manual"
-                        ? "border-blue-500 bg-blue-500"
-                        : "border-[#52525b]"
-                    }`}
+                    className={`w-4 h-4 rounded-full border items-center justify-center mt-0.5 ${mode === "manual"
+                      ? "border-blue-500 bg-blue-500"
+                      : "border-gray-500"
+                      }`}
                   >
                     {mode === "manual" && (
                       <View className="w-1.5 h-1.5 rounded-full bg-white" />
@@ -759,18 +748,16 @@ export default function CreateBreakoutModal({
                 <TouchableOpacity
                   onPress={() => setMode("free_choose")}
                   activeOpacity={0.8}
-                  className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${
-                    mode === "free_choose"
-                      ? "border-blue-500 bg-blue-500/10"
-                      : "border-[#2d2d3a] bg-[#1e1e26]"
-                  }`}
+                  className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${mode === "free_choose"
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-[#333] bg-[#222]"
+                    }`}
                 >
                   <View
-                    className={`p-2 rounded-xl mr-3 ${
-                      mode === "free_choose"
-                        ? "bg-blue-600"
-                        : "bg-[#272734] border border-[#383846]"
-                    }`}
+                    className={`p-2 rounded-xl mr-3 ${mode === "free_choose"
+                      ? "bg-blue-600"
+                      : "bg-[#333] border border-[#444]"
+                      }`}
                   >
                     <Feather
                       name="star"
@@ -781,17 +768,16 @@ export default function CreateBreakoutModal({
 
                   <View className="flex-1 mr-2">
                     <Text
-                      className={`text-xs font-bold ${
-                        mode === "free_choose"
-                          ? "text-blue-400"
-                          : "text-slate-200"
-                      }`}
+                      className={`text-xs font-bold ${mode === "free_choose"
+                        ? "text-blue-400"
+                        : "text-gray-200"
+                        }`}
                     >
                       {t("meeting.create_breakout_modal.mode_free", {
                         defaultValue: "Người tham gia tự chọn",
                       })}
                     </Text>
-                    <Text className="text-[11px] text-slate-400 mt-1 leading-4">
+                    <Text className="text-[11px] text-gray-400 mt-1 leading-4">
                       {t("meeting.create_breakout_modal.mode_free_desc", {
                         defaultValue:
                           "Cho phép mọi người tự do chọn và vào phòng tùy thích",
@@ -800,11 +786,10 @@ export default function CreateBreakoutModal({
                   </View>
 
                   <View
-                    className={`w-4 h-4 rounded-full border items-center justify-center mt-0.5 ${
-                      mode === "free_choose"
-                        ? "border-blue-500 bg-blue-500"
-                        : "border-[#52525b]"
-                    }`}
+                    className={`w-4 h-4 rounded-full border items-center justify-center mt-0.5 ${mode === "free_choose"
+                      ? "border-blue-500 bg-blue-500"
+                      : "border-gray-500"
+                      }`}
                   >
                     {mode === "free_choose" && (
                       <View className="w-1.5 h-1.5 rounded-full bg-white" />
@@ -818,22 +803,20 @@ export default function CreateBreakoutModal({
             {step === 2 && (
               <View className="flex-1 flex-col">
                 {/* Step 2 Top Sub-Bar */}
-                <View className="px-4 py-2 border-b border-[#262632] bg-[#181822] flex-row items-center justify-between">
+                <View className="px-4 py-2 border-b border-[#222] bg-[#1a1a1a] flex-row items-center justify-between">
                   <View className="flex-1 mr-2">
                     {mode !== "free_choose" && (
                       <View
-                        className={`px-2 py-0.5 rounded-lg border self-start ${
-                          unassignedParticipants.length > 0
-                            ? "bg-amber-500/10 border-amber-500/20"
-                            : "bg-[#272734] border-[#383846]"
-                        }`}
+                        className={`px-2 py-0.5 rounded-lg border self-start ${unassignedParticipants.length > 0
+                          ? "bg-amber-500/10 border-amber-500/30"
+                          : "bg-[#222] border-[#333]"
+                          }`}
                       >
                         <Text
-                          className={`text-[11px] font-medium ${
-                            unassignedParticipants.length > 0
-                              ? "text-amber-300"
-                              : "text-slate-400"
-                          }`}
+                          className={`text-[11px] font-medium ${unassignedParticipants.length > 0
+                            ? "text-amber-400"
+                            : "text-gray-400"
+                            }`}
                         >
                           {t("meeting.create_breakout_modal.unassigned_count", {
                             count: unassignedParticipants.length,
@@ -849,10 +832,10 @@ export default function CreateBreakoutModal({
                     {mode === "auto" && (
                       <TouchableOpacity
                         onPress={handleShuffleAgain}
-                        className="px-2.5 py-1.5 bg-[#272734] border border-[#383846] rounded-xl mr-2 flex-row items-center active:bg-[#333344]"
+                        className="px-2.5 py-1.5 bg-[#222] border border-[#333] rounded-xl mr-2 flex-row items-center active:bg-[#333]"
                       >
                         <Feather name="refresh-cw" size={12} color="#94a3b8" />
-                        <Text className="text-slate-300 text-xs font-semibold ml-1.5">
+                        <Text className="text-gray-300 text-xs font-semibold ml-1.5">
                           {t("meeting.create_breakout_modal.shuffle_again", {
                             defaultValue: "Chia ngẫu nhiên",
                           })}
@@ -863,7 +846,7 @@ export default function CreateBreakoutModal({
                     {/* Expand / Collapse all toggle */}
                     <TouchableOpacity
                       onPress={toggleAllRooms}
-                      className="p-1.5 bg-[#272734] border border-[#383846] rounded-xl mr-2"
+                      className="p-1.5 bg-[#222] border border-[#333] rounded-xl mr-2"
                     >
                       <Feather
                         name={
@@ -898,7 +881,7 @@ export default function CreateBreakoutModal({
                   showsVerticalScrollIndicator={false}
                 >
                   {mode === "free_choose" && (
-                    <View className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex-row items-center mb-3">
+                    <View className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl flex-row items-center mb-3">
                       <Feather name="info" size={14} color="#60a5fa" />
                       <Text className="text-blue-300 text-xs ml-2 flex-1 leading-4">
                         {t("meeting.create_breakout_modal.free_choose_notice", {
@@ -916,17 +899,16 @@ export default function CreateBreakoutModal({
                     return (
                       <View
                         key={room.id}
-                        className="bg-[#1e1e26] border border-[#2d2d3a] rounded-2xl mb-2.5 overflow-hidden"
+                        className="bg-[#222] border border-[#333] rounded-2xl mb-2.5 overflow-hidden"
                       >
                         {/* Room Header Row */}
                         <TouchableOpacity
                           activeOpacity={0.7}
                           onPress={() => toggleRoomExpand(room.id)}
-                          className={`px-3.5 py-3 flex-row items-center justify-between ${
-                            isExpanded
-                              ? "bg-[#23232e] border-b border-[#2d2d3a]"
-                              : ""
-                          }`}
+                          className={`px-3.5 py-3 flex-row items-center justify-between ${isExpanded
+                            ? "bg-[#2a2a2a] border-b border-[#333]"
+                            : ""
+                            }`}
                         >
                           <View className="flex-row items-center flex-1 mr-2">
                             <Feather
@@ -944,7 +926,7 @@ export default function CreateBreakoutModal({
                                   value={editingRoomName}
                                   onChangeText={setEditingRoomName}
                                   autoFocus
-                                  className="bg-[#121216] border border-blue-500 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 flex-1 mr-2"
+                                  className="bg-[#111] border border-blue-500 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 flex-1 mr-2"
                                 />
                                 <TouchableOpacity
                                   onPress={() => handleSaveRoomName(room.id)}
@@ -976,7 +958,7 @@ export default function CreateBreakoutModal({
                                   {room.name}
                                 </Text>
                                 {mode !== "free_choose" && (
-                                  <Text className="text-[11px] text-slate-400">
+                                  <Text className="text-[11px] text-gray-400">
                                     ({room.assignedUserIds.length})
                                   </Text>
                                 )}
@@ -1009,7 +991,7 @@ export default function CreateBreakoutModal({
                               onPress={() =>
                                 handleStartRenameRoom(room.id, room.name)
                               }
-                              className="p-1.5 bg-[#272734] rounded-lg mr-1.5"
+                              className="p-1.5 bg-[#333] border border-[#444] rounded-lg mr-1.5"
                             >
                               <Feather name="edit-2" size={12} color="#94a3b8" />
                             </TouchableOpacity>
@@ -1017,11 +999,10 @@ export default function CreateBreakoutModal({
                             <TouchableOpacity
                               onPress={() => handleDeleteRoom(room.id)}
                               disabled={rooms.length <= 1}
-                              className={`p-1.5 rounded-lg ${
-                                rooms.length <= 1
-                                  ? "opacity-30 bg-[#272734]"
-                                  : "bg-red-500/10"
-                              }`}
+                              className={`p-1.5 rounded-lg ${rooms.length <= 1
+                                ? "opacity-30 bg-[#333]"
+                                : "bg-red-500/10 border border-red-500/20"
+                                }`}
                             >
                               <Feather
                                 name="trash-2"
@@ -1036,10 +1017,10 @@ export default function CreateBreakoutModal({
 
                         {/* Room Expanded Content */}
                         {isExpanded && (
-                          <View className="bg-[#181820]">
+                          <View className="bg-[#1a1a1a]">
                             {mode === "free_choose" ? (
                               <View className="py-3 px-4 items-center justify-center">
-                                <Text className="text-slate-500 text-xs italic text-center">
+                                <Text className="text-gray-500 text-xs italic text-center">
                                   {t(
                                     "meeting.create_breakout_modal.mode_free_desc",
                                     {
@@ -1051,7 +1032,7 @@ export default function CreateBreakoutModal({
                               </View>
                             ) : room.assignedUserIds.length === 0 ? (
                               <View className="py-3 px-4 flex-row items-center justify-between">
-                                <Text className="text-xs text-slate-500 italic">
+                                <Text className="text-xs text-gray-500 italic">
                                   {t(
                                     "meeting.create_breakout_modal.no_participants",
                                     {
@@ -1085,12 +1066,11 @@ export default function CreateBreakoutModal({
                                 return (
                                   <View
                                     key={userId}
-                                    className="border-b border-[#22222a] last:border-b-0"
+                                    className="border-b border-[#262626] last:border-b-0"
                                   >
                                     <View
-                                      className={`px-4 py-2.5 flex-row items-center justify-between ${
-                                        isMenuOpen ? "bg-[#22222c]" : ""
-                                      }`}
+                                      className={`px-4 py-2.5 flex-row items-center justify-between ${isMenuOpen ? "bg-[#222]" : ""
+                                        }`}
                                     >
                                       <View className="flex-row items-center flex-1 mr-2">
                                         <View className="w-6 h-6 rounded-full bg-blue-600 items-center justify-center mr-2.5">
@@ -1099,7 +1079,7 @@ export default function CreateBreakoutModal({
                                           </Text>
                                         </View>
                                         <Text
-                                          className="text-xs font-medium text-slate-200 flex-1"
+                                          className="text-xs font-medium text-gray-200 flex-1"
                                           numberOfLines={1}
                                         >
                                           {pInfo.name}
@@ -1116,7 +1096,7 @@ export default function CreateBreakoutModal({
                                             setActiveSubMenu(null);
                                           }
                                         }}
-                                        className="p-1 rounded-lg bg-[#272734]"
+                                        className="p-1 rounded-lg bg-[#222] border border-[#333]"
                                       >
                                         <Feather
                                           name="more-vertical"
@@ -1128,7 +1108,7 @@ export default function CreateBreakoutModal({
 
                                     {/* Action Sub-Menu */}
                                     {isMenuOpen && (
-                                      <View className="bg-[#121216] p-2.5 mx-3 mb-2.5 rounded-xl border border-[#2e2e38]">
+                                      <View className="bg-[#111] p-2.5 mx-3 mb-2.5 rounded-xl border border-[#333]">
                                         {/* Option 1: Remove */}
                                         <TouchableOpacity
                                           onPress={() => {
@@ -1137,7 +1117,7 @@ export default function CreateBreakoutModal({
                                               userId,
                                             );
                                           }}
-                                          className="p-2 rounded-lg flex-row items-center mb-1 bg-red-500/10"
+                                          className="p-2 rounded-lg flex-row items-center mb-1 bg-red-500/10 border border-red-500/20"
                                         >
                                           <Feather
                                             name="user-minus"
@@ -1162,7 +1142,7 @@ export default function CreateBreakoutModal({
                                                 prev === "move" ? null : "move",
                                               )
                                             }
-                                            className="p-2 rounded-lg bg-[#1e1e26] flex-row items-center justify-between"
+                                            className="p-2 rounded-lg bg-[#222] border border-[#333] flex-row items-center justify-between"
                                           >
                                             <View className="flex-row items-center">
                                               <Feather
@@ -1191,7 +1171,7 @@ export default function CreateBreakoutModal({
                                           </TouchableOpacity>
 
                                           {activeSubMenu === "move" && (
-                                            <View className="mt-1 pl-3 border-l border-[#2e2e38]">
+                                            <View className="mt-1 pl-3 border-l border-[#333]">
                                               {rooms
                                                 .filter((r) => r.id !== room.id)
                                                 .map((otherRoom) => (
@@ -1206,10 +1186,10 @@ export default function CreateBreakoutModal({
                                                     }}
                                                     className="py-1.5 px-2 rounded flex-row items-center justify-between"
                                                   >
-                                                    <Text className="text-xs text-slate-300">
+                                                    <Text className="text-xs text-gray-300">
                                                       {otherRoom.name}
                                                     </Text>
-                                                    <Text className="text-[10px] text-slate-500">
+                                                    <Text className="text-[10px] text-gray-500">
                                                       (
                                                       {
                                                         otherRoom
@@ -1234,7 +1214,7 @@ export default function CreateBreakoutModal({
                                                   : "exchange",
                                               )
                                             }
-                                            className="p-2 rounded-lg bg-[#1e1e26] flex-row items-center justify-between"
+                                            className="p-2 rounded-lg bg-[#222] border border-[#333] flex-row items-center justify-between"
                                           >
                                             <View className="flex-row items-center">
                                               <Feather
@@ -1264,7 +1244,7 @@ export default function CreateBreakoutModal({
                                           </TouchableOpacity>
 
                                           {activeSubMenu === "exchange" && (
-                                            <View className="mt-1 pl-3 border-l border-[#2e2e38]">
+                                            <View className="mt-1 pl-3 border-l border-[#333]">
                                               {rooms
                                                 .filter((r) => r.id !== room.id)
                                                 .flatMap((otherRoom) =>
@@ -1296,10 +1276,10 @@ export default function CreateBreakoutModal({
                                                       }}
                                                       className="py-1.5 px-2 rounded flex-row items-center justify-between"
                                                     >
-                                                      <Text className="text-xs text-slate-300">
+                                                      <Text className="text-xs text-gray-300">
                                                         {oInfo.name}
                                                       </Text>
-                                                      <Text className="text-[10px] text-slate-500">
+                                                      <Text className="text-[10px] text-gray-500">
                                                         ({oRoom.name})
                                                       </Text>
                                                     </TouchableOpacity>
@@ -1311,16 +1291,16 @@ export default function CreateBreakoutModal({
                                                   r.id !== room.id &&
                                                   r.assignedUserIds.length > 0,
                                               ).length === 0 && (
-                                                <Text className="text-[10px] text-slate-500 italic p-1">
-                                                  {t(
-                                                    "meeting.create_breakout_modal.no_other_participants",
-                                                    {
-                                                      defaultValue:
-                                                        "Không có thành viên ở phòng khác",
-                                                    },
-                                                  )}
-                                                </Text>
-                                              )}
+                                                  <Text className="text-[10px] text-gray-500 italic p-1">
+                                                    {t(
+                                                      "meeting.create_breakout_modal.no_other_participants",
+                                                      {
+                                                        defaultValue:
+                                                          "Không có thành viên ở phòng khác",
+                                                      },
+                                                    )}
+                                                  </Text>
+                                                )}
                                             </View>
                                           )}
                                         </View>
@@ -1342,9 +1322,9 @@ export default function CreateBreakoutModal({
             {/* ================= MULTI-SELECT ADD PARTICIPANTS MODAL ================= */}
             {addModalTargetRoomId && targetRoomForAdd && (
               <View className="absolute inset-0 z-50 bg-black/75 p-4 justify-center items-center">
-                <View className="w-full bg-[#181822] border border-[#2d2d3a] rounded-2xl overflow-hidden max-h-[85%] flex-col">
+                <View className="w-full bg-[#1a1a1a] border border-[#333] rounded-2xl overflow-hidden max-h-[85%] flex-col">
                   {/* Header */}
-                  <View className="px-4 py-3 border-b border-[#262632] flex-row items-center justify-between">
+                  <View className="px-4 py-3 border-b border-[#222] flex-row items-center justify-between">
                     <View className="flex-1 mr-2">
                       <Text
                         className="text-white text-xs font-bold"
@@ -1358,7 +1338,7 @@ export default function CreateBreakoutModal({
                           },
                         )}
                       </Text>
-                      <Text className="text-[10px] text-slate-400 mt-0.5">
+                      <Text className="text-[10px] text-gray-400 mt-0.5">
                         {t("meeting.create_breakout_modal.unassigned_count", {
                           count: unassignedParticipants.length,
                           defaultValue: `Chưa phân công: ${unassignedParticipants.length} người`,
@@ -1368,22 +1348,22 @@ export default function CreateBreakoutModal({
 
                     <TouchableOpacity
                       onPress={() => setAddModalTargetRoomId(null)}
-                      className="p-1 rounded-lg bg-[#272734]"
+                      className="p-1 rounded-lg bg-[#222] border border-[#333]"
                     >
                       <Feather name="x" size={15} color="#94a3b8" />
                     </TouchableOpacity>
                   </View>
 
                   {/* Search & Select All */}
-                  <View className="p-2.5 border-b border-[#262632] bg-[#141418] flex-row items-center">
-                    <View className="flex-1 flex-row items-center bg-[#1e1e26] border border-[#2d2d3a] rounded-xl px-2.5 py-1 mr-2">
+                  <View className="p-2.5 border-b border-[#222] bg-[#111] flex-row items-center">
+                    <View className="flex-1 flex-row items-center bg-[#222] border border-[#333] rounded-xl px-2.5 py-1 mr-2">
                       <Feather name="search" size={13} color="#94a3b8" />
                       <TextInput
                         placeholder={t(
                           "meeting.create_breakout_modal.search_participant",
                           { defaultValue: "Tìm kiếm thành viên..." },
                         )}
-                        placeholderTextColor="#64748b"
+                        placeholderTextColor="#94a3b8"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         className="flex-1 text-white text-xs ml-2 py-0.5"
@@ -1404,18 +1384,18 @@ export default function CreateBreakoutModal({
                             );
                           }
                         }}
-                        className="px-2.5 py-1.5 bg-[#272734] border border-[#383846] rounded-xl"
+                        className="px-2.5 py-1.5 bg-[#222] border border-[#333] rounded-xl"
                       >
-                        <Text className="text-slate-300 text-[11px] font-semibold">
+                        <Text className="text-gray-300 text-[11px] font-semibold">
                           {selectedUserIdsToAdd.length ===
-                          filteredUnassigned.length
+                            filteredUnassigned.length
                             ? t(
-                                "meeting.create_breakout_modal.deselect_all",
-                                { defaultValue: "Bỏ chọn" },
-                              )
+                              "meeting.create_breakout_modal.deselect_all",
+                              { defaultValue: "Bỏ chọn" },
+                            )
                             : t("meeting.create_breakout_modal.select_all", {
-                                defaultValue: "Chọn tất cả",
-                              })}
+                              defaultValue: "Chọn tất cả",
+                            })}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -1428,7 +1408,7 @@ export default function CreateBreakoutModal({
                     showsVerticalScrollIndicator={false}
                   >
                     {filteredUnassigned.length === 0 ? (
-                      <Text className="text-center py-6 text-slate-500 text-xs italic">
+                      <Text className="text-center py-6 text-gray-500 text-xs italic">
                         {t(
                           "meeting.create_breakout_modal.no_unassigned_found",
                           {
@@ -1449,11 +1429,10 @@ export default function CreateBreakoutModal({
                             onPress={() =>
                               handleToggleUserSelection(p.identity)
                             }
-                            className={`p-2.5 rounded-xl border mb-2 flex-row items-center justify-between ${
-                              isSelected
-                                ? "bg-blue-600/15 border-blue-500"
-                                : "bg-[#1e1e26] border-[#2d2d3a]"
-                            }`}
+                            className={`p-2.5 rounded-xl border mb-2 flex-row items-center justify-between ${isSelected
+                              ? "bg-blue-600/15 border-blue-500"
+                              : "bg-[#222] border-[#333]"
+                              }`}
                           >
                             <View className="flex-row items-center flex-1 mr-2">
                               <View className="w-6 h-6 rounded-full bg-blue-600 items-center justify-center mr-2">
@@ -1464,7 +1443,7 @@ export default function CreateBreakoutModal({
                                 </Text>
                               </View>
                               <Text
-                                className="text-xs font-medium text-slate-200 flex-1"
+                                className="text-xs font-medium text-gray-200 flex-1"
                                 numberOfLines={1}
                               >
                                 {p.name || p.identity}
@@ -1483,12 +1462,12 @@ export default function CreateBreakoutModal({
                   </ScrollView>
 
                   {/* Footer */}
-                  <View className="p-3 border-t border-[#262632] flex-row items-center justify-end bg-[#141418]">
+                  <View className="p-3 border-t border-[#222] flex-row items-center justify-end bg-[#111]">
                     <TouchableOpacity
                       onPress={() => setAddModalTargetRoomId(null)}
                       className="px-3.5 py-2 rounded-xl mr-2"
                     >
-                      <Text className="text-slate-400 text-xs font-semibold">
+                      <Text className="text-gray-400 text-xs font-semibold">
                         {t("meeting.create_breakout_modal.cancel", {
                           defaultValue: "Huỷ",
                         })}
@@ -1498,11 +1477,10 @@ export default function CreateBreakoutModal({
                     <TouchableOpacity
                       onPress={handleConfirmAddUsers}
                       disabled={selectedUserIdsToAdd.length === 0}
-                      className={`px-4 py-2 rounded-xl flex-row items-center ${
-                        selectedUserIdsToAdd.length === 0
-                          ? "bg-blue-600/40 opacity-50"
-                          : "bg-blue-600"
-                      }`}
+                      className={`px-4 py-2 rounded-xl flex-row items-center ${selectedUserIdsToAdd.length === 0
+                        ? "bg-blue-600/40 opacity-50"
+                        : "bg-blue-600 active:bg-blue-500"
+                        }`}
                     >
                       <Feather name="plus" size={13} color="#ffffff" />
                       <Text className="text-white text-xs font-bold ml-1.5">
@@ -1520,8 +1498,8 @@ export default function CreateBreakoutModal({
             {/* ================= OPTIONS / SETTINGS MODAL SHEET ================= */}
             {isSettingsOpen && (
               <View className="absolute inset-0 z-50 bg-black/75 p-4 justify-center items-center">
-                <View className="w-full bg-[#181822] border border-[#2d2d3a] rounded-2xl p-4 flex-col">
-                  <View className="flex-row items-center justify-between border-b border-[#262632] pb-3 mb-3">
+                <View className="w-full bg-[#1a1a1a] border border-[#333] rounded-2xl p-4 flex-col">
+                  <View className="flex-row items-center justify-between border-b border-[#222] pb-3 mb-3">
                     <View className="flex-row items-center">
                       <Feather name="settings" size={15} color="#60a5fa" />
                       <Text className="text-white text-xs font-bold ml-2">
@@ -1532,7 +1510,7 @@ export default function CreateBreakoutModal({
                     </View>
                     <TouchableOpacity
                       onPress={() => setIsSettingsOpen(false)}
-                      className="p-1 rounded-lg bg-[#272734]"
+                      className="p-1 rounded-lg bg-[#222] border border-[#333]"
                     >
                       <Feather name="x" size={15} color="#94a3b8" />
                     </TouchableOpacity>
@@ -1541,7 +1519,7 @@ export default function CreateBreakoutModal({
                   {/* Auto Close Setting */}
                   <View className="mb-3">
                     <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-slate-200 text-xs font-medium flex-1 mr-2">
+                      <Text className="text-gray-200 text-xs font-medium flex-1 mr-2">
                         {t(
                           "meeting.create_breakout_modal.auto_close_checkbox",
                           {
@@ -1553,13 +1531,13 @@ export default function CreateBreakoutModal({
                       <Switch
                         value={isAutoCloseEnabled}
                         onValueChange={setIsAutoCloseEnabled}
-                        trackColor={{ false: "#3a3a46", true: "#2563eb" }}
+                        trackColor={{ false: "#333333", true: "#3b82f6" }}
                         thumbColor="#ffffff"
                       />
                     </View>
 
                     {isAutoCloseEnabled && (
-                      <View className="flex-row items-center mt-2 bg-[#121216] border border-[#2d2d3a] rounded-xl px-3 py-2">
+                      <View className="flex-row items-center mt-2 bg-[#111] border border-[#333] rounded-xl px-3 py-2">
                         <TextInput
                           value={String(autoCloseMinutes)}
                           onChangeText={(v) =>
@@ -1568,9 +1546,9 @@ export default function CreateBreakoutModal({
                             )
                           }
                           keyboardType="number-pad"
-                          className="text-white text-xs font-mono font-bold w-12 text-center bg-[#1e1e26] border border-[#3f3f4e] rounded-lg py-1 mr-2"
+                          className="text-white text-xs font-mono font-bold w-12 text-center bg-[#222] border border-[#333] rounded-lg py-1 mr-2"
                         />
-                        <Text className="text-slate-400 text-xs">
+                        <Text className="text-gray-400 text-xs">
                           {t("meeting.create_breakout_modal.minutes_unit", {
                             defaultValue: "phút",
                           })}
@@ -1580,21 +1558,21 @@ export default function CreateBreakoutModal({
                   </View>
 
                   {/* Status row */}
-                  <View className="pt-2.5 border-t border-[#262632] flex-row items-center justify-between">
-                    <Text className="text-slate-400 text-[11px]">
+                  <View className="pt-2.5 border-t border-[#222] flex-row items-center justify-between">
+                    <Text className="text-gray-400 text-[11px]">
                       {t("meeting.create_breakout_modal.status_label", {
                         defaultValue: "Trạng thái:",
                       })}
                     </Text>
-                    <Text className="text-slate-200 text-[11px] font-semibold">
+                    <Text className="text-gray-200 text-[11px] font-semibold">
                       {isAutoCloseEnabled
                         ? t("meeting.create_breakout_modal.time_limit", {
-                            count: autoCloseMinutes,
-                            defaultValue: `Thời gian: ${autoCloseMinutes} phút`,
-                          })
+                          count: autoCloseMinutes,
+                          defaultValue: `Thời gian: ${autoCloseMinutes} phút`,
+                        })
                         : t("meeting.create_breakout_modal.unlimited_time", {
-                            defaultValue: "Không giới hạn thời gian",
-                          })}
+                          defaultValue: "Không giới hạn thời gian",
+                        })}
                     </Text>
                   </View>
                 </View>
@@ -1603,16 +1581,16 @@ export default function CreateBreakoutModal({
           </View>
 
           {/* FOOTER BAR */}
-          <View className="px-4 py-3 border-t border-[#262632] bg-[#181822] flex-row items-center justify-between">
+          <View className="px-4 py-3 border-t border-[#222] bg-[#111] flex-row items-center justify-between">
             <View className="flex-row items-center">
               {step === 2 && (
                 <>
                   <TouchableOpacity
                     onPress={() => setStep(1)}
-                    className="p-2 bg-[#272734] border border-[#383846] rounded-xl mr-2 flex-row items-center"
+                    className="p-2 bg-[#222] border border-[#333] rounded-xl mr-2 flex-row items-center"
                   >
                     <Feather name="arrow-left" size={14} color="#94a3b8" />
-                    <Text className="text-slate-300 text-xs font-semibold ml-1.5">
+                    <Text className="text-gray-300 text-xs font-semibold ml-1.5">
                       {t("meeting.create_breakout_modal.btn_back", {
                         defaultValue: "Quay lại",
                       })}
@@ -1621,7 +1599,7 @@ export default function CreateBreakoutModal({
 
                   <TouchableOpacity
                     onPress={() => setIsSettingsOpen(true)}
-                    className="p-2 bg-[#272734] border border-[#383846] rounded-xl flex-row items-center"
+                    className="p-2 bg-[#222] border border-[#333] rounded-xl flex-row items-center"
                   >
                     <Feather name="settings" size={14} color="#60a5fa" />
                     {isAutoCloseEnabled && (
@@ -1637,7 +1615,7 @@ export default function CreateBreakoutModal({
                 onPress={onClose}
                 className="px-3.5 py-2 rounded-xl mr-2"
               >
-                <Text className="text-slate-400 text-xs font-semibold">
+                <Text className="text-gray-400 text-xs font-semibold">
                   {t("meeting.create_breakout_modal.cancel", {
                     defaultValue: "Huỷ",
                   })}
@@ -1660,9 +1638,8 @@ export default function CreateBreakoutModal({
                 <TouchableOpacity
                   onPress={handleSubmit}
                   disabled={isLoading}
-                  className={`px-4 py-2 bg-blue-600 rounded-xl flex-row items-center ${
-                    isLoading ? "opacity-60" : "active:bg-blue-500"
-                  }`}
+                  className={`px-4 py-2 bg-blue-600 rounded-xl flex-row items-center ${isLoading ? "opacity-60" : "active:bg-blue-500"
+                    }`}
                 >
                   {isLoading && (
                     <ActivityIndicator

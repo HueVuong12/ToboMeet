@@ -82,28 +82,34 @@ export default function MembersModal({
 
         {/* Khung Modal Thành Viên */}
         <View className="bg-[#111] h-[75%] rounded-t-3xl p-5 border-t border-[#333]">
-          <View className="flex-row justify-between items-center mb-4 pb-4 border-b border-[#222]">
-            <Text className="text-white text-lg font-bold">
+          {/* Drag Handle */}
+          <View className="w-10 h-1 bg-[#444] rounded-full self-center mb-3" />
+
+          <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-[#222]">
+            <Text className="text-white text-base font-bold">
               {t("meeting.member_modal.members_modal_title", {
                 defaultValue: "Thành viên",
               })}
             </Text>
-            <TouchableOpacity onPress={onClose} className="p-1">
-              <Feather name="x" size={20} color="#94a3b8" />
+            <TouchableOpacity
+              onPress={onClose}
+              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
+            >
+              <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
           </View>
 
           {/* ================= THANH ĐIỀU HƯỚNG TABS ================= */}
           {canApprove && (
-            <View className="flex-row bg-[#1a1a1a] rounded-xl p-1 mb-4 border border-[#333]">
+            <View className="flex-row bg-[#1a1a1a] rounded-xl p-1 mb-3 border border-[#333]">
               <TouchableOpacity
                 onPress={() => setActiveListTab("joined")}
-                className={`flex-1 py-2.5 rounded-lg items-center ${
+                className={`flex-1 py-2 rounded-lg items-center ${
                   activeListTab === "joined" ? "bg-[#333]" : "bg-transparent"
                 }`}
               >
                 <Text
-                  className={`text-[13px] font-semibold ${
+                  className={`text-xs font-semibold ${
                     activeListTab === "joined" ? "text-white" : "text-gray-400"
                   }`}
                 >
@@ -115,12 +121,12 @@ export default function MembersModal({
 
               <TouchableOpacity
                 onPress={() => setActiveListTab("waiting")}
-                className={`flex-1 py-2.5 rounded-lg items-center ${
+                className={`flex-1 py-2 rounded-lg items-center ${
                   activeListTab === "waiting" ? "bg-[#333]" : "bg-transparent"
                 }`}
               >
                 <Text
-                  className={`text-[13px] font-semibold ${
+                  className={`text-xs font-semibold ${
                     activeListTab === "waiting" ? "text-white" : "text-gray-400"
                   }`}
                 >
@@ -133,8 +139,8 @@ export default function MembersModal({
           )}
 
           {/* ================= HEADER SỐ LƯỢNG NGƯỜI ================= */}
-          <View className="flex-row justify-between items-center mb-2.5">
-            <Text className="text-gray-400 text-xs font-bold uppercase">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-gray-400 text-xs font-bold uppercase tracking-wider">
               {activeListTab === "waiting"
                 ? `${t("meeting.member_modal.waiting_label")} (${waitingParticipants.length})`
                 : `${t("meeting.member_modal.joined_label")} (${displayParticipants.length})`}
@@ -143,9 +149,9 @@ export default function MembersModal({
             {activeListTab === "waiting" && waitingParticipants.length > 0 && (
               <TouchableOpacity
                 onPress={() => handleApprove("all", "Tất cả")}
-                className="bg-amber-500/15 px-3 py-1.5 rounded-lg"
+                className="bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-lg"
               >
-                <Text className="text-amber-500 text-xs font-bold">
+                <Text className="text-amber-400 text-xs font-bold">
                   {t("meeting.member_modal.approve_all")}
                 </Text>
               </TouchableOpacity>
@@ -157,11 +163,11 @@ export default function MembersModal({
             <View className="flex-1 justify-center items-center opacity-60">
               <Feather
                 name="clock"
-                size={40}
+                size={36}
                 color="#64748b"
-                className="mb-3"
+                className="mb-2.5"
               />
-              <Text className="text-gray-400 text-sm">
+              <Text className="text-gray-400 text-xs font-medium">
                 {t("meeting.member_modal.waiting_empty")}
               </Text>
             </View>
@@ -207,30 +213,30 @@ export default function MembersModal({
                 }
 
                 return (
-                  <View className="flex-row items-center py-3 gap-3">
+                  <View className="flex-row items-center py-2.5 gap-2.5">
                     {/* Avatar */}
                     <View className="relative">
                       {avatarUrl ? (
                         <Image
                           source={{ uri: avatarUrl }}
-                          className="w-10 h-10 rounded-full"
+                          className="w-9 h-9 rounded-full border border-[#333] bg-[#222]"
                         />
                       ) : (
-                        <View className="w-10 h-10 rounded-full bg-[#222] border border-[#333] justify-center items-center">
-                          <Text className="text-blue-400 font-bold text-base">
+                        <View className="w-9 h-9 rounded-full bg-blue-600 justify-center items-center shadow-sm">
+                          <Text className="text-white font-bold text-xs uppercase">
                             {p.name?.charAt(0).toUpperCase() || "?"}
                           </Text>
                         </View>
                       )}
                       {activeListTab === "joined" && (
-                        <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800" />
+                        <View className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#111]" />
                       )}
                     </View>
 
                     {/* Info */}
                     <View className="flex-1 justify-center">
                       <Text
-                        className="text-slate-200 text-[15px] font-semibold"
+                        className="text-slate-200 text-sm font-semibold"
                         numberOfLines={1}
                       >
                         {p.name}
@@ -243,12 +249,12 @@ export default function MembersModal({
                       </Text>
                       {activeListTab === "joined" ? (
                         role !== "member" && (
-                          <Text className="text-[11px] font-semibold mt-0.5 text-slate-400">
+                          <Text className="text-[10px] font-medium mt-0.5 text-blue-400">
                             {roleText}
                           </Text>
                         )
                       ) : (
-                        <Text className="text-amber-500 text-[11px] mt-0.5">
+                        <Text className="text-amber-400 text-[10px] font-medium mt-0.5">
                           {t("meeting.member_modal.requesting_access")}
                         </Text>
                       )}
@@ -256,14 +262,14 @@ export default function MembersModal({
 
                     {/* Actions */}
                     {activeListTab === "waiting" ? (
-                      <View className="flex-row gap-2.5">
+                      <View className="flex-row gap-2">
                         <TouchableOpacity
                           onPress={() => handleRemove(p)}
-                          className="p-2 bg-red-500/15 rounded-lg"
+                          className="p-2 bg-red-500/15 border border-red-500/20 rounded-lg"
                         >
                           <Feather
                             name="user-minus"
-                            size={16}
+                            size={14}
                             color="#ef4444"
                           />
                         </TouchableOpacity>
@@ -271,28 +277,28 @@ export default function MembersModal({
                           onPress={() =>
                             handleApprove(p.identity, p.name || "Người dùng")
                           }
-                          className="p-2 bg-amber-500/15 rounded-lg"
+                          className="p-2 bg-amber-500/15 border border-amber-500/20 rounded-lg"
                         >
-                          <Feather name="check" size={16} color="#f59e0b" />
+                          <Feather name="check" size={14} color="#f59e0b" />
                         </TouchableOpacity>
                       </View>
                     ) : (
-                      <View className="flex-row items-center gap-2">
+                      <View className="flex-row items-center gap-1.5">
                         {isRaised && (
                           <Ionicons
                             name="hand-left"
-                            size={14}
+                            size={13}
                             color="#fbbf24"
                           />
                         )}
 
                         <View
-                          className={`p-1.5 rounded-lg ${isMuted ? "bg-red-500/10" : "bg-transparent"}`}
+                          className={`p-1.5 rounded-lg border ${isMuted ? "bg-red-500/10 border-red-500/20" : "bg-[#222] border-[#333]"}`}
                         >
                           <Feather
                             name={isMuted ? "mic-off" : "mic"}
-                            size={14}
-                            color={isMuted ? "#ef4444" : "#94a3b8"}
+                            size={13}
+                            color={isMuted ? "#ef4444" : "#60a5fa"}
                           />
                         </View>
 
@@ -312,11 +318,11 @@ export default function MembersModal({
                                     : p.identity,
                                 )
                               }
-                              className="p-2"
+                              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
                             >
                               <Feather
                                 name="more-vertical"
-                                size={16}
+                                size={14}
                                 color="#94a3b8"
                               />
                             </TouchableOpacity>
@@ -328,7 +334,7 @@ export default function MembersModal({
                     {/* Dropdown Menu (Chỉ hiện khi ở tab Joined) */}
                     {activeListTab === "joined" &&
                       openActionId === p.identity && (
-                        <View className="absolute right-8 top-10 bg-[#222] rounded-xl p-1 border border-[#333] z-50">
+                        <View className="absolute right-6 top-10 bg-[#1c1c1c] rounded-xl p-1 border border-[#333] z-50 shadow-2xl">
                           {isMe && (
                             <TouchableOpacity
                               onPress={() => {
@@ -338,10 +344,10 @@ export default function MembersModal({
                                 });
                                 setOpenActionId(null);
                               }}
-                              className="flex-row items-center py-3 px-4 gap-2.5"
+                              className="flex-row items-center py-2.5 px-3.5 gap-2.5"
                             >
-                              <Feather name="edit-2" size={16} color="white" />
-                              <Text className="text-white text-sm">
+                              <Feather name="edit-2" size={14} color="#60a5fa" />
+                              <Text className="text-white text-xs font-medium">
                                 {t("meeting.member_modal.rename_title")}
                               </Text>
                             </TouchableOpacity>
@@ -356,14 +362,14 @@ export default function MembersModal({
                                     handleUpdateRole(p.identity, "member");
                                     setOpenActionId(null);
                                   }}
-                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                  className="flex-row items-center py-2.5 px-3.5 gap-2.5"
                                 >
                                   <Feather
                                     name="user-check"
-                                    size={16}
-                                    color="white"
+                                    size={14}
+                                    color="#94a3b8"
                                   />
-                                  <Text className="text-white text-sm">
+                                  <Text className="text-white text-xs font-medium">
                                     {t(
                                       "meeting.member_modal.revoke_vice_leader",
                                       {
@@ -378,14 +384,14 @@ export default function MembersModal({
                                     handleUpdateRole(p.identity, "admin");
                                     setOpenActionId(null);
                                   }}
-                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                  className="flex-row items-center py-2.5 px-3.5 gap-2.5"
                                 >
                                   <Feather
                                     name="user-check"
-                                    size={16}
-                                    color="white"
+                                    size={14}
+                                    color="#60a5fa"
                                   />
-                                  <Text className="text-white text-sm">
+                                  <Text className="text-white text-xs font-medium">
                                     {t(
                                       "meeting.member_modal.appoint_vice_leader",
                                       {
@@ -404,21 +410,21 @@ export default function MembersModal({
                                   );
                                   setOpenActionId(null);
                                 }}
-                                className="flex-row items-center py-3 px-4 gap-2.5 border-t border-[#444]"
+                                className="flex-row items-center py-2.5 px-3.5 gap-2.5 border-t border-[#333]"
                               >
                                 <Feather
                                   name="shield"
-                                  size={16}
-                                  color="white"
+                                  size={14}
+                                  color="#fbbf24"
                                 />
-                                <Text className="text-white text-sm">
+                                <Text className="text-white text-xs font-medium">
                                   {t("meeting.member_modal.appoint_leader", {
                                     defaultValue: "Bổ nhiệm Trưởng nhóm",
                                   })}
                                 </Text>
                               </TouchableOpacity>
 
-                              <View className="h-[1px] bg-white/10 mx-2" />
+                              <View className="h-[1px] bg-[#333] mx-2" />
                             </>
                           )}
 
@@ -434,14 +440,14 @@ export default function MembersModal({
                                     );
                                     setOpenActionId(null);
                                   }}
-                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                  className="flex-row items-center py-2.5 px-3.5 gap-2.5"
                                 >
                                   <Feather
                                     name="mic-off"
-                                    size={16}
-                                    color="white"
+                                    size={14}
+                                    color="#94a3b8"
                                   />
-                                  <Text className="text-white text-sm">
+                                  <Text className="text-white text-xs font-medium">
                                     {t("meeting.member_modal.mute_mic")}
                                   </Text>
                                 </TouchableOpacity>
@@ -457,21 +463,21 @@ export default function MembersModal({
                                     );
                                     setOpenActionId(null);
                                   }}
-                                  className="flex-row items-center py-3 px-4 gap-2.5"
+                                  className="flex-row items-center py-2.5 px-3.5 gap-2.5"
                                 >
                                   <Feather
                                     name="video-off"
-                                    size={16}
-                                    color="white"
+                                    size={14}
+                                    color="#94a3b8"
                                   />
-                                  <Text className="text-white text-sm">
+                                  <Text className="text-white text-xs font-medium">
                                     {t("meeting.member_modal.mute_cam")}
                                   </Text>
                                 </TouchableOpacity>
                               )}
 
                               {(p.isMicrophoneEnabled || p.isCameraEnabled) && (
-                                <View className="h-[1px] bg-white/10 mx-2" />
+                                <View className="h-[1px] bg-[#333] mx-2" />
                               )}
 
                               <TouchableOpacity
@@ -479,14 +485,14 @@ export default function MembersModal({
                                   handleRemove(p);
                                   setOpenActionId(null);
                                 }}
-                                className="flex-row items-center py-3 px-4 gap-2.5"
+                                className="flex-row items-center py-2.5 px-3.5 gap-2.5"
                               >
                                 <Feather
                                   name="user-minus"
-                                  size={16}
+                                  size={14}
                                   color="#ef4444"
                                 />
-                                <Text className="text-red-500 text-sm">
+                                <Text className="text-red-400 text-xs font-medium">
                                   {t(
                                     "meeting.member_modal.remove_from_meeting",
                                   )}
@@ -508,8 +514,8 @@ export default function MembersModal({
       {renameState?.isOpen && (
         <Modal visible transparent animationType="fade">
           <View className="flex-1 justify-center items-center bg-black/60 p-5">
-            <View className="bg-[#111] w-full rounded-3xl p-6 border border-[#333]">
-              <Text className="text-white text-lg font-bold mb-4">
+            <View className="bg-[#1c1c1c] w-full max-w-sm rounded-2xl p-5 border border-[#333] shadow-2xl">
+              <Text className="text-white text-base font-bold mb-3">
                 {t("meeting.member_modal.rename_title")}
               </Text>
 
@@ -519,28 +525,30 @@ export default function MembersModal({
                   setRenameState({ ...renameState, newName: text })
                 }
                 placeholder={t("meeting.member_modal.rename_placeholder")}
-                placeholderTextColor="#6b7280"
-                className="bg-[#222] text-gray-300 p-4 rounded-xl text-base mb-6 border border-[#333]"
+                placeholderTextColor="#64748b"
+                className="bg-[#222] text-white px-3.5 py-2.5 rounded-xl text-sm mb-4 border border-[#333] focus:border-blue-500"
                 autoFocus
               />
 
-              <View className="flex-row justify-end gap-3">
+              <View className="flex-row justify-end gap-2.5">
                 <TouchableOpacity
                   onPress={() => setRenameState(null)}
-                  className="py-3 px-5 rounded-xl"
+                  className="py-2 px-3.5 rounded-lg bg-[#222] border border-[#333]"
                 >
-                  <Text className="text-slate-400 font-bold">
+                  <Text className="text-slate-300 font-semibold text-xs">
                     {t("meeting.member_modal.rename_cancel")}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRenameSubmit}
                   disabled={!renameState.newName.trim()}
-                  className={`py-3 px-5 rounded-xl ${
-                    renameState.newName.trim() ? "bg-blue-500" : "bg-blue-900"
+                  className={`py-2 px-4 rounded-lg shadow-md ${
+                    renameState.newName.trim()
+                      ? "bg-blue-600 active:bg-blue-500"
+                      : "bg-[#333]"
                   }`}
                 >
-                  <Text className="text-white font-bold">
+                  <Text className="text-white font-bold text-xs">
                     {t("meeting.member_modal.rename_save")}
                   </Text>
                 </TouchableOpacity>

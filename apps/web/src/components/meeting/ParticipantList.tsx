@@ -57,7 +57,7 @@ export default function ParticipantList({
     <div className="flex flex-col h-full">
       {/* ================= THANH ĐIỀU HƯỚNG TABS (CHỈ DÀNH CHO ADMIN) ================= */}
       {canApprove && (
-        <div className="flex p-1 bg-[#1a1a1a] rounded-lg mb-3 mx-1 border border-[#333]">
+        <div className="flex p-1 bg-[#1a1a1a] rounded-lg mb-2.5 mx-1 border border-[#333]">
           <button
             onClick={() => setActiveListTab("joined")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${
@@ -93,21 +93,21 @@ export default function ParticipantList({
               <div className="flex flex-col items-center justify-center py-10 opacity-60">
                 <Clock
                   className="text-slate-500 mb-2"
-                  size={32}
+                  size={28}
                   strokeWidth={1.5}
                 />
-                <p className="text-sm text-slate-400">
+                <p className="text-xs text-slate-400">
                   {t2("waiting_room_empty")}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-1 w-full">
                 {/* NÚT DUYỆT TẤT CẢ */}
-                <div className="flex w-full justify-between px-1 pb-1">
+                <div className="flex w-full justify-between items-center px-1 pb-1">
                   <p className="text-xs text-slate-400">{t2("everyone")}</p>
                   <button
                     onClick={() => handleApprove("all", "Tất cả")}
-                    className="text-xs text-amber-500 hover:text-amber-400 font-medium px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors"
+                    className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-md transition-colors"
                   >
                     {t2("approve_all")}
                   </button>
@@ -125,43 +125,43 @@ export default function ParticipantList({
                   return (
                     <div
                       key={p.identity}
-                      className="flex items-center gap-3 p-2.5 bg-[#1a1a1a] hover:bg-[#222] rounded-lg transition-all border border-transparent hover:border-[#333]"
+                      className="flex items-center gap-2.5 p-2 bg-[#222] hover:bg-[#2a2a2a] rounded-xl transition-all border border-[#333]"
                     >
                       <div className="relative shrink-0">
                         {avatarUrl ? (
                           <img
                             src={avatarUrl}
                             alt={p.name}
-                            className="w-10 h-10 rounded-full object-cover opacity-70"
+                            className="w-8 h-8 rounded-full object-cover border border-[#333] bg-[#111]"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm uppercase">
+                          <div className="w-8 h-8 rounded-full bg-[#111] text-slate-400 border border-[#333] flex items-center justify-center font-bold text-xs uppercase">
                             {p.name?.charAt(0) || "?"}
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <span className="text-sm font-medium text-slate-300 truncate">
+                        <span className="text-xs font-semibold text-slate-200 truncate">
                           {p.name}
                         </span>
-                        <span className="text-[10px] text-amber-500/80">
+                        <span className="text-[10px] text-amber-400/90 font-medium">
                           {t2("requesting_access")}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleRemove(p.identity)}
-                          className="p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-colors"
+                          className="p-1 text-slate-400 hover:bg-red-500/15 hover:text-red-400 rounded-md transition-colors"
                           title={t2("reject")}
                         >
-                          <UserMinus size={16} />
+                          <UserMinus size={14} />
                         </button>
                         <button
                           onClick={() =>
                             handleApprove(p.identity, p.name || "Người dùng")
                           }
-                          className="px-3 py-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white text-xs font-semibold rounded-md transition-colors"
+                          className="px-2.5 py-1 bg-amber-500/15 text-amber-400 hover:bg-amber-500 hover:text-white border border-amber-500/30 text-xs font-semibold rounded-md transition-colors"
                         >
                           {t2("approve")}
                         </button>
@@ -179,7 +179,7 @@ export default function ParticipantList({
           <div className="animate-fade-in">
             {/* Header cho người dùng không phải Admin (Vì họ không thấy Tab) */}
             {!canApprove && (
-              <div className="flex items-center justify-between mb-3 px-1 mt-1">
+              <div className="flex items-center justify-between mb-2 px-1 mt-0.5">
                 <span className="text-xs font-medium text-slate-400">
                   {t2("in_session")} ({displayParticipants.length})
                 </span>
@@ -216,35 +216,35 @@ export default function ParticipantList({
               return (
                 <div
                   key={p.identity}
-                  className="flex items-center gap-3 p-2 hover:bg-[#1a1a1a] rounded-lg transition-all group border border-transparent hover:border-[#333]"
+                  className="flex items-center gap-2.5 py-1.5 px-2 hover:bg-[#222] rounded-xl transition-all group border border-transparent hover:border-[#333]"
                 >
                   <div className="relative shrink-0">
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
                         alt={p.name}
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-8 h-8 rounded-full object-cover border border-[#333] bg-[#111]"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm uppercase">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
                         {p.name?.charAt(0) || "?"}
                       </div>
                     )}
-                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-[1.5px] border-[#111] rounded-full"></div>
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#111] rounded-full"></div>
                   </div>
 
-                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                    <span className="text-sm font-medium text-slate-200 truncate">
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-xs font-semibold text-slate-200 truncate group-hover:text-white transition-colors">
                       {p.name}
                       {isMe && (
-                        <span className="text-slate-500 font-normal ml-1.5">
+                        <span className="text-slate-500 font-normal ml-1">
                           {t2("you_label")}
                         </span>
                       )}
                     </span>
 
                     {role !== "member" && roleText && (
-                      <span className="text-[11px] text-slate-400 mt-0.5">
+                      <span className="text-[10px] text-blue-400 font-medium truncate">
                         {roleText}
                       </span>
                     )}
@@ -253,19 +253,19 @@ export default function ParticipantList({
                   <div className="flex items-center gap-1 shrink-0">
                     {isRaised && (
                       <Hand
-                        size={14}
-                        className="text-amber-400 mr-1 fill-amber-400 animate-pulse"
+                        size={13}
+                        className="text-amber-400 mr-0.5 fill-amber-400 animate-pulse"
                       />
                     )}
 
                     <div className="text-slate-400">
                       {p.isMicrophoneEnabled ? (
-                        <div className="p-1.5 bg-slate-800/50 rounded-md">
-                          <Mic size={14} className="text-emerald-400" />
+                        <div className="p-1 bg-[#222] border border-[#333] rounded-md">
+                          <Mic size={13} className="text-blue-400" />
                         </div>
                       ) : (
-                        <div className="p-1.5 bg-red-500/10 rounded-md">
-                          <MicOff size={14} className="text-red-400" />
+                        <div className="p-1 bg-red-500/10 border border-red-500/20 rounded-md">
+                          <MicOff size={13} className="text-red-400" />
                         </div>
                       )}
                     </div>
@@ -273,8 +273,8 @@ export default function ParticipantList({
                     {hasMenuOptions && (
                       <div className="relative">
                         {kickingUserId === p.identity ? (
-                          <div className="p-1.5 text-red-400 flex items-center justify-center">
-                            <Loader2 size={16} className="animate-spin" />
+                          <div className="p-1 text-red-400 flex items-center justify-center">
+                            <Loader2 size={14} className="animate-spin" />
                           </div>
                         ) : (
                           <button
@@ -283,9 +283,9 @@ export default function ParticipantList({
                                 openMenuId === p.identity ? null : p.identity,
                               )
                             }
-                            className="p-1.5 hover:bg-[#333] rounded-md text-slate-400 hover:text-slate-200 transition-colors"
+                            className="p-1 hover:bg-[#333] rounded-md text-slate-400 hover:text-white transition-colors"
                           >
-                            <MoreVertical size={16} />
+                            <MoreVertical size={14} />
                           </button>
                         )}
 
@@ -295,7 +295,7 @@ export default function ParticipantList({
                               className="fixed inset-0 z-40"
                               onClick={() => setOpenMenuId(null)}
                             ></div>
-                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-50 origin-top-right bg-[#222] border border-[#333] rounded py-1 shadow-2xl backdrop-blur-xl">
+                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-48 origin-top-right bg-[#1c1c1c] border border-[#333] rounded-xl py-1 shadow-2xl backdrop-blur-xl animate-scale-in">
                               {isMe && (
                                 <button
                                   onClick={() => {
@@ -305,9 +305,9 @@ export default function ParticipantList({
                                     });
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
+                                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                 >
-                                  <Edit2 size={15} />{" "}
+                                  <Edit2 size={14} className="text-blue-400" />{" "}
                                   {t2("rename_display_name")}
                                 </button>
                               )}
@@ -321,9 +321,9 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "member");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                     >
-                                      <UserCheck size={15} />
+                                      <UserCheck size={14} />
                                       {t("revoke_vice_leader", {
                                         defaultValue: "Thu hồi Phó nhóm",
                                       })}
@@ -334,9 +334,9 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "admin");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                     >
-                                      <UserCheck size={15} />
+                                      <UserCheck size={14} className="text-blue-400" />
                                       {t("appoint_vice_leader", {
                                         defaultValue: "Bổ nhiệm Phó nhóm",
                                       })}
@@ -351,14 +351,14 @@ export default function ParticipantList({
                                       );
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
+                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                   >
-                                    <ShieldCheck size={15} />
+                                    <ShieldCheck size={14} className="text-amber-400" />
                                     {t("appoint_leader", {
                                       defaultValue: "Bổ nhiệm Trưởng nhóm",
                                     })}
                                   </button>
-                                  <div className="h-px bg-[#444] my-1 mx-2" />
+                                  <div className="h-px bg-[#333] my-1 mx-2" />
                                 </>
                               )}
 
@@ -375,9 +375,9 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                     >
-                                      <MicOff size={15} />
+                                      <MicOff size={14} />
                                       {t2("mic_off")}
                                     </button>
                                   )}
@@ -392,9 +392,9 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-300 hover:text-white hover:bg-[#333] flex items-center gap-3 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                     >
-                                      <VideoOff size={15} /> {t2("cam_off")}
+                                      <VideoOff size={14} /> {t2("cam_off")}
                                     </button>
                                   )}
 
@@ -403,9 +403,9 @@ export default function ParticipantList({
                                       handleRemove(p.identity);
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-3 transition-colors whitespace-nowrap"
+                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors whitespace-nowrap"
                                   >
-                                    <UserMinus size={15} />{" "}
+                                    <UserMinus size={14} />{" "}
                                     {t2("remove_from_meeting")}
                                   </button>
                                 </>
@@ -426,9 +426,9 @@ export default function ParticipantList({
       {/* Modal đổi tên */}
       {renameState?.isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-            <div className="bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm p-5">
-              <h3 className="text-base font-semibold text-white mb-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 animate-fade-in">
+            <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl w-full max-w-sm p-5 animate-scale-in">
+              <h3 className="text-sm font-bold text-white mb-3">
                 {t2("rename_display_name")}
               </h3>
 
@@ -439,7 +439,7 @@ export default function ParticipantList({
                   setRenameState({ ...renameState, newName: e.target.value })
                 }
                 placeholder={t("enter_new_name")}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 mb-5 transition-colors"
+                className="w-full px-3 py-2 bg-[#222] border border-[#333] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 mb-4 transition-colors"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()}
               />
@@ -447,14 +447,14 @@ export default function ParticipantList({
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setRenameState(null)}
-                  className="px-3.5 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#222] rounded-lg transition-colors"
                 >
                   {t("cancel")}
                 </button>
                 <button
                   onClick={handleRenameSubmit}
                   disabled={!renameState.newName.trim()}
-                  className="px-3.5 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 shadow-md shadow-blue-500/20"
                 >
                   {t2("save_changes")}
                 </button>

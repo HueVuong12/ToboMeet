@@ -151,14 +151,14 @@ export default function JoinBreakoutModal({
           className="flex-1"
         />
 
-        <View className="bg-[#141418] h-[75%] rounded-t-3xl border-t border-[#2d2d38] flex-col overflow-hidden">
+        <View className="bg-[#111] h-[75%] rounded-t-3xl border-t border-[#333] flex-col overflow-hidden">
           {/* DRAG HANDLE */}
-          <View className="w-10 h-1 bg-[#3a3a46] rounded-full self-center mt-3 mb-2" />
+          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-3 mb-2" />
 
           {/* HEADER */}
-          <View className="px-5 py-3.5 border-b border-[#262632] flex-row items-center justify-between bg-[#181822]">
+          <View className="px-5 py-3.5 border-b border-[#222] flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-2">
-              <View className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20 mr-2.5">
+              <View className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/30 mr-2.5">
                 <Feather name="grid" size={18} color="#60a5fa" />
               </View>
               <View className="flex-1">
@@ -168,7 +168,7 @@ export default function JoinBreakoutModal({
                   })}
                 </Text>
                 {rooms && rooms.length > 0 && (
-                  <Text className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  <Text className="text-[11px] text-gray-400 font-medium mt-0.5">
                     {t("meeting.join_breakout_modal.rooms_count", {
                       count: rooms.length,
                       defaultValue: `${rooms.length} phòng`,
@@ -184,7 +184,7 @@ export default function JoinBreakoutModal({
                 <View
                   className={`px-2.5 py-1 rounded-full border flex-row items-center mr-2 ${isExpired
                     ? "bg-red-500/10 border-red-500/30"
-                    : "bg-blue-500/10 border-blue-500/25"
+                    : "bg-blue-500/10 border-blue-500/30"
                     }`}
                 >
                   <Feather
@@ -204,7 +204,7 @@ export default function JoinBreakoutModal({
 
               <TouchableOpacity
                 onPress={onClose}
-                className="p-1.5 rounded-lg bg-[#272734]"
+                className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
               >
                 <Feather name="x" size={18} color="#94a3b8" />
               </TouchableOpacity>
@@ -238,13 +238,13 @@ export default function JoinBreakoutModal({
                 return (
                   <View
                     key={room.id}
-                    className="p-3.5 bg-[#1e1e26] border border-[#2d2d3a] rounded-2xl mb-2.5 flex-row items-center justify-between"
+                    className="p-3.5 bg-[#222] border border-[#333] rounded-2xl mb-2.5 flex-row items-center justify-between"
                   >
                     {/* CỘT TRÁI: Tên phòng + Badge chỉ định + Số người */}
                     <View className="flex-1 mr-3">
                       <View className="flex-row items-center flex-wrap mb-1">
                         <Text
-                          className="font-bold text-slate-200 text-sm mr-2"
+                          className="font-bold text-gray-200 text-sm mr-2"
                           numberOfLines={1}
                         >
                           {room.name}
@@ -252,7 +252,7 @@ export default function JoinBreakoutModal({
                         {Array.isArray(room.assignedUsers) &&
                           room.assignedUsers.length > 0 &&
                           isAssigned && (
-                            <View className="px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                            <View className="px-1.5 py-0.5 rounded-md bg-blue-500/20 border border-blue-500/30">
                               <Text className="text-[10px] text-blue-400 font-medium">
                                 {t("meeting.join_breakout_modal.assigned_only", {
                                   defaultValue: "Chỉ định sẵn",
@@ -269,7 +269,7 @@ export default function JoinBreakoutModal({
                           color="#94a3b8"
                           style={{ marginRight: 4 }}
                         />
-                        <Text className="text-slate-400 text-xs">
+                        <Text className="text-gray-400 text-xs">
                           {currentCount}
                           {hasLimit ? ` / ${room.maxParticipants}` : ""}
                         </Text>
@@ -283,8 +283,8 @@ export default function JoinBreakoutModal({
                           onPress={() => handleJoin(room.id)}
                           disabled={isDisabled}
                           className={`px-3.5 py-2 rounded-xl flex-row items-center active:opacity-90 ${isDisabled
-                            ? "bg-[#282834] border border-[#383846]"
-                            : "bg-blue-600"
+                            ? "bg-[#333] border border-[#444]"
+                            : "bg-blue-600 active:bg-blue-500"
                             }`}
                         >
                           {isCurrentlyJoining ? (
@@ -297,12 +297,12 @@ export default function JoinBreakoutModal({
                             <Feather
                               name="log-in"
                               size={14}
-                              color={isDisabled ? "#64748b" : "#ffffff"}
+                              color={isDisabled ? "#6b7280" : "#ffffff"}
                               style={{ marginRight: 5 }}
                             />
                           )}
                           <Text
-                            className={`font-bold text-xs ${isDisabled ? "text-slate-500" : "text-white"
+                            className={`font-bold text-xs ${isDisabled ? "text-gray-500" : "text-white"
                               }`}
                           >
                             {isExpired
@@ -319,14 +319,14 @@ export default function JoinBreakoutModal({
                           </Text>
                         </TouchableOpacity>
                       ) : (
-                        <View className="px-3 py-1.5 rounded-xl bg-[#181820] border border-[#2b2b36] flex-row items-center">
+                        <View className="px-3 py-1.5 rounded-xl bg-[#1a1a1a] border border-[#333] flex-row items-center">
                           <Feather
                             name="lock"
                             size={12}
-                            color="#64748b"
+                            color="#94a3b8"
                             style={{ marginRight: 4 }}
                           />
-                          <Text className="text-slate-500 text-xs font-medium">
+                          <Text className="text-gray-400 text-xs font-medium">
                             {t("meeting.join_breakout_modal.assigned_only", {
                               defaultValue: "Chỉ định sẵn",
                             })}
@@ -339,10 +339,10 @@ export default function JoinBreakoutModal({
               })
             ) : (
               <View className="items-center justify-center py-16">
-                <View className="w-14 h-14 rounded-full bg-[#1e1e26] items-center justify-center border border-[#2d2d3a] mb-3">
-                  <Feather name="grid" size={24} color="#64748b" />
+                <View className="w-14 h-14 rounded-full bg-[#222] items-center justify-center border border-[#333] mb-3">
+                  <Feather name="grid" size={24} color="#94a3b8" />
                 </View>
-                <Text className="text-slate-400 text-sm font-medium text-center">
+                <Text className="text-gray-400 text-sm font-medium text-center">
                   {t("meeting.join_breakout_modal.no_rooms_created", {
                     defaultValue: "Chưa có nhóm thảo luận nào được tạo.",
                   })}
