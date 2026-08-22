@@ -40,6 +40,7 @@ export class BreakoutRoomsController {
     await this.breakoutRoomsService.startBreakoutSession(
       meetingCode,
       body.rooms,
+      body.durationMinutes,
     );
   }
 

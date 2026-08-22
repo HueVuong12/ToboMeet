@@ -63,6 +63,7 @@ export class BreakoutRoomsService {
   async startBreakoutSession(
     mainMeetingCode: string,
     roomConfigs: CreateBreakoutRoomDto[],
+    globalDurationMinutes?: number,
   ) {
     if (!this.livekitRoomService)
       throw new AppException(ErrorCode.SERVER_ERROR);
@@ -86,15 +87,22 @@ export class BreakoutRoomsService {
         }
       }
 
-      // Map config → cấu trúc nội bộ có ID tự tăng
+      // Map config → cấu trúc nội bộ có ID tự tăng. Thời gian là dùng chung cho tất cả các phòng
       const breakoutRooms: LivekitBreakoutRoom[] = roomConfigs.map(
-        (config, index) => ({
-          id: `sub_${index + 1}`,
-          name: config.name,
-          maxParticipants: config.maxParticipants || 0,
-          durationMinutes: config.durationMinutes || 0,
-          assignedUsers: config.assignedUsers,
-        }),
+        (config, index) => {
+          const roomDuration =
+            globalDurationMinutes !== undefined && globalDurationMinutes !== null
+              ? globalDurationMinutes
+              : config.durationMinutes || 0;
+
+          return {
+            id: `sub_${index + 1}`,
+            name: config.name,
+            maxParticipants: config.maxParticipants || 0,
+            durationMinutes: roomDuration > 0 ? roomDuration : 0,
+            assignedUsers: config.assignedUsers,
+          };
+        },
       );
 
       // Tạo / cập nhật từng phòng breakout

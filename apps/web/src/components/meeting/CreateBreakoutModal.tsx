@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   X,
   Plus,
@@ -23,6 +23,9 @@ import {
   RefreshCw,
   Edit2,
   Check,
+  Settings,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useStartBreakoutSessionMutation } from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
@@ -66,11 +69,13 @@ export default function CreateBreakoutModal({
 
   // Step 1 Form States
   const [roomCount, setRoomCount] = useState<number>(2);
-  const [durationMinutes, setDurationMinutes] = useState<number>(15);
   const [roomPrefix, setRoomPrefix] = useState<string>(t("room_prefix"));
 
   // Step 2 Local Rooms State
   const [rooms, setRooms] = useState<LocalRoom[]>([]);
+
+  // Expanded room IDs state (Accordion: Set of room IDs that are open)
+  const [expandedRoomIds, setExpandedRoomIds] = useState<Set<string>>(new Set());
 
   // Editing Room Name inline state
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -79,6 +84,13 @@ export default function CreateBreakoutModal({
   // Action Menu state on participant (3 dots menu)
   const [activeMenuUserId, setActiveMenuUserId] = useState<string | null>(null);
   const [activeSubMenu, setActiveSubMenu] = useState<"move" | "exchange" | null>(null);
+
+  // Settings / Options Popover state (Zoom-style options popup)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isAutoCloseEnabled, setIsAutoCloseEnabled] = useState<boolean>(false);
+  const [autoCloseMinutes, setAutoCloseMinutes] = useState<number>(15);
+
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   // Multi-select Add Participants Modal State
   const [addModalTargetRoomId, setAddModalTargetRoomId] = useState<string | null>(null);
@@ -104,14 +116,33 @@ export default function CreateBreakoutModal({
       setStep(1);
       setMode("auto");
       setRoomCount(2);
-      setDurationMinutes(15);
       setRoomPrefix(t("room_prefix"));
       setRooms([]);
+      setExpandedRoomIds(new Set());
+      setEditingRoomId(null);
       setActiveMenuUserId(null);
       setActiveSubMenu(null);
+      setIsSettingsOpen(false);
+      setIsAutoCloseEnabled(false);
+      setAutoCloseMinutes(15);
       setAddModalTargetRoomId(null);
     }
   }, [isOpen, t]);
+
+  // Close popup menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+    if (isSettingsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSettingsOpen]);
 
   if (!isOpen) return null;
 
@@ -136,6 +167,8 @@ export default function CreateBreakoutModal({
     }
 
     setRooms(newRooms);
+    // Expand all rooms by default for quick overview
+    setExpandedRoomIds(new Set(newRooms.map((r) => r.id)));
   };
 
   // Step 1 -> Step 2
@@ -144,13 +177,31 @@ export default function CreateBreakoutModal({
       toast.error(t("error_min_room"));
       return;
     }
-    if (durationMinutes < 1) {
-      toast.error(t("error_min_duration"));
-      return;
-    }
 
     generateRoomsForStep2(mode, roomCount, roomPrefix);
     setStep(2);
+  };
+
+  // Toggle room expand/collapse
+  const toggleRoomExpand = (roomId: string) => {
+    setExpandedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+  };
+
+  // Expand all / Collapse all toggle
+  const toggleAllRooms = () => {
+    if (expandedRoomIds.size === rooms.length) {
+      setExpandedRoomIds(new Set());
+    } else {
+      setExpandedRoomIds(new Set(rooms.map((r) => r.id)));
+    }
   };
 
   // Shuffle again in Step 2 (Auto mode)
@@ -171,12 +222,14 @@ export default function CreateBreakoutModal({
   // Add new room in Step 2
   const handleAddRoom = () => {
     const pfx = roomPrefix.trim() || t("room_prefix");
+    const newId = `room_${Date.now()}_${rooms.length + 1}`;
     const newRoom: LocalRoom = {
-      id: `room_${Date.now()}_${rooms.length + 1}`,
+      id: newId,
       name: `${pfx} ${rooms.length + 1}`,
       assignedUserIds: [],
     };
     setRooms((prev) => [...prev, newRoom]);
+    setExpandedRoomIds((prev) => new Set([...prev, newId]));
   };
 
   // Delete room in Step 2
@@ -186,6 +239,11 @@ export default function CreateBreakoutModal({
       return;
     }
     setRooms((prev) => prev.filter((r) => r.id !== roomId));
+    setExpandedRoomIds((prev) => {
+      const next = new Set(prev);
+      next.delete(roomId);
+      return next;
+    });
     if (editingRoomId === roomId) {
       setEditingRoomId(null);
     }
@@ -294,6 +352,7 @@ export default function CreateBreakoutModal({
           : r,
       ),
     );
+    setExpandedRoomIds((prev) => new Set([...prev, addModalTargetRoomId]));
     setAddModalTargetRoomId(null);
     setSelectedUserIdsToAdd([]);
   };
@@ -311,18 +370,17 @@ export default function CreateBreakoutModal({
       toast.error(t("error_min_room"));
       return;
     }
-    if (durationMinutes < 1) {
-      toast.error(t("error_min_duration"));
-      return;
-    }
     if (rooms.some((r) => !r.name.trim())) {
       toast.error(t("error_room_name_empty"));
       return;
     }
 
+    const durationToUse =
+      isAutoCloseEnabled && autoCloseMinutes > 0 ? autoCloseMinutes : undefined;
+
     const payloadRooms: CreateBreakoutRoomDto[] = rooms.map((r) => ({
       name: r.name.trim(),
-      durationMinutes: durationMinutes,
+      durationMinutes: durationToUse,
       assignedUsers: mode === "free_choose" ? undefined : r.assignedUserIds,
     }));
 
@@ -330,6 +388,7 @@ export default function CreateBreakoutModal({
       await startBreakoutApi({
         code: meetingCode,
         rooms: payloadRooms,
+        durationMinutes: durationToUse,
       }).unwrap();
 
       toast.success(t("success_start"));
@@ -371,33 +430,37 @@ export default function CreateBreakoutModal({
           if (activeMenuUserId) {
             setActiveMenuUserId(null);
             setActiveSubMenu(null);
+          } else if (isSettingsOpen) {
+            setIsSettingsOpen(false);
           } else {
             onClose();
           }
         }}
       />
 
-      {/* Main Modal Container */}
+      {/* Main Modal Container (Clean, compact width suitable for Zoom-like style) */}
       <div
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[95vw] bg-[#18181b] border border-[#2e2e33] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${step === 1 ? "max-w-lg h-[82vh] md:h-[70vh]" : "max-w-4xl h-[88vh] md:h-[82vh]"
+        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[92vw] bg-[#18181b] border border-[#2e2e33] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-out ${step === 1
+            ? "max-w-[480px] h-auto max-h-[82vh]"
+            : "max-w-[560px] h-[82vh] max-h-[660px]"
           }`}
       >
         {/* MODAL HEADER */}
-        <div className="px-6 py-4 border-b border-[#27272a] flex items-center justify-between bg-[#121214] shrink-0">
+        <div className="px-5 py-3.5 border-b border-[#27272a] flex items-center justify-between bg-[#121214] shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-600/10 border border-blue-500/20 rounded-xl text-blue-400">
-              <Network size={20} />
+              <Network size={18} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-100">
+                <h2 className="text-sm font-bold text-slate-100">
                   {step === 1 ? t("step_1_title") : t("step_2_title")}
                 </h2>
-                <span className="px-2 py-0.5 text-[11px] font-semibold bg-[#27272a] text-slate-400 border border-[#3f3f46] rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#27272a] text-slate-400 border border-[#3f3f46] rounded-full">
                   {step === 1 ? "1 / 2" : "2 / 2"}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-400 mt-0.5">
                 {step === 1 ? t("step_1_subtitle") : t("step_2_subtitle")}
               </p>
             </div>
@@ -405,29 +468,36 @@ export default function CreateBreakoutModal({
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-[#27272a] rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-[#27272a] rounded-lg transition-colors"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
 
         {/* MODAL BODY */}
         <div className="flex-1 overflow-hidden bg-[#161618] flex flex-col relative">
-          {/* ================= STEP 1: SETUP & MODE SELECTION ================= */}
+          {/* ================= STEP 1: SETUP & MODE SELECTION (NO DURATION) ================= */}
           {step === 1 && (
-            <div className="flex-1 p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
-              {/* Form Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#1e1e22] p-4 rounded-xl border border-[#27272a]">
-                {/* Room Count */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
-                    {t("room_count")}
-                  </label>
+            <div className="p-5 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+              {/* Room Count Input Box */}
+              <div className="bg-[#1e1e22] p-4 rounded-xl border border-[#27272a]">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                      {t("room_count")}
+                    </label>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {t("total_participants_hint", {
+                        count: assignableParticipants.length,
+                      })}
+                    </p>
+                  </div>
+
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setRoomCount((c) => Math.max(1, c - 1))}
-                      className="w-9 h-9 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-lg transition-colors"
+                      className="w-8 h-8 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-base transition-colors"
                     >
                       -
                     </button>
@@ -437,59 +507,32 @@ export default function CreateBreakoutModal({
                       max={50}
                       value={roomCount}
                       onChange={(e) => setRoomCount(Math.max(1, Number(e.target.value)))}
-                      className="flex-1 h-10 bg-[#121214] border border-[#3f3f46] text-white text-center font-mono font-bold text-base rounded-lg focus:border-blue-500 outline-none transition-colors"
+                      className="w-14 h-8 bg-[#121214] border border-[#3f3f46] text-white text-center font-mono font-bold text-sm rounded-lg focus:border-blue-500 outline-none transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setRoomCount((c) => c + 1)}
-                      className="w-9 h-9 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-lg transition-colors"
+                      className="w-8 h-8 rounded-lg bg-[#27272a] hover:bg-[#323238] border border-[#3f3f46] text-white flex items-center justify-center font-bold text-base transition-colors"
                     >
                       +
                     </button>
                   </div>
-                  {mode === "auto" && assignableParticipants.length > 0 && (
-                    <p className="text-[11px] text-blue-400 mt-1.5 font-medium">
+                </div>
+
+                {mode === "auto" && assignableParticipants.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[#2a2a2f] flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Dự kiến phân bổ:</span>
+                    <span className="text-blue-400 font-semibold">
                       {t("auto_calc_hint", {
                         count: Math.ceil(assignableParticipants.length / Math.max(1, roomCount)),
                       })}
-                    </p>
-                  )}
-                </div>
-
-                {/* Duration */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
-                    {t("duration")}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      value={durationMinutes}
-                      onChange={(e) =>
-                        setDurationMinutes(Math.max(1, Number(e.target.value)))
-                      }
-                      className="w-full h-10 pl-10 pr-12 bg-[#121214] border border-[#3f3f46] text-white font-mono font-bold text-base rounded-lg focus:border-blue-500 outline-none transition-colors"
-                    />
-                    <Clock
-                      size={16}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
-                      {t("minutes_unit")}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1.5">
-                    {t("total_participants_hint", {
-                      count: assignableParticipants.length,
-                    })}
-                  </p>
-                </div>
+                )}
               </div>
 
               {/* Mode Selection Cards */}
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
                   {t("mode_title")}
                 </label>
@@ -497,39 +540,35 @@ export default function CreateBreakoutModal({
                 {/* Option 1: Auto */}
                 <div
                   onClick={() => setMode("auto")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${mode === "auto"
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/5"
-                    : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#232328]"
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "auto"
+                      ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
+                      : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
                     }`}
                 >
                   <div
-                    className={`p-2.5 rounded-lg shrink-0 mt-0.5 ${mode === "auto"
-                      ? "bg-blue-500 text-white shadow-md shadow-blue-500/30"
-                      : "bg-[#27272a] text-slate-400"
+                    className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "auto"
+                        ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
+                        : "bg-[#27272a] text-slate-400"
                       }`}
                   >
-                    <Wand2 size={20} />
+                    <Wand2 size={17} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-sm font-bold ${mode === "auto" ? "text-blue-400" : "text-slate-200"
+                        className={`text-xs font-bold ${mode === "auto" ? "text-blue-400" : "text-slate-200"
                           }`}
                       >
                         {t("mode_auto")}
                       </span>
                       <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${mode === "auto"
-                          ? "border-blue-500 bg-blue-500"
-                          : "border-[#52525b]"
+                        className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${mode === "auto" ? "border-blue-500 bg-blue-500" : "border-[#52525b]"
                           }`}
                       >
-                        {mode === "auto" && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                        )}
+                        {mode === "auto" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
                       {t("mode_auto_desc")}
                     </p>
                   </div>
@@ -538,39 +577,35 @@ export default function CreateBreakoutModal({
                 {/* Option 2: Manual */}
                 <div
                   onClick={() => setMode("manual")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${mode === "manual"
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/5"
-                    : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#232328]"
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "manual"
+                      ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
+                      : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
                     }`}
                 >
                   <div
-                    className={`p-2.5 rounded-lg shrink-0 mt-0.5 ${mode === "manual"
-                      ? "bg-blue-500 text-white shadow-md shadow-blue-500/30"
-                      : "bg-[#27272a] text-slate-400"
+                    className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "manual"
+                        ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
+                        : "bg-[#27272a] text-slate-400"
                       }`}
                   >
-                    <Hand size={20} />
+                    <Hand size={17} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-sm font-bold ${mode === "manual" ? "text-blue-400" : "text-slate-200"
+                        className={`text-xs font-bold ${mode === "manual" ? "text-blue-400" : "text-slate-200"
                           }`}
                       >
                         {t("mode_manual")}
                       </span>
                       <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${mode === "manual"
-                          ? "border-blue-500 bg-blue-500"
-                          : "border-[#52525b]"
+                        className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${mode === "manual" ? "border-blue-500 bg-blue-500" : "border-[#52525b]"
                           }`}
                       >
-                        {mode === "manual" && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                        )}
+                        {mode === "manual" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
                       {t("mode_manual_desc")}
                     </p>
                   </div>
@@ -579,31 +614,29 @@ export default function CreateBreakoutModal({
                 {/* Option 3: Free choose */}
                 <div
                   onClick={() => setMode("free_choose")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${mode === "free_choose"
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/5"
-                    : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#232328]"
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "free_choose"
+                      ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
+                      : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
                     }`}
                 >
                   <div
-                    className={`p-2.5 rounded-lg shrink-0 mt-0.5 ${mode === "free_choose"
-                      ? "bg-blue-500 text-white shadow-md shadow-blue-500/30"
-                      : "bg-[#27272a] text-slate-400"
+                    className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "free_choose"
+                        ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
+                        : "bg-[#27272a] text-slate-400"
                       }`}
                   >
-                    <Sparkles size={20} />
+                    <Sparkles size={17} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-sm font-bold ${mode === "free_choose" ? "text-blue-400" : "text-slate-200"
+                        className={`text-xs font-bold ${mode === "free_choose" ? "text-blue-400" : "text-slate-200"
                           }`}
                       >
                         {t("mode_free")}
                       </span>
                       <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${mode === "free_choose"
-                          ? "border-blue-500 bg-blue-500"
-                          : "border-[#52525b]"
+                        className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${mode === "free_choose" ? "border-blue-500 bg-blue-500" : "border-[#52525b]"
                           }`}
                       >
                         {mode === "free_choose" && (
@@ -611,7 +644,7 @@ export default function CreateBreakoutModal({
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
                       {t("mode_free_desc")}
                     </p>
                   </div>
@@ -620,39 +653,18 @@ export default function CreateBreakoutModal({
             </div>
           )}
 
-          {/* ================= STEP 2: ASSIGNMENT & ROOM MANAGEMENT ================= */}
+          {/* ================= STEP 2: ASSIGNMENT & ROOM MANAGEMENT (ZOOM-STYLE LIST) ================= */}
           {step === 2 && (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-              {/* Step 2 Top Bar */}
-              <div className="px-6 py-3 border-b border-[#27272a] bg-[#1a1a1e] flex flex-wrap items-center justify-between gap-3 shrink-0">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="p-1.5 text-slate-400 hover:text-white hover:bg-[#27272a] rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold"
-                  >
-                    <ArrowLeft size={16} /> {t("btn_back")}
-                  </button>
-
-                  <span
-                    className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${mode === "auto"
-                      ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
-                      : mode === "manual"
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                        : "bg-purple-500/10 text-purple-400 border border-purple-500/30"
-                      }`}
-                  >
-                    {mode === "auto"
-                      ? t("mode_auto")
-                      : mode === "manual"
-                        ? t("mode_manual")
-                        : t("mode_free")}
-                  </span>
+              {/* Step 2 Top Sub-Bar */}
+              <div className="px-5 py-2.5 border-b border-[#27272a] bg-[#1a1a1e] flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
 
                   {mode !== "free_choose" && (
                     <span
-                      className={`text-xs font-medium px-2.5 py-1 rounded-md ${unassignedParticipants.length > 0
-                        ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
-                        : "bg-slate-800 text-slate-400 border border-slate-700"
+                      className={`text-[11px] font-medium px-2 py-0.5 rounded truncate ${unassignedParticipants.length > 0
+                          ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                          : "bg-slate-800 text-slate-400 border border-slate-700"
                         }`}
                     >
                       {t("unassigned_count", {
@@ -662,324 +674,370 @@ export default function CreateBreakoutModal({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Duration quick display / editor */}
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#121214] border border-[#3f3f46] rounded-lg text-xs">
-                    <Clock size={14} className="text-amber-400" />
-                    <input
-                      type="number"
-                      min={1}
-                      value={durationMinutes}
-                      onChange={(e) =>
-                        setDurationMinutes(Math.max(1, Number(e.target.value)))
-                      }
-                      className="w-8 bg-transparent text-center font-mono font-bold text-white outline-none"
-                    />
-                    <span className="text-slate-400">{t("minutes_unit")}</span>
-                  </div>
-
+                <div className="flex items-center gap-1.5 shrink-0">
                   {/* Shuffle again (Auto mode only) */}
                   {mode === "auto" && (
                     <button
                       onClick={handleShuffleAgain}
-                      className="px-3 py-1.5 bg-[#27272a] hover:bg-[#323238] text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-[#3f3f46] transition-colors"
+                      className="px-2.5 py-1 bg-[#27272a] hover:bg-[#323238] text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-[#3f3f46] transition-colors"
                       title={t("shuffle_again")}
                     >
-                      <RefreshCw size={13} /> {t("shuffle_again")}
+                      <RefreshCw size={12} /> {t("shuffle_again")}
                     </button>
                   )}
+
+                  {/* Expand / Collapse all toggle */}
+                  <button
+                    onClick={toggleAllRooms}
+                    className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-[#27272a] rounded-lg text-xs font-medium transition-colors"
+                    title={
+                      expandedRoomIds.size === rooms.length
+                        ? t("collapse_all")
+                        : t("expand_all")
+                    }
+                  >
+                    {expandedRoomIds.size === rooms.length ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
+                  </button>
 
                   {/* Add Room button */}
                   <button
                     onClick={handleAddRoom}
-                    className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="px-2.5 py-1 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
                   >
-                    <Plus size={14} /> {t("add_room")}
+                    <Plus size={13} /> {t("add_room")}
                   </button>
                 </div>
               </div>
 
-              {/* Step 2 Rooms Content */}
-              <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-[#141416]">
+              {/* Step 2 Rooms Vertical List Content (Zoom-Style Accordion) */}
+              <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#141416] flex flex-col gap-2.5">
                 {mode === "free_choose" && (
-                  <div className="mb-5 p-3.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-300 text-xs flex items-center gap-2.5">
-                    <Sparkles size={18} className="shrink-0 text-purple-400" />
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-300 text-xs flex items-center gap-2">
+                    <Sparkles size={16} className="shrink-0 text-purple-400" />
                     <span>{t("free_choose_notice")}</span>
                   </div>
                 )}
 
-                {/* Rooms Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rooms.map((room) => {
-                    const isEditing = editingRoomId === room.id;
+                {/* Vertical Rooms List */}
+                {rooms.map((room) => {
+                  const isExpanded = expandedRoomIds.has(room.id);
+                  const isEditing = editingRoomId === room.id;
 
-                    return (
+                  return (
+                    <div
+                      key={room.id}
+                      className="bg-[#1b1b1f] border border-[#2c2c32] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#383840]"
+                    >
+                      {/* Room Item Header Row */}
                       <div
-                        key={room.id}
-                        className="bg-[#1e1e22] border border-[#2e2e34] hover:border-[#3f3f48] rounded-xl flex flex-col overflow-hidden transition-all shadow-md"
+                        className={`px-3.5 py-2.5 flex items-center justify-between gap-2 select-none cursor-pointer transition-colors ${isExpanded ? "bg-[#1f1f24] border-b border-[#29292e]" : "bg-[#1b1b1f] hover:bg-[#202025]"
+                          }`}
+                        onClick={() => toggleRoomExpand(room.id)}
                       >
-                        {/* Room Card Header */}
-                        <div className="p-3 bg-[#18181b] border-b border-[#2e2e34] flex items-center justify-between gap-2">
-                          <div className="flex-1 flex items-center gap-2 min-w-0">
-                            {isEditing ? (
-                              <div className="flex items-center gap-1 w-full">
-                                <input
-                                  type="text"
-                                  autoFocus
-                                  value={editingRoomName}
-                                  onChange={(e) => setEditingRoomName(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleSaveRoomName(room.id);
-                                    if (e.key === "Escape") setEditingRoomId(null);
-                                  }}
-                                  className="w-full bg-[#121214] border border-blue-500 text-white text-xs font-bold rounded px-2 py-1 outline-none"
-                                />
-                                <button
-                                  onClick={() => handleSaveRoomName(room.id)}
-                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded"
-                                >
-                                  <Check size={14} />
-                                </button>
-                              </div>
+                        {/* Left: Expand Chevron + Room Name & Count */}
+                        <div
+                          className="flex items-center gap-2 min-w-0 flex-1"
+                          onClick={(e) => {
+                            if (isEditing) e.stopPropagation();
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleRoomExpand(room.id);
+                            }}
+                            className="p-1 -ml-1 text-slate-400 hover:text-white rounded transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown size={16} className="text-slate-300" />
                             ) : (
-                              <div
-                                onClick={() =>
-                                  handleStartRenameRoom(room.id, room.name)
-                                }
-                                className="group/name flex items-center gap-1.5 cursor-pointer truncate"
-                                title={t("rename_room")}
-                              >
-                                <span className="font-bold text-sm text-slate-100 truncate">
-                                  {room.name}
-                                </span>
-                                <Edit2
-                                  size={12}
-                                  className="text-slate-500 opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0"
-                                />
-                              </div>
+                              <ChevronRight size={16} className="text-slate-400" />
                             )}
-                          </div>
+                          </button>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {mode !== "free_choose" && (
-                              <span className="text-[11px] font-bold text-slate-400 bg-[#27272a] px-2 py-0.5 rounded-full border border-[#3f3f46]">
-                                {room.assignedUserIds.length}
-                              </span>
-                            )}
-
-                            {/* Add User Button */}
-                            {mode !== "free_choose" && (
-                              <button
-                                onClick={() => handleOpenAddModal(room.id)}
-                                className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors"
-                                title={t("add_participants")}
-                              >
-                                <UserPlus size={15} />
-                              </button>
-                            )}
-
-                            {/* Delete Room Button */}
-                            <button
-                              onClick={() => handleDeleteRoom(room.id)}
-                              disabled={rooms.length <= 1}
-                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-500 disabled:hover:bg-transparent rounded-md transition-colors"
-                              title={t("delete_room_tooltip")}
+                          {isEditing ? (
+                            <div
+                              className="flex items-center gap-1.5 flex-1 max-w-[240px]"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Room Card Body (Participants List) */}
-                        <div className="p-3 flex-1 min-h-[140px] max-h-[220px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5">
-                          {mode === "free_choose" ? (
-                            <div className="m-auto text-center py-6 text-slate-500 text-xs italic flex flex-col items-center gap-2">
-                              <Users size={20} className="text-slate-600" />
-                              <span>{t("mode_free_desc")}</span>
-                            </div>
-                          ) : room.assignedUserIds.length === 0 ? (
-                            <div className="m-auto text-center py-6 flex flex-col items-center gap-2">
-                              <p className="text-slate-500 text-xs italic">
-                                {t("no_participants")}
-                              </p>
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editingRoomName}
+                                onChange={(e) => setEditingRoomName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveRoomName(room.id);
+                                  if (e.key === "Escape") setEditingRoomId(null);
+                                }}
+                                className="w-full bg-[#121214] border border-blue-500 text-white text-xs font-bold rounded px-2 py-1 outline-none"
+                              />
                               <button
-                                onClick={() => handleOpenAddModal(room.id)}
-                                className="px-2.5 py-1 text-xs font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-md flex items-center gap-1 transition-colors"
+                                type="button"
+                                onClick={() => handleSaveRoomName(room.id)}
+                                className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded"
                               >
-                                <Plus size={13} /> {t("add_participants")}
+                                <Check size={14} />
                               </button>
                             </div>
                           ) : (
-                            room.assignedUserIds.map((userId) => {
-                              const pInfo = getParticipantInfo(userId);
-                              const isMenuOpen = activeMenuUserId === userId;
+                            <div className="flex items-center gap-2 min-w-0 truncate">
+                              <span className="font-bold text-xs text-slate-100 truncate">
+                                {room.name}
+                              </span>
 
-                              return (
-                                <div
-                                  key={userId}
-                                  className="relative flex items-center justify-between p-2 rounded-lg bg-[#141416] border border-[#27272a] hover:border-[#3f3f46] text-xs font-medium text-slate-200 transition-colors group"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                                      {pInfo.initial}
-                                    </div>
-                                    <span className="truncate">{pInfo.name}</span>
-                                  </div>
-
-                                  {/* Action Menu Trigger */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (isMenuOpen) {
-                                        setActiveMenuUserId(null);
-                                        setActiveSubMenu(null);
-                                      } else {
-                                        setActiveMenuUserId(userId);
-                                        setActiveSubMenu(null);
-                                      }
-                                    }}
-                                    className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#27272a] transition-colors ${isMenuOpen
-                                      ? "text-white bg-[#27272a]"
-                                      : "opacity-60 group-hover:opacity-100"
-                                      }`}
-                                  >
-                                    <MoreVertical size={14} />
-                                  </button>
-
-                                  {/* Dropdown Menu Popover */}
-                                  {isMenuOpen && (
-                                    <div
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="absolute right-0 top-full mt-1 z-50 w-56 bg-[#1f1f23] border border-[#3f3f46] rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 animate-scale-in"
-                                    >
-                                      {/* Menu Option 1: Remove */}
-                                      <button
-                                        onClick={() =>
-                                          handleRemoveParticipant(room.id, userId)
-                                        }
-                                        className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                                      >
-                                        <UserMinus size={14} />
-                                        {t("remove_from_room")}
-                                      </button>
-
-                                      {/* Menu Option 2: Move to another room */}
-                                      <div className="relative">
-                                        <button
-                                          onClick={() =>
-                                            setActiveSubMenu((prev) =>
-                                              prev === "move" ? null : "move",
-                                            )
-                                          }
-                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
-                                            ? "bg-[#2c2c32] text-blue-400"
-                                            : "text-slate-300 hover:bg-[#27272a]"
-                                            }`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <ArrowRightCircle size={14} />
-                                            {t("move_to_room")}
-                                          </div>
-                                          <ArrowRight size={12} className="opacity-60" />
-                                        </button>
-
-                                        {activeSubMenu === "move" && (
-                                          <div className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
-                                            {rooms
-                                              .filter((r) => r.id !== room.id)
-                                              .map((otherRoom) => (
-                                                <button
-                                                  key={otherRoom.id}
-                                                  onClick={() =>
-                                                    handleMoveParticipant(
-                                                      room.id,
-                                                      otherRoom.id,
-                                                      userId,
-                                                    )
-                                                  }
-                                                  className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors"
-                                                >
-                                                  {otherRoom.name}
-                                                </button>
-                                              ))}
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Menu Option 3: Exchange with participant in another room */}
-                                      <div className="relative">
-                                        <button
-                                          onClick={() =>
-                                            setActiveSubMenu((prev) =>
-                                              prev === "exchange" ? null : "exchange",
-                                            )
-                                          }
-                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
-                                            ? "bg-[#2c2c32] text-amber-400"
-                                            : "text-slate-300 hover:bg-[#27272a]"
-                                            }`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <ArrowRightLeft size={14} />
-                                            {t("exchange_with")}
-                                          </div>
-                                          <ArrowRight size={12} className="opacity-60" />
-                                        </button>
-
-                                        {activeSubMenu === "exchange" && (
-                                          <div className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto custom-scrollbar flex flex-col gap-1">
-                                            {rooms
-                                              .filter((r) => r.id !== room.id)
-                                              .flatMap((otherRoom) =>
-                                                otherRoom.assignedUserIds.map((otherUid) => ({
-                                                  room: otherRoom,
-                                                  uid: otherUid,
-                                                  info: getParticipantInfo(otherUid),
-                                                })),
-                                              )
-                                              .map(({ room: oRoom, uid: oUid, info: oInfo }) => (
-                                                <button
-                                                  key={oUid}
-                                                  onClick={() =>
-                                                    handleExchangeParticipant(
-                                                      room.id,
-                                                      userId,
-                                                      oRoom.id,
-                                                      oUid,
-                                                    )
-                                                  }
-                                                  className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
-                                                >
-                                                  <span className="truncate">{oInfo.name}</span>
-                                                  <span className="text-[9px] text-slate-500 shrink-0">
-                                                    ({oRoom.name})
-                                                  </span>
-                                                </button>
-                                              ))}
-
-                                            {rooms.filter(
-                                              (r) =>
-                                                r.id !== room.id &&
-                                                r.assignedUserIds.length > 0,
-                                            ).length === 0 && (
-                                                <p className="text-[10px] text-slate-500 italic p-1">
-                                                  Không có người ở phòng khác
-                                                </p>
-                                              )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })
+                              {mode !== "free_choose" && (
+                                <span className="text-[11px] font-medium text-slate-400">
+                                  ({room.assignedUserIds.length})
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
+
+                        {/* Right: Room Action Buttons */}
+                        <div
+                          className="flex items-center gap-1 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* "+ Chỉ định" / Add participants button */}
+                          {mode !== "free_choose" && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddModal(room.id)}
+                              className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors flex items-center gap-1"
+                              title={t("add_participants")}
+                            >
+                              <UserPlus size={13} />
+                              <span className="hidden sm:inline">{t("assign_participants")}</span>
+                            </button>
+                          )}
+
+                          {/* Rename Room button */}
+                          <button
+                            type="button"
+                            onClick={() => handleStartRenameRoom(room.id, room.name)}
+                            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-[#2a2a30] rounded-md transition-colors"
+                            title={t("rename_room")}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+
+                          {/* Delete Room button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRoom(room.id)}
+                            disabled={rooms.length <= 1}
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-transparent rounded-md transition-colors"
+                            title={t("delete_room_tooltip")}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* Room Children Area (When Expanded) */}
+                      {isExpanded && (
+                        <div className="px-3.5 py-2.5 bg-[#161619] flex flex-col gap-1.5">
+                          {mode === "free_choose" ? (
+                            <div className="py-2.5 text-center text-slate-500 text-xs italic flex items-center justify-center gap-2">
+                              <Users size={14} className="text-slate-500" />
+                              <span>{t("mode_free_desc")}</span>
+                            </div>
+                          ) : room.assignedUserIds.length === 0 ? (
+                            <div className="py-2.5 px-3 flex items-center justify-between text-xs text-slate-500 italic bg-[#131316] rounded-lg border border-[#242429]">
+                              <span>{t("no_participants")}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAddModal(room.id)}
+                                className="not-italic text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
+                              >
+                                <Plus size={12} /> {t("add_participants")}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              {room.assignedUserIds.map((userId) => {
+                                const pInfo = getParticipantInfo(userId);
+                                const isMenuOpen = activeMenuUserId === userId;
+
+                                return (
+                                  <div
+                                    key={userId}
+                                    className="relative flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#1a1a1e] border border-[#27272c] hover:border-[#35353d] text-xs font-medium text-slate-200 transition-colors group"
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                                        {pInfo.initial}
+                                      </div>
+                                      <span className="truncate text-xs text-slate-200">
+                                        {pInfo.name}
+                                      </span>
+                                    </div>
+
+                                    {/* Action Menu Trigger (3 Dots) */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isMenuOpen) {
+                                          setActiveMenuUserId(null);
+                                          setActiveSubMenu(null);
+                                        } else {
+                                          setActiveMenuUserId(userId);
+                                          setActiveSubMenu(null);
+                                        }
+                                      }}
+                                      className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#2a2a30] transition-colors ${isMenuOpen
+                                          ? "text-white bg-[#2a2a30]"
+                                          : "opacity-60 group-hover:opacity-100"
+                                        }`}
+                                    >
+                                      <MoreVertical size={13} />
+                                    </button>
+
+                                    {/* Dropdown Menu Popover */}
+                                    {isMenuOpen && (
+                                      <div
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="absolute right-0 top-full mt-1 z-50 w-52 bg-[#1f1f23] border border-[#3f3f46] rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 animate-scale-in"
+                                      >
+                                        {/* Option 1: Remove from room */}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveParticipant(room.id, userId)}
+                                          className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                                        >
+                                          <UserMinus size={13} />
+                                          {t("remove_from_room")}
+                                        </button>
+
+                                        {/* Option 2: Move to another room */}
+                                        <div className="relative">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActiveSubMenu((prev) =>
+                                                prev === "move" ? null : "move",
+                                              )
+                                            }
+                                            className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
+                                                ? "bg-[#2c2c32] text-blue-400"
+                                                : "text-slate-300 hover:bg-[#27272a]"
+                                              }`}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <ArrowRightCircle size={13} />
+                                              {t("move_to_room")}
+                                            </div>
+                                            <ArrowRight size={11} className="opacity-60" />
+                                          </button>
+
+                                          {activeSubMenu === "move" && (
+                                            <div className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
+                                              {rooms
+                                                .filter((r) => r.id !== room.id)
+                                                .map((otherRoom) => (
+                                                  <button
+                                                    key={otherRoom.id}
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleMoveParticipant(
+                                                        room.id,
+                                                        otherRoom.id,
+                                                        userId,
+                                                      )
+                                                    }
+                                                    className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors"
+                                                  >
+                                                    {otherRoom.name}
+                                                  </button>
+                                                ))}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Option 3: Exchange with participant in another room */}
+                                        <div className="relative">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActiveSubMenu((prev) =>
+                                                prev === "exchange" ? null : "exchange",
+                                              )
+                                            }
+                                            className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
+                                                ? "bg-[#2c2c32] text-amber-400"
+                                                : "text-slate-300 hover:bg-[#27272a]"
+                                              }`}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <ArrowRightLeft size={13} />
+                                              {t("exchange_with")}
+                                            </div>
+                                            <ArrowRight size={11} className="opacity-60" />
+                                          </button>
+
+                                          {activeSubMenu === "exchange" && (
+                                            <div className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto custom-scrollbar flex flex-col gap-1">
+                                              {rooms
+                                                .filter((r) => r.id !== room.id)
+                                                .flatMap((otherRoom) =>
+                                                  otherRoom.assignedUserIds.map((otherUid) => ({
+                                                    room: otherRoom,
+                                                    uid: otherUid,
+                                                    info: getParticipantInfo(otherUid),
+                                                  })),
+                                                )
+                                                .map(({ room: oRoom, uid: oUid, info: oInfo }) => (
+                                                  <button
+                                                    key={oUid}
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleExchangeParticipant(
+                                                        room.id,
+                                                        userId,
+                                                        oRoom.id,
+                                                        oUid,
+                                                      )
+                                                    }
+                                                    className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
+                                                  >
+                                                    <span className="truncate">{oInfo.name}</span>
+                                                    <span className="text-[9px] text-slate-500 shrink-0">
+                                                      ({oRoom.name})
+                                                    </span>
+                                                  </button>
+                                                ))}
+
+                                              {rooms.filter(
+                                                (r) =>
+                                                  r.id !== room.id &&
+                                                  r.assignedUserIds.length > 0,
+                                              ).length === 0 && (
+                                                  <p className="text-[10px] text-slate-500 italic p-1">
+                                                    Không có người ở phòng khác
+                                                  </p>
+                                                )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -989,17 +1047,17 @@ export default function CreateBreakoutModal({
             <div className="absolute inset-0 z-60 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-md bg-[#1f1f23] border border-[#3f3f46] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+                className="w-full max-w-sm bg-[#1f1f23] border border-[#3f3f46] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
               >
                 {/* Header */}
-                <div className="px-5 py-3.5 border-b border-[#2e2e34] flex items-center justify-between bg-[#18181b]">
+                <div className="px-4 py-3 border-b border-[#2e2e34] flex items-center justify-between bg-[#18181b]">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-100">
+                    <h3 className="text-xs font-bold text-slate-100">
                       {t("select_participants_title", {
                         roomName: targetRoomForAdd.name,
                       })}
                     </h3>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[10px] text-slate-400">
                       {t("unassigned_count", {
                         count: unassignedParticipants.length,
                       })}
@@ -1007,17 +1065,17 @@ export default function CreateBreakoutModal({
                   </div>
                   <button
                     onClick={() => setAddModalTargetRoomId(null)}
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg"
+                    className="p-1 text-slate-400 hover:text-white rounded-lg"
                   >
-                    <X size={16} />
+                    <X size={15} />
                   </button>
                 </div>
 
                 {/* Search & Select All */}
-                <div className="p-3 border-b border-[#2e2e34] bg-[#18181b]/50 flex items-center gap-2">
+                <div className="p-2.5 border-b border-[#2e2e34] bg-[#18181b]/50 flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search
-                      size={14}
+                      size={13}
                       className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <input
@@ -1025,24 +1083,20 @@ export default function CreateBreakoutModal({
                       placeholder={t("search_participant")}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-8 pl-8 pr-3 bg-[#121214] border border-[#3f3f46] text-white text-xs rounded-lg focus:border-blue-500 outline-none"
+                      className="w-full h-7 pl-7 pr-2.5 bg-[#121214] border border-[#3f3f46] text-white text-xs rounded-lg focus:border-blue-500 outline-none"
                     />
                   </div>
 
                   {filteredUnassigned.length > 0 && (
                     <button
                       onClick={() => {
-                        if (
-                          selectedUserIdsToAdd.length === filteredUnassigned.length
-                        ) {
+                        if (selectedUserIdsToAdd.length === filteredUnassigned.length) {
                           setSelectedUserIdsToAdd([]);
                         } else {
-                          setSelectedUserIdsToAdd(
-                            filteredUnassigned.map((p) => p.identity),
-                          );
+                          setSelectedUserIdsToAdd(filteredUnassigned.map((p) => p.identity));
                         }
                       }}
-                      className="px-2.5 py-1 bg-[#27272a] hover:bg-[#323238] text-slate-300 text-xs font-semibold rounded-lg shrink-0 border border-[#3f3f46] transition-colors"
+                      className="px-2 py-1 bg-[#27272a] hover:bg-[#323238] text-slate-300 text-[11px] font-semibold rounded-lg shrink-0 border border-[#3f3f46] transition-colors"
                     >
                       {selectedUserIdsToAdd.length === filteredUnassigned.length
                         ? t("deselect_all")
@@ -1052,9 +1106,9 @@ export default function CreateBreakoutModal({
                 </div>
 
                 {/* Participant List */}
-                <div className="p-3 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 bg-[#141416]">
+                <div className="p-2.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 bg-[#141416]">
                   {filteredUnassigned.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500 text-xs italic">
+                    <div className="text-center py-6 text-slate-500 text-xs italic">
                       {t("no_unassigned_found")}
                     </div>
                   ) : (
@@ -1064,13 +1118,13 @@ export default function CreateBreakoutModal({
                         <div
                           key={p.identity}
                           onClick={() => handleToggleUserSelection(p.identity)}
-                          className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${isSelected
-                            ? "bg-blue-600/15 border-blue-500/50 text-white"
-                            : "bg-[#1e1e22] border-[#2e2e34] hover:border-[#3f3f46] text-slate-300"
+                          className={`p-2 rounded-lg border cursor-pointer flex items-center justify-between gap-2.5 transition-colors ${isSelected
+                              ? "bg-blue-600/15 border-blue-500/50 text-white"
+                              : "bg-[#1e1e22] border-[#2e2e34] hover:border-[#3f3f46] text-slate-300"
                             }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                               {(p.name || p.identity).charAt(0).toUpperCase()}
                             </div>
                             <span className="text-xs font-medium truncate">
@@ -1080,9 +1134,9 @@ export default function CreateBreakoutModal({
 
                           <div className="shrink-0 text-blue-400">
                             {isSelected ? (
-                              <CheckSquare size={18} />
+                              <CheckSquare size={16} />
                             ) : (
-                              <Square size={18} className="text-slate-500" />
+                              <Square size={16} className="text-slate-500" />
                             )}
                           </div>
                         </div>
@@ -1092,19 +1146,19 @@ export default function CreateBreakoutModal({
                 </div>
 
                 {/* Footer */}
-                <div className="p-3 border-t border-[#2e2e34] bg-[#18181b] flex items-center justify-end gap-2">
+                <div className="p-2.5 border-t border-[#2e2e34] bg-[#18181b] flex items-center justify-end gap-2">
                   <button
                     onClick={() => setAddModalTargetRoomId(null)}
-                    className="px-4 py-1.5 text-xs font-semibold text-slate-300 hover:bg-[#27272a] rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-[#27272a] rounded-lg transition-colors"
                   >
                     {t("cancel")}
                   </button>
                   <button
                     onClick={handleConfirmAddUsers}
                     disabled={selectedUserIdsToAdd.length === 0}
-                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5"
                   >
-                    <Plus size={14} />
+                    <Plus size={13} />
                     {t("add_selected", { count: selectedUserIdsToAdd.length })}
                   </button>
                 </div>
@@ -1114,22 +1168,101 @@ export default function CreateBreakoutModal({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="px-6 py-4 border-t border-[#27272a] bg-[#121214] flex items-center justify-between shrink-0">
-          <div>
+        <div className="px-5 py-3.5 border-t border-[#27272a] bg-[#121214] flex items-center justify-between shrink-0 relative">
+          <div className="flex items-center gap-2">
             {step === 2 && (
-              <button
-                onClick={() => setStep(1)}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#27272a] rounded-lg transition-colors flex items-center gap-1.5"
-              >
-                <ArrowLeft size={15} /> {t("btn_back")}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#27272a] rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <ArrowLeft size={14} /> {t("btn_back")}
+                </button>
+
+                {/* Settings / Options Button (Zoom-Style Options Gear) */}
+                <div className="relative" ref={settingsRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsOpen((prev) => !prev)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all ${isSettingsOpen || isAutoCloseEnabled
+                        ? "bg-blue-600/15 border-blue-500/40 text-blue-400"
+                        : "bg-[#1c1c20] border-[#2f2f35] text-slate-300 hover:text-white hover:bg-[#27272d]"
+                      }`}
+                    title={t("options_button")}
+                  >
+                    <Settings size={13} className={isAutoCloseEnabled ? "text-blue-400" : ""} />
+                    <span>{t("options_button")}</span>
+                    {isAutoCloseEnabled && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    )}
+                  </button>
+
+                  {/* Settings Popover / Dropdown Menu */}
+                  {isSettingsOpen && (
+                    <div className="absolute left-0 bottom-full mb-2 z-70 w-80 bg-[#1c1c20] border border-[#383842] rounded-xl shadow-2xl p-3.5 flex flex-col gap-3 animate-scale-in">
+                      <div className="flex items-center justify-between border-b border-[#2b2b32] pb-2">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
+                          <Settings size={14} className="text-blue-400" />
+                          <span>{t("options_title")}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSettingsOpen(false)}
+                          className="text-slate-400 hover:text-white p-0.5"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      {/* Auto close option */}
+                      <div className="flex flex-col gap-2">
+                        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isAutoCloseEnabled}
+                            onChange={(e) => setIsAutoCloseEnabled(e.target.checked)}
+                            className="mt-0.5 rounded border-slate-600 text-blue-600 focus:ring-0 focus:ring-offset-0 bg-[#121214]"
+                          />
+                          <div className="text-xs text-slate-200">
+                            <span>{t("auto_close_checkbox")}</span>
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <input
+                                type="number"
+                                min={1}
+                                max={300}
+                                disabled={!isAutoCloseEnabled}
+                                value={autoCloseMinutes}
+                                onChange={(e) =>
+                                  setAutoCloseMinutes(Math.max(1, Number(e.target.value)))
+                                }
+                                className="w-14 h-7 bg-[#121214] border border-[#3f3f46] disabled:opacity-40 text-white text-center font-mono font-bold text-xs rounded focus:border-blue-500 outline-none"
+                              />
+                              <span className="text-slate-400 text-xs">{t("minutes_unit")}</span>
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="pt-2 border-t border-[#2b2b32] flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Trạng thái:</span>
+                        <span className="font-semibold text-slate-300">
+                          {isAutoCloseEnabled
+                            ? t("time_limit", { count: autoCloseMinutes })
+                            : t("unlimited_time")}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={onClose}
-              className="px-5 py-2 text-xs font-semibold text-slate-300 hover:bg-[#27272a] rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-[#27272a] rounded-lg transition-colors"
             >
               {t("cancel")}
             </button>
@@ -1137,18 +1270,18 @@ export default function CreateBreakoutModal({
             {step === 1 ? (
               <button
                 onClick={handleProceedToStep2}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition-all"
               >
                 {t("btn_next")}
-                <ArrowRight size={15} />
+                <ArrowRight size={14} />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={isLoading}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition-all"
               >
-                {isLoading && <Loader2 size={15} className="animate-spin" />}
+                {isLoading && <Loader2 size={14} className="animate-spin" />}
                 {t("start_breakout")}
               </button>
             )}

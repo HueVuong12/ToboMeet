@@ -21,7 +21,7 @@ export class CreateBreakoutRoomDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(1)
+  @Min(0)
   durationMinutes?: number;
 
   @IsOptional()
@@ -37,4 +37,9 @@ export class StartBreakoutSessionDto {
   @ValidateNested({ each: true })
   @Type(() => CreateBreakoutRoomDto)
   rooms: CreateBreakoutRoomDto[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  durationMinutes?: number;
 }
