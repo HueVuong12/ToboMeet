@@ -90,16 +90,11 @@ export class BreakoutRoomsService {
       // Map config → cấu trúc nội bộ có ID tự tăng. Thời gian là dùng chung cho tất cả các phòng
       const breakoutRooms: LivekitBreakoutRoom[] = roomConfigs.map(
         (config, index) => {
-          const roomDuration =
-            globalDurationMinutes !== undefined && globalDurationMinutes !== null
-              ? globalDurationMinutes
-              : config.durationMinutes || 0;
-
           return {
             id: `sub_${index + 1}`,
             name: config.name,
             maxParticipants: config.maxParticipants || 0,
-            durationMinutes: roomDuration > 0 ? roomDuration : 0,
+            durationMinutes: globalDurationMinutes || 0,
             assignedUsers: config.assignedUsers,
           };
         },

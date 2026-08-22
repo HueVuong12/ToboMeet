@@ -1061,7 +1061,7 @@ export default function CreateBreakoutModal({
                                                 r.assignedUserIds.length > 0,
                                             ).length === 0 && (
                                                 <p className="text-[10px] text-slate-500 italic p-1">
-                                                  Không có người ở phòng khác
+                                                  {t("no_other_participants")}
                                                 </p>
                                               )}
                                           </div>
@@ -1288,7 +1288,7 @@ export default function CreateBreakoutModal({
                       </div>
 
                       <div className="pt-2 border-t border-[#2b2b32] flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Trạng thái:</span>
+                        <span>{t("status_label")}</span>
                         <span className="font-semibold text-slate-300">
                           {isAutoCloseEnabled
                             ? t("time_limit", { count: autoCloseMinutes })

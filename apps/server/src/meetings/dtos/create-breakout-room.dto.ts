@@ -20,11 +20,6 @@ export class CreateBreakoutRoomDto {
   maxParticipants?: number;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  durationMinutes?: number;
-
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   assignedUsers?: string[];

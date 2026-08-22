@@ -92,6 +92,9 @@ export function useRoomSettings({
         setIsBreakoutActive(meta.breakoutSession?.status === "active");
         setBreakoutRoomsList(meta.breakoutSession?.rooms || []);
         setBreakoutStartedAt(meta.breakoutSession?.startedAt || 0);
+        setBreakoutDuration(
+          meta.breakoutSession?.rooms?.[0]?.durationMinutes || 0,
+        );
       }
     } catch (e) {
       console.error("Lỗi parse metadata phòng:", e);
