@@ -1261,6 +1261,7 @@
     "create_breakout_modal": {
       "modal_title": "Chia nhóm thảo luận",
       "mode_title": "Chọn phương thức chia phòng",
+      "expected_distribution": "Dự kiến phân bổ",
       "step_1_title": "Tạo phòng theo nhóm",
       "step_1_subtitle": "Chọn số lượng phòng và phương thức chia phòng",
       "step_2_title": "Phân chia thành viên",

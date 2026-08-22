@@ -1275,6 +1275,7 @@
     "create_breakout_modal": {
       "modal_title": "Breakout Rooms",
       "mode_title": "Choose division mode",
+      "expected_distribution": "Expected Distribution",
       "duration_title": "Choose duration",
       "step_1_title": "Create Breakout Rooms",
       "step_1_subtitle": "Choose number of rooms and division mode",

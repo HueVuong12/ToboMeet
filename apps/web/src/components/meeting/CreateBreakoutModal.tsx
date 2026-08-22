@@ -524,7 +524,7 @@ export default function CreateBreakoutModal({
 
                 {mode === "auto" && assignableParticipants.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-[#2a2a2f] flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Dự kiến phân bổ:</span>
+                    <span className="text-slate-400">{t("expected_distribution")}</span>
                     <span className="text-blue-400 font-semibold">
                       {t("auto_calc_hint", {
                         count: Math.ceil(assignableParticipants.length / Math.max(1, roomCount)),
@@ -881,50 +881,57 @@ export default function CreateBreakoutModal({
                               const isMenuOpen = activeMenuUserId === userId;
 
                               return (
-                                <div
-                                  key={userId}
-                                  className="relative flex items-center justify-between pl-8 pr-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-[#1f1f25] group"
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 shadow-sm">
-                                      {pInfo.initial}
-                                    </div>
-                                    <span className="truncate text-xs text-slate-200">
-                                      {pInfo.name}
-                                    </span>
-                                  </div>
-
-                                  {/* Action Menu Trigger (3 Dots) */}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (isMenuOpen) {
-                                        setActiveMenuUserId(null);
-                                        setActiveSubMenu(null);
-                                      } else {
-                                        setActiveMenuUserId(userId);
-                                        setActiveSubMenu(null);
-                                      }
-                                    }}
-                                    className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#2a2a30] transition-colors ${isMenuOpen
-                                        ? "text-white bg-[#2a2a30]"
-                                        : "opacity-60 group-hover:opacity-100"
+                                <div key={userId} className="flex flex-col">
+                                  {/* Participant Main Row */}
+                                  <div
+                                    className={`relative flex items-center justify-between pl-8 pr-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-[#1f1f25] group ${isMenuOpen ? "bg-[#1f1f25]" : ""
                                       }`}
                                   >
-                                    <MoreVertical size={13} />
-                                  </button>
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 shadow-sm">
+                                        {pInfo.initial}
+                                      </div>
+                                      <span className="truncate text-xs text-slate-200">
+                                        {pInfo.name}
+                                      </span>
+                                    </div>
 
-                                  {/* Dropdown Menu Popover */}
+                                    {/* Action Menu Trigger (3 Dots) */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isMenuOpen) {
+                                          setActiveMenuUserId(null);
+                                          setActiveSubMenu(null);
+                                        } else {
+                                          setActiveMenuUserId(userId);
+                                          setActiveSubMenu(null);
+                                        }
+                                      }}
+                                      className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#2a2a30] transition-colors ${isMenuOpen
+                                        ? "text-white bg-[#2a2a30]"
+                                        : "opacity-60 group-hover:opacity-100"
+                                        }`}
+                                      title={t("options_button")}
+                                    >
+                                      <MoreVertical size={13} />
+                                    </button>
+                                  </div>
+
+                                  {/* In-Flow Action Panel (Expands room height so outer scrollbar can scroll through it) */}
                                   {isMenuOpen && (
                                     <div
                                       onClick={(e) => e.stopPropagation()}
-                                      className="absolute right-0 top-full mt-1 z-50 w-52 bg-[#1f1f23] border border-[#3f3f46] rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 animate-scale-in"
+                                      className="mx-3.5 my-2 p-2 bg-[#121215] border border-[#2e2e36] rounded-xl flex flex-col gap-1.5 shadow-inner animate-in fade-in slide-in-from-top-1 duration-150"
                                     >
                                       {/* Option 1: Remove from room */}
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoveParticipant(room.id, userId)}
+                                        onClick={() => {
+                                          handleRemoveParticipant(room.id, userId);
+                                          setActiveMenuUserId(null);
+                                        }}
                                         className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                       >
                                         <UserMinus size={13} />
@@ -932,7 +939,7 @@ export default function CreateBreakoutModal({
                                       </button>
 
                                       {/* Option 2: Move to another room */}
-                                      <div className="relative">
+                                      <div className="flex flex-col">
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -941,20 +948,24 @@ export default function CreateBreakoutModal({
                                             )
                                           }
                                           className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
-                                              ? "bg-[#2c2c32] text-blue-400"
-                                              : "text-slate-300 hover:bg-[#27272a]"
+                                            ? "bg-[#25252c] text-blue-400"
+                                            : "text-slate-300 hover:bg-[#1e1e24]"
                                             }`}
                                         >
                                           <div className="flex items-center gap-2">
                                             <ArrowRightCircle size={13} />
                                             {t("move_to_room")}
                                           </div>
-                                          <ArrowRight size={11} className="opacity-60" />
+                                          <ChevronDown
+                                            size={12}
+                                            className={`transition-transform opacity-60 ${activeSubMenu === "move" ? "rotate-180" : ""
+                                              }`}
+                                          />
                                         </button>
 
                                         {activeSubMenu === "move" && (
                                           <div
-                                            className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-0.5"
+                                            className="mt-1 ml-2 pl-2 border-l border-[#2e2e36] flex flex-col gap-1 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full py-1"
                                             style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
                                           >
                                             {rooms
@@ -963,16 +974,20 @@ export default function CreateBreakoutModal({
                                                 <button
                                                   key={otherRoom.id}
                                                   type="button"
-                                                  onClick={() =>
+                                                  onClick={() => {
                                                     handleMoveParticipant(
                                                       room.id,
                                                       otherRoom.id,
                                                       userId,
-                                                    )
-                                                  }
-                                                  className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors"
+                                                    );
+                                                    setActiveMenuUserId(null);
+                                                  }}
+                                                  className="w-full px-2 py-1 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors flex items-center justify-between gap-2"
                                                 >
-                                                  {otherRoom.name}
+                                                  <span className="truncate">{otherRoom.name}</span>
+                                                  <span className="text-[10px] text-slate-500 shrink-0">
+                                                    ({otherRoom.assignedUserIds.length})
+                                                  </span>
                                                 </button>
                                               ))}
                                           </div>
@@ -980,7 +995,7 @@ export default function CreateBreakoutModal({
                                       </div>
 
                                       {/* Option 3: Exchange with participant in another room */}
-                                      <div className="relative">
+                                      <div className="flex flex-col">
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -989,20 +1004,24 @@ export default function CreateBreakoutModal({
                                             )
                                           }
                                           className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
-                                              ? "bg-[#2c2c32] text-amber-400"
-                                              : "text-slate-300 hover:bg-[#27272a]"
+                                            ? "bg-[#25252c] text-amber-400"
+                                            : "text-slate-300 hover:bg-[#1e1e24]"
                                             }`}
                                         >
                                           <div className="flex items-center gap-2">
                                             <ArrowRightLeft size={13} />
                                             {t("exchange_with")}
                                           </div>
-                                          <ArrowRight size={11} className="opacity-60" />
+                                          <ChevronDown
+                                            size={12}
+                                            className={`transition-transform opacity-60 ${activeSubMenu === "exchange" ? "rotate-180" : ""
+                                              }`}
+                                          />
                                         </button>
 
                                         {activeSubMenu === "exchange" && (
                                           <div
-                                            className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-1"
+                                            className="mt-1 ml-2 pl-2 border-l border-[#2e2e36] flex flex-col gap-1.5 max-h-52 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full py-1"
                                             style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
                                           >
                                             {rooms
@@ -1018,18 +1037,19 @@ export default function CreateBreakoutModal({
                                                 <button
                                                   key={oUid}
                                                   type="button"
-                                                  onClick={() =>
+                                                  onClick={() => {
                                                     handleExchangeParticipant(
                                                       room.id,
                                                       userId,
                                                       oRoom.id,
                                                       oUid,
-                                                    )
-                                                  }
-                                                  className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
+                                                    );
+                                                    setActiveMenuUserId(null);
+                                                  }}
+                                                  className="w-full px-2 py-1 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
                                                 >
                                                   <span className="truncate">{oInfo.name}</span>
-                                                  <span className="text-[9px] text-slate-500 shrink-0">
+                                                  <span className="text-[10px] text-slate-500 shrink-0">
                                                     ({oRoom.name})
                                                   </span>
                                                 </button>
