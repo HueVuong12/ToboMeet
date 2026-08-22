@@ -441,8 +441,8 @@ export default function CreateBreakoutModal({
       {/* Main Modal Container (Clean, compact width suitable for Zoom-like style) */}
       <div
         className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[92vw] bg-[#18181b] border border-[#2e2e33] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-out ${step === 1
-            ? "max-w-[480px] h-auto max-h-[82vh]"
-            : "max-w-[560px] h-[82vh] max-h-[660px]"
+          ? "max-w-[480px] h-auto max-h-[82vh]"
+          : "max-w-[560px] h-[82vh] max-h-[660px]"
           }`}
       >
         {/* MODAL HEADER */}
@@ -475,10 +475,13 @@ export default function CreateBreakoutModal({
         </div>
 
         {/* MODAL BODY */}
-        <div className="flex-1 overflow-hidden bg-[#161618] flex flex-col relative">
+        <div className="flex-1 min-h-0 bg-[#161618] flex flex-col relative">
           {/* ================= STEP 1: SETUP & MODE SELECTION (NO DURATION) ================= */}
           {step === 1 && (
-            <div className="p-5 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+            <div
+              className="p-5 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#71717a] flex flex-col gap-4"
+              style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
+            >
               {/* Room Count Input Box */}
               <div className="bg-[#1e1e22] p-4 rounded-xl border border-[#27272a]">
                 <div className="flex items-center justify-between gap-4">
@@ -541,14 +544,14 @@ export default function CreateBreakoutModal({
                 <div
                   onClick={() => setMode("auto")}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "auto"
-                      ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
-                      : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
+                    ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
+                    : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
                     }`}
                 >
                   <div
                     className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "auto"
-                        ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
-                        : "bg-[#27272a] text-slate-400"
+                      ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
+                      : "bg-[#27272a] text-slate-400"
                       }`}
                   >
                     <Wand2 size={17} />
@@ -578,14 +581,14 @@ export default function CreateBreakoutModal({
                 <div
                   onClick={() => setMode("manual")}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "manual"
-                      ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
-                      : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
+                    ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
+                    : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
                     }`}
                 >
                   <div
                     className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "manual"
-                        ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
-                        : "bg-[#27272a] text-slate-400"
+                      ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
+                      : "bg-[#27272a] text-slate-400"
                       }`}
                   >
                     <Hand size={17} />
@@ -615,14 +618,14 @@ export default function CreateBreakoutModal({
                 <div
                   onClick={() => setMode("free_choose")}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "free_choose"
-                      ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
-                      : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
+                    ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
+                    : "border-[#27272a] bg-[#1e1e22] hover:border-[#3f3f46] hover:bg-[#222227]"
                     }`}
                 >
                   <div
                     className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "free_choose"
-                        ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
-                        : "bg-[#27272a] text-slate-400"
+                      ? "bg-blue-500 text-white shadow-sm shadow-blue-500/30"
+                      : "bg-[#27272a] text-slate-400"
                       }`}
                   >
                     <Sparkles size={17} />
@@ -655,7 +658,7 @@ export default function CreateBreakoutModal({
 
           {/* ================= STEP 2: ASSIGNMENT & ROOM MANAGEMENT (ZOOM-STYLE LIST) ================= */}
           {step === 2 && (
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {/* Step 2 Top Sub-Bar */}
               <div className="px-5 py-2.5 border-b border-[#27272a] bg-[#1a1a1e] flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -663,8 +666,8 @@ export default function CreateBreakoutModal({
                   {mode !== "free_choose" && (
                     <span
                       className={`text-[11px] font-medium px-2 py-0.5 rounded truncate ${unassignedParticipants.length > 0
-                          ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
-                          : "bg-slate-800 text-slate-400 border border-slate-700"
+                        ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                        : "bg-slate-800 text-slate-400 border border-slate-700"
                         }`}
                     >
                       {t("unassigned_count", {
@@ -714,7 +717,15 @@ export default function CreateBreakoutModal({
               </div>
 
               {/* Step 2 Rooms Vertical List Content (Zoom-Style Accordion) */}
-              <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#141416] flex flex-col gap-2.5">
+              <div
+                className="flex-1 min-h-0 p-4 overflow-y-auto bg-[#141416] flex flex-col gap-2.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#71717a]"
+                style={{
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#52525b #141416",
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehavior: "contain",
+                }}
+              >
                 {mode === "free_choose" && (
                   <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-300 text-xs flex items-center gap-2">
                     <Sparkles size={16} className="shrink-0 text-purple-400" />
@@ -893,8 +904,8 @@ export default function CreateBreakoutModal({
                                         }
                                       }}
                                       className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#2a2a30] transition-colors ${isMenuOpen
-                                          ? "text-white bg-[#2a2a30]"
-                                          : "opacity-60 group-hover:opacity-100"
+                                        ? "text-white bg-[#2a2a30]"
+                                        : "opacity-60 group-hover:opacity-100"
                                         }`}
                                     >
                                       <MoreVertical size={13} />
@@ -926,8 +937,8 @@ export default function CreateBreakoutModal({
                                               )
                                             }
                                             className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
-                                                ? "bg-[#2c2c32] text-blue-400"
-                                                : "text-slate-300 hover:bg-[#27272a]"
+                                              ? "bg-[#2c2c32] text-blue-400"
+                                              : "text-slate-300 hover:bg-[#27272a]"
                                               }`}
                                           >
                                             <div className="flex items-center gap-2">
@@ -938,7 +949,10 @@ export default function CreateBreakoutModal({
                                           </button>
 
                                           {activeSubMenu === "move" && (
-                                            <div className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
+                                            <div
+                                              className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-0.5"
+                                              style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
+                                            >
                                               {rooms
                                                 .filter((r) => r.id !== room.id)
                                                 .map((otherRoom) => (
@@ -971,8 +985,8 @@ export default function CreateBreakoutModal({
                                               )
                                             }
                                             className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
-                                                ? "bg-[#2c2c32] text-amber-400"
-                                                : "text-slate-300 hover:bg-[#27272a]"
+                                              ? "bg-[#2c2c32] text-amber-400"
+                                              : "text-slate-300 hover:bg-[#27272a]"
                                               }`}
                                           >
                                             <div className="flex items-center gap-2">
@@ -983,7 +997,10 @@ export default function CreateBreakoutModal({
                                           </button>
 
                                           {activeSubMenu === "exchange" && (
-                                            <div className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto custom-scrollbar flex flex-col gap-1">
+                                            <div
+                                              className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-1"
+                                              style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
+                                            >
                                               {rooms
                                                 .filter((r) => r.id !== room.id)
                                                 .flatMap((otherRoom) =>
@@ -1106,7 +1123,10 @@ export default function CreateBreakoutModal({
                 </div>
 
                 {/* Participant List */}
-                <div className="p-2.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 bg-[#141416]">
+                <div
+                  className="p-2.5 max-h-56 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-1.5 bg-[#141416]"
+                  style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
+                >
                   {filteredUnassigned.length === 0 ? (
                     <div className="text-center py-6 text-slate-500 text-xs italic">
                       {t("no_unassigned_found")}
@@ -1119,8 +1139,8 @@ export default function CreateBreakoutModal({
                           key={p.identity}
                           onClick={() => handleToggleUserSelection(p.identity)}
                           className={`p-2 rounded-lg border cursor-pointer flex items-center justify-between gap-2.5 transition-colors ${isSelected
-                              ? "bg-blue-600/15 border-blue-500/50 text-white"
-                              : "bg-[#1e1e22] border-[#2e2e34] hover:border-[#3f3f46] text-slate-300"
+                            ? "bg-blue-600/15 border-blue-500/50 text-white"
+                            : "bg-[#1e1e22] border-[#2e2e34] hover:border-[#3f3f46] text-slate-300"
                             }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
@@ -1186,8 +1206,8 @@ export default function CreateBreakoutModal({
                     type="button"
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all ${isSettingsOpen || isAutoCloseEnabled
-                        ? "bg-blue-600/15 border-blue-500/40 text-blue-400"
-                        : "bg-[#1c1c20] border-[#2f2f35] text-slate-300 hover:text-white hover:bg-[#27272d]"
+                      ? "bg-blue-600/15 border-blue-500/40 text-blue-400"
+                      : "bg-[#1c1c20] border-[#2f2f35] text-slate-300 hover:text-white hover:bg-[#27272d]"
                       }`}
                     title={t("options_button")}
                   >
