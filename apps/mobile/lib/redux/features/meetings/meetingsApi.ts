@@ -209,12 +209,13 @@ export const meetingsApi = baseApi.injectEndpoints({
       {
         code: string;
         rooms: CreateBreakoutRoomDto[];
+        durationMinutes?: number;
       }
     >({
-      query: ({ code, rooms }) => ({
+      query: ({ code, rooms, durationMinutes }) => ({
         url: `/meetings/${code}/breakout/start`,
         method: "POST",
-        data: { rooms },
+        data: { rooms, durationMinutes },
       }),
     }),
 
