@@ -475,7 +475,7 @@ export default function CreateBreakoutModal({
         </div>
 
         {/* MODAL BODY */}
-        <div className="flex-1 min-h-0 bg-[#161618] flex flex-col relative">
+        <div className="flex-1 min-h-0 overflow-hidden bg-[#161618] flex flex-col relative">
           {/* ================= STEP 1: SETUP & MODE SELECTION (NO DURATION) ================= */}
           {step === 1 && (
             <div
@@ -658,7 +658,7 @@ export default function CreateBreakoutModal({
 
           {/* ================= STEP 2: ASSIGNMENT & ROOM MANAGEMENT (ZOOM-STYLE LIST) ================= */}
           {step === 2 && (
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 h-0 flex flex-col overflow-hidden">
               {/* Step 2 Top Sub-Bar */}
               <div className="px-5 py-2.5 border-b border-[#27272a] bg-[#1a1a1e] flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -718,7 +718,12 @@ export default function CreateBreakoutModal({
 
               {/* Step 2 Rooms Vertical List Content (Zoom-Style Accordion) */}
               <div
-                className="flex-1 min-h-0 p-4 overflow-y-auto bg-[#141416] flex flex-col gap-2.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#71717a]"
+                className="h-0 flex-1 min-h-0 overflow-y-auto bg-[#141416] p-4 flex flex-col gap-2.5
+    [&::-webkit-scrollbar]:w-2
+    [&::-webkit-scrollbar-track]:bg-[#141416]
+    [&::-webkit-scrollbar-thumb]:bg-[#52525b]
+    [&::-webkit-scrollbar-thumb]:rounded-full
+    [&::-webkit-scrollbar-thumb:hover]:bg-[#71717a]"
                 style={{
                   scrollbarWidth: "thin",
                   scrollbarColor: "#52525b #141416",
@@ -741,7 +746,7 @@ export default function CreateBreakoutModal({
                   return (
                     <div
                       key={room.id}
-                      className="bg-[#1b1b1f] border border-[#2c2c32] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#383840]"
+                      className="shrink-0 bg-[#1b1b1f] border border-[#2c2c32] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#383840]"
                     >
                       {/* Room Item Header Row */}
                       <div
@@ -851,16 +856,16 @@ export default function CreateBreakoutModal({
                         </div>
                       </div>
 
-                      {/* Room Children Area (When Expanded) */}
+                      {/* Room Sub-Rows (Direct children, seamless layout expanding the room height naturally like Zoom) */}
                       {isExpanded && (
-                        <div className="px-3.5 py-2.5 bg-[#161619] flex flex-col gap-1.5">
+                        <div className="divide-y divide-[#26262c] bg-[#16161a]">
                           {mode === "free_choose" ? (
-                            <div className="py-2.5 text-center text-slate-500 text-xs italic flex items-center justify-center gap-2">
+                            <div className="py-3 px-4 text-center text-slate-500 text-xs italic flex items-center justify-center gap-2">
                               <Users size={14} className="text-slate-500" />
                               <span>{t("mode_free_desc")}</span>
                             </div>
                           ) : room.assignedUserIds.length === 0 ? (
-                            <div className="py-2.5 px-3 flex items-center justify-between text-xs text-slate-500 italic bg-[#131316] rounded-lg border border-[#242429]">
+                            <div className="py-2.5 px-4 pl-9 flex items-center justify-between text-xs text-slate-500 italic">
                               <span>{t("no_participants")}</span>
                               <button
                                 type="button"
@@ -871,184 +876,182 @@ export default function CreateBreakoutModal({
                               </button>
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-1">
-                              {room.assignedUserIds.map((userId) => {
-                                const pInfo = getParticipantInfo(userId);
-                                const isMenuOpen = activeMenuUserId === userId;
+                            room.assignedUserIds.map((userId) => {
+                              const pInfo = getParticipantInfo(userId);
+                              const isMenuOpen = activeMenuUserId === userId;
 
-                                return (
-                                  <div
-                                    key={userId}
-                                    className="relative flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#1a1a1e] border border-[#27272c] hover:border-[#35353d] text-xs font-medium text-slate-200 transition-colors group"
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                                        {pInfo.initial}
-                                      </div>
-                                      <span className="truncate text-xs text-slate-200">
-                                        {pInfo.name}
-                                      </span>
+                              return (
+                                <div
+                                  key={userId}
+                                  className="relative flex items-center justify-between pl-8 pr-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-[#1f1f25] group"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 shadow-sm">
+                                      {pInfo.initial}
                                     </div>
+                                    <span className="truncate text-xs text-slate-200">
+                                      {pInfo.name}
+                                    </span>
+                                  </div>
 
-                                    {/* Action Menu Trigger (3 Dots) */}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (isMenuOpen) {
-                                          setActiveMenuUserId(null);
-                                          setActiveSubMenu(null);
-                                        } else {
-                                          setActiveMenuUserId(userId);
-                                          setActiveSubMenu(null);
-                                        }
-                                      }}
-                                      className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#2a2a30] transition-colors ${isMenuOpen
+                                  {/* Action Menu Trigger (3 Dots) */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isMenuOpen) {
+                                        setActiveMenuUserId(null);
+                                        setActiveSubMenu(null);
+                                      } else {
+                                        setActiveMenuUserId(userId);
+                                        setActiveSubMenu(null);
+                                      }
+                                    }}
+                                    className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#2a2a30] transition-colors ${isMenuOpen
                                         ? "text-white bg-[#2a2a30]"
                                         : "opacity-60 group-hover:opacity-100"
-                                        }`}
-                                    >
-                                      <MoreVertical size={13} />
-                                    </button>
+                                      }`}
+                                  >
+                                    <MoreVertical size={13} />
+                                  </button>
 
-                                    {/* Dropdown Menu Popover */}
-                                    {isMenuOpen && (
-                                      <div
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="absolute right-0 top-full mt-1 z-50 w-52 bg-[#1f1f23] border border-[#3f3f46] rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 animate-scale-in"
+                                  {/* Dropdown Menu Popover */}
+                                  {isMenuOpen && (
+                                    <div
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="absolute right-0 top-full mt-1 z-50 w-52 bg-[#1f1f23] border border-[#3f3f46] rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 animate-scale-in"
+                                    >
+                                      {/* Option 1: Remove from room */}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveParticipant(room.id, userId)}
+                                        className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                       >
-                                        {/* Option 1: Remove from room */}
+                                        <UserMinus size={13} />
+                                        {t("remove_from_room")}
+                                      </button>
+
+                                      {/* Option 2: Move to another room */}
+                                      <div className="relative">
                                         <button
                                           type="button"
-                                          onClick={() => handleRemoveParticipant(room.id, userId)}
-                                          className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                                        >
-                                          <UserMinus size={13} />
-                                          {t("remove_from_room")}
-                                        </button>
-
-                                        {/* Option 2: Move to another room */}
-                                        <div className="relative">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setActiveSubMenu((prev) =>
-                                                prev === "move" ? null : "move",
-                                              )
-                                            }
-                                            className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
+                                          onClick={() =>
+                                            setActiveSubMenu((prev) =>
+                                              prev === "move" ? null : "move",
+                                            )
+                                          }
+                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
                                               ? "bg-[#2c2c32] text-blue-400"
                                               : "text-slate-300 hover:bg-[#27272a]"
-                                              }`}
+                                            }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <ArrowRightCircle size={13} />
+                                            {t("move_to_room")}
+                                          </div>
+                                          <ArrowRight size={11} className="opacity-60" />
+                                        </button>
+
+                                        {activeSubMenu === "move" && (
+                                          <div
+                                            className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-0.5"
+                                            style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
                                           >
-                                            <div className="flex items-center gap-2">
-                                              <ArrowRightCircle size={13} />
-                                              {t("move_to_room")}
-                                            </div>
-                                            <ArrowRight size={11} className="opacity-60" />
-                                          </button>
+                                            {rooms
+                                              .filter((r) => r.id !== room.id)
+                                              .map((otherRoom) => (
+                                                <button
+                                                  key={otherRoom.id}
+                                                  type="button"
+                                                  onClick={() =>
+                                                    handleMoveParticipant(
+                                                      room.id,
+                                                      otherRoom.id,
+                                                      userId,
+                                                    )
+                                                  }
+                                                  className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors"
+                                                >
+                                                  {otherRoom.name}
+                                                </button>
+                                              ))}
+                                          </div>
+                                        )}
+                                      </div>
 
-                                          {activeSubMenu === "move" && (
-                                            <div
-                                              className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-36 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-0.5"
-                                              style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
-                                            >
-                                              {rooms
-                                                .filter((r) => r.id !== room.id)
-                                                .map((otherRoom) => (
-                                                  <button
-                                                    key={otherRoom.id}
-                                                    type="button"
-                                                    onClick={() =>
-                                                      handleMoveParticipant(
-                                                        room.id,
-                                                        otherRoom.id,
-                                                        userId,
-                                                      )
-                                                    }
-                                                    className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors"
-                                                  >
-                                                    {otherRoom.name}
-                                                  </button>
-                                                ))}
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        {/* Option 3: Exchange with participant in another room */}
-                                        <div className="relative">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setActiveSubMenu((prev) =>
-                                                prev === "exchange" ? null : "exchange",
-                                              )
-                                            }
-                                            className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
+                                      {/* Option 3: Exchange with participant in another room */}
+                                      <div className="relative">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setActiveSubMenu((prev) =>
+                                              prev === "exchange" ? null : "exchange",
+                                            )
+                                          }
+                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
                                               ? "bg-[#2c2c32] text-amber-400"
                                               : "text-slate-300 hover:bg-[#27272a]"
-                                              }`}
+                                            }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <ArrowRightLeft size={13} />
+                                            {t("exchange_with")}
+                                          </div>
+                                          <ArrowRight size={11} className="opacity-60" />
+                                        </button>
+
+                                        {activeSubMenu === "exchange" && (
+                                          <div
+                                            className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-1"
+                                            style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
                                           >
-                                            <div className="flex items-center gap-2">
-                                              <ArrowRightLeft size={13} />
-                                              {t("exchange_with")}
-                                            </div>
-                                            <ArrowRight size={11} className="opacity-60" />
-                                          </button>
+                                            {rooms
+                                              .filter((r) => r.id !== room.id)
+                                              .flatMap((otherRoom) =>
+                                                otherRoom.assignedUserIds.map((otherUid) => ({
+                                                  room: otherRoom,
+                                                  uid: otherUid,
+                                                  info: getParticipantInfo(otherUid),
+                                                })),
+                                              )
+                                              .map(({ room: oRoom, uid: oUid, info: oInfo }) => (
+                                                <button
+                                                  key={oUid}
+                                                  type="button"
+                                                  onClick={() =>
+                                                    handleExchangeParticipant(
+                                                      room.id,
+                                                      userId,
+                                                      oRoom.id,
+                                                      oUid,
+                                                    )
+                                                  }
+                                                  className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
+                                                >
+                                                  <span className="truncate">{oInfo.name}</span>
+                                                  <span className="text-[9px] text-slate-500 shrink-0">
+                                                    ({oRoom.name})
+                                                  </span>
+                                                </button>
+                                              ))}
 
-                                          {activeSubMenu === "exchange" && (
-                                            <div
-                                              className="mt-1 p-1 bg-[#141416] border border-[#3f3f46] rounded-lg max-h-40 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#141416] [&::-webkit-scrollbar-thumb]:bg-[#52525b] [&::-webkit-scrollbar-thumb]:rounded-full flex flex-col gap-1"
-                                              style={{ scrollbarWidth: "thin", scrollbarColor: "#52525b #141416" }}
-                                            >
-                                              {rooms
-                                                .filter((r) => r.id !== room.id)
-                                                .flatMap((otherRoom) =>
-                                                  otherRoom.assignedUserIds.map((otherUid) => ({
-                                                    room: otherRoom,
-                                                    uid: otherUid,
-                                                    info: getParticipantInfo(otherUid),
-                                                  })),
-                                                )
-                                                .map(({ room: oRoom, uid: oUid, info: oInfo }) => (
-                                                  <button
-                                                    key={oUid}
-                                                    type="button"
-                                                    onClick={() =>
-                                                      handleExchangeParticipant(
-                                                        room.id,
-                                                        userId,
-                                                        oRoom.id,
-                                                        oUid,
-                                                      )
-                                                    }
-                                                    className="w-full px-2 py-1 text-left text-[11px] font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
-                                                  >
-                                                    <span className="truncate">{oInfo.name}</span>
-                                                    <span className="text-[9px] text-slate-500 shrink-0">
-                                                      ({oRoom.name})
-                                                    </span>
-                                                  </button>
-                                                ))}
-
-                                              {rooms.filter(
-                                                (r) =>
-                                                  r.id !== room.id &&
-                                                  r.assignedUserIds.length > 0,
-                                              ).length === 0 && (
-                                                  <p className="text-[10px] text-slate-500 italic p-1">
-                                                    Không có người ở phòng khác
-                                                  </p>
-                                                )}
-                                            </div>
-                                          )}
-                                        </div>
+                                            {rooms.filter(
+                                              (r) =>
+                                                r.id !== room.id &&
+                                                r.assignedUserIds.length > 0,
+                                            ).length === 0 && (
+                                                <p className="text-[10px] text-slate-500 italic p-1">
+                                                  Không có người ở phòng khác
+                                                </p>
+                                              )}
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       )}
