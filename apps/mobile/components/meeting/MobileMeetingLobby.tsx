@@ -57,11 +57,15 @@ export default function MobileMeetingLobby({
       <View pointerEvents="none" className="absolute inset-0">
         <View
           className="absolute -top-24 -left-20 w-72 h-72 rounded-full"
-          style={{ backgroundColor: "rgba(16, 185, 129, 0.08)" }}
+          style={{ backgroundColor: "rgba(0, 85, 255, 0.10)" }}
         />
         <View
           className="absolute top-1/3 -right-16 w-64 h-64 rounded-full"
-          style={{ backgroundColor: "rgba(56, 189, 248, 0.07)" }}
+          style={{ backgroundColor: "rgba(99, 102, 241, 0.08)" }}
+        />
+        <View
+          className="absolute -bottom-24 left-8 w-64 h-64 rounded-full"
+          style={{ backgroundColor: "rgba(56, 189, 248, 0.06)" }}
         />
       </View>
 
@@ -110,7 +114,7 @@ export default function MobileMeetingLobby({
                 <Text className="text-[11px] text-slate-500 mr-2">
                   {t("meeting.lobby.room_code")}
                 </Text>
-                <Text className="text-sm font-semibold font-mono text-emerald-400 tracking-wide">
+                <Text className="text-sm font-semibold font-mono text-blue-400 tracking-wide">
                   {meetingCode}
                 </Text>
               </View>
@@ -223,7 +227,7 @@ export default function MobileMeetingLobby({
                 className={`w-full py-3.5 rounded-xl items-center justify-center flex-row ${
                   isJoining ? "opacity-60" : ""
                 }`}
-                style={{ backgroundColor: "#059669" }}
+                style={{ backgroundColor: "#0055ff" }}
                 onPress={handleJoin}
                 disabled={isJoining}
                 activeOpacity={0.85}

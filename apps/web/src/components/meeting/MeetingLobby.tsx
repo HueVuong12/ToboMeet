@@ -223,10 +223,10 @@ export default function MeetingLobby({
 
       {/* Nền trang trí */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-[#0a0a0a] to-[#0a0a0a]" />
-        <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute top-1/3 -right-24 w-[380px] h-[380px] rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-[460px] h-[460px] rounded-full bg-violet-500/8 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-950/30 via-[#0a0a0a] to-[#0a0a0a]" />
+        <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-brand-500/10 blur-3xl" />
+        <div className="absolute top-1/3 -right-24 w-[380px] h-[380px] rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 w-[460px] h-[460px] rounded-full bg-blue-500/8 blur-3xl" />
         <div
           className="absolute inset-0 opacity-[0.035]"
           style={{
@@ -252,7 +252,7 @@ export default function MeetingLobby({
               <span className="text-[11px] text-slate-500">
                 {t("meeting_code")}
               </span>
-              <span className="text-sm font-semibold font-mono text-emerald-400 tracking-wide">
+              <span className="text-sm font-semibold font-mono text-brand-400 tracking-wide">
                 {meetingCode}
               </span>
             </div>
@@ -331,7 +331,7 @@ export default function MeetingLobby({
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder={t("display_name_placeholder")}
-                    className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white bg-white/5 border border-white/10 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white bg-white/5 border border-white/10 placeholder:text-slate-600 focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30 transition-all"
                   />
                 </div>
 
@@ -342,7 +342,7 @@ export default function MeetingLobby({
                   <select
                     value={selectedMicId}
                     onChange={(e) => setSelectedMicId(e.target.value)}
-                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30 transition-all cursor-pointer"
                   >
                     {audioDevices.map((device) => (
                       <option
@@ -366,7 +366,7 @@ export default function MeetingLobby({
                   <select
                     value={selectedSpeakerId}
                     onChange={(e) => setSelectedSpeakerId(e.target.value)}
-                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30 transition-all cursor-pointer"
                   >
                     {audioOutputDevices.length > 0 ? (
                       audioOutputDevices.map((device) => (
@@ -396,7 +396,7 @@ export default function MeetingLobby({
                   <select
                     value={selectedCameraId}
                     onChange={(e) => handleCameraChange(e.target.value)}
-                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                    className="w-full appearance-none truncate text-sm text-white bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30 transition-all cursor-pointer"
                   >
                     {videoDevices.map((device) => (
                       <option
@@ -418,7 +418,7 @@ export default function MeetingLobby({
                     type="button"
                     onClick={handleJoin}
                     disabled={isJoining || !isPermissionChecked}
-                    className="w-full py-3 rounded-xl font-semibold text-sm text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 shadow-lg shadow-emerald-900/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2"
+                    className="w-full py-3 rounded-xl font-semibold text-sm text-white bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:hover:bg-brand-600 shadow-lg shadow-brand-600/25 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2"
                   >
                     {isJoining ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -432,7 +432,7 @@ export default function MeetingLobby({
           </div>
         </div>
 
-        <p className="mt-4 text-center text-[11px] text-slate-600">
+        <p className="mt-4 text-center text-[11px] text-slate-500">
           {t("privacy_notice")}
         </p>
       </div>
