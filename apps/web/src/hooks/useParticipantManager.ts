@@ -16,22 +16,22 @@ import {
   useTransferRoomOwnershipMutation,
   useUpdateChannelMemberRoleMutation,
 } from "@/lib/redux/api/roomsApi";
+import { useMeetingSessionContext } from "@/components/meeting/contexts/MeetingSessionContext";
 
 export function useParticipantManager({
-  roomId,
-  channelId,
   meetingCode,
 }: {
-  roomId?: string;
-  channelId?: string;
   meetingCode?: string;
 }) {
   const t = useTranslations("meeting.participant_list");
   const tServer = useTranslations("server.errors");
+
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
   const { metadata: roomMetadata } = useRoomInfo();
+
+  const { meetingData } = useMeetingSessionContext();
 
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipantApi] = useMuteParticipantMutation();
@@ -52,7 +52,7 @@ export function useParticipantManager({
     if (localParticipant.metadata) {
       localRole = JSON.parse(localParticipant.metadata).role || "guest";
     }
-  } catch (error) {}
+  } catch (error) { }
   const canManageParticipants = localRole === "owner" || localRole === "admin";
   const isLocalAdmin = localRole === "admin";
   const isLocalOwner = localRole === "owner";
@@ -66,7 +66,7 @@ export function useParticipantManager({
       approvalPermission = roomMeta.approvalPermission || "admin_only";
       isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
     }
-  } catch (error) {}
+  } catch (error) { }
 
   const roleName = t("role_leader", { defaultValue: "Trưởng nhóm" });
 
@@ -93,7 +93,7 @@ export function useParticipantManager({
         const meta = JSON.parse(p.metadata);
         return meta.status === "waiting";
       }
-    } catch (e) {}
+    } catch (e) { }
     return false;
   });
 
@@ -106,7 +106,7 @@ export function useParticipantManager({
           const meta = JSON.parse(p.metadata);
           return meta.status !== "waiting"; // Bỏ qua những người đang chờ
         }
-      } catch (e) {}
+      } catch (e) { }
       return true;
     })
     .sort((a, b) => {
@@ -127,8 +127,6 @@ export function useParticipantManager({
 
     toast.promise(
       approveParticipantApi({
-        roomId: roomId!,
-        channelId: channelId!,
         code: meetingCode!,
         identity,
       }).unwrap(),
@@ -159,14 +157,12 @@ export function useParticipantManager({
         onClick: async () => {
           setKickingUserId(identity);
           try {
-            if (!roomId || !channelId || !meetingCode) {
+            if (!meetingCode) {
               toast.error(t("remove_error"));
               return;
             }
 
             await removeParticipant({
-              roomId,
-              channelId,
               code: meetingCode,
               identity,
             }).unwrap();
@@ -187,7 +183,7 @@ export function useParticipantManager({
       },
       cancel: {
         label: "Hủy",
-        onClick: () => {},
+        onClick: () => { },
       },
       duration: Infinity,
     });
@@ -197,12 +193,12 @@ export function useParticipantManager({
     targetUserId: string,
     role: "admin" | "member",
   ) => {
-    if (!channelId || !roomId) return;
+    if (!meetingData || !meetingData.channelId || !meetingData.roomId) return;
 
     try {
       await updateRoleApi({
-        roomId: roomId,
-        channelId: channelId,
+        roomId: meetingData.roomId,
+        channelId: meetingData.channelId,
         targetUserId: targetUserId,
         role,
       }).unwrap();
@@ -227,10 +223,10 @@ export function useParticipantManager({
         const subTitle = t("role_vice_leader");
         toast.error(
           err?.data?.message ||
-            t("toast_max_vice_leaders_reached", {
-              role: subTitle,
-              defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
-            }),
+          t("toast_max_vice_leaders_reached", {
+            role: subTitle,
+            defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
+          }),
         );
       } else {
         toast.error(err?.data?.message || "Không thể thu hồi quyền");
@@ -242,8 +238,6 @@ export function useParticipantManager({
     targetUserId: string,
     targetUserName: string,
   ) => {
-    if (!channelId || !roomId) return;
-
     toast(
       t("transfer_modal_body", {
         role: roleName,
@@ -257,9 +251,11 @@ export function useParticipantManager({
         action: {
           label: t("confirm", { defaultValue: "Xác nhận" }),
           onClick: async () => {
+            if (!meetingData || !meetingData.roomId) return;
+
             try {
               await transferOwnership({
-                roomId,
+                roomId: meetingData.roomId,
                 newOwnerId: targetUserId,
               }).unwrap();
 
@@ -286,7 +282,7 @@ export function useParticipantManager({
         },
         cancel: {
           label: t("cancel", { defaultValue: "Hủy" }),
-          onClick: () => {},
+          onClick: () => { },
         },
         duration: 10000,
       },
@@ -302,8 +298,6 @@ export function useParticipantManager({
 
     toast.promise(
       muteParticipantApi({
-        roomId: roomId!,
-        channelId: channelId!,
         code: meetingCode!,
         identity,
         trackType,
@@ -321,8 +315,8 @@ export function useParticipantManager({
           err?.code
             ? tServer(String(err.code))
             : t("mute_error", {
-                type: typeLabel,
-              }),
+              type: typeLabel,
+            }),
       },
     );
   };

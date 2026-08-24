@@ -4,8 +4,8 @@
 // Nó sẽ giữ Token khi chuyển màn hình và xóa đi khi không cần thiết.
 export type MeetingPayload = {
   token: string;
-  roomId: string;
-  channelId: string;
+  roomId?: string;
+  channelId?: string;
   isCamOn: boolean;
   isMicOn: boolean;
   cameraFacing?: "front" | "back";

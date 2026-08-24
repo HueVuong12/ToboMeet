@@ -4,7 +4,7 @@ import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { toast } from "../lib/toast";
 import { MeetingStore } from "../lib/meetingStore";
-import { useJoinMeetingMutation } from "../lib/redux/features/meetings/meetingsApi";
+import { useJoinChannelMeetingMutation } from "../lib/redux/features/meetings/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
 
 interface UseMeetingLauncherProps {
@@ -27,7 +27,7 @@ export function useMeetingLauncher({
   const router = useRouter();
   const [isJoining, setIsJoining] = useState(false);
   const deviceId = useDeviceId();
-  const [joinMeeting] = useJoinMeetingMutation();
+  const [joinMeeting] = useJoinChannelMeetingMutation();
 
   const handleJoinMeeting = async (
     forceSwitch = false,

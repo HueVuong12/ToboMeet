@@ -1260,6 +1260,7 @@
       "camera_label": "Camera",
       "default_camera": "Default camera",
       "join_button": "Join now",
+      "start_button": "Start meeting",
       "privacy_notice": "Camera & microphone are only used when you turn them on",
       "permission_error": "Please grant Camera and Microphone permissions to continue!",
       "media_access_error": "Unable to access media devices"

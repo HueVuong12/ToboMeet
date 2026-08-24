@@ -4,21 +4,38 @@ import { Document } from "mongoose";
 
 export type MeetingDocument = Meeting & Document;
 
-// Cuộc họp duy nhất cho cả kênh, có thể xoay vòng meetingCode trong tương lai
+export type MeetingType = "channel" | "personal";
+
 @Schema({ timestamps: true })
 export class Meeting {
-  @Prop({ required: true, index: true })
-  roomId: string;
-
-  @Prop({ required: true, index: true })
-  channelId: string;
-
   @Prop({ required: true, unique: true })
-  meetingCode: string; // Mã định danh phòng LiveKit (ví dụ: meet-abc123x)
+  meetingCode: string;
 
-  @Prop({ required: true })
-  hostId: string; // Người khởi tạo cuộc họp
+  @Prop({ required: true, enum: ["channel", "personal"], default: "channel" })
+  type: MeetingType;
+
+  // ===== Channel Meeting =====
+  @Prop({ index: true })
+  roomId?: string;
+
+  @Prop({ index: true })
+  channelId?: string;
+
+  // ===== Personal Meeting =====
+  @Prop({ index: true })
+  ownerId?: string; // userId của chủ meeting (chỉ dùng khi type = "personal")
 }
 
 export const MeetingSchema = SchemaFactory.createForClass(Meeting);
-MeetingSchema.index({ roomId: 1, channelId: 1 });
+
+// Index cho channel meeting
+MeetingSchema.index(
+  { roomId: 1, channelId: 1 },
+  { unique: true, partialFilterExpression: { type: "channel" } },
+);
+
+// Index cho personal meeting (mỗi user chỉ có 1 personal meeting)
+MeetingSchema.index(
+  { ownerId: 1 },
+  { unique: true, partialFilterExpression: { type: "personal" } },
+);

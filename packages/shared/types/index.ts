@@ -307,11 +307,10 @@ export interface MeetingJoinResponse {
   token: string;
   meetingCode: string;
   status: string;
-  isHost: boolean;
   displayName: string;
 
-  roomId: string;
-  channelId: string;
+  roomId?: string;
+  channelId?: string;
 }
 
 export interface ActiveMeetingResponse {
@@ -378,6 +377,7 @@ export interface ParticipantMetadata {
 // Định nghĩa các trường dùng chung (nếu có)
 export interface BaseRoomMetadata {
   roomName: string;
+  meetingType: "personal" | "channel";
 }
 
 // Dành riêng cho phòng họp chính

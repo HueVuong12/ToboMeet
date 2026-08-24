@@ -98,12 +98,10 @@ export function useRoomSettings({
     const newState = !isChatEnabled;
     setIsChatEnabled(newState); // Optimistic UI
 
-    if (!roomId || !channelId) return; // Không thực hiện nếu không có roomId hoặc channelId
+    if (!meetingCode) return;
 
     try {
       await toggleChatApi({
-        roomId,
-        channelId,
         meetingCode,
         isChatEnabled: newState,
       }).unwrap();
@@ -119,12 +117,10 @@ export function useRoomSettings({
     const newState = !isWaitingRoomEnabled;
     setIsWaitingRoomEnabled(newState); // Optimistic UI
 
-    if (!roomId || !channelId) return; // Không thực hiện nếu không có roomId hoặc channelId
+    if (!meetingCode) return;
 
     try {
       await toggleWaitingRoomApi({
-        roomId,
-        channelId,
         meetingCode,
         isWaitingRoomEnabled: newState,
       }).unwrap();
@@ -142,12 +138,10 @@ export function useRoomSettings({
     const oldState = approvalPermission;
     setApprovalPermission(permission); // Optimistic UI
 
-    if (!roomId || !channelId) return; // Không thực hiện nếu không có roomId hoặc channelId
+    if (!meetingCode) return;
 
     try {
       await updateApprovalPermissionApi({
-        roomId,
-        channelId,
         code: meetingCode,
         permission: permission,
       }).unwrap();

@@ -40,7 +40,6 @@ function MeetingPageContent() {
     setCamOn,
     setMicOn,
     setDisplayName,
-    handleJoinByCode,
     handleDisconnect,
   } = useMeetingSessionContext();
 
@@ -123,7 +122,6 @@ function MeetingPageContent() {
         setCamOn={setCamOn}
         micOn={micOn}
         setMicOn={setMicOn}
-        handleJoinByCode={handleJoinByCode}
         isJoining={isJoining}
       />
     );
@@ -189,8 +187,6 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
   const { handleDisconnect } = useMeetingSessionContext();
 
   const { displayParticipants } = useParticipantManager({
-    roomId: meetingData.roomId,
-    channelId: meetingData.channelId,
     meetingCode: meetingCode,
   });
 
@@ -298,7 +294,7 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
                     const meta = JSON.parse(p.metadata);
                     avatarUrl = meta.avatarUrl;
                   }
-                } catch (e) {}
+                } catch (e) { }
 
                 return (
                   <div
@@ -353,11 +349,7 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
   }
 
   return (
-    <MeetingRoomContent
-      roomId={meetingData.roomId}
-      channelId={meetingData.channelId}
-      meetingCode={meetingCode}
-    />
+    <MeetingRoomContent meetingCode={meetingCode} />
   );
 }
 

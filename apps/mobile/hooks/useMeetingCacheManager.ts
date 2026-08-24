@@ -8,16 +8,16 @@ export function useMeetingCacheManager() {
   const deviceId = useDeviceId();
 
   /**
-   * Làm sạch trạng thái thiết bị trong phòng
+   * Làm sạch trạng thái thiết bị trong cuộc họp
    */
-  const clearMeetingDeviceStatus = (roomId: string, channelId: string) => {
-    if (!deviceId) return;
+  const clearMeetingDeviceStatus = (meetingCode: string) => {
+    if (!deviceId || !meetingCode) return;
 
     dispatch(
       meetingsApi.util.invalidateTags([
         {
           type: "DeviceStatus",
-          id: `${roomId}-${channelId}-${deviceId}`,
+          id: `${meetingCode}-${deviceId}`,
         },
       ]),
     );

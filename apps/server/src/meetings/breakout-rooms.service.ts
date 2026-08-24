@@ -429,7 +429,7 @@ export class BreakoutRoomsService {
             const meeting = await this.meetingModel
               .findOne({ meetingCode: mainMeetingCode })
               .lean();
-            const isHost = meeting?.hostId === userId;
+            const isHost = meeting?.ownerId === userId;
             if (!isHost) {
               throw new AppException(
                 ErrorCode.NOT_ASSIGNED_TO_BREAKOUT_ROOM,

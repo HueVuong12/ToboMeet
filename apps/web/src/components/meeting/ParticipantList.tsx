@@ -17,12 +17,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 
 export default function ParticipantList({
-  roomId,
-  channelId,
   meetingCode,
 }: {
-  roomId?: string;
-  channelId?: string;
   meetingCode: string;
 }) {
   const t = useTranslations("room");
@@ -51,7 +47,7 @@ export default function ParticipantList({
     handleRenameSubmit,
     handleApprove,
     getHandState,
-  } = useParticipantManager({ roomId, channelId, meetingCode });
+  } = useParticipantManager({ meetingCode });
 
   return (
     <div className="flex flex-col h-full">
@@ -60,22 +56,20 @@ export default function ParticipantList({
         <div className="flex p-1 bg-[#1a1a1a] rounded-lg mb-2.5 mx-1 border border-[#333]">
           <button
             onClick={() => setActiveListTab("joined")}
-            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${
-              activeListTab === "joined"
-                ? "bg-[#333] text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${activeListTab === "joined"
+              ? "bg-[#333] text-white shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+              }`}
           >
             {t2("joined_members", { count: displayParticipants.length })}
           </button>
 
           <button
             onClick={() => setActiveListTab("waiting")}
-            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${
-              activeListTab === "waiting"
-                ? "bg-[#333] text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${activeListTab === "waiting"
+              ? "bg-[#333] text-white shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+              }`}
           >
             {t2("waiting_approval")}
             {waitingParticipants.length > 0
@@ -120,7 +114,7 @@ export default function ParticipantList({
                       const meta = JSON.parse(p.metadata);
                       avatarUrl = meta.avatarUrl;
                     }
-                  } catch (error) {}
+                  } catch (error) { }
 
                   return (
                     <div
@@ -196,7 +190,7 @@ export default function ParticipantList({
                   avatarUrl = meta.avatarUrl;
                   role = meta.role || "member";
                 }
-              } catch (error) {}
+              } catch (error) { }
 
               const isMe = p.identity === localParticipant.identity;
               const hasMenuOptions = isMe || canManageParticipants;

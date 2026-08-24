@@ -7,6 +7,7 @@ import { useMeetingCacheManager } from "@/hooks/useMeetingCacheManager";
 import {
   useJoinBreakoutRoomMutation,
   useJoinMeetingByCodeMutation,
+  useJoinMeetingMutation,
   useLazyGetMemberStatusQuery,
   useReturnToMainRoomMutation,
 } from "@/lib/redux/api/meetingsApi";
@@ -37,12 +38,16 @@ export function useMeetingSession() {
   }>({});
   const [displayName, setDisplayName] = useState("");
 
-  // Trạng thái kết nối
+  // Dữ liệu meeting cá nhân
+  // roomId + channelId chỉ có khi người dùng là thành viên của kênh
   const [meetingData, setMeetingData] = useState<{
     token: string;
-    roomId: string;
-    channelId: string;
+    roomId?: string;
+    channelId?: string;
+    ownerId?: string;
   } | null>(null);
+
+  // Trạng thái kết nối
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [status, setStatus] = useState<
     | "LOOKING_FOR_TOKEN"
@@ -53,8 +58,9 @@ export function useMeetingSession() {
     | "RETURNING_TO_MAIN"
   >("LOOKING_FOR_TOKEN");
 
-  const [joinMeetingByCodeApi, { isLoading: isJoining }] =
+  const [joinMeetingByCodeApi, { isLoading }] =
     useJoinMeetingByCodeMutation();
+  const [joinMeetingApi, { isLoading: isJoining }] = useJoinMeetingMutation();
   const [returnToMainRoomApi, { isLoading: isLeavingBreakout }] =
     useReturnToMainRoomMutation();
   const [joinBreakoutApi, { isLoading: isJoiningBreakout }] =
@@ -221,7 +227,7 @@ export function useMeetingSession() {
     [deviceId, returnToMainRoomApi, t, tSession],
   );
 
-  const handleJoinByCode = useCallback(async () => {
+  const handleJoinByCode = useCallback(async (allowStart = false) => {
     if (!meetingCode) return;
     if (!deviceId) {
       console.log("[Meeting] Waiting for deviceId...");
@@ -232,10 +238,11 @@ export function useMeetingSession() {
       const savedName = sessionStorage.getItem(`meeting_name_${meetingCode}`);
       const finalName = displayName || savedName || undefined;
 
-      const response = await joinMeetingByCodeApi({
+      const response = await joinMeetingApi({
         meetingCode,
         deviceId: deviceId,
         displayName: finalName,
+        allowStart: allowStart,
       }).unwrap();
 
       sessionStorage.setItem(`is_joined_${meetingCode}`, "true");
@@ -364,14 +371,16 @@ export function useMeetingSession() {
       // Xoá cấu hình thiết bị khi rời khỏi phòng
       sessionStorage.removeItem(`device_config_${meetingCode}`);
 
-      if (meetingData) {
-        clearMeetingDeviceStatus(meetingData?.roomId, meetingData?.channelId);
+      clearMeetingDeviceStatus(meetingCode);
+
+      if (meetingData?.roomId) {
         const syncChannel = new BroadcastChannel(
           `meeting_sync_${meetingData.roomId}`,
         );
         syncChannel.postMessage({
           type: "MEETING_DISCONNECTED",
           channelId: meetingData.channelId,
+          meetingCode,
         });
         syncChannel.close();
       }

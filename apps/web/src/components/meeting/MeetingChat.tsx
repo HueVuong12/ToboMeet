@@ -21,8 +21,6 @@ interface MeetingChatProps {
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   meetingCode: string;
-  roomId: string;
-  channelId: string;
 }
 
 /** Nhóm tin nhắn liên tiếp của cùng 1 người */
@@ -52,11 +50,9 @@ export default function MeetingChat({
   setMessages,
   messages,
   meetingCode,
-  roomId,
-  channelId,
 }: MeetingChatProps) {
   const t = useTranslations("meeting.chat");
-  const { canChat } = useRoomSettings({ roomId, channelId, meetingCode });
+  const { canChat } = useRoomSettings({ meetingCode });
   const {
     localParticipant,
     otherParticipants,
@@ -243,9 +239,8 @@ export default function MeetingChat({
 
                 {/* Các tin trong nhóm */}
                 <div
-                  className={`flex flex-col gap-1 w-full max-w-[92%] ${
-                    isMe ? "items-end" : "items-start"
-                  }`}
+                  className={`flex flex-col gap-1 w-full max-w-[92%] ${isMe ? "items-end" : "items-start"
+                    }`}
                 >
                   {group.messages.map((msg, idx) => {
                     const isFirst = idx === 0;
@@ -272,15 +267,13 @@ export default function MeetingChat({
                     return (
                       <div
                         key={msg.id}
-                        className={`group relative flex flex-col ${
-                          isMe ? "items-end" : "items-start"
-                        }`}
+                        className={`group relative flex flex-col ${isMe ? "items-end" : "items-start"
+                          }`}
                       >
                         {/* Menu hover */}
                         <div
-                          className={`absolute -top-9 ${
-                            isMe ? "right-1" : "left-1"
-                          } opacity-0 group-hover:opacity-100 transition-opacity bg-[#1c1c1c]/95 border border-[#333] backdrop-blur-md rounded-xl shadow-xl flex items-center p-0.5 z-20 gap-0.5`}
+                          className={`absolute -top-9 ${isMe ? "right-1" : "left-1"
+                            } opacity-0 group-hover:opacity-100 transition-opacity bg-[#1c1c1c]/95 border border-[#333] backdrop-blur-md rounded-xl shadow-xl flex items-center p-0.5 z-20 gap-0.5`}
                         >
                           <button
                             onClick={() => setReplyingTo(msg)}
@@ -304,11 +297,10 @@ export default function MeetingChat({
                         {/* Reply quote */}
                         {msg.replyToMsgId && (
                           <div
-                            className={`text-[11px] px-2.5 py-1 mb-0.5 rounded-lg border-l-2 max-w-full line-clamp-2 ${
-                              isMe
-                                ? "border-blue-400/60 bg-blue-900/25 text-blue-100/90"
-                                : "border-slate-500 bg-[#222] text-slate-300"
-                            }`}
+                            className={`text-[11px] px-2.5 py-1 mb-0.5 rounded-lg border-l-2 max-w-full line-clamp-2 ${isMe
+                              ? "border-blue-400/60 bg-blue-900/25 text-blue-100/90"
+                              : "border-slate-500 bg-[#222] text-slate-300"
+                              }`}
                           >
                             <span className="font-semibold block text-[10px] opacity-80">
                               {realtimeReplySenderName}
@@ -377,11 +369,10 @@ export default function MeetingChat({
                         {/* Text bubble */}
                         {msg.content && (
                           <div
-                            className={`px-3 py-1.5 text-[13px] leading-relaxed shadow-sm ${bubbleRadius} ${
-                              isMe
-                                ? "bg-blue-600 text-white shadow-blue-600/20"
-                                : "bg-[#222] border border-[#333] text-slate-100"
-                            }`}
+                            className={`px-3 py-1.5 text-[13px] leading-relaxed shadow-sm ${bubbleRadius} ${isMe
+                              ? "bg-blue-600 text-white shadow-blue-600/20"
+                              : "bg-[#222] border border-[#333] text-slate-100"
+                              }`}
                           >
                             <p className="whitespace-pre-wrap wrap-break-words">
                               {msg.content}
@@ -395,9 +386,8 @@ export default function MeetingChat({
                             (users) => users.length > 0,
                           ) && (
                             <div
-                              className={`flex flex-wrap gap-1 my-1 mx-0.5 ${
-                                isMe ? "justify-end" : "justify-start"
-                              }`}
+                              className={`flex flex-wrap gap-1 my-1 mx-0.5 ${isMe ? "justify-end" : "justify-start"
+                                }`}
                             >
                               {Object.entries(msg.reactions).map(
                                 ([emoji, users]) => {
@@ -409,11 +399,10 @@ export default function MeetingChat({
                                     <button
                                       key={emoji}
                                       onClick={() => handleReact(msg.id, emoji)}
-                                      className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ring-1 transition-colors ${
-                                        hasReacted
-                                          ? "bg-blue-900/40 ring-blue-500/50 text-blue-300"
-                                          : "bg-[#222] ring-[#333] text-slate-400 hover:bg-[#2a2a2a]"
-                                      }`}
+                                      className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ring-1 transition-colors ${hasReacted
+                                        ? "bg-blue-900/40 ring-blue-500/50 text-blue-300"
+                                        : "bg-[#222] ring-[#333] text-slate-400 hover:bg-[#2a2a2a]"
+                                        }`}
                                     >
                                       <span>{emoji}</span>
                                       <span className="font-medium">
@@ -442,13 +431,13 @@ export default function MeetingChat({
                             <span>
                               {isMe
                                 ? t("chat_private_to", {
-                                    name: msg.targetIdentity
-                                      ? (getParticipantDetails(
-                                          msg.targetIdentity,
-                                          msg.targetName,
-                                        ).displayName ?? "")
-                                      : (msg.targetName ?? ""),
-                                  })
+                                  name: msg.targetIdentity
+                                    ? (getParticipantDetails(
+                                      msg.targetIdentity,
+                                      msg.targetName,
+                                    ).displayName ?? "")
+                                    : (msg.targetName ?? ""),
+                                })
                                 : t("chat_private_to_you")}
                             </span>
                           </div>

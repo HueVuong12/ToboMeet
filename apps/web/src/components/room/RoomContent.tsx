@@ -164,8 +164,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   // Lấy trạng thái độc lập
   const { isJoinedOnThisDevice } = useMeetingDeviceStatus(
+    activeMeeting?.meetingCode,
     roomId,
-    currentChannel?._id,
   );
 
   // Lấy hàm khởi tạo độc lập

@@ -5,8 +5,8 @@ import { useDeviceId } from "./useDeviceId";
 import { useMeetingCacheManager } from "./useMeetingCacheManager";
 
 export function useMeetingDeviceStatus(
-  roomId: string,
-  channelId: string | undefined,
+  meetingCode?: string | null,
+  roomId?: string,
 ) {
   const deviceId = useDeviceId();
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
@@ -14,12 +14,11 @@ export function useMeetingDeviceStatus(
   // Lấy trạng thái thiết bị từ API
   const { data: deviceStatus } = useGetDeviceStatusQuery(
     {
-      roomId,
-      channelId: channelId || "",
+      meetingCode: meetingCode || "",
       deviceId: deviceId || "",
     },
     {
-      skip: !channelId || !deviceId,
+      skip: !meetingCode || !deviceId,
     },
   );
 
@@ -27,21 +26,23 @@ export function useMeetingDeviceStatus(
 
   // Đồng bộ cache khi có tín hiệu tắt tab từ phòng họp
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId && !meetingCode) return;
 
-    const syncChannel = new BroadcastChannel(`meeting_sync_${roomId}`);
+    const syncChannelName = roomId
+      ? `meeting_sync_${roomId}`
+      : `meeting_sync_${meetingCode}`;
+    const syncChannel = new BroadcastChannel(syncChannelName);
 
     syncChannel.onmessage = (event) => {
       if (event.data?.type === "MEETING_DISCONNECTED") {
-        const disconnectedChannelId = event.data.channelId;
-        clearMeetingDeviceStatus(roomId, disconnectedChannelId);
+        clearMeetingDeviceStatus(event.data.meetingCode || meetingCode || "");
       }
     };
 
     return () => {
       syncChannel.close();
     };
-  }, [roomId, clearMeetingDeviceStatus]);
+  }, [roomId, meetingCode, clearMeetingDeviceStatus]);
 
   return { isJoinedOnThisDevice };
 }

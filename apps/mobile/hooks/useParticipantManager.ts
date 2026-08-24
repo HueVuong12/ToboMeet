@@ -133,7 +133,7 @@ export function useParticipantManager({
 
   // Hàm duyệt người dùng (Dùng toast của React Native)
   const handleApprove = async (identity: string, name: string) => {
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
     const isAll = identity === "all";
 
     try {
@@ -141,8 +141,6 @@ export function useParticipantManager({
         isAll ? t("meeting.member_modal.approve_all_loading") : t("meeting.member_modal.approve_loading", { name: name }),
       );
       await approveParticipantApi({
-        roomId,
-        channelId,
         code: meetingCode,
         identity,
       }).unwrap();
@@ -154,7 +152,7 @@ export function useParticipantManager({
 
   // Xử lý Đuổi
   const handleRemove = (participant: Participant) => {
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
     Alert.alert(t("meeting.member_modal.confirm"), t("meeting.member_modal.remove_confirm", { name: participant.name }), [
       { text: t("meeting.member_modal.cancel"), style: "cancel" },
       {
@@ -164,8 +162,6 @@ export function useParticipantManager({
           setKickingUserId(participant.identity);
           try {
             await removeParticipant({
-              roomId,
-              channelId,
               code: meetingCode,
               identity: participant.identity,
             }).unwrap();
@@ -296,7 +292,7 @@ export function useParticipantManager({
     name: string,
     trackType: "audio" | "video",
   ) => {
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
     const typeLabel = trackType === "audio" ? "Mic" : "Camera";
     try {
       toast.success(
@@ -306,8 +302,6 @@ export function useParticipantManager({
         }),
       );
       await muteParticipant({
-        roomId,
-        channelId,
         code: meetingCode,
         identity,
         trackType,

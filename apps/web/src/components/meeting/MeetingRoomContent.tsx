@@ -17,8 +17,6 @@ import { useRoomSettings } from "@/hooks/useRoomSettings";
 import { useBreakoutTimer } from "@/hooks/useBreakoutTimer";
 
 export default function MeetingRoomContent({
-  roomId,
-  channelId,
   meetingCode,
 }: any) {
   const t = useTranslations("meeting");
@@ -76,7 +74,7 @@ export default function MeetingRoomContent({
         if (savedChat && Array.isArray(savedChat)) {
           setMessages(savedChat);
         }
-      } catch (error) {}
+      } catch (error) { }
     };
     loadSavedChat();
   }, [storageKey]);
@@ -92,7 +90,7 @@ export default function MeetingRoomContent({
               ? messages.slice(messages.length - MAX_MESSAGES_TO_SAVE)
               : messages;
           await localforage.setItem(storageKey, messagesToSave);
-        } catch (error) {}
+        } catch (error) { }
       };
       saveChat();
     }
@@ -140,7 +138,7 @@ export default function MeetingRoomContent({
             }),
           );
         }
-      } catch (error) {}
+      } catch (error) { }
     };
 
     room.on(RoomEvent.DataReceived, handleDataReceived);
@@ -185,16 +183,12 @@ export default function MeetingRoomContent({
             <div className="flex-1 p-2 overflow-y-auto">
               {sidebarTab === "chat" ? (
                 <MeetingChat
-                  roomId={roomId}
-                  channelId={channelId}
+                  meetingCode={meetingCode}
                   messages={messages}
                   setMessages={setMessages}
-                  meetingCode={meetingCode}
                 />
               ) : (
                 <ParticipantList
-                  roomId={roomId}
-                  channelId={channelId}
                   meetingCode={meetingCode}
                 />
               )}
@@ -257,8 +251,6 @@ export default function MeetingRoomContent({
 
         <CustomToolbar
           meetingCode={meetingCode || ""}
-          roomId={roomId}
-          channelId={channelId}
           hasUnreadChat={hasUnreadChat}
           activeTab={isSidebarOpen ? sidebarTab : null}
           onToggleSidebar={(tab) => {

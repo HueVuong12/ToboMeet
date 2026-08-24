@@ -16,12 +16,8 @@ import {
 
 // Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
 export function useRoomSettings({
-  roomId,
-  channelId,
   meetingCode,
 }: {
-  roomId?: string;
-  channelId?: string;
   meetingCode?: string;
 }) {
   const t = useTranslations("server.errors");
@@ -60,7 +56,7 @@ export function useRoomSettings({
       );
       isHost = userMeta.role === "owner" || userMeta.role === "admin";
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // Lắng nghe và đồng bộ trạng thái cài đặt chung từ Server (Metadata của LiveKit)
   useEffect(() => {
@@ -108,13 +104,10 @@ export function useRoomSettings({
     const newState = !isChatEnabled;
     setIsChatEnabled(newState);
 
-    // API không trả về roomId và channelId cho người dùng không có trong phòng
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
 
     try {
       await toggleChatApi({
-        roomId,
-        channelId,
         meetingCode,
         isChatEnabled: newState,
       }).unwrap();
@@ -132,13 +125,10 @@ export function useRoomSettings({
     const newState = !isWaitingRoomEnabled;
     setIsWaitingRoomEnabled(newState);
 
-    // API không trả về roomId và channelId cho người dùng không có trong phòng
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
 
     try {
       await toggleWaitingRoomApi({
-        roomId,
-        channelId,
         meetingCode,
         isWaitingRoomEnabled: newState,
       }).unwrap();
@@ -158,13 +148,10 @@ export function useRoomSettings({
     const oldState = approvalPermission;
     setApprovalPermission(permission); // Optimistic UI
 
-    // API không trả về roomId và channelId cho người dùng không có trong phòng
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
 
     try {
       await updateApprovalPermissionApi({
-        roomId,
-        channelId,
         code: meetingCode,
         permission: permission,
       }).unwrap();
@@ -178,7 +165,7 @@ export function useRoomSettings({
   };
 
   const handleEndBreakout = async () => {
-    if (!roomId || !channelId || !meetingCode) return;
+    if (!meetingCode) return;
     try {
       await endBreakoutApi({
         code: meetingCode,

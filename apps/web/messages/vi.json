@@ -1246,6 +1246,7 @@
       "camera_label": "Camera",
       "default_camera": "Camera mặc định",
       "join_button": "Tham gia ngay",
+      "start_button": "Bắt đầu cuộc họp",
       "privacy_notice": "Camera & micro chỉ được dùng khi bạn bật tương ứng",
       "permission_error": "Vui lòng cấp quyền Camera và Micro để tiếp tục!",
       "media_access_error": "Không thể truy cập thiết bị media"

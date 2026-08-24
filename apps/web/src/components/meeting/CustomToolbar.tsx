@@ -33,7 +33,6 @@ import { useScreenRecorder } from "@/hooks/useScreenRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
 import CreateBreakoutModal from "./CreateBreakoutModal";
 import JoinBreakoutModal from "./JoinBreakoutModal";
-import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -42,8 +41,6 @@ import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
  */
 export default function CustomToolbar({
   meetingCode,
-  roomId,
-  channelId,
   activeTab,
   onToggleSidebar,
   hasUnreadChat,
@@ -51,8 +48,6 @@ export default function CustomToolbar({
   meetingCode: string;
   activeTab: "chat" | "people" | null;
   onToggleSidebar: (tab: "chat" | "people") => void;
-  roomId: string;
-  channelId: string;
   hasUnreadChat: boolean;
 }) {
   const t = useTranslations("meeting.toolbar");
@@ -114,16 +109,12 @@ export default function CustomToolbar({
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
   } = useRoomSettings({
-    roomId,
-    channelId,
     meetingCode,
   });
 
   const isInBreakoutRoom = roomType === "breakout";
 
   const { displayParticipants } = useParticipantManager({
-    roomId,
-    channelId,
     meetingCode,
   });
 
@@ -131,8 +122,7 @@ export default function CustomToolbar({
     isActive: boolean,
     customActiveColor = "bg-[#222] text-white",
   ) =>
-    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${
-      isActive ? customActiveColor : "text-gray-300 hover:bg-[#222]"
+    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${isActive ? customActiveColor : "text-gray-300 hover:bg-[#222]"
     }`;
 
   return (
@@ -422,14 +412,12 @@ export default function CustomToolbar({
                         <span>{t("enable_chat")}</span>
                       </div>
                       <div
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
-                        }`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
+                          }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isChatEnabled ? "translate-x-4" : "translate-x-0"
-                          }`}
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChatEnabled ? "translate-x-4" : "translate-x-0"
+                            }`}
                         />
                       </div>
                     </div>
@@ -453,18 +441,16 @@ export default function CustomToolbar({
                         <span>{t("waiting_room")}</span>
                       </div>
                       <div
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          isWaitingRoomEnabled
-                            ? "bg-emerald-500"
-                            : "bg-slate-600"
-                        }`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isWaitingRoomEnabled
+                          ? "bg-emerald-500"
+                          : "bg-slate-600"
+                          }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isWaitingRoomEnabled
-                              ? "translate-x-4"
-                              : "translate-x-0"
-                          }`}
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isWaitingRoomEnabled
+                            ? "translate-x-4"
+                            : "translate-x-0"
+                            }`}
                         />
                       </div>
                     </div>
@@ -619,7 +605,6 @@ export default function CustomToolbar({
       <InviteMemberModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        roomId={roomId}
         meetingCode={meetingCode}
         displayParticipants={displayParticipants}
       />

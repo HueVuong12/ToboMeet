@@ -7,16 +7,15 @@ import { Participant } from "livekit-client";
 import debounce from "lodash/debounce";
 
 import { useTranslations } from "next-intl";
+import { useMeetingSessionContext } from "@/components/meeting/contexts/MeetingSessionContext";
 
 interface UseMeetingInviteProps {
-  roomId: string | null;
   meetingCode: string;
   displayParticipants: Participant[];
   isOpen: boolean;
 }
 
 export function useMeetingInvite({
-  roomId,
   meetingCode,
   displayParticipants,
   isOpen,
@@ -26,6 +25,8 @@ export function useMeetingInvite({
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
+
+  const { meetingData } = useMeetingSessionContext();
 
   // Debounce logic
   const debouncedSearch = useMemo(
@@ -53,8 +54,8 @@ export function useMeetingInvite({
 
   // Gọi API lấy thành viên phòng
   const { data: roomMembers, isLoading: isMembersLoading } =
-    useGetRoomMembersQuery(roomId || "", {
-      skip: !roomId || !isOpen,
+    useGetRoomMembersQuery(meetingData?.roomId || "", {
+      skip: !meetingData || !meetingData.roomId || !isOpen,
     });
 
   // Gọi API tìm kiếm toàn cục

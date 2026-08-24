@@ -1,7 +1,7 @@
 // src/hooks/useMeetingLauncher.ts
 import { useState, useRef } from "react";
 import { toast } from "sonner";
-import { useJoinMeetingMutation } from "@/lib/redux/api/meetingsApi";
+import { useJoinChannelMeetingMutation } from "@/lib/redux/api/meetingsApi";
 import { useDeviceId } from "./useDeviceId";
 import { useTranslations } from "next-intl";
 
@@ -21,7 +21,7 @@ export function useMeetingLauncher({
   const tServer = useTranslations("server.errors");
   const meetingWindowRef = useRef<Window | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [joinMeetingApi] = useJoinMeetingMutation();
+  const [joinChannelMeetingApi] = useJoinChannelMeetingMutation();
   const deviceId = useDeviceId();
 
   const handleJoinMeeting = async (config: any, forceSwitch = false) => {
@@ -34,7 +34,7 @@ export function useMeetingLauncher({
 
     try {
       setIsJoining(true);
-      const response = await joinMeetingApi({
+      const response = await joinChannelMeetingApi({
         roomId,
         channelId: currentChannel._id,
         deviceId: deviceId,

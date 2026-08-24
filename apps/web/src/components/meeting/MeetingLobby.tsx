@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
+import { useCanStartMeetingQuery } from "@/lib/redux/api/meetingsApi";
 
 interface MeetingLobbyProps {
   meetingCode: string;
@@ -21,7 +23,6 @@ interface MeetingLobbyProps {
   setCamOn: (val: boolean) => void;
   micOn: boolean;
   setMicOn: (val: boolean) => void;
-  handleJoinByCode: () => void;
   isJoining: boolean;
 }
 
@@ -46,7 +47,7 @@ async function detectBestResolution(deviceId: string) {
       });
       stream.getTracks().forEach((t) => t.stop());
       return resolution;
-    } catch {}
+    } catch { }
   }
   return { width: 640, height: 480 };
 }
@@ -59,10 +60,16 @@ export default function MeetingLobby({
   setCamOn,
   micOn,
   setMicOn,
-  handleJoinByCode,
   isJoining,
 }: MeetingLobbyProps) {
   const t = useTranslations("meeting.lobby");
+  const { handleJoinByCode } = useMeetingSessionContext();
+
+  const { data: canStartData, isLoading: isCheckingCanStart } =
+    useCanStartMeetingQuery({ meetingCode }, { skip: !meetingCode });
+
+  const canStart = canStartData?.canStart ?? false;
+
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState<
@@ -190,7 +197,7 @@ export default function MeetingLobby({
         cameraConfig: cameraResolution,
       }),
     );
-    handleJoinByCode();
+    handleJoinByCode(canStart);
   };
 
   return (
@@ -296,11 +303,10 @@ export default function MeetingLobby({
                   <button
                     type="button"
                     onClick={() => setMicOn(!micOn)}
-                    className={`p-3.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95 border ${
-                      micOn
-                        ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
-                        : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
-                    }`}
+                    className={`p-3.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95 border ${micOn
+                      ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
+                      : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
+                      }`}
                     title={micOn ? t("turn_off_mic") : t("turn_on_mic")}
                   >
                     {micOn ? <Mic size={20} /> : <MicOff size={20} />}
@@ -308,11 +314,10 @@ export default function MeetingLobby({
                   <button
                     type="button"
                     onClick={() => setCamOn(!camOn)}
-                    className={`p-3.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95 border ${
-                      camOn
-                        ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
-                        : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
-                    }`}
+                    className={`p-3.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95 border ${camOn
+                      ? "bg-white/10 hover:bg-white/15 text-white border-white/10"
+                      : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30"
+                      }`}
                     title={camOn ? t("turn_off_cam") : t("turn_on_cam")}
                   >
                     {camOn ? <Video size={20} /> : <VideoOff size={20} />}
@@ -417,11 +422,13 @@ export default function MeetingLobby({
                   <button
                     type="button"
                     onClick={handleJoin}
-                    disabled={isJoining || !isPermissionChecked}
+                    disabled={isJoining || isCheckingCanStart || !isPermissionChecked}
                     className="w-full py-3 rounded-xl font-semibold text-sm text-white bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:hover:bg-brand-600 shadow-lg shadow-brand-600/25 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2"
                   >
-                    {isJoining ? (
+                    {isJoining || isCheckingCanStart ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : canStart ? (
+                      t("start_button", { defaultValue: "Bắt đầu cuộc họp" })
                     ) : (
                       t("join_button")
                     )}

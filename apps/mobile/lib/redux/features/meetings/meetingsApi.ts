@@ -10,13 +10,32 @@ import { baseApi } from "../../api/baseApi";
 
 interface ExchangeSessionResponse {
   meetingCode: string;
-  roomId: string;
-  channelId: string;
+  roomId?: string;
+  channelId?: string;
 }
 
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    // Join cuộc họp chung (hỗ trợ cả channel + personal)
     joinMeeting: builder.mutation<
+      MeetingJoinResponse,
+      {
+        meetingCode: string;
+        deviceId: string;
+        displayName?: string;
+        forceSwitch?: boolean;
+        allowStart?: boolean;
+      }
+    >({
+      query: (body) => ({
+        url: `/meetings/join`,
+        method: "POST",
+        data: body,
+      }),
+    }),
+
+    // Join/Create cuộc họp theo kênh trong room
+    joinChannelMeeting: builder.mutation<
       MeetingJoinResponse,
       {
         roomId: string;
@@ -33,6 +52,7 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Join cuộc họp bằng meetingCode (dành cho khách/ngoài phòng)
     joinMeetingByCode: builder.mutation<
       MeetingJoinResponse,
       { meetingCode: string; deviceId: string; displayName?: string }
@@ -44,6 +64,26 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Kiểm tra quyền start cuộc họp
+    canStartMeeting: builder.query<
+      { canStart: boolean; reason?: string },
+      { meetingCode: string }
+    >({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/can-start`,
+        method: "GET",
+      }),
+    }),
+
+    // Lấy hoặc tạo personal meeting
+    ensurePersonalMeeting: builder.mutation<{ meetingCode: string }, void>({
+      query: () => ({
+        url: `/meetings/personal/ensure`,
+        method: "POST",
+      }),
+    }),
+
+    // Lấy trạng thái cuộc họp đang diễn ra trong kênh
     getActiveMeeting: builder.query<
       ActiveMeetingResponse,
       { roomId: string; channelId: string }
@@ -54,41 +94,41 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Kiểm tra trạng thái thiết bị trong cuộc họp
     getDeviceStatus: builder.query<
       MeetingDeviceStatus,
-      { roomId: string; channelId: string; deviceId: string }
+      { meetingCode: string; deviceId: string }
     >({
-      query: ({ roomId, channelId, deviceId }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/devices/${deviceId}`,
+      query: ({ meetingCode, deviceId }) => ({
+        url: `/meetings/${meetingCode}/devices/${deviceId}`,
         method: "GET",
       }),
 
-      providesTags: (result, error, { roomId, channelId, deviceId }) => [
+      providesTags: (result, error, { meetingCode, deviceId }) => [
         {
           type: "DeviceStatus",
-          id: `${roomId}-${channelId}-${deviceId}`,
+          id: `${meetingCode}-${deviceId}`,
         },
       ],
     }),
 
     getMemberStatus: builder.query<RoomMemberStatus, { meetingCode: string }>({
       query: ({ meetingCode }) => ({
-        url: `meetings/${meetingCode}/member-status`,
+        url: `/meetings/${meetingCode}/member-status`,
         method: "GET",
       }),
     }),
 
+    // Bật/tắt chat trong cuộc họp
     toggleMeetingChat: builder.mutation<
       void,
       {
-        roomId: string;
-        channelId: string;
         meetingCode: string;
         isChatEnabled: boolean;
       }
     >({
-      query: ({ roomId, channelId, meetingCode, isChatEnabled }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${meetingCode}/chat-status`,
+      query: ({ meetingCode, isChatEnabled }) => ({
+        url: `/meetings/${meetingCode}/chat-status`,
         method: "PUT",
         data: { isChatEnabled },
       }),
@@ -98,14 +138,12 @@ export const meetingsApi = baseApi.injectEndpoints({
     toggleWaitingRoomStatus: builder.mutation<
       void,
       {
-        roomId: string;
-        channelId: string;
         meetingCode: string;
         isWaitingRoomEnabled: boolean;
       }
     >({
-      query: ({ roomId, channelId, meetingCode, isWaitingRoomEnabled }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${meetingCode}/waiting-room-status`,
+      query: ({ meetingCode, isWaitingRoomEnabled }) => ({
+        url: `/meetings/${meetingCode}/waiting-room-status`,
         method: "PATCH",
         data: { isWaitingRoomEnabled },
       }),
@@ -115,56 +153,53 @@ export const meetingsApi = baseApi.injectEndpoints({
     approveParticipant: builder.mutation<
       void,
       {
-        roomId: string;
-        channelId: string;
         code: string;
         identity: string | "all"; // Hỗ trợ duyệt tất cả người chờ bằng cách truyền 'all'
       }
     >({
-      query: ({ roomId, channelId, code, identity }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}/approve`,
+      query: ({ code, identity }) => ({
+        url: `/meetings/${code}/participants/${identity}/approve`,
         method: "PATCH",
       }),
     }),
 
+    // Thay đổi thiết lập quyền duyệt vào phòng
     updateApprovalPermission: builder.mutation<
       void,
       {
-        roomId: string;
-        channelId: string;
         code: string;
         permission: "admin_only" | "member_and_admin" | "everyone";
       }
     >({
-      query: ({ roomId, channelId, code, permission }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/approval-permission`,
+      query: ({ code, permission }) => ({
+        url: `/meetings/${code}/approval-permission`,
         method: "PATCH",
         data: { permission },
       }),
     }),
 
+    // Đuổi người tham gia ra khỏi cuộc họp
     removeParticipant: builder.mutation<
       void,
-      { roomId: string; channelId: string; code: string; identity: string }
+      { code: string; identity: string }
     >({
-      query: ({ roomId, channelId, code, identity }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}`,
+      query: ({ code, identity }) => ({
+        url: `/meetings/${code}/participants/${identity}`,
         method: "DELETE",
       }),
     }),
 
+    // Tắt Mic / Camera của người tham gia
     muteParticipant: builder.mutation<
       void,
       {
-        roomId: string;
-        channelId: string;
         code: string;
         identity: string;
         trackType: "audio" | "video";
       }
     >({
-      query: ({ roomId, channelId, code, identity, trackType }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/${code}/participants/${identity}/mute`,
+      query: ({ code, identity, trackType }) => ({
+        url: `/meetings/${code}/participants/${identity}/mute`,
         method: "PUT",
         data: { trackType },
       }),
@@ -267,10 +302,17 @@ export const meetingsApi = baseApi.injectEndpoints({
 
 export const {
   useJoinMeetingMutation,
+  useJoinChannelMeetingMutation,
   useJoinMeetingByCodeMutation,
-  useLazyGetMemberStatusQuery,
+  useCanStartMeetingQuery,
+  useLazyCanStartMeetingQuery,
+  useEnsurePersonalMeetingMutation,
   useGetActiveMeetingQuery,
+  useLazyGetActiveMeetingQuery,
   useGetDeviceStatusQuery,
+  useLazyGetDeviceStatusQuery,
+  useGetMemberStatusQuery,
+  useLazyGetMemberStatusQuery,
   useToggleMeetingChatMutation,
   useToggleWaitingRoomStatusMutation,
   useApproveParticipantMutation,
@@ -278,6 +320,7 @@ export const {
   useRemoveParticipantMutation,
   useMuteParticipantMutation,
   useGeneratePresignedUploadUrlMutation,
+  useExchangeSessionQuery,
   useLazyExchangeSessionQuery,
   useSendMeetingInviteMutation,
 

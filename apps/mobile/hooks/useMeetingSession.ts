@@ -139,9 +139,7 @@ export function useMeetingSession() {
 
     // Tạo một khoảng trễ nhỏ để UI kịp render màn hình loading rời phòng
     setTimeout(() => {
-      if (meetingData) {
-        clearMeetingDeviceStatus(meetingData.roomId, meetingData.channelId);
-      }
+      clearMeetingDeviceStatus(meetingCode);
 
       handleSmartRedirect();
     }, 600);
