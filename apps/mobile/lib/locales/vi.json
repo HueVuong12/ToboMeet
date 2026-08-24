@@ -372,16 +372,23 @@
     "lobby": {
       "title": "Chuẩn bị tham gia",
       "subtitle": "Kiểm tra camera và micro trước khi vào",
-      "room_code": "Mã phòng",
+      "room_code": "Mã cuộc họp",
       "camera_off": "Camera đang tắt",
+      "mic_off_indicator": "Micro đã tắt",
       "display_name": "Tên hiển thị",
-      "display_name_placeholder": "Nhập tên của bạn",
+      "display_name_placeholder": "Nhập tên hiển thị của bạn",
       "join_now": "Tham gia ngay",
+      "start_meeting": "Bắt đầu cuộc họp",
       "mic_on": "Tắt micro",
       "mic_off": "Bật micro",
       "cam_on": "Tắt camera",
       "cam_off": "Bật camera",
-      "flip_camera": "Đảo camera"
+      "flip_camera": "Đổi camera",
+      "permission_cam_title": "Cần quyền truy cập Camera",
+      "permission_cam_desc": "Cấp quyền camera để xem trước hình ảnh của bạn",
+      "grant_permission": "Cấp quyền camera",
+      "code_copied": "Đã sao chép mã cuộc họp",
+      "privacy_notice": "Bạn có thể điều chỉnh thiết bị và bật/tắt mic, camera bất kỳ lúc nào trong cuộc họp."
     },
     "member_modal": {
       "role_teacher": "Giảng viên",

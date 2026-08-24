@@ -34,36 +34,6 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
-    // Join/Create cuộc họp theo kênh trong room
-    joinChannelMeeting: builder.mutation<
-      MeetingJoinResponse,
-      {
-        roomId: string;
-        channelId: string;
-        deviceId: string;
-        displayName?: string;
-        forceSwitch?: boolean;
-      }
-    >({
-      query: ({ roomId, channelId, deviceId, displayName, forceSwitch }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
-        method: "POST",
-        data: { displayName, deviceId, forceSwitch },
-      }),
-    }),
-
-    // Join cuộc họp bằng meetingCode (dành cho khách/ngoài phòng)
-    joinMeetingByCode: builder.mutation<
-      MeetingJoinResponse,
-      { meetingCode: string; deviceId: string; displayName?: string }
-    >({
-      query: ({ meetingCode, deviceId, displayName }) => ({
-        url: `/meetings/join-by-code`,
-        method: "POST",
-        data: { displayName, deviceId, meetingCode },
-      }),
-    }),
-
     // Kiểm tra quyền start cuộc họp
     canStartMeeting: builder.query<
       { canStart: boolean; reason?: string },
@@ -83,9 +53,20 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Lấy hoặc tạo channel meeting
+    ensureChannelMeeting: builder.mutation<
+      { meetingCode: string },
+      { roomId: string; channelId: string }
+    >({
+      query: ({ roomId, channelId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/ensure`,
+        method: "POST",
+      }),
+    }),
+
     // Lấy trạng thái cuộc họp đang diễn ra trong kênh
     getActiveMeeting: builder.query<
-      ActiveMeetingResponse,
+      { isOngoing: boolean; meetingCode: string | null } | ActiveMeetingResponse,
       { roomId: string; channelId: string }
     >({
       query: ({ roomId, channelId }) => ({
@@ -205,6 +186,20 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    startScreenShare: builder.mutation<void, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/screen-share/start`,
+        method: "POST",
+      }),
+    }),
+
+    stopScreenShare: builder.mutation<void, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/screen-share/stop`,
+        method: "POST",
+      }),
+    }),
+
     generatePresignedUploadUrl: builder.mutation<
       PresignedUploadResponse,
       { fileName: string; meetingCode: string }
@@ -302,11 +297,10 @@ export const meetingsApi = baseApi.injectEndpoints({
 
 export const {
   useJoinMeetingMutation,
-  useJoinChannelMeetingMutation,
-  useJoinMeetingByCodeMutation,
   useCanStartMeetingQuery,
   useLazyCanStartMeetingQuery,
   useEnsurePersonalMeetingMutation,
+  useEnsureChannelMeetingMutation,
   useGetActiveMeetingQuery,
   useLazyGetActiveMeetingQuery,
   useGetDeviceStatusQuery,
@@ -315,6 +309,8 @@ export const {
   useLazyGetMemberStatusQuery,
   useToggleMeetingChatMutation,
   useToggleWaitingRoomStatusMutation,
+  useStartScreenShareMutation,
+  useStopScreenShareMutation,
   useApproveParticipantMutation,
   useUpdateApprovalPermissionMutation,
   useRemoveParticipantMutation,

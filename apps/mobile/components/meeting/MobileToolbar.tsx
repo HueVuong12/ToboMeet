@@ -23,15 +23,11 @@ import { useTranslation } from "react-i18next";
 
 export default function MobileToolbar({
   initialFacingMode,
-  roomId,
-  channelId,
   meetingCode,
   onOpenMembers,
   onOpenChat,
 }: {
   initialFacingMode?: "user" | "environment";
-  roomId: string;
-  channelId: string;
   meetingCode: string;
   onOpenMembers: () => void;
   onOpenChat: () => void;
@@ -57,16 +53,12 @@ export default function MobileToolbar({
     handleUpdateApprovalPermission,
     handleEndBreakout,
   } = useRoomSettings({
-    roomId,
-    channelId,
     meetingCode,
   });
 
   const isInBreakoutRoom = roomType === "breakout";
 
   const { displayParticipants } = useParticipantManager({
-    roomId,
-    channelId,
     meetingCode,
   });
 
@@ -544,7 +536,6 @@ export default function MobileToolbar({
       <InviteMemberModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        roomId={roomId}
         meetingCode={meetingCode}
         displayParticipants={displayParticipants}
       />

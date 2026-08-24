@@ -5,7 +5,10 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  ScrollView,
+  Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoomContext } from "@livekit/react-native";
 import { Participant, RoomEvent } from "livekit-client";
 import { Feather } from "@expo/vector-icons";
@@ -34,8 +37,6 @@ export default function MeetingRoomContent({
 
   const { roomName, roomType, breakoutStartedAt, breakoutDuration } =
     useRoomSettings({
-      roomId: meetingData.roomId,
-      channelId: meetingData.channelId,
       meetingCode,
     });
 
@@ -51,8 +52,6 @@ export default function MeetingRoomContent({
   const [showChatModal, setShowChatModal] = useState(false);
 
   const { displayParticipants } = useParticipantManager({
-    roomId: meetingData.roomId,
-    channelId: meetingData.channelId,
     meetingCode: meetingCode,
   });
 
@@ -126,93 +125,149 @@ export default function MeetingRoomContent({
   // GIAO DIỆN KHI ĐANG Ở PHÒNG CHỜ
   if (participantStatus === "waiting") {
     return (
-      <View className="flex-1 bg-[#111] items-center justify-center p-4">
-        {/* Khối chứa Text và Spinner */}
-        <View className="flex-row items-center mb-3">
-          <Text className="text-2xl font-bold text-white tracking-wide mr-3">
-            {t("meeting.meeting_page.waiting_title")}
-          </Text>
-          <ActivityIndicator size="small" color="#ffffff" />
+      <SafeAreaView className="flex-1 bg-[#09090b]" edges={["top", "bottom"]}>
+        {/* Ambient Glows */}
+        <View pointerEvents="none" className="absolute inset-0 overflow-hidden">
+          <View
+            className="absolute -top-32 -left-20 w-80 h-80 rounded-full"
+            style={{ backgroundColor: "rgba(0, 85, 255, 0.15)" }}
+          />
+          <View
+            className="absolute top-1/3 -right-24 w-72 h-72 rounded-full"
+            style={{ backgroundColor: "rgba(99, 102, 241, 0.12)" }}
+          />
+          <View
+            className="absolute -bottom-28 left-10 w-72 h-72 rounded-full"
+            style={{ backgroundColor: "rgba(14, 165, 233, 0.08)" }}
+          />
         </View>
 
-        <Text className="text-gray-400 text-center text-sm leading-5 mb-8 mt-2 px-6">
-          {t("meeting.meeting_page.waiting_desc")}
-        </Text>
-
-        {/* HIỂN THỊ TỐI ĐA 5 NGƯỜI ĐANG TRONG CUỘC HỌP */}
-        {displayParticipants.length > 0 ? (
-          <View className="w-full bg-[#1a1a1a] rounded-2xl p-5 border border-[#333] mb-8">
-            <Text className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5 text-center">
-              {t("meeting.meeting_page.in_meeting_header")}
-            </Text>
-
-            <View className="flex-row flex-wrap justify-center gap-4">
-              {displayParticipants.slice(0, 5).map((p) => {
-                let avatarUrl = "";
-                try {
-                  if (p.metadata) {
-                    const meta = JSON.parse(p.metadata);
-                    avatarUrl = meta.avatarUrl;
-                  }
-                } catch (e) {
-                  console.error(
-                    "Lỗi phân tích metadata của người tham gia:",
-                    e,
-                  );
-                }
-
-                return (
-                  <View key={p.identity} className="items-center w-14">
-                    <View className="relative mb-2">
-                      {avatarUrl ? (
-                        <Image
-                          source={{ uri: avatarUrl }}
-                          className="w-12 h-12 rounded-full border-2 border-[#333]"
-                        />
-                      ) : (
-                        <View className="w-12 h-12 rounded-full bg-slate-800 items-center justify-center border-2 border-[#333]">
-                          <Text className="text-slate-300 font-bold text-sm uppercase">
-                            {p.name?.charAt(0) || "?"}
-                          </Text>
-                        </View>
-                      )}
-                      <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1a1a1a] rounded-full" />
-                    </View>
-                    <Text
-                      className="text-[10px] text-slate-300 text-center w-full"
-                      numberOfLines={1}
-                    >
-                      {p.name}
-                    </Text>
-                  </View>
-                );
-              })}
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 20,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            className="w-full max-w-[400px] self-center rounded-3xl border border-white/10 overflow-hidden p-6 items-center"
+            style={{
+              backgroundColor: "rgba(18, 18, 22, 0.96)",
+              ...Platform.select({
+                ios: {
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 16 },
+                  shadowOpacity: 0.5,
+                  shadowRadius: 28,
+                },
+                android: { elevation: 14 },
+              }),
+            }}
+          >
+            {/* Title */}
+            <View className="flex-row items-center gap-2 mb-1.5">
+              <Text className="text-xl font-bold text-white tracking-tight text-center">
+                {t("meeting.meeting_page.waiting_title")}
+              </Text>
+              <ActivityIndicator size="small" color="#60a5fa" />
             </View>
 
-            {/* DÒNG CHỮ HIỂN THỊ SỐ NGƯỜI CÒN LẠI */}
-            {displayParticipants.length > 5 && (
-              <Text className="mt-5 text-center text-xs font-medium text-slate-400">
-                {t("meeting.meeting_page.other_participants_count", {
-                  count: displayParticipants.length - 5,
-                })}
-              </Text>
-            )}
-          </View>
-        ) : (
-          <Text className="text-sm text-slate-400 text-center mb-8">
-            {t("meeting.meeting_page.no_one_in_meeting")}
-          </Text>
-        )}
+            {/* Subtitle */}
+            <Text className="text-slate-400 text-center text-xs leading-5 mb-5 px-2">
+              {t("meeting.meeting_page.waiting_desc")}
+            </Text>
 
-        <TouchableOpacity
-          onPress={handleDisconnect}
-          className="px-6 py-3 bg-[#222] border border-[#333] rounded-xl"
-        >
-          <Text className="text-gray-300 font-medium text-sm">
-            {t("meeting.meeting_page.leave_waiting_room")}
-          </Text>
-        </TouchableOpacity>
-      </View>
+            {/* In-meeting participants container */}
+            <View
+              className="w-full rounded-2xl border border-white/5 p-4 mb-6"
+              style={{ backgroundColor: "rgba(255, 255, 255, 0.03)" }}
+            >
+              <View className="flex-row items-center justify-between mb-3 px-1">
+                <View className="flex-row items-center gap-1.5">
+                  <Feather name="users" size={13} color="#60a5fa" />
+                  <Text className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                    {t("meeting.meeting_page.in_meeting_header")}
+                  </Text>
+                </View>
+                {displayParticipants.length > 0 && (
+                  <View className="bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                    <Text className="text-[10px] font-medium text-slate-400">
+                      {displayParticipants.length}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {displayParticipants.length > 0 ? (
+                <View className="flex-row flex-wrap justify-center gap-3 py-1">
+                  {displayParticipants.slice(0, 5).map((p) => {
+                    let avatarUrl = "";
+                    try {
+                      if (p.metadata) {
+                        const meta = JSON.parse(p.metadata);
+                        avatarUrl = meta.avatarUrl || meta.avatar || "";
+                      }
+                    } catch (e) { }
+
+                    return (
+                      <View key={p.identity} className="items-center w-12">
+                        <View className="relative mb-1.5">
+                          {avatarUrl ? (
+                            <Image
+                              source={{ uri: avatarUrl }}
+                              className="w-10 h-10 rounded-full border-2 border-white/10"
+                            />
+                          ) : (
+                            <View className="w-10 h-10 rounded-full bg-slate-800 items-center justify-center border-2 border-white/10">
+                              <Text className="text-slate-300 font-bold text-xs uppercase">
+                                {p.name?.charAt(0) || "?"}
+                              </Text>
+                            </View>
+                          )}
+                          <View className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-[#121216] rounded-full" />
+                        </View>
+                        <Text
+                          className="text-[9px] text-slate-400 text-center w-full"
+                          numberOfLines={1}
+                        >
+                          {p.name || "Ẩn danh"}
+                        </Text>
+                      </View>
+                    );
+                  })}
+
+                  {displayParticipants.length > 5 && (
+                    <Text className="w-full text-center text-[11px] font-medium text-slate-500 pt-1">
+                      {t("meeting.meeting_page.other_participants_count", {
+                        count: displayParticipants.length - 5,
+                      })}
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <Text className="text-xs text-slate-500 text-center py-2">
+                  {t("meeting.meeting_page.no_one_in_meeting")}
+                </Text>
+              )}
+            </View>
+
+            {/* Leave Waiting Room Button */}
+            <TouchableOpacity
+              onPress={handleDisconnect}
+              activeOpacity={0.7}
+              className="flex-row items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 active:bg-rose-500/20 active:border-rose-500/30"
+            >
+              <Feather name="log-out" size={15} color="#f43f5e" />
+              <Text className="text-slate-300 font-semibold text-xs">
+                {t("meeting.meeting_page.leave_waiting_room")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -253,8 +308,6 @@ export default function MeetingRoomContent({
 
       <MobileToolbar
         meetingCode={meetingCode}
-        roomId={meetingData.roomId}
-        channelId={meetingData.channelId}
         initialFacingMode={
           meetingData.cameraFacing === "back" ? "environment" : "user"
         }
@@ -265,15 +318,11 @@ export default function MeetingRoomContent({
       <MembersModal
         visible={showMembersModal}
         onClose={() => setShowMembersModal(false)}
-        roomId={meetingData.roomId}
-        channelId={meetingData.channelId}
         meetingCode={meetingCode}
       />
 
       <MobileChatModal
         meetingCode={meetingCode}
-        roomId={meetingData.roomId}
-        channelId={meetingData.channelId}
         visible={showChatModal}
         onClose={() => setShowChatModal(false)}
       />

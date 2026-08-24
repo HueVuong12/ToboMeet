@@ -30,6 +30,7 @@ function MobileMeetingContent() {
     displayName,
     setDisplayName,
     handleJoinByCode,
+    handleSmartRedirect,
     onRoomError,
     onRoomDisconnected,
   } = useMeetingSessionContext();
@@ -57,8 +58,8 @@ function MobileMeetingContent() {
     }
 
     return (
-      <View className="flex-1 justify-center items-center bg-black">
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View className="flex-1 justify-center items-center bg-[#09090b]">
+        <ActivityIndicator size="large" color="#0052FF" />
         {loadingDesc ? (
           <Text className="text-gray-400 mt-4 font-bold">{loadingDesc}</Text>
         ) : null}
@@ -81,6 +82,7 @@ function MobileMeetingContent() {
         setDisplayName={setDisplayName}
         handleJoin={handleJoinByCode}
         isJoining={isJoining}
+        onBack={handleSmartRedirect}
       />
     );
   }
@@ -115,4 +117,3 @@ export default function MobileMeetingScreen() {
     </MeetingSessionProvider>
   );
 }
-

@@ -6,21 +6,24 @@ import { useGetRoomMembersQuery } from "../lib/redux/features/rooms/roomsApi";
 import { useSendMeetingInviteMutation } from "../lib/redux/features/meetings/meetingsApi";
 import { toast } from "../lib/toast";
 import { useTranslation } from "react-i18next";
+import { useMeetingSessionContext } from "../components/meeting/contexts/MeetingSessionContext";
 
 interface UseMeetingInviteProps {
-  roomId: string | null;
   meetingCode: string;
   displayParticipants: Participant[];
   isOpen: boolean;
 }
 
 export function useMeetingInvite({
-  roomId,
   meetingCode,
   displayParticipants,
   isOpen,
 }: UseMeetingInviteProps) {
   const { t } = useTranslation();
+  const { meetingData } = useMeetingSessionContext();
+
+  const targetRoomId = meetingData?.roomId;
+
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
@@ -51,8 +54,8 @@ export function useMeetingInvite({
 
   // Gọi API lấy thành viên phòng
   const { data: roomMembers, isLoading: isMembersLoading } =
-    useGetRoomMembersQuery(roomId || "", {
-      skip: !roomId || !isOpen,
+    useGetRoomMembersQuery(targetRoomId || "", {
+      skip: !targetRoomId || !isOpen,
     });
 
   // Gọi API tìm kiếm toàn cục

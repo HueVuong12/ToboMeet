@@ -8,7 +8,7 @@ import {
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
-import { Loader2, Smartphone } from "lucide-react";
+import { Loader2, Smartphone, Clock, Users, LogOut } from "lucide-react";
 import MeetingLobby from "@/components/meeting/MeetingLobby";
 import { useEffect, useState } from "react";
 import { RoomEvent } from "livekit-client";
@@ -250,97 +250,121 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
 
   if (participantStatus === "waiting") {
     return (
-      <div className="min-h-screen bg-[#111] flex flex-col items-center justify-center p-4 transition-all duration-500 animate-fade-in">
-        <style>{`
-          @keyframes bounce-dot {
-            0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-            40% { transform: translateY(-6px); opacity: 1; }
-          }
-          .animate-dot-1 { animation: bounce-dot 1.4s infinite ease-in-out both; animation-delay: -0.32s; }
-          .animate-dot-2 { animation: bounce-dot 1.4s infinite ease-in-out both; animation-delay: -0.16s; }
-          .animate-dot-3 { animation: bounce-dot 1.4s infinite ease-in-out both; }
-        `}</style>
-
-        <div className="flex items-end mb-3">
-          <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-wide">
-            {t("waiting_title")}
-          </h1>
-          <div className="flex space-x-1.5 ml-3 mb-1.5 lg:mb-2 lg:ml-4">
-            <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-1"></span>
-            <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-2"></span>
-            <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-dot-3"></span>
-          </div>
+      <div className="relative min-h-screen overflow-hidden bg-[#09090b] flex items-center justify-center p-4 lg:p-8 font-sans">
+        {/* Ambient Glows */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-950/25 via-[#09090b] to-[#09090b]" />
+          <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-blue-600/10 blur-3xl" />
+          <div className="absolute top-1/3 -right-24 w-[380px] h-[380px] rounded-full bg-indigo-500/10 blur-3xl" />
+          <div className="absolute -bottom-40 left-1/3 w-[460px] h-[460px] rounded-full bg-sky-500/8 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+              backgroundSize: "28px 28px",
+            }}
+          />
         </div>
 
-        <p className="text-gray-400 text-center max-w-md text-sm leading-relaxed mb-4 mt-2">
-          {t("waiting_desc")}
-        </p>
-
-        {/* HIỂN THỊ TỐI ĐA 5 NGƯỜI */}
-        {displayParticipants.length > 0 ? (
-          <div className="w-full max-w-lg mb-8 bg-[#1a1a1a] rounded-2xl p-5 border border-[#333] shadow-xl">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5 text-center">
-              {t("waiting_in_meeting")}
-            </h3>
-
-            <div className="flex flex-wrap justify-center gap-4">
-              {displayParticipants.slice(0, 5).map((p) => {
-                let avatarUrl = "";
-                try {
-                  if (p.metadata) {
-                    const meta = JSON.parse(p.metadata);
-                    avatarUrl = meta.avatarUrl;
-                  }
-                } catch (e) { }
-
-                return (
-                  <div
-                    key={p.identity}
-                    className="flex flex-col items-center gap-2 w-16 group"
-                  >
-                    <div className="relative">
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt={p.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-[#333] group-hover:border-brand-500 transition-colors"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 border-2 border-[#333] group-hover:border-brand-500 transition-colors uppercase">
-                          {p.name?.charAt(0) || "?"}
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1a1a1a] rounded-full"></div>
-                    </div>
-                    <span className="text-[10px] text-slate-300 text-center truncate w-full px-1">
-                      {p.name}
-                    </span>
-                  </div>
-                );
-              })}
+        {/* Main Card */}
+        <div className="relative z-10 w-full max-w-lg animate-fade-in">
+          <div className="rounded-3xl border border-white/10 bg-[#121216]/90 backdrop-blur-2xl shadow-2xl shadow-black/70 overflow-hidden p-6 lg:p-8 text-center">
+            {/* Title with bouncing wave dots */}
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">
+                {t("waiting_title")}
+              </h1>
+              <div className="flex items-center gap-1 mt-2">
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
+              </div>
             </div>
 
-            {/* DÒNG CHỮ HIỂN THỊ SỐ NGƯỜI CÒN LẠI */}
-            {displayParticipants.length > 5 && (
-              <div className="mt-5 text-center text-xs font-medium text-slate-400">
-                {t("waiting_others_count", {
-                  count: displayParticipants.length - 5,
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400 text-center mb-4">
-            {t("waiting_no_one")}
-          </p>
-        )}
+            <p className="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto mb-6">
+              {t("waiting_desc")}
+            </p>
 
-        <button
-          onClick={handleDisconnect}
-          className="px-6 py-2.5 bg-[#222] hover:bg-[#333] text-gray-300 rounded-xl text-sm font-medium transition-colors border border-[#333] hover:text-white"
-        >
-          {t("waiting_leave_btn")}
-        </button>
+            {/* Active Participants Subcard */}
+            <div className="w-full rounded-2xl bg-white/[0.03] border border-white/5 p-4 mb-6 text-left">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    {t("waiting_in_meeting")}
+                  </span>
+                </div>
+                {displayParticipants.length > 0 && (
+                  <span className="text-[11px] font-medium text-slate-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                    {displayParticipants.length} người
+                  </span>
+                )}
+              </div>
+
+              {displayParticipants.length > 0 ? (
+                <div className="flex items-center justify-center flex-wrap gap-3 py-1">
+                  {displayParticipants.slice(0, 5).map((p) => {
+                    let avatarUrl = "";
+                    try {
+                      if (p.metadata) {
+                        const meta = JSON.parse(p.metadata);
+                        avatarUrl = meta.avatar || meta.avatarUrl || "";
+                      }
+                    } catch (e) { }
+
+                    return (
+                      <div
+                        key={p.identity}
+                        className="flex flex-col items-center gap-1.5 w-14 group"
+                      >
+                        <div className="relative">
+                          {avatarUrl ? (
+                            <img
+                              src={avatarUrl}
+                              alt={p.name}
+                              className="w-11 h-11 rounded-full object-cover border-2 border-white/10 group-hover:border-blue-500/60 transition-colors"
+                            />
+                          ) : (
+                            <div className="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 border-2 border-white/10 group-hover:border-blue-500/60 transition-colors uppercase">
+                              {p.name?.charAt(0) || "?"}
+                            </div>
+                          )}
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 ring-2 ring-[#121216] rounded-full" />
+                        </div>
+                        <span className="text-[10px] text-slate-400 text-center truncate w-full group-hover:text-slate-200 transition-colors">
+                          {p.name || "Ẩn danh"}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {displayParticipants.length > 5 && (
+                    <div className="w-full text-center text-xs text-slate-500 font-medium pt-1">
+                      {t("waiting_others_count", {
+                        count: displayParticipants.length - 5,
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-4 text-center text-xs text-slate-500">
+                  {t("waiting_no_one")}
+                </div>
+              )}
+            </div>
+
+            {/* Leave Waiting Room Button */}
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-rose-300 bg-white/5 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/30 transition-all duration-200 active:scale-95 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>{t("waiting_leave_btn")}</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

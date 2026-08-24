@@ -16,14 +16,10 @@ import {
 import { useTranslation } from "react-i18next";
 
 export function useRoomSettings({
-  roomId,
-  channelId,
   meetingCode,
 }: {
-  roomId?: string;
-  channelId?: string;
-  meetingCode: string;
-}) {
+  meetingCode?: string;
+} = {}) {
   const { localParticipant } = useLocalParticipant();
   const { metadata: roomMetadata } = useRoomInfo();
 

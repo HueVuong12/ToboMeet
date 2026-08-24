@@ -19,17 +19,19 @@ import {
   useUpdateChannelMemberRoleMutation,
 } from "../lib/redux/features/rooms/roomsApi";
 import { useTranslation } from "react-i18next";
+import { useMeetingSessionContext } from "../components/meeting/contexts/MeetingSessionContext";
 
 export function useParticipantManager({
-  roomId,
-  channelId,
   meetingCode,
 }: {
-  roomId?: string;
-  channelId?: string;
   meetingCode?: string;
-}) {
+} = {}) {
   const { t } = useTranslation();
+  const { meetingData } = useMeetingSessionContext();
+
+  const roomId = meetingData?.roomId;
+  const channelId = meetingData?.channelId;
+
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const { getHandState } = useHandRaise();
@@ -99,73 +101,69 @@ export function useParticipantManager({
         const meta = JSON.parse(p.metadata);
         return meta.status === "waiting";
       }
-    } catch (e) {
-      console.error("Lỗi phân tích metadata của người tham gia:", e);
-    }
+    } catch (e) { }
     return false;
   });
 
-  // Lọc ra danh sách ĐÃ VÀO PHÒNG (joined/owner)
-  const displayParticipants = participants
-    .filter((p) => {
-      if (kickedUsers.includes(p.identity)) return false;
-      try {
-        if (p.metadata) {
-          const meta = JSON.parse(p.metadata);
-          return meta.status !== "waiting";
-        }
-      } catch (e) {
-        console.error("Lỗi phân tích metadata của người tham gia:", e);
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const stateA = getHandState(a);
-      const stateB = getHandState(b);
-
-      if (stateA.isRaised && stateB.isRaised) {
-        return parseInt(stateA.raisedAt) - parseInt(stateB.raisedAt);
-      }
-      if (stateA.isRaised) return -1;
-      if (stateB.isRaised) return 1;
-      return 0;
-    });
-
-  // Hàm duyệt người dùng (Dùng toast của React Native)
-  const handleApprove = async (identity: string, name: string) => {
-    if (!meetingCode) return;
-    const isAll = identity === "all";
-
+  // Lọc ra danh sách ĐÃ THAM GIA CHÍNH THỨC (joined)
+  const displayParticipants = participants.filter((p) => {
+    if (kickedUsers.includes(p.identity)) return false;
     try {
-      toast.success(
-        isAll ? t("meeting.member_modal.approve_all_loading") : t("meeting.member_modal.approve_loading", { name: name }),
-      );
+      if (p.metadata) {
+        const meta = JSON.parse(p.metadata);
+        return meta.status !== "waiting";
+      }
+    } catch (e) { }
+    return true;
+  });
+
+  // Xử lý Duyệt người dùng
+  const handleApprove = async (identity: string | "all") => {
+    if (!meetingCode) return;
+    try {
       await approveParticipantApi({
         code: meetingCode,
         identity,
       }).unwrap();
+      toast.success(
+        identity === "all"
+          ? t("meeting.member_modal.toast_approve_all_success", {
+            defaultValue: "Đã duyệt tất cả người chờ",
+          })
+          : t("meeting.member_modal.toast_approve_success", {
+            defaultValue: "Đã duyệt người tham gia",
+          }),
+      );
     } catch (error) {
-      console.error("Lỗi duyệt người dùng:", error);
-      toast.error(isAll ? t("meeting.member_modal.approve_all_error") : t("meeting.member_modal.approve_error"));
+      console.error(error);
+      toast.error(
+        t("meeting.member_modal.toast_approve_error", {
+          defaultValue: "Không thể duyệt lúc này",
+        }),
+      );
     }
   };
 
-  // Xử lý Đuổi
-  const handleRemove = (participant: Participant) => {
+  // Xử lý Xóa người dùng (Kick)
+  const handleRemove = (identity: string, name: string) => {
     if (!meetingCode) return;
-    Alert.alert(t("meeting.member_modal.confirm"), t("meeting.member_modal.remove_confirm", { name: participant.name }), [
+
+    Alert.alert(t("meeting.member_modal.remove_title"), t("meeting.member_modal.remove_confirm", { name }), [
       { text: t("meeting.member_modal.cancel"), style: "cancel" },
       {
-        text: t("meeting.member_modal.confirm"),
+        text: t("meeting.member_modal.remove_btn"),
         style: "destructive",
         onPress: async () => {
-          setKickingUserId(participant.identity);
+          setKickingUserId(identity);
           try {
             await removeParticipant({
               code: meetingCode,
-              identity: participant.identity,
+              identity,
             }).unwrap();
-            setKickedUsers((prev) => [...prev, participant.identity]);
+
+            // Optimistic UI: Ẩn ngay lập tức
+            setKickedUsers((prev) => [...prev, identity]);
+            toast.success(t("meeting.member_modal.remove_success", { name }));
           } catch (error) {
             console.error(error);
             Alert.alert(t("meeting.member_modal.error"), t("meeting.member_modal.remove_error"));
@@ -181,7 +179,7 @@ export function useParticipantManager({
     targetUserId: string,
     role: "admin" | "member",
   ) => {
-    if (!channelId || !roomId) return;
+    if (!roomId || !channelId) return;
 
     try {
       await updateRoleApi({
@@ -209,10 +207,10 @@ export function useParticipantManager({
         const subTitle = t("meeting.member_modal.role_vice_leader");
         toast.error(
           err?.data?.message ||
-            t("meeting.member_modal.toast_max_vice_leaders_reached", {
-              role: subTitle,
-              defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
-            }),
+          t("meeting.member_modal.toast_max_vice_leaders_reached", {
+            role: subTitle,
+            defaultValue: `Đã đạt số lượng tối đa 3 ${subTitle}`,
+          }),
         );
       } else {
         toast.error(err?.data?.message || "Không thể thu hồi quyền");
@@ -224,7 +222,7 @@ export function useParticipantManager({
     targetUserId: string,
     targetUserName: string,
   ) => {
-    if (!channelId || !roomId) return;
+    if (!roomId) return;
 
     Alert.alert(
       t("meeting.member_modal.transfer_modal_title", {
@@ -246,7 +244,7 @@ export function useParticipantManager({
           onPress: async () => {
             try {
               await transferOwnership({
-                roomId,
+                roomId: roomId,
                 newOwnerId: targetUserId,
               }).unwrap();
 
@@ -326,6 +324,7 @@ export function useParticipantManager({
     isLocalOwner,
     kickingUserId,
     renameState,
+
     setRenameState,
     handleRemove,
     handleRenameSubmit,

@@ -33,7 +33,6 @@ import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../lib/redux/store";
-import PreviewModal from "../../components/meeting/PreviewModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoomUpdateListener } from "../../hooks/socket/useRoomUpdateListener";
 import { useMeetingDeviceStatus } from "../../hooks/useMeetingDeviceStatus";
@@ -113,7 +112,6 @@ export default function RoomDetailScreen() {
 
   // Handover state (Leave Room as Owner)
   const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Drawer states
   const [showLeftDrawer, setShowLeftDrawer] = useState(false);
@@ -183,11 +181,10 @@ export default function RoomDetailScreen() {
     activeChannelId,
   );
 
-  // Lấy hàm xử lý hành động khi user ấn nút "Tham gia"
-  const { handleJoinMeeting, isJoining } = useMeetingLauncher({
+  // Lấy hàm xử lý hành động khi user ấn nút "Tham gia" / "Bắt đầu cuộc họp"
+  const { handleStartOrJoinMeeting, isJoining } = useMeetingLauncher({
     roomId: id,
     activeChannelId,
-    displayName: profile?.displayName,
   });
 
   // Lắng nghe bất kì sự kiện nào trong room, đã refractor thành hook
@@ -493,7 +490,7 @@ export default function RoomDetailScreen() {
               </View>
             ) : (
               <TouchableOpacity
-                onPress={() => setShowPreviewModal(true)}
+                onPress={handleStartOrJoinMeeting}
                 disabled={isJoining}
                 className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
               >
@@ -509,7 +506,7 @@ export default function RoomDetailScreen() {
             )
           ) : (
             <TouchableOpacity
-              onPress={() => setShowPreviewModal(true)}
+              onPress={handleStartOrJoinMeeting}
               disabled={isJoining}
               className="bg-[#0052FF] px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
             >
@@ -1105,15 +1102,6 @@ export default function RoomDetailScreen() {
           roomName={room.name}
         />
       )}
-
-      <PreviewModal
-        isOpen={showPreviewModal}
-        onClose={() => setShowPreviewModal(false)}
-        isJoining={isJoining}
-        onJoin={(config) => {
-          handleJoinMeeting(false, config);
-        }}
-      />
       {/* Modal Xác nhận Rời khỏi Kênh riêng tư */}
       <Modal
         visible={!!channelToLeave}

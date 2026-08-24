@@ -18,7 +18,6 @@ import { useTranslation } from "react-i18next";
 interface InviteMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  roomId: string | null;
   meetingCode: string;
   displayParticipants: Participant[];
 }
@@ -26,7 +25,6 @@ interface InviteMemberModalProps {
 export default function InviteMemberModal({
   isOpen,
   onClose,
-  roomId,
   meetingCode,
   displayParticipants,
 }: InviteMemberModalProps) {
@@ -44,7 +42,6 @@ export default function InviteMemberModal({
     handleSendInvite,
     loadMore,
   } = useMeetingInvite({
-    roomId,
     meetingCode,
     displayParticipants,
     isOpen,

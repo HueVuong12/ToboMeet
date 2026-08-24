@@ -216,7 +216,6 @@ export default function CreateBreakoutModal({
     });
 
     setRooms(updated);
-    toast.success(t("shuffle_again"));
   };
 
   // Add new room in Step 2

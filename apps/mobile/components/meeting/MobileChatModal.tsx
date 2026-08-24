@@ -48,20 +48,16 @@ function groupMessages<
 export default function MobileChatModal({
   visible,
   onClose,
-  roomId,
-  channelId,
   meetingCode,
 }: {
   visible: boolean;
   onClose: () => void;
-  roomId: string;
-  channelId: string;
   meetingCode: string;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
-  const { canChat } = useRoomSettings({ roomId, channelId, meetingCode });
+  const { canChat } = useRoomSettings({ meetingCode });
 
   const {
     localParticipant,

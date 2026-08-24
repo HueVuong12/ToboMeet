@@ -217,11 +217,6 @@ export default function CreateBreakoutModal({
     });
 
     setRooms(updated);
-    toast.success(
-      t("meeting.create_breakout_modal.shuffle_again", {
-        defaultValue: "Chia ngẫu nhiên lại",
-      }),
-    );
   };
 
   // Add new room in Step 2

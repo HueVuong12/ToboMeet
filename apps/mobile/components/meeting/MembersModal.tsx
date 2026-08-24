@@ -17,14 +17,10 @@ import { useTranslation } from "react-i18next";
 export default function MembersModal({
   visible,
   onClose,
-  roomId,
-  channelId,
   meetingCode,
 }: {
   visible: boolean;
   onClose: () => void;
-  roomId: string;
-  channelId: string;
   meetingCode: string;
 }) {
   const insets = useSafeAreaInsets();
@@ -52,7 +48,7 @@ export default function MembersModal({
     handleUpdateRole,
     handleApprove,
     getHandState,
-  } = useParticipantManager({ roomId, channelId, meetingCode });
+  } = useParticipantManager({ meetingCode });
 
   useEffect(() => {
     if (!canApprove && activeListTab === "waiting") {
@@ -148,7 +144,7 @@ export default function MembersModal({
 
             {activeListTab === "waiting" && waitingParticipants.length > 0 && (
               <TouchableOpacity
-                onPress={() => handleApprove("all", "Tất cả")}
+                onPress={() => handleApprove("all")}
                 className="bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-lg"
               >
                 <Text className="text-amber-400 text-xs font-bold">
@@ -264,7 +260,9 @@ export default function MembersModal({
                     {activeListTab === "waiting" ? (
                       <View className="flex-row gap-2">
                         <TouchableOpacity
-                          onPress={() => handleRemove(p)}
+                          onPress={() =>
+                            handleRemove(p.identity, p.name || "Người dùng")
+                          }
                           className="p-2 bg-red-500/15 border border-red-500/20 rounded-lg"
                         >
                           <Feather
@@ -274,9 +272,7 @@ export default function MembersModal({
                           />
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() =>
-                            handleApprove(p.identity, p.name || "Người dùng")
-                          }
+                          onPress={() => handleApprove(p.identity)}
                           className="p-2 bg-amber-500/15 border border-amber-500/20 rounded-lg"
                         >
                           <Feather name="check" size={14} color="#f59e0b" />
@@ -482,7 +478,10 @@ export default function MembersModal({
 
                               <TouchableOpacity
                                 onPress={() => {
-                                  handleRemove(p);
+                                  handleRemove(
+                                    p.identity,
+                                    p.name || "Người dùng",
+                                  );
                                   setOpenActionId(null);
                                 }}
                                 className="flex-row items-center py-2.5 px-3.5 gap-2.5"

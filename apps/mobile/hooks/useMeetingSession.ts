@@ -1,14 +1,15 @@
 // hooks/useMeetingSession.ts
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { MeetingPayload, MeetingStore } from "../lib/meetingStore";
+import { MeetingPayload } from "../lib/meetingStore";
 import { AudioSession } from "@livekit/react-native";
 import { Room } from "livekit-client";
 import { toast } from "../lib/toast";
 import { useMeetingCacheManager } from "./useMeetingCacheManager";
 import {
   useJoinBreakoutRoomMutation,
-  useJoinMeetingByCodeMutation,
+  useJoinMeetingMutation,
   useLazyGetMemberStatusQuery,
   useReturnToMainRoomMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
@@ -39,14 +40,13 @@ export function useMeetingSession() {
     | "JOINED"
     | "SWITCHING_BREAKOUT"
     | "RETURNING_TO_MAIN"
-  >("LOADING");
+  >("IN_LOBBY");
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const { data: myProfile } = useGetMeQuery();
   const { clearMeetingDeviceStatus } = useMeetingCacheManager();
   const [getMemberStatus] = useLazyGetMemberStatusQuery();
-  const [joinMeetingByCodeApi, { isLoading: isJoining }] =
-    useJoinMeetingByCodeMutation();
+  const [joinMeetingApi, { isLoading: isJoining }] = useJoinMeetingMutation();
   const [returnToMainRoomApi, { isLoading: isLeavingBreakout }] =
     useReturnToMainRoomMutation();
   const [joinBreakoutApi, { isLoading: isJoiningBreakout }] =
@@ -58,27 +58,15 @@ export function useMeetingSession() {
     setDisplayName(myProfile.displayName);
   }, [myProfile]);
 
-  // Khởi tạo dữ liệu phòng
+  // Khởi tạo hệ thống âm thanh khi vào màn hình họp
   useEffect(() => {
     if (!meetingCode) return;
-
-    const data = MeetingStore.get();
-
-    // Nếu chưa nhận được token từ preview modal thì vào lobby
-    if (data) {
-      setMeetingData(data);
-      MeetingStore.clear();
-      setStatus("JOINED");
-    } else {
-      setStatus("IN_LOBBY");
-    }
 
     const configureAudio = async () => {
       try {
         await AudioSession.startAudioSession();
       } catch (error) {
         console.error("Lỗi khi khởi động hệ thống âm thanh:", error);
-        toast.error("Lỗi khi khởi động hệ thống âm thanh");
       }
     };
     configureAudio();
@@ -103,7 +91,7 @@ export function useMeetingSession() {
     return () => {
       roomInstance.disconnect();
     };
-  }, [meetingData]);
+  }, [status, meetingData]);
 
   // Tối ưu cấu hình kết nối để không bị lag
   const connectOptions = useMemo(() => {
@@ -140,10 +128,9 @@ export function useMeetingSession() {
     // Tạo một khoảng trễ nhỏ để UI kịp render màn hình loading rời phòng
     setTimeout(() => {
       clearMeetingDeviceStatus(meetingCode);
-
       handleSmartRedirect();
     }, 600);
-  }, [meetingData, clearMeetingDeviceStatus, handleSmartRedirect]);
+  }, [meetingCode, clearMeetingDeviceStatus, handleSmartRedirect]);
 
   const handleDisconnect = useCallback(() => {
     if (customRoom) {
@@ -230,42 +217,77 @@ export function useMeetingSession() {
     [deviceId, returnToMainRoomApi],
   );
 
-  const handleJoinByCode = async () => {
-    if (!meetingCode || !deviceId) {
-      toast.error("Đang tải định danh thiết bị, vui lòng thử lại!");
-      return;
-    }
-
-    try {
-      const response = await joinMeetingByCodeApi({
-        meetingCode,
-        deviceId,
-        displayName: displayName || "Người dùng ẩn danh",
-      }).unwrap();
-
-      setMeetingData({
-        token: response.token,
-        roomId: response.roomId,
-        channelId: response.channelId,
-        isCamOn: camOn,
-        isMicOn: micOn,
-        cameraFacing,
-      });
-
-      setStatus("JOINED");
-    } catch (error: any) {
-      if (error?.code === 4013) {
-        toast.error("Bạn đang ở trong phòng này trên thiết bị/tab khác.");
-      } else if (error?.code === 4014) {
-        toast.error("Cuộc họp chưa bắt đầu hoặc đã kết thúc");
-      } else {
-        toast.error("Không thể tham gia cuộc họp lúc này.");
+  // Tham gia hoặc bắt đầu cuộc họp (đồng bộ theo cơ chế mới)
+  const handleJoinByCode = useCallback(
+    async (allowStart = false, forceSwitch = false) => {
+      if (!meetingCode) return;
+      if (!deviceId) {
+        toast.error("Đang tải định danh thiết bị, vui lòng thử lại!");
+        return;
       }
-    }
-  };
+
+      try {
+        const response = await joinMeetingApi({
+          meetingCode,
+          deviceId,
+          displayName: displayName?.trim() || undefined,
+          allowStart,
+          forceSwitch,
+        }).unwrap();
+
+        setMeetingData({
+          token: response.token,
+          roomId: response.roomId,
+          channelId: response.channelId,
+          isCamOn: camOn,
+          isMicOn: micOn,
+          cameraFacing,
+        });
+
+        setStatus("JOINED");
+      } catch (error: any) {
+        if (error?.code === 4013) {
+          Alert.alert(
+            "Đang trong cuộc họp",
+            "Bạn đang ở trong phòng này trên một thiết bị khác. Bạn có muốn chuyển sang điện thoại này không?",
+            [
+              { text: "Hủy", style: "cancel" },
+              {
+                text: "Chuyển sang máy này",
+                onPress: () => {
+                  handleJoinByCode(allowStart, true);
+                  toast.info("Đang chuyển thiết bị và vào phòng...");
+                },
+              },
+            ],
+          );
+        } else if (error?.code === 4014) {
+          toast.error("Cuộc họp chưa bắt đầu hoặc đã kết thúc");
+          await handleSmartRedirect();
+        } else {
+          const msg =
+            error?.data?.message ||
+            error?.message ||
+            "Không thể tham gia cuộc họp lúc này.";
+          toast.error(msg);
+        }
+      }
+    },
+    [
+      meetingCode,
+      deviceId,
+      displayName,
+      camOn,
+      micOn,
+      cameraFacing,
+      joinMeetingApi,
+      handleSmartRedirect,
+    ],
+  );
 
   return {
-    code,
+    code: meetingCode,
+    meetingCode,
     status,
     LIVEKIT_URL,
     meetingData,
@@ -293,6 +315,6 @@ export function useMeetingSession() {
     handleDisconnect,
     handleSwitchToBreakout,
     handleReturnToMain,
+    handleSmartRedirect,
   };
 }
-

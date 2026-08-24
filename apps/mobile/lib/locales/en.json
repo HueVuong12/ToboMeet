@@ -373,16 +373,23 @@
     "lobby": {
       "title": "Ready to join",
       "subtitle": "Check your camera and mic before entering",
-      "room_code": "Room code",
+      "room_code": "Meeting code",
       "camera_off": "Camera is off",
+      "mic_off_indicator": "Microphone muted",
       "display_name": "Display name",
-      "display_name_placeholder": "Enter your name",
+      "display_name_placeholder": "Enter your display name",
       "join_now": "Join now",
+      "start_meeting": "Start meeting",
       "mic_on": "Mute microphone",
       "mic_off": "Unmute microphone",
       "cam_on": "Turn off camera",
       "cam_off": "Turn on camera",
-      "flip_camera": "Flip camera"
+      "flip_camera": "Flip camera",
+      "permission_cam_title": "Camera Permission Required",
+      "permission_cam_desc": "Grant camera access to preview your video",
+      "grant_permission": "Grant permission",
+      "code_copied": "Meeting code copied",
+      "privacy_notice": "You can adjust devices and toggle mic or camera at any time during the meeting."
     },
     "member_modal": {
       "role_leader": "Leader",
