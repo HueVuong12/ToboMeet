@@ -6,7 +6,6 @@ import { useDeviceId } from "@/hooks/useDeviceId";
 import { useMeetingCacheManager } from "@/hooks/useMeetingCacheManager";
 import {
   useJoinBreakoutRoomMutation,
-  useJoinMeetingByCodeMutation,
   useJoinMeetingMutation,
   useLazyGetMemberStatusQuery,
   useReturnToMainRoomMutation,
@@ -50,16 +49,13 @@ export function useMeetingSession() {
   // Trạng thái kết nối
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [status, setStatus] = useState<
-    | "LOOKING_FOR_TOKEN"
     | "IN_LOBBY"
     | "JOINED"
     | "RECONNECTING"
     | "SWITCHING_BREAKOUT"
     | "RETURNING_TO_MAIN"
-  >("LOOKING_FOR_TOKEN");
+  >("IN_LOBBY");
 
-  const [joinMeetingByCodeApi, { isLoading }] =
-    useJoinMeetingByCodeMutation();
   const [joinMeetingApi, { isLoading: isJoining }] = useJoinMeetingMutation();
   const [returnToMainRoomApi, { isLoading: isLeavingBreakout }] =
     useReturnToMainRoomMutation();
@@ -227,6 +223,7 @@ export function useMeetingSession() {
     [deviceId, returnToMainRoomApi, t, tSession],
   );
 
+  // Tham gia/bắt đầu cuộc họp
   const handleJoinByCode = useCallback(async (allowStart = false) => {
     if (!meetingCode) return;
     if (!deviceId) {
@@ -290,65 +287,20 @@ export function useMeetingSession() {
         setStatus("IN_LOBBY");
       }
     }
-  }, [meetingCode, displayName, deviceId, joinMeetingByCodeApi, t, tSession]);
+  }, [meetingCode, displayName, deviceId, joinMeetingApi, t, tSession]);
 
-  // Kiểm tra Session hoặc xin Token qua BroadcastChannel (loại bỏ gấp)
+  // Kiểm tra Session khi tải trang (F5 / Reconnect)
   useEffect(() => {
-    if (!meetingCode || status !== "LOOKING_FOR_TOKEN") return;
+    if (!meetingCode) return;
 
     const isJoined = sessionStorage.getItem(`is_joined_${meetingCode}`);
 
     if (isJoined) {
       setStatus("RECONNECTING");
-      return;
+    } else {
+      setStatus("IN_LOBBY");
     }
-
-    const bc = new BroadcastChannel(`token_channel_${meetingCode}`);
-
-    bc.onmessage = (event) => {
-      if (event.data?.type === "TOKEN_PAYLOAD") {
-        sessionStorage.setItem(`is_joined_${meetingCode}`, "true");
-
-        // Lưu cấu hình nhận được từ kênh Broadcast vào state và session
-        if (event.data.deviceConfig) {
-          sessionStorage.setItem(
-            `device_config_${meetingCode}`,
-            JSON.stringify(event.data.deviceConfig),
-          );
-          setCamOn(event.data.deviceConfig.camOn);
-          setMicOn(event.data.deviceConfig.micOn);
-          setHardwareConfig({
-            micId: event.data.deviceConfig.micId,
-            speakerId: event.data.deviceConfig.speakerId,
-            parsedCameraConfig: event.data.deviceConfig.cameraConfig,
-          });
-        }
-
-        setMeetingData({
-          token: event.data.token,
-          roomId: event.data.roomId,
-          channelId: event.data.channelId,
-        });
-        setStatus("JOINED");
-        bc.close();
-      }
-    };
-
-    bc.postMessage("TAB_B_READY");
-
-    // Nếu không nhận được token thì fallback vào lobby để xin token
-    const timeout = setTimeout(() => {
-      if (status === "LOOKING_FOR_TOKEN") {
-        setStatus("IN_LOBBY");
-        bc.close();
-      }
-    }, 1500);
-
-    return () => {
-      bc.close();
-      clearTimeout(timeout);
-    };
-  }, [meetingCode, status, handleJoinByCode]);
+  }, [meetingCode]);
 
   // khi RECONNECTING + deviceId sẵn sàng → join
   useEffect(() => {
@@ -360,6 +312,7 @@ export function useMeetingSession() {
     handleJoinByCode();
   }, [status, deviceId, handleJoinByCode]);
 
+  // Rời cuộc họp
   const handleDisconnect = () => {
     if (isUnloadingRef.current) return;
 

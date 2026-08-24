@@ -16,7 +16,6 @@ import {
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { Roles } from "../core/decorators/roles.decorator";
-import { JoinMeetingDto } from "./dtos/join-meeting.dto";
 import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { MeetingInviteService } from "./meeting-invite.service";
 import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
@@ -37,32 +36,8 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller("rooms/:id/channels/:channelId/meetings")
-export class MeetingsController {
+export class ChannelMeetingsController {
   constructor(private readonly meetingsService: MeetingsService) { }
-
-  /**
-   * POST /api/rooms/:id/channels/:channelId/meetings/join
-   * Mọi thành viên hợp lệ trong phòng đều có quyền gọi để Lấy Token (Join/Create)
-   */
-  @Post("join")
-  @Roles("owner", "admin", "member")
-  @UseGuards(SupabaseGuard, ChannelRoleGuard)
-  async joinOrCreateMeeting(
-    @Param("id") roomId: string,
-    @Param("channelId") channelId: string,
-    @Body() body: JoinMeetingDto,
-    @Req() req: AuthenticatedRequest,
-  ) {
-    const userId = req.user.id;
-    return this.meetingsService.joinOrCreateMeeting(
-      roomId,
-      channelId,
-      userId,
-      body.deviceId,
-      body.displayName,
-      body.forceSwitch,
-    );
-  }
 
   /**
    * GET /api/rooms/:id/channels/:channelId/meetings/active
@@ -76,35 +51,30 @@ export class MeetingsController {
   ) {
     return this.meetingsService.getActiveMeeting(roomId, channelId);
   }
+
+  /**
+   * POST /api/rooms/:id/channels/:channelId/meetings/ensure
+   * Lấy hoặc tạo meetingCode cho channel
+   */
+  @Post("ensure")
+  @Roles("owner", "admin", "member")
+  @UseGuards(SupabaseGuard, ChannelRoleGuard)
+  async ensureChannelMeeting(
+    @Param("id") roomId: string,
+    @Param("channelId") channelId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.meetingsService.ensureChannelMeeting(roomId, channelId, userId);
+  }
 }
 
 @Controller("meetings")
-export class GlobalMeetingsController {
+export class MeetingsController {
   constructor(
     private readonly meetingsService: MeetingsService,
     private readonly meetingInviteService: MeetingInviteService,
   ) { }
-
-  /**
-   * POST /api/meetings/join-by-code
-   * Khách từ bên ngoài gửi meetingCode lên để xin vào phòng
-   */
-  @Post("join-by-code")
-  @UseGuards(SupabaseGuard)
-  async joinMeetingByCode(
-    @Body()
-    body: { meetingCode: string; deviceId: string; displayName?: string },
-    @Req() req: AuthenticatedRequest,
-  ) {
-    const userId = req.user.id;
-
-    return this.meetingsService.joinMeetingByCode(
-      body.meetingCode,
-      userId,
-      body.deviceId,
-      body.displayName,
-    );
-  }
 
   /**
    * POST /meetings/join

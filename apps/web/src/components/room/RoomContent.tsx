@@ -7,21 +7,12 @@ import {
   useRemoveMemberMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
-import {
-  Loader2,
-  Menu,
-  X,
-  Info,
-  Video,
-  ChevronDown,
-  Calendar,
-} from "lucide-react";
+import { Loader2, Menu, X, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
-import PreviewModal from "../meeting/PreviewModal";
 import ReportUserModal from "./ReportUserModal";
 import TransferOwnershipModal from "./TransferOwnershipModal";
 import { useRoomUpdateListener } from "@/hooks/socket/useRoomUpdateListener";
@@ -29,12 +20,11 @@ import {
   meetingsApi,
   useGetActiveMeetingQuery,
 } from "@/lib/redux/api/meetingsApi";
-import { useMeetingDeviceStatus } from "@/hooks/useMeetingDeviceStatus";
-import { useMeetingLauncher } from "@/hooks/useMeetingLauncher";
 import NewsFeed from "./NewsFeed";
 import ChannelFilesTab from "./ChannelFilesTab";
 import RoomRightSidebar from "./RoomRightSidebar";
 import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
+import ChannelMeetingButton from "./ChannelMeetingButton";
 
 interface RoomContentProps {
   roomId: string;
@@ -71,8 +61,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
-  const [isMeetingMenuOpen, setIsMeetingMenuOpen] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showChannelMeetingModal, setShowChannelMeetingModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
     userId: string;
@@ -136,8 +124,8 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   }, [room?.channels, activeChannel]);
 
   const isCurrentUserRoomOwner =
-    !!(isCurrentUserOwner || 
-    (currentUserRoomRole && ["owner", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase())));
+    !!(isCurrentUserOwner ||
+      (currentUserRoomRole && ["owner", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase())));
 
   const currentUserChannelRole = currentChannel?.members?.find(
     (m: any) => m.userId === userId,
@@ -148,33 +136,19 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   // 2. Phó nhóm cấp kênh tại KÊNH CÔNG KHAI (không phải isPrivate)
   const isCurrentUserRoomAdmin =
     !!(!isCurrentUserRoomOwner &&
-    ((currentUserRoomRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserRoomRole.toLowerCase())) ||
-      (currentChannel?.isPrivate !== true &&
-        currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase()))));
+      ((currentUserRoomRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserRoomRole.toLowerCase())) ||
+        (currentChannel?.isPrivate !== true &&
+          currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase()))));
 
   const canUserManageChannel =
     !!(isCurrentUserRoomOwner ||
-    isCurrentUserRoomAdmin ||
-    (currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase())));
+      isCurrentUserRoomAdmin ||
+      (currentUserChannelRole && ["admin", "vice", "vice_leader", "assistant"].includes(currentUserChannelRole.toLowerCase())));
 
   const { data: activeMeeting } = useGetActiveMeetingQuery(
     { roomId, channelId: currentChannel?._id || "" },
     { skip: !currentChannel?._id },
   );
-
-  // Lấy trạng thái độc lập
-  const { isJoinedOnThisDevice } = useMeetingDeviceStatus(
-    activeMeeting?.meetingCode,
-    roomId,
-  );
-
-  // Lấy hàm khởi tạo độc lập
-  const { handleJoinMeeting, isJoining } = useMeetingLauncher({
-    roomId,
-    currentChannel,
-    activeChannel,
-    setShowPreviewModal,
-  });
 
   // Navigation Guard: Nếu kênh hiện tại không nằm trong danh sách được phép truy cập (VD: bị xóa khỏi Kênh riêng tư)
   useEffect(() => {
@@ -347,22 +321,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
               <button
                 onClick={() => setActiveTab("feed")}
-                className={`px-3 py-4 border-b-2 transition-colors ${
-                  activeTab === "feed"
-                    ? "border-brand-500 text-brand-600 font-semibold"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
+                className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "feed"
+                  ? "border-brand-500 text-brand-600 font-semibold"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 {t("class_feed")}
               </button>
               {/* localized files tab */}
               <button
                 onClick={() => setActiveTab("files")}
-                className={`px-3 py-4 border-b-2 transition-colors ${
-                  activeTab === "files"
-                    ? "border-brand-500 text-brand-600 font-semibold"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
+                className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "files"
+                  ? "border-brand-500 text-brand-600 font-semibold"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 {t("files")}
               </button>
@@ -371,75 +343,19 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
           <div className="flex items-center gap-2">
             {/* Nút Cuộc họp / Tham gia */}
-            <div className="relative">
-              {activeMeeting?.isOngoing ? (
-                isJoinedOnThisDevice ? (
-                  // TRẠNG THÁI 1: ĐANG HỌP TRÊN CHÍNH MÁY NÀY
-                  <button className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium border border-emerald-300 cursor-default">
-                    <Video size={16} />
-                    <span>{t("btn_in_meeting")}</span>
-                  </button>
-                ) : (
-                  // TRẠNG THÁI 2: ĐANG HỌP Ở MÁY KHÁC (HOẶC CHƯA VÀO) -> Nút Chuyển thiết bị
-                  <button
-                    onClick={() => setShowPreviewModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-amber-500/20"
-                  >
-                    <Video size={16} />
-                    <span>{t("btn_join")}</span>
-                  </button>
-                )
-              ) : (
-                // TRẠNG THÁI 3: KHÔNG CÓ CUỘC HỌP -> Hiện menu tạo mới như cũ
-                <>
-                  <button
-                    onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium transition-colors"
-                  >
-                    <Video size={16} />
-                    <span>{t("btn_meeting")}</span>
-                    <ChevronDown size={14} />
-                  </button>
-
-                  {isMeetingMenuOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsMeetingMenuOpen(false)}
-                      />
-                      <div className="absolute right-0 top-12 z-50 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1">
-                        <button
-                          onClick={() => {
-                            setIsMeetingMenuOpen(false);
-                            setShowPreviewModal(true);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <Video size={16} /> {t("start_now")}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsMeetingMenuOpen(false);
-                            setShowChannelMeetingModal(true);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <Calendar size={16} /> {t("schedule_meeting")}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
+            <ChannelMeetingButton
+              roomId={roomId}
+              channelId={currentChannelId}
+              isOngoing={!!activeMeeting?.isOngoing}
+              onScheduleMeeting={() => setShowChannelMeetingModal(true)}
+            />
 
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              className={`p-2 rounded-md transition-colors flex items-center gap-2 text-sm font-medium ${
-                isRightSidebarOpen
-                  ? "bg-brand-50 text-brand-600"
-                  : "hover:bg-slate-100 text-slate-600"
-              }`}
+              className={`p-2 rounded-md transition-colors flex items-center gap-2 text-sm font-medium ${isRightSidebarOpen
+                ? "bg-brand-50 text-brand-600"
+                : "hover:bg-slate-100 text-slate-600"
+                }`}
             >
               <Info size={18} />
             </button>
@@ -484,13 +400,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           onClick={() => setIsRightSidebarOpen(false)}
         />
       )}
-
-      <PreviewModal
-        isOpen={showPreviewModal}
-        onClose={() => setShowPreviewModal(false)}
-        onJoin={handleJoinMeeting}
-        isJoining={isJoining}
-      />
 
       <RoomRightSidebar
         room={room}

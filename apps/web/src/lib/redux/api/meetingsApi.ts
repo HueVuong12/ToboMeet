@@ -16,6 +16,7 @@ interface ExchangeSessionResponse {
 
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+
     // Join cuộc họp chung (hỗ trợ cả channel + personal)
     joinMeeting: builder.mutation<
       MeetingJoinResponse,
@@ -34,36 +35,6 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
-    // Join/Create cuộc họp theo kênh trong room
-    joinChannelMeeting: builder.mutation<
-      MeetingJoinResponse,
-      {
-        roomId: string;
-        channelId: string;
-        deviceId: string;
-        displayName?: string;
-        forceSwitch?: boolean;
-      }
-    >({
-      query: ({ roomId, channelId, deviceId, displayName, forceSwitch }) => ({
-        url: `/rooms/${roomId}/channels/${channelId}/meetings/join`,
-        method: "POST",
-        data: { displayName, forceSwitch, deviceId },
-      }),
-    }),
-
-    // Join cuộc họp bằng meetingCode (dành cho khách/ngoài phòng)
-    joinMeetingByCode: builder.mutation<
-      MeetingJoinResponse,
-      { meetingCode: string; deviceId: string; displayName?: string }
-    >({
-      query: ({ meetingCode, deviceId, displayName }) => ({
-        url: `/meetings/join-by-code`,
-        method: "POST",
-        data: { displayName, deviceId, meetingCode },
-      }),
-    }),
-
     // Kiểm tra quyền start cuộc họp
     canStartMeeting: builder.query<
       { canStart: boolean; reason?: string },
@@ -79,6 +50,17 @@ export const meetingsApi = baseApi.injectEndpoints({
     ensurePersonalMeeting: builder.mutation<{ meetingCode: string }, void>({
       query: () => ({
         url: `/meetings/personal/ensure`,
+        method: "POST",
+      }),
+    }),
+
+    // Lấy hoặc tạo channel meeting
+    ensureChannelMeeting: builder.mutation<
+      { meetingCode: string },
+      { roomId: string; channelId: string }
+    >({
+      query: ({ roomId, channelId }) => ({
+        url: `/rooms/${roomId}/channels/${channelId}/meetings/ensure`,
         method: "POST",
       }),
     }),
@@ -316,11 +298,10 @@ export const meetingsApi = baseApi.injectEndpoints({
 
 export const {
   useJoinMeetingMutation,
-  useJoinChannelMeetingMutation,
-  useJoinMeetingByCodeMutation,
   useCanStartMeetingQuery,
   useLazyCanStartMeetingQuery,
   useEnsurePersonalMeetingMutation,
+  useEnsureChannelMeetingMutation,
   useGetActiveMeetingQuery,
   useLazyGetActiveMeetingQuery,
   useGetDeviceStatusQuery,

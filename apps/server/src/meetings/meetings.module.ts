@@ -2,7 +2,7 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import {
-  GlobalMeetingsController,
+  ChannelMeetingsController,
   MeetingsController,
 } from "./meetings.controller";
 import { CalendarController } from "./calendar.controller";
@@ -54,7 +54,7 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
   controllers: [
     BreakoutRoomsController,
     MeetingsController,
-    GlobalMeetingsController,
+    ChannelMeetingsController,
     CalendarController,
   ],
   providers: [

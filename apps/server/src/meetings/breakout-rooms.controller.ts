@@ -14,6 +14,8 @@ import {
 import { BreakoutRoomsService } from "./breakout-rooms.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { StartBreakoutSessionDto } from "./dtos/create-breakout-room.dto";
+import { Roles } from "../core/decorators/roles.decorator";
+import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -24,14 +26,15 @@ interface AuthenticatedRequest extends Request {
 @Controller("meetings")
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class BreakoutRoomsController {
-  constructor(private readonly breakoutRoomsService: BreakoutRoomsService) {}
+  constructor(private readonly breakoutRoomsService: BreakoutRoomsService) { }
 
   /**
    * POST /api/meetings/:code/breakout/start
    * HOST: Khởi tạo phiên Breakout (Chỉ Owner/Admin mới được phép)
    */
   @Post(":code/breakout/start")
-  @UseGuards(SupabaseGuard)
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, MeetingRoleGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async startBreakout(
     @Param("code") meetingCode: string,
@@ -49,8 +52,8 @@ export class BreakoutRoomsController {
    * HOST: Kết thúc phiên Breakout sớm (Chỉ Owner/Admin)
    */
   @Post(":code/breakout/end")
-  //   @Roles("owner", "admin")
-  @UseGuards(SupabaseGuard)
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, MeetingRoleGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async endBreakout(@Param("code") meetingCode: string) {
     await this.breakoutRoomsService.endBreakoutSession(meetingCode);

@@ -46,7 +46,6 @@ function MeetingPageContent() {
   // GỘP CHUNG CÁC TRẠNG THÁI LOADING THÀNH 1 BIẾN
   const isLoadingState =
     isAuthenticated === null ||
-    status === "LOOKING_FOR_TOKEN" ||
     status === "RECONNECTING" ||
     status === "SWITCHING_BREAKOUT" ||
     status === "RETURNING_TO_MAIN";
@@ -57,8 +56,6 @@ function MeetingPageContent() {
     // Gán nội dung tương ứng theo trạng thái
     if (isAuthenticated === null) {
       loadingDesc = t("loading_wait");
-    } else if (status === "LOOKING_FOR_TOKEN") {
-      loadingDesc = t("loading_prepare_room");
     } else if (status === "RECONNECTING") {
       loadingDesc = t("loading_reconnecting");
     } else if (status === "SWITCHING_BREAKOUT") {
