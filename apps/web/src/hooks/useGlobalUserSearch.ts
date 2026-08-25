@@ -1,32 +1,52 @@
 import { useSearchUsersQuery } from "@/lib/redux/api/usersApi";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import debounce from "lodash/debounce";
 
 interface UseGlobalUserSearchOptions {
   q: string;
   limit?: number;
   skip?: boolean;
+  debounceMs?: number;
 }
 
-// Tuyệt đối không sửa hook này nữa
 export function useGlobalUserSearch({
   q,
   limit = 20,
   skip = false,
+  debounceMs = 500,
 }: UseGlobalUserSearchOptions) {
+  const [debouncedQuery, setDebouncedQuery] = useState(q);
   const [page, setPage] = useState(1);
 
-  // Tự động reset về trang 1 mỗi khi từ khóa tìm kiếm thay đổi
+  // Debounce logic
+  const debouncedSetQuery = useMemo(
+    () =>
+      debounce((query: string) => {
+        setDebouncedQuery(query);
+      }, debounceMs),
+    [debounceMs],
+  );
+
+  useEffect(() => {
+    debouncedSetQuery(q);
+    return () => {
+      debouncedSetQuery.cancel();
+    };
+  }, [q, debouncedSetQuery]);
+
+  // Tự động reset về trang 1 mỗi khi từ khóa tìm kiếm (đã debounce) thay đổi
   useEffect(() => {
     setPage(1);
-  }, [q]);
+  }, [debouncedQuery]);
 
   // Ngăn chặn gọi API nếu từ khóa rỗng hoặc skip được truyền vào
-  const shouldSkip = skip || !q || q.trim() === "";
+  const trimmedQuery = debouncedQuery?.trim() || "";
+  const shouldSkip = skip || !trimmedQuery;
 
-  // Gọi RTK Query với page hiện tại và từ khóa
+  // Gọi RTK Query với page hiện tại và debounced query
   const queryResult = useSearchUsersQuery(
     {
-      q,
+      q: trimmedQuery,
       page,
       limit,
     },
@@ -52,6 +72,7 @@ export function useGlobalUserSearch({
   return {
     ...queryResult, // Trả về isLoading, isFetching, isError,...
     users,
+    debouncedQuery,
     total: data?.total || 0,
     hasNext: data?.hasNext || false,
     currentPage: page,
@@ -59,3 +80,4 @@ export function useGlobalUserSearch({
     refresh,
   };
 }
+

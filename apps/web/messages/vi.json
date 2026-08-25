@@ -670,7 +670,17 @@
     "toast_rename_channel_error": "Đổi tên kênh thất bại.",
     "error_channel_name_empty": "Tên kênh không được để trống",
     "error_channel_name_too_long": "Tên kênh không được vượt quá 30 ký tự",
-    "channel_options": "Tùy chọn kênh"
+    "channel_options": "Tùy chọn kênh",
+    "already_member": "Đã là thành viên",
+    "already_in_channel": "Đã trong kênh",
+    "load_more": "Tải thêm",
+    "loading_more": "Đang tải thêm...",
+    "room_options": "Tùy chọn phòng",
+    "disband_error": "Không thể giải tán phòng",
+    "room_name_empty_error": "Tên phòng không được để trống",
+    "not_a_member_anymore": "Bạn không còn là thành viên của phòng này",
+    "user_already_in_room": "Người dùng này đã là thành viên của phòng",
+    "user_already_in_channel": "Người dùng này đã là thành viên của kênh"
   },
   "admin": {
     "title": "Tổng quan hệ thống",

@@ -73,12 +73,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   // Tìm thông tin chi tiết của kênh đang được active
   const currentChannel = room?.channels.find(
-    (c: any) => c.name === activeChannel,
+    (c) => c.name === activeChannel,
   );
-  const currentChannelId =
-    (currentChannel as any)?._id?.toString() ||
-    (currentChannel as any)?.id?.toString() ||
-    "";
+  const currentChannelId = currentChannel?._id?.toString() || "";
   const isCurrentUserOwner = room?.ownerId === userId;
   // Tìm kiếm vai trò người dùng trong room members
   const currentUserRoomRole = (() => {
@@ -239,7 +236,9 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       const msg =
         errData.data?.message ||
         errData.message ||
-        "Bạn không còn là thành viên của phòng này";
+        t("not_a_member_anymore", {
+          defaultValue: "Bạn không còn là thành viên của phòng này",
+        });
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-white gap-3">
           <p className="text-slate-600 font-bold text-base">{msg}</p>
@@ -247,7 +246,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             onClick={() => (window.location.href = "/dashboard")}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold transition-colors"
           >
-            Quay lại Trang chủ
+            {t("back_to_dashboard", { defaultValue: "Quay lại Dashboard" })}
           </button>
         </div>
       );
@@ -387,7 +386,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           )
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-            Vui lòng chọn một kênh để xem bảng tin.
+            {t("select_channel_to_start", { defaultValue: "Chọn một kênh để bắt đầu trò chuyện" })}
           </div>
         )}
       </div>

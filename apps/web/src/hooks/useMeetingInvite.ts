@@ -4,7 +4,6 @@ import { useSendMeetingInviteMutation } from "@/lib/redux/api/meetingsApi";
 import { useGlobalUserSearch } from "./useGlobalUserSearch";
 import { toast } from "sonner";
 import { Participant } from "livekit-client";
-import debounce from "lodash/debounce";
 
 import { useTranslations } from "next-intl";
 import { useMeetingSessionContext } from "@/components/meeting/contexts/MeetingSessionContext";
@@ -23,32 +22,14 @@ export function useMeetingInvite({
   const t = useTranslations("meeting.invite_member_modal");
   const tServer = useTranslations("server.errors");
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
 
   const { meetingData } = useMeetingSessionContext();
 
-  // Debounce logic
-  const debouncedSearch = useMemo(
-    () =>
-      debounce((query: string) => {
-        setDebouncedQuery(query);
-      }, 500),
-    [],
-  );
-
-  useEffect(() => {
-    debouncedSearch(searchQuery);
-    return () => {
-      debouncedSearch.cancel();
-    };
-  }, [searchQuery, debouncedSearch]);
-
-  // Tự động reset bộ đếm và text khi Modal đóng
+  // Tự động reset text khi Modal đóng
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery("");
-      setDebouncedQuery("");
     }
   }, [isOpen]);
 
@@ -58,16 +39,17 @@ export function useMeetingInvite({
       skip: !meetingData || !meetingData.roomId || !isOpen,
     });
 
-  // Gọi API tìm kiếm toàn cục
+  // Gọi API tìm kiếm toàn cục (hook đã tự động debounce)
   const {
     users: globalUsers,
     isFetching: isGlobalSearching,
     isLoading: isGlobalLoading,
     hasNext: hasNextPage,
+    debouncedQuery,
     loadMore,
   } = useGlobalUserSearch({
-    q: debouncedQuery,
-    skip: !isOpen || debouncedQuery.trim() === "",
+    q: searchQuery,
+    skip: !isOpen || searchQuery.trim() === "",
   });
 
   const [sendInvite] = useSendMeetingInviteMutation();

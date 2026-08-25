@@ -38,18 +38,6 @@ export class UsersController {
     return this.usersService.searchUsers(query, page, limit);
   }
 
-  // Xoá hàm này gấp, dùng hàm trên
-  @Get("search-by-keyword")
-  @UseGuards(SupabaseGuard)
-  async searchUsersByKeyword(
-    @Query("q") query?: string,
-    @Query("email") emailQuery?: string
-  ) {
-    const finalQuery = query || emailQuery || "";
-
-    return this.usersService.searchUsersByKeyword(finalQuery);
-  }
-
   private getClientIp(req: any): string {
     const forwarded = req.headers["x-forwarded-for"] as string;
     let rawIp =

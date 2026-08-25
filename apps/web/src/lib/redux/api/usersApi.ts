@@ -50,7 +50,7 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["User"],
     }),
 
-    // Tìm kiếm toàn cục + phân trang (tuyệt đối không đụng nữa)
+    // Tìm kiếm toàn cục + phân trang
     searchUsers: builder.query<PageResponse<UserResponse>, SearchUsersArgs>({
       query: (args) => ({
         url: "/users/search",
@@ -89,16 +89,6 @@ export const usersApi = baseApi.injectEndpoints({
       },
 
       providesTags: ["UserSearch"],
-    }),
-
-    // Bỏ hẳn hàm này dùng hàm trên
-    searchUsersByKeyword: builder.query<any[], string>({
-      query: (query) => ({
-        url: "/users/search-by-keyword",
-        // Đổi tên hàm 
-        method: "GET",
-        params: { q: query },
-      }),
     }),
 
     getSessions: builder.query<SessionsResponse, void>({
@@ -182,7 +172,5 @@ export const {
   useRevokeOtherSessionsMutation,
   useUpdateCurrentSessionLocationMutation,
   useSearchUsersQuery,
-  useSearchUsersByKeywordQuery,
-  useLazySearchUsersByKeywordQuery,
   useLazyReverseGeocodeQuery,
 } = usersApi;

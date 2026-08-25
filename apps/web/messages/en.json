@@ -683,7 +683,17 @@
     "toast_rename_channel_error": "Failed to rename channel.",
     "error_channel_name_empty": "Channel name cannot be empty",
     "error_channel_name_too_long": "Channel name cannot exceed 30 characters",
-    "channel_options": "Channel options"
+    "channel_options": "Channel options",
+    "already_member": "Already a member",
+    "already_in_channel": "Already in channel",
+    "load_more": "Load more",
+    "loading_more": "Loading more...",
+    "room_options": "Room options",
+    "disband_error": "Failed to dissolve room",
+    "room_name_empty_error": "Room name cannot be empty",
+    "not_a_member_anymore": "You are no longer a member of this room",
+    "user_already_in_room": "This user is already a member of the room",
+    "user_already_in_channel": "This user is already a member of the channel"
   },
   "admin": {
     "title": "System Overview",
