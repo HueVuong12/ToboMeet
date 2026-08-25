@@ -84,15 +84,6 @@ export const usersApi = baseApi.injectEndpoints({
       providesTags: ["UserSearch"],
     }),
 
-    // đổi tên hàm 
-    searchUsersByKeyword: builder.query<UserResponse[], string>({
-      query: (query) => ({
-        url: `/users/search-by-keyword?q=${encodeURIComponent(query)}`,
-        method: "GET",
-      }),
-      providesTags: ["UserSearch"],
-    }),
-
     getSessions: builder.query<SessionsResponse, void>({
       query: () => ({
         url: "/users/me/sessions",
@@ -143,6 +134,5 @@ export const {
   useLazyGetLoggedOutSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
-  useSearchUsersByKeywordQuery,
   useSearchUsersQuery,
 } = usersApi;

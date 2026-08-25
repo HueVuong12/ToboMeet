@@ -66,7 +66,7 @@ export default function DashboardLayout() {
           },
         }}
         options={{
-          title: "Thông báo",
+          title: t("dashboard.tab_notification"),
           tabBarIcon: ({ color, size }) => (
             <View>
               <Feather name="bell" size={size} color={color} />

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useContext } from "react";
-import { useRouter, usePathname } from "next/navigation"; // Thêm usePathname
+import { useRouter, usePathname } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { logout } from "@/app/[locale]/auth/actions";
 import { Video, Settings, Calendar, Bell } from "lucide-react";
@@ -53,12 +53,11 @@ export default function HomeLayout({
     await logout();
   };
 
-  // ── CẤU HÌNH MENU DỄ DÀNG MỞ RỘNG ──
   const navItems = [
     {
       id: "teams",
       icon: Video,
-      label: "Teams",
+      label: t("tab_teams", { defaultValue: "Teams" }),
       href: `/${locale}/dashboard`,
       // Bật active nếu đúng trang chủ dashboard
       isActive: pathname === `/${locale}/dashboard`,
@@ -66,7 +65,7 @@ export default function HomeLayout({
     {
       id: "notifications",
       icon: Bell,
-      label: locale === "vi" ? "Thông báo" : "Activity",
+      label: t("tab_notifications", { defaultValue: "Notifications" }),
       onClick: () => {
         // Tắt chấm đỏ ngay lập tức khi người dùng click vào menu (trước khi gọi API)
         if (myProfile?.hasUnreadNotifications) {
@@ -81,7 +80,7 @@ export default function HomeLayout({
     {
       id: "calendar",
       icon: Calendar,
-      label: locale === "vi" ? "Lịch" : "Calendar",
+      label: t("tab_calendar", { defaultValue: "Calendar" }),
       href: `/${locale}/calendar`,
       // Bật active nếu đường dẫn bắt đầu bằng /calendar (hỗ trợ cho cả các route con bên trong calendar nếu có)
       isActive: pathname.startsWith(`/${locale}/calendar`),
@@ -93,8 +92,8 @@ export default function HomeLayout({
       {/* Container chính dạng flex-row để Sidebar full height */}
       <div className="h-screen bg-[#f5f5f5] font-sans flex overflow-hidden">
         {/* ── Left Sidebar (Full Height) ── */}
-        <aside className="w-17 h-full bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center py-4 shrink-0 z-50 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
-          <div className="w-full flex flex-col items-center gap-2">
+        <aside className="w-20 h-full bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center py-4 shrink-0 z-50 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
+          <div className="w-full flex flex-col items-center gap-1.5">
             {/* Tự động render danh sách Menu */}
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -105,11 +104,10 @@ export default function HomeLayout({
                     if (item.onClick) item.onClick();
                     if (item.href) router.push(item.href);
                   }}
-                  className={`flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1 transition-all group border-l-2 ${
-                    item.isActive
-                      ? "text-brand-600 bg-brand-50/50 border-brand-500"
-                      : "text-slate-600 hover:bg-slate-50 border-transparent"
-                  }`}
+                  className={`flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1.5 transition-all group border-l-2 ${item.isActive
+                    ? "text-brand-600 bg-brand-50/50 border-brand-500 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 border-transparent font-medium"
+                    }`}
                 >
                   <div className="relative">
                     <Icon className="w-5.5 h-5.5 group-hover:scale-110 transition-transform" />
@@ -117,7 +115,7 @@ export default function HomeLayout({
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white" />
                     )}
                   </div>
-                  <span className="text-[10px] font-semibold tracking-wide">
+                  <span className="text-[10px] tracking-tight text-center leading-tight truncate max-w-[72px]">
                     {item.label}
                   </span>
                 </button>
@@ -129,11 +127,10 @@ export default function HomeLayout({
           <div className="relative">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-colors ${
-                showSettings
-                  ? "bg-slate-200/80 text-slate-800"
-                  : "text-slate-400 hover:bg-slate-200/60 hover:text-slate-700"
-              }`}
+              className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-colors ${showSettings
+                ? "bg-slate-200/80 text-slate-800"
+                : "text-slate-400 hover:bg-slate-200/60 hover:text-slate-700"
+                }`}
             >
               <Settings className="w-5.5 h-5.5" />
             </button>

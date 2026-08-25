@@ -56,6 +56,16 @@ export function useGlobalUserSearch({
   const { data, isFetching } = queryResult;
   const users = data?.items || [];
 
+  // Trạng thái đang debounce (người dùng vừa gõ nhưng chưa hết thời gian chờ debounce)
+  const isDebouncing =
+    !skip && q.trim().length > 0 && q.trim() !== debouncedQuery.trim();
+
+  // Đang tìm kiếm từ khóa mới (trang 1): khi đang debounce hoặc RTK Query đang fetch trang 1
+  const isSearching = !skip && (isDebouncing || (isFetching && page === 1));
+
+  // Đang tải thêm trang tiếp theo (Load more: page > 1)
+  const isLoadingMore = !skip && isFetching && page > 1;
+
   // Hàm gọi trang tiếp theo (Load More)
   const loadMore = useCallback(() => {
     if (data?.hasNext && !isFetching) {
@@ -70,7 +80,11 @@ export function useGlobalUserSearch({
   }, [queryResult]);
 
   return {
-    ...queryResult, // Trả về isLoading, isFetching, isError,...
+    ...queryResult, // Trả về isLoading, isError,...
+    isFetching: isFetching || isDebouncing,
+    isSearching,
+    isDebouncing,
+    isLoadingMore,
     users,
     debouncedQuery,
     total: data?.total || 0,

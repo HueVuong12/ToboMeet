@@ -392,14 +392,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       </div>
 
       {/* ================= RIGHT SIDEBAR (THÔNG TIN KÊNH / THÀNH VIÊN) ================= */}
-      {/* Mobile: Trượt đè | Desktop: Đẩy layout */}
-      {isRightSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
-          onClick={() => setIsRightSidebarOpen(false)}
-        />
-      )}
-
       <RoomRightSidebar
         room={room}
         members={members}

@@ -11,23 +11,18 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAddChannelMemberMutation } from "../../lib/redux/features/rooms/roomsApi";
-import { useSearchUsersByKeywordQuery } from "../../lib/redux/features/users/usersApi";
+import { useGlobalUserSearch } from "../../hooks/useGlobalUserSearch";
 import { toast } from "../../lib/toast";
-import { UserResponse } from "@tobomeet/shared/types";
+import { ChannelResponse, UserResponse } from "@tobomeet/shared/types";
 
 
 interface AddPrivateChannelMemberModalProps {
   visible: boolean;
   onClose: () => void;
   roomId: string;
-  channel: {
-    _id?: string;
-    id?: string;
-    name: string;
-    isPrivate?: boolean;
-    members?: { userId: string; role: string; isLeft?: boolean; status?: string }[];
-  } | null;
+  channel: ChannelResponse | null;
 }
 
 export default function AddPrivateChannelMemberModal({
@@ -37,36 +32,36 @@ export default function AddPrivateChannelMemberModal({
   channel,
 }: AddPrivateChannelMemberModalProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const [addChannelMember, { isLoading: isSubmitting }] = useAddChannelMemberMutation();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: searchResults = [], isFetching: isSearching } = useSearchUsersByKeywordQuery(
+  const {
+    users: searchResults = [],
+    isSearching,
+    isLoadingMore,
+    hasNext: hasNextPage,
     debouncedQuery,
-    { skip: debouncedQuery.length < 2 || !visible || !!selectedUser }
-  );
+    loadMore: loadMoreUsers,
+  } = useGlobalUserSearch({
+    q: searchQuery,
+    skip: !visible || !searchQuery.trim() || !!selectedUser,
+    debounceMs: 300,
+  });
 
-  const channelId = channel?._id || channel?.id || "";
+  const channelId = channel?._id || "";
 
   useEffect(() => {
     if (visible) {
       setSearchQuery("");
-      setDebouncedQuery("");
       setSelectedUser(null);
       setError(null);
     }
   }, [visible]);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setDebouncedQuery(searchQuery.trim());
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
 
   if (!visible || !channel) return null;
 
@@ -106,11 +101,7 @@ export default function AddPrivateChannelMemberModal({
 
   const isUserAlreadyInChannel = (user: UserResponse) => {
     return channel.members?.some(
-      (cm) =>
-        cm.userId === (user.supabaseId || user._id) &&
-        cm.isLeft !== true &&
-        cm.status !== "REMOVED" &&
-        cm.status !== "LEFT"
+      (cm) => cm.userId === (user.supabaseId || user._id)
     );
   };
 
@@ -123,7 +114,13 @@ export default function AddPrivateChannelMemberModal({
         if (!isSubmitting) onClose();
       }}
     >
-      <View className="flex-1 justify-center items-center bg-black/45 px-4">
+      <View
+        className="flex-1 justify-center items-center bg-black/45 px-4"
+        style={{
+          paddingBottom: Math.max(insets.bottom, 20),
+          paddingTop: Math.max(insets.top, 20),
+        }}
+      >
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => {
@@ -132,7 +129,10 @@ export default function AddPrivateChannelMemberModal({
           className="absolute inset-0"
         />
 
-        <View className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 h-[380px] flex-col">
+        <View
+          className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 flex-col"
+          style={{ maxHeight: 500 }}
+        >
           {/* Header */}
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-base font-bold text-slate-900">
@@ -189,13 +189,9 @@ export default function AddPrivateChannelMemberModal({
           )}
 
           {/* Search Results */}
-          <View className="flex-1">
-            {isSearching ? (
-              <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="small" color="#0052FF" />
-              </View>
-            ) : selectedUser ? (
-              <View className="flex-1 justify-center items-center p-4">
+          <View style={{ flexShrink: 1, maxHeight: 360 }}>
+            {selectedUser ? (
+              <View className="py-4 justify-center items-center">
                 <Text className="text-slate-500 text-sm text-center mb-4">
                   {t("room.confirm_add_selected_user", { defaultValue: "Bạn đang chọn thêm:" })}
                   {"\n"}
@@ -213,10 +209,28 @@ export default function AddPrivateChannelMemberModal({
                   </Text>
                 </TouchableOpacity>
               </View>
+            ) : isSearching ? (
+              <View className="py-8 justify-center items-center">
+                <ActivityIndicator size="small" color="#0052FF" />
+              </View>
             ) : searchResults && searchResults.length > 0 ? (
               <FlatList
                 data={searchResults}
                 keyExtractor={(item) => item.supabaseId || item._id}
+                style={{ flexGrow: 0 }}
+                onEndReachedThreshold={0.5}
+                onEndReached={() => {
+                  if (hasNextPage && !isSearching && !isLoadingMore) {
+                    loadMoreUsers();
+                  }
+                }}
+                ListFooterComponent={
+                  hasNextPage && isLoadingMore ? (
+                    <View className="py-2 items-center">
+                      <ActivityIndicator size="small" color="#0052FF" />
+                    </View>
+                  ) : null
+                }
                 renderItem={({ item }) => {
                   const alreadyInChannel = isUserAlreadyInChannel(item);
                   return (
@@ -226,9 +240,8 @@ export default function AddPrivateChannelMemberModal({
                         setSelectedUser(item);
                         setError(null);
                       }}
-                      className={`flex-row items-center gap-3 py-3 border-b border-slate-50 ${
-                        alreadyInChannel ? "opacity-40" : "active:bg-slate-50"
-                      }`}
+                      className={`flex-row items-center gap-3 py-3 border-b border-slate-50 ${alreadyInChannel ? "opacity-40" : "active:bg-slate-50"
+                        }`}
                     >
                       <View className="w-10 h-10 rounded-full bg-blue-100 justify-center items-center overflow-hidden">
                         {item.avatarUrl ? (
@@ -255,14 +268,14 @@ export default function AddPrivateChannelMemberModal({
                 }}
               />
             ) : searchQuery.trim() ? (
-              <View className="flex-1 justify-center items-center py-8">
+              <View className="py-8 justify-center items-center">
                 <Feather name="users" size={32} color="#CBD5E1" />
                 <Text className="text-slate-400 text-xs mt-2">
                   {t("room.user_not_found", { defaultValue: "Không tìm thấy người dùng" })}
                 </Text>
               </View>
             ) : (
-              <View className="flex-1 justify-center items-center py-8">
+              <View className="py-8 justify-center items-center">
                 <Feather name="search" size={32} color="#CBD5E1" />
                 <Text className="text-slate-400 text-xs text-center mt-2 px-6">
                   {t("room.search_channel_invite_hint", { defaultValue: "Tìm kiếm bằng email hoặc tên tài khoản để thêm vào kênh riêng tư." })}

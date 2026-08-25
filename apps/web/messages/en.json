@@ -335,6 +335,9 @@
   },
   "dashboard": {
     "title": "Your Teams",
+    "tab_teams": "Teams",
+    "tab_notifications": "Notifications",
+    "tab_calendar": "Calendar",
     "join_or_create": "Join or Create Team",
     "join_team": "Join a Team",
     "create_team": "Create a Team",

@@ -28,15 +28,6 @@ export const calendarApi = baseApi.injectEndpoints({
         method: "DELETE",
       }),
     }),
-    searchUsers: builder.query<any[], string>({
-      query: (query) => ({
-        url: `/users/search?q=${encodeURIComponent(query)}`,
-        method: "GET",
-      }),
-      transformResponse: (response: any) => {
-        return response && Array.isArray(response.result) ? response.result : [];
-      },
-    }),
   }),
 });
 
@@ -45,6 +36,5 @@ export const {
   useCreateCalendarEventMutation,
   useUpdateCalendarEventMutation,
   useDeleteCalendarEventMutation,
-  useLazySearchUsersQuery,
 } = calendarApi;
 

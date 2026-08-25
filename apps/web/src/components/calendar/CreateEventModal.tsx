@@ -43,7 +43,8 @@ export default function CreateEventModal({
 
   const {
     users: suggestedUsers = [],
-    isFetching: isSearchingMembers,
+    isSearching: isSearchingMembers,
+    isLoadingMore: isLoadingMoreMembers,
     hasNext: hasNextSuggestedUsers,
     debouncedQuery: debouncedMemberQuery,
     loadMore: loadMoreSuggestedUsers,
@@ -390,9 +391,9 @@ export default function CreateEventModal({
               </div>
 
               {/* Autocomplete Dropdown List */}
-              {debouncedMemberQuery.trim().length > 0 && (
+              {memberSearchQuery.trim().length > 0 && (
                 <div className="absolute left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-50">
-                  {isSearchingMembers && suggestedUsers.length === 0 ? (
+                  {isSearchingMembers ? (
                     <div className="px-4 py-3 text-xs text-slate-400 flex items-center justify-center gap-2">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
                       <span>
@@ -512,10 +513,10 @@ export default function CreateEventModal({
                               e.stopPropagation();
                               loadMoreSuggestedUsers();
                             }}
-                            disabled={isSearchingMembers}
+                            disabled={isLoadingMoreMembers}
                             className="w-full py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center gap-1"
                           >
-                            {isSearchingMembers ? (
+                            {isLoadingMoreMembers ? (
                               <RefreshCw className="w-3 h-3 animate-spin" />
                             ) : null}
                             <span>

@@ -322,6 +322,9 @@
   },
   "dashboard": {
     "title": "Phòng của bạn",
+    "tab_teams": "Nhóm",
+    "tab_notifications": "Thông báo",
+    "tab_calendar": "Lịch",
     "join_or_create": "Tham gia hoặc tạo phòng",
     "join_team": "Tham gia phòng",
     "create_team": "Tạo phòng",

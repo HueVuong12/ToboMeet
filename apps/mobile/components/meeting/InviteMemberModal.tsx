@@ -113,8 +113,16 @@ export default function InviteMemberModal({
         }}
         className="flex-1 bg-black/80 justify-center px-4"
       >
-        {/* Đã sửa: Bỏ flex-1, dùng w-full và shrink để chiều cao linh hoạt, max-h-[85%] để giới hạn */}
-        <View className="bg-[#1c1c1c] rounded-2xl border border-[#333] w-full shrink max-h-[85%] overflow-hidden">
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={onClose}
+          className="absolute inset-0"
+        />
+
+        <View
+          className="bg-[#1c1c1c] rounded-2xl border border-[#333] w-full flex-col overflow-hidden"
+          style={{ maxHeight: 520 }}
+        >
           {/* Header */}
           <View className="flex-row items-center justify-between p-4 border-b border-[#333]">
             <View className="flex-row items-center gap-2">
@@ -151,27 +159,24 @@ export default function InviteMemberModal({
           </View>
 
           {/* Khu vực danh sách */}
-          <View className="shrink bg-[#1c1c1c] min-h-[150px] relative">
-            {/* LỚP OVERLAY SPINNER: Chỉ hiện mờ đè lên khi đang gõ tìm kiếm */}
-            {isLoading && (
-              <View className="absolute inset-0 z-10 bg-[#1c1c1c]/70 justify-center items-center">
+          <View style={{ flexShrink: 1, maxHeight: 380 }} className="bg-[#1c1c1c] relative">
+            {isLoading ? (
+              <View className="py-10 justify-center items-center">
                 <ActivityIndicator size="large" color="#3b82f6" />
               </View>
-            )}
-
-            {/* Nội dung danh sách hoặc thông báo trống */}
-            {availableMembersToInvite.length > 0 ? (
+            ) : availableMembersToInvite.length > 0 ? (
               <FlatList
                 data={availableMembersToInvite}
                 keyExtractor={(item) => item.userId}
                 renderItem={renderItem}
+                style={{ flexGrow: 0 }}
                 contentContainerStyle={{ padding: 12 }}
                 onEndReached={() => {
                   if (hasNextPage && !isFetching) loadMore();
                 }}
                 onEndReachedThreshold={0.5}
                 ListFooterComponent={
-                  isFetching && !isLoading ? (
+                  hasNextPage && isFetching ? (
                     <View className="py-4 items-center">
                       <ActivityIndicator size="small" color="#3b82f6" />
                     </View>
@@ -179,17 +184,14 @@ export default function InviteMemberModal({
                 }
               />
             ) : (
-              // Chỉ hiện "Không tìm thấy" khi đã tải xong (không loading)
-              !isLoading && (
-                <View className="py-12 justify-center items-center opacity-70 px-4">
-                  <Feather name="user-minus" size={40} color="#475569" />
-                  <Text className="text-slate-400 text-sm mt-3 text-center">
-                    {searchQuery
-                      ? t("meeting.invite_member_modal.no_search_results")
-                      : t("meeting.invite_member_modal.all_members_present")}
-                  </Text>
-                </View>
-              )
+              <View className="py-10 justify-center items-center opacity-70 px-4">
+                <Feather name="user-minus" size={36} color="#475569" />
+                <Text className="text-slate-400 text-sm mt-3 text-center">
+                  {searchQuery
+                    ? t("meeting.invite_member_modal.no_search_results")
+                    : t("meeting.invite_member_modal.all_members_present")}
+                </Text>
+              </View>
             )}
           </View>
         </View>

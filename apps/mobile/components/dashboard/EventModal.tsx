@@ -13,12 +13,13 @@ import {
 import { Feather } from "@expo/vector-icons";
 import DateTimePickerJS from "./DateTimePickerJS";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useCreateCalendarEventMutation,
   useUpdateCalendarEventMutation,
   useDeleteCalendarEventMutation,
-  useLazySearchUsersQuery,
 } from "../../lib/redux/api/calendarApi";
+import { useGlobalUserSearch } from "../../hooks/useGlobalUserSearch";
 
 interface Props {
   visible: boolean;
@@ -29,6 +30,7 @@ interface Props {
 
 export default function EventModal({ visible, onClose, onSuccess, eventToEdit }: Props) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedInvitees, setSelectedInvitees] = useState<any[]>([]);
@@ -44,14 +46,24 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
 
   // Local UI states
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
-  const [suggestedUsers, setSuggestedUsers] = useState<any[]>([]);
   const [recurrenceDropdownOpen, setRecurrenceDropdownOpen] = useState(false);
 
   // RTK query hooks
   const [createEvent, { isLoading: isCreating }] = useCreateCalendarEventMutation();
   const [updateEvent, { isLoading: isUpdating }] = useUpdateCalendarEventMutation();
   const [deleteEvent, { isLoading: isDeleting }] = useDeleteCalendarEventMutation();
-  const [triggerSearch, { isFetching: isSearching }] = useLazySearchUsersQuery();
+
+  const {
+    users: suggestedUsers = [],
+    isSearching,
+    isLoadingMore,
+    hasNext: hasNextPage,
+    loadMore: loadMoreUsers,
+  } = useGlobalUserSearch({
+    q: memberSearchQuery,
+    skip: !visible || !memberSearchQuery.trim(),
+    debounceMs: 300,
+  });
 
   // Populate data when editing
   useEffect(() => {
@@ -98,24 +110,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
     }
   }, [visible, eventToEdit]);
 
-  // Debounced search for users
-  useEffect(() => {
-    if (!memberSearchQuery.trim()) {
-      setSuggestedUsers([]);
-      return;
-    }
 
-    const delayDebounceFn = setTimeout(async () => {
-      try {
-        const response = await triggerSearch(memberSearchQuery.trim()).unwrap();
-        setSuggestedUsers(response || []);
-      } catch (err) {
-        console.error("Error searching users:", err);
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [memberSearchQuery]);
 
   // Recurrence options calculator
   const getRecurrenceOptions = () => {
@@ -287,7 +282,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
@@ -418,42 +413,70 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
                 </View>
 
                 {/* Danh sách người dùng gợi ý */}
-                {suggestedUsers.length > 0 && (
+                {memberSearchQuery.trim().length > 0 && suggestedUsers.length > 0 && (
                   <View style={styles.suggestionsContainer}>
-                    {suggestedUsers.map((usr) => {
-                      const isSelected = selectedInvitees.some((sel) => sel.email === usr.email);
-                      return (
+                    <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+                      {suggestedUsers.map((usr) => {
+                        const isSelected = selectedInvitees.some((sel) => sel.email === usr.email);
+                        return (
+                          <TouchableOpacity
+                            key={usr.supabaseId || usr._id || usr.email}
+                            onPress={() => {
+                              if (isSelected) return;
+                              setSelectedInvitees([
+                                ...selectedInvitees,
+                                {
+                                  email: usr.email,
+                                  displayName: usr.displayName || usr.email,
+                                  avatarUrl: usr.avatarUrl,
+                                },
+                              ]);
+                              setMemberSearchQuery("");
+                            }}
+                            style={styles.suggestionItem}
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              <View style={styles.avatarPlaceholder}>
+                                <Text style={styles.avatarPlaceholderText}>
+                                  {(usr.displayName || usr.email)
+                                    .substring(0, 1)
+                                    .toUpperCase()}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text style={styles.suggestionTitle}>
+                                  {usr.displayName || usr.email}
+                                </Text>
+                                <Text style={styles.suggestionSub}>{usr.email}</Text>
+                              </View>
+                            </View>
+                            {isSelected && (
+                              <Text style={styles.selectedBadge}>{t("calendar.selected")}</Text>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                      {hasNextPage && (
                         <TouchableOpacity
-                          key={usr._id || usr.email}
-                          onPress={() => {
-                            if (isSelected) return;
-                            setSelectedInvitees([...selectedInvitees, usr]);
-                            setMemberSearchQuery("");
-                            setSuggestedUsers([]);
+                          onPress={loadMoreUsers}
+                          disabled={isLoadingMore}
+                          style={{
+                            paddingVertical: 8,
+                            alignItems: "center",
+                            borderTopWidth: 1,
+                            borderTopColor: "#F1F5F9",
                           }}
-                          style={styles.suggestionItem}
                         >
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <View style={styles.avatarPlaceholder}>
-                              <Text style={styles.avatarPlaceholderText}>
-                                {(usr.displayName || usr.fullName || usr.email)
-                                  .substring(0, 1)
-                                  .toUpperCase()}
-                              </Text>
-                            </View>
-                            <View>
-                              <Text style={styles.suggestionTitle}>
-                                {usr.displayName || usr.fullName || usr.email}
-                              </Text>
-                              <Text style={styles.suggestionSub}>{usr.email}</Text>
-                            </View>
-                          </View>
-                          {isSelected && (
-                            <Text style={styles.selectedBadge}>{t("calendar.selected")}</Text>
+                          {isLoadingMore ? (
+                            <ActivityIndicator size="small" color="#0052FF" />
+                          ) : (
+                            <Text style={{ fontSize: 12, color: "#0052FF", fontWeight: "600" }}>
+                              {t("room.load_more", { defaultValue: "Tải thêm" })}
+                            </Text>
                           )}
                         </TouchableOpacity>
-                      );
-                    })}
+                      )}
+                    </ScrollView>
                   </View>
                 )}
 

@@ -42,8 +42,9 @@ export function useMeetingInvite({
   // Gọi API tìm kiếm toàn cục (hook đã tự động debounce)
   const {
     users: globalUsers,
-    isFetching: isGlobalSearching,
-    isLoading: isGlobalLoading,
+    isSearching: isGlobalSearchingRaw,
+    isLoadingMore,
+    isFetching: isGlobalFetching,
     hasNext: hasNextPage,
     debouncedQuery,
     loadMore,
@@ -81,9 +82,9 @@ export function useMeetingInvite({
     }
   }, [roomMembers, globalUsers, displayParticipants, debouncedQuery]);
 
-  const isLoading =
-    isMembersLoading || (isGlobalLoading && !!debouncedQuery.trim());
-  const isFetching = isGlobalSearching;
+  const isGlobalSearching = isGlobalSearchingRaw && !!searchQuery.trim();
+  const isLoading = isMembersLoading || isGlobalSearching;
+  const isFetching = isLoadingMore || isGlobalFetching;
 
   const handleSendInvite = async (userId: string, displayName: string) => {
     setInvitingUserId(userId);
@@ -113,6 +114,7 @@ export function useMeetingInvite({
     searchQuery,
     setSearchQuery,
     isLoading,
+    isLoadingMore,
     isFetching,
     hasNextPage,
     availableMembersToInvite,

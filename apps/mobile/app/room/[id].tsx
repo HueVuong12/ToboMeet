@@ -25,10 +25,8 @@ import {
   useRemoveMemberMutation,
   useLeaveChannelMutation,
 } from "../../lib/redux/features/rooms/roomsApi";
-import {
-  useGetMeQuery,
-  useSearchUsersByKeywordQuery,
-} from "../../lib/redux/features/users/usersApi";
+import { useGetMeQuery } from "../../lib/redux/features/users/usersApi";
+import { useGlobalUserSearch } from "../../hooks/useGlobalUserSearch";
 import { Feather } from "@expo/vector-icons";
 import { socket } from "../../lib/socket";
 import { useDispatch } from "react-redux";
@@ -91,7 +89,6 @@ export default function RoomDetailScreen() {
   const [channelToRename, setChannelToRename] = useState<ChannelResponse | null>(null);
   const [showRenameChannelModal, setShowRenameChannelModal] = useState(false);
 
-
   // Member options menu & Report user state
   const [selectedMemberForMenu, setSelectedMemberForMenu] =
     useState<RoomMemberResponse | null>(null);
@@ -105,10 +102,24 @@ export default function RoomDetailScreen() {
   // Search User state (Invite Member)
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: searchResults, isFetching: isSearching } = useSearchUsersByKeywordQuery(
-    searchQuery,
-    { skip: !searchQuery.trim() },
-  );
+  const {
+    users: searchResults = [],
+    isSearching,
+    isLoadingMore,
+    hasNext: hasNextPage,
+    debouncedQuery,
+    loadMore: loadMoreUsers,
+  } = useGlobalUserSearch({
+    q: searchQuery,
+    skip: !showInviteModal || !searchQuery.trim(),
+    debounceMs: 300,
+  });
+
+  useEffect(() => {
+    if (!showInviteModal) {
+      setSearchQuery("");
+    }
+  }, [showInviteModal]);
 
   // Handover state (Leave Room as Owner)
   const [showHandoverModal, setShowHandoverModal] = useState(false);
@@ -289,6 +300,20 @@ export default function RoomDetailScreen() {
     Alert.alert(t("room.link_copied"), t("room.link_copied_desc"));
   };
 
+  const isUserAlreadyInRoom = (user: { supabaseId?: string; _id?: string }) => {
+    const targetId = user.supabaseId || user._id;
+    if (room?.ownerId === targetId) return true;
+    return (
+      room?.members?.some(
+        (m: { userId: string; isLeft?: boolean; status?: string }) =>
+          m.userId === targetId &&
+          m.isLeft !== true &&
+          m.status !== "REMOVED" &&
+          m.status !== "LEFT",
+      ) || false
+    );
+  };
+
   const handleAddMember = async (targetUser: {
     supabaseId: string;
     displayName?: string;
@@ -296,13 +321,7 @@ export default function RoomDetailScreen() {
     if (!room) return;
 
     // 1. Kiểm tra trùng lặp tại client để hiển thị phản hồi ngay lập tức (chỉ tính thành viên đang active)
-    const isAlreadyMember = room.members?.some(
-      (m: { userId: string; isLeft?: boolean; status?: string }) =>
-        m.userId === targetUser.supabaseId &&
-        m.isLeft !== true &&
-        m.status !== "REMOVED" &&
-        m.status !== "LEFT",
-    );
+    const isAlreadyMember = isUserAlreadyInRoom(targetUser);
     if (isAlreadyMember) {
       Alert.alert(t("room.notice"), t("room.already_member"));
       return;
@@ -394,8 +413,8 @@ export default function RoomDetailScreen() {
       Alert.alert(
         "Lỗi",
         errorResponse.data?.message ||
-          errorResponse.message ||
-          "Không thể rời phòng. Vui lòng thử lại.",
+        errorResponse.message ||
+        "Không thể rời phòng. Vui lòng thử lại.",
       );
     }
   };
@@ -412,8 +431,8 @@ export default function RoomDetailScreen() {
       Alert.alert(
         "Lỗi",
         errorResponse.data?.message ||
-          errorResponse.message ||
-          "Không thể giải tán phòng. Vui lòng thử lại.",
+        errorResponse.message ||
+        "Không thể giải tán phòng. Vui lòng thử lại.",
       );
     }
   };
@@ -535,28 +554,24 @@ export default function RoomDetailScreen() {
       <View className="flex-row bg-white border-b border-slate-100 px-4">
         <TouchableOpacity
           onPress={() => setActiveTab("feed")}
-          className={`py-3 mr-6 border-b-2 ${
-            activeTab === "feed" ? "border-blue-600" : "border-transparent"
-          }`}
+          className={`py-3 mr-6 border-b-2 ${activeTab === "feed" ? "border-blue-600" : "border-transparent"
+            }`}
         >
           <Text
-            className={`font-bold text-sm ${
-              activeTab === "feed" ? "text-blue-600" : "text-slate-500"
-            }`}
+            className={`font-bold text-sm ${activeTab === "feed" ? "text-blue-600" : "text-slate-500"
+              }`}
           >
             {t("room.feed", { defaultValue: "Bảng tin" })}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setActiveTab("files")}
-          className={`py-3 border-b-2 ${
-            activeTab === "files" ? "border-blue-600" : "border-transparent"
-          }`}
+          className={`py-3 border-b-2 ${activeTab === "files" ? "border-blue-600" : "border-transparent"
+            }`}
         >
           <Text
-            className={`font-bold text-sm ${
-              activeTab === "files" ? "text-blue-600" : "text-slate-500"
-            }`}
+            className={`font-bold text-sm ${activeTab === "files" ? "text-blue-600" : "text-slate-500"
+              }`}
           >
             {t("room.files", { defaultValue: "Tệp" })}
           </Text>
@@ -833,7 +848,13 @@ export default function RoomDetailScreen() {
         animationType="fade"
         onRequestClose={() => setShowInviteModal(false)}
       >
-        <View className="flex-1 justify-center items-center bg-black/45 px-4">
+        <View
+          className="flex-1 justify-center items-center bg-black/45 px-4"
+          style={{
+            paddingBottom: Math.max(insets.bottom, 20),
+            paddingTop: Math.max(insets.top, 20),
+          }}
+        >
           {/* Backdrop đóng menu */}
           <TouchableOpacity
             activeOpacity={1}
@@ -841,7 +862,10 @@ export default function RoomDetailScreen() {
             className="absolute inset-0"
           />
 
-          <View className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 h-[380px] flex-col">
+          <View
+            className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 flex-col"
+            style={{ maxHeight: 500 }}
+          >
             {/* Header */}
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-lg font-bold text-slate-900">
@@ -878,54 +902,90 @@ export default function RoomDetailScreen() {
             </View>
 
             {/* Search Results */}
-            <View className="flex-1 mt-2">
+            <View style={{ flexShrink: 1, maxHeight: 360 }} className="mt-2">
               {isSearching ? (
-                <View className="flex-1 justify-center items-center">
+                <View className="py-8 justify-center items-center">
                   <ActivityIndicator size="small" color="#0052FF" />
                 </View>
               ) : searchResults && searchResults.length > 0 ? (
                 <FlatList
                   data={searchResults}
-                  keyExtractor={(item) => item.supabaseId}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => handleAddMember(item)}
-                      className="flex-row items-center gap-3 py-3 border-b border-slate-50 active:bg-slate-50"
-                    >
-                      <View className="w-10 h-10 rounded-full bg-blue-100 justify-center items-center overflow-hidden">
-                        {item.avatarUrl ? (
-                          <Image
-                            source={{ uri: item.avatarUrl }}
-                            className="w-10 h-10"
-                          />
-                        ) : (
-                          <Text className="font-bold text-blue-600 text-sm">
-                            {(item.displayName || item.email || "U")
-                              .charAt(0)
-                              .toUpperCase()}
+                  keyExtractor={(item) => item.supabaseId || item._id}
+                  style={{ flexGrow: 0 }}
+                  onEndReachedThreshold={0.5}
+                  onEndReached={() => {
+                    if (hasNextPage && !isSearching && !isLoadingMore) {
+                      loadMoreUsers();
+                    }
+                  }}
+                  ListFooterComponent={
+                    hasNextPage && isLoadingMore ? (
+                      <View className="py-2 items-center">
+                        <ActivityIndicator size="small" color="#0052FF" />
+                      </View>
+                    ) : null
+                  }
+                  renderItem={({ item }) => {
+                    const alreadyInRoom = isUserAlreadyInRoom(item);
+                    return (
+                      <TouchableOpacity
+                        disabled={alreadyInRoom}
+                        onPress={() => handleAddMember(item)}
+                        className={`flex-row items-center gap-3 py-3 border-b border-slate-50 ${alreadyInRoom ? "opacity-40" : "active:bg-slate-50"
+                          }`}
+                      >
+                        <View className="w-10 h-10 rounded-full bg-blue-100 justify-center items-center overflow-hidden">
+                          {item.avatarUrl ? (
+                            <Image
+                              source={{ uri: item.avatarUrl }}
+                              className="w-10 h-10"
+                            />
+                          ) : (
+                            <Text className="font-bold text-blue-600 text-sm">
+                              {(item.displayName || item.email || "U")
+                                .charAt(0)
+                                .toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-base font-bold text-slate-800">
+                            {item.displayName}
                           </Text>
+                          <Text className="text-xs text-slate-400 mt-0.5">
+                            {item.email}
+                          </Text>
+                        </View>
+                        {alreadyInRoom ? (
+                          <Text className="text-[10px] text-slate-400 font-semibold bg-slate-100 px-2 py-1 rounded-md">
+                            {t("room.already_in_room", {
+                              defaultValue: "Đã ở trong phòng",
+                            })}
+                          </Text>
+                        ) : (
+                          <Feather name="plus-circle" size={18} color="#0052FF" />
                         )}
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-base font-bold text-slate-800">
-                          {item.displayName}
-                        </Text>
-                        <Text className="text-xs text-slate-400 mt-0.5">
-                          {item.email}
-                        </Text>
-                      </View>
-                      <Feather name="plus-circle" size={18} color="#0052FF" />
-                    </TouchableOpacity>
-                  )}
+                      </TouchableOpacity>
+                    );
+                  }}
                 />
               ) : searchQuery.trim() ? (
-                <View className="flex-1 justify-center items-center py-8">
+                <View className="py-8 justify-center items-center">
                   <Feather name="users" size={32} color="#CBD5E1" />
                   <Text className="text-slate-400 text-xs mt-2">
                     {t("room.user_not_found")}
                   </Text>
                 </View>
-              ) : null}
+              ) : (
+                <View className="py-8 justify-center items-center">
+                  <Feather name="search" size={32} color="#CBD5E1" />
+                  <Text className="text-slate-400 text-xs text-center mt-2 px-6">
+                    {t("room.search_channel_invite_hint", {
+                      defaultValue: "Tìm kiếm bằng email hoặc tên tài khoản để thêm vào phòng.",
+                    })}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>

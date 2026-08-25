@@ -47,7 +47,8 @@ export default function AddPrivateChannelMemberModal({
 
   const {
     users: searchResults = [],
-    isFetching: isSearching,
+    isSearching,
+    isLoadingMore,
     hasNext: hasNextPage,
     debouncedQuery,
     loadMore: loadMoreUsers,
@@ -147,9 +148,9 @@ export default function AddPrivateChannelMemberModal({
           : null;
       setError(
         parsedMsg ||
-          t("invite_error_fallback", {
-            defaultValue: "Không thể thêm thành viên vào kênh",
-          }),
+        t("invite_error_fallback", {
+          defaultValue: "Không thể thêm thành viên vào kênh",
+        }),
       );
     } finally {
       setIsSubmitting(false);
@@ -231,11 +232,10 @@ export default function AddPrivateChannelMemberModal({
                   isSelectedUserInChannel ||
                   (!selectedUser && !searchQuery.trim())
                 }
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm flex-shrink-0 ${
-                  isSelectedUserInChannel
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm flex-shrink-0 ${isSelectedUserInChannel
                     ? "bg-slate-400 text-white cursor-not-allowed opacity-80"
                     : "bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50 text-white"
-                }`}
+                  }`}
               >
                 {isSubmitting && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -249,9 +249,9 @@ export default function AddPrivateChannelMemberModal({
             </div>
 
             {/* Dropdown Gợi ý tìm kiếm */}
-            {debouncedQuery.length >= 2 && !selectedUser && (
+            {searchQuery.trim().length >= 1 && !selectedUser && (
               <div className="w-full mt-2 bg-slate-50 border border-slate-200 rounded-xl py-1.5 max-h-56 overflow-y-auto custom-scrollbar shadow-sm">
-                {isSearching && searchResults.length === 0 ? (
+                {isSearching ? (
                   <div className="px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
                     <span>
@@ -323,10 +323,10 @@ export default function AddPrivateChannelMemberModal({
                             e.stopPropagation();
                             loadMoreUsers();
                           }}
-                          disabled={isSearching}
+                          disabled={isLoadingMore}
                           className="w-full py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-50 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                         >
-                          {isSearching ? (
+                          {isLoadingMore ? (
                             <>
                               <Loader2 className="w-3 h-3 animate-spin" />
                               <span>

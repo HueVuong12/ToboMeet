@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useGlobalUserSearch } from "./useGlobalUserSearch";
 import { Participant } from "livekit-client";
-import debounce from "lodash/debounce";
 import { useGetRoomMembersQuery } from "../lib/redux/features/rooms/roomsApi";
 import { useSendMeetingInviteMutation } from "../lib/redux/features/meetings/meetingsApi";
 import { toast } from "../lib/toast";
@@ -25,30 +24,12 @@ export function useMeetingInvite({
   const targetRoomId = meetingData?.roomId;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
 
-  // Debounce logic
-  const debouncedSearch = useMemo(
-    () =>
-      debounce((query: string) => {
-        setDebouncedQuery(query);
-      }, 500),
-    [],
-  );
-
-  useEffect(() => {
-    debouncedSearch(searchQuery);
-    return () => {
-      debouncedSearch.cancel();
-    };
-  }, [searchQuery, debouncedSearch]);
-
-  // Tự động reset bộ đếm và text khi Modal đóng
+  // Tự động reset text khi Modal đóng
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery("");
-      setDebouncedQuery("");
     }
   }, [isOpen]);
 
@@ -58,16 +39,18 @@ export function useMeetingInvite({
       skip: !targetRoomId || !isOpen,
     });
 
-  // Gọi API tìm kiếm toàn cục
+  // Gọi API tìm kiếm toàn cục (hook đã tự động debounce)
   const {
     users: globalUsers,
-    isFetching: isGlobalSearching,
-    isLoading: isGlobalLoading,
+    isSearching: isGlobalSearchingRaw,
+    isLoadingMore,
+    isFetching: isGlobalFetching,
     hasNext: hasNextPage,
+    debouncedQuery,
     loadMore,
   } = useGlobalUserSearch({
-    q: debouncedQuery,
-    skip: !isOpen || debouncedQuery.trim() === "",
+    q: searchQuery,
+    skip: !isOpen || searchQuery.trim() === "",
   });
 
   const [sendInvite] = useSendMeetingInviteMutation();
@@ -99,9 +82,9 @@ export function useMeetingInvite({
     }
   }, [roomMembers, globalUsers, displayParticipants, debouncedQuery]);
 
-  const isLoading =
-    isMembersLoading || (isGlobalLoading && !!debouncedQuery.trim());
-  const isFetching = isGlobalSearching;
+  const isGlobalSearching = isGlobalSearchingRaw && !!searchQuery.trim();
+  const isLoading = isMembersLoading || isGlobalSearching;
+  const isFetching = isLoadingMore || isGlobalFetching;
 
   const handleSendInvite = async (userId: string, displayName: string) => {
     setInvitingUserId(userId);
@@ -119,6 +102,7 @@ export function useMeetingInvite({
     searchQuery,
     setSearchQuery,
     isLoading,
+    isLoadingMore,
     isFetching,
     hasNextPage,
     availableMembersToInvite,
