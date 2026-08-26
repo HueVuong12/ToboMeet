@@ -12,6 +12,7 @@ import { UploadsModule } from "./uploads/uploads.module";
 import { NewsFeedModule } from "./news-feed/news-feed.module";
 import { ChannelFilesModule } from "./channel-files/channel-files.module";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { BullModule } from "@nestjs/bullmq";
 
 @Module({
   imports: [
@@ -26,6 +27,12 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
       }),
       inject: [ConfigService],
     }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+      },
+    }),
     MeetingsModule,
     UsersModule,
     RoomsModule,
@@ -38,4 +45,4 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
     ChannelFilesModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

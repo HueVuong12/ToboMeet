@@ -13,7 +13,10 @@ import {
 } from "@nestjs/common";
 import { BreakoutRoomsService } from "./breakout-rooms.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
-import { StartBreakoutSessionDto } from "./dtos/create-breakout-room.dto";
+import {
+  AssignUsersBreakoutDto,
+  StartBreakoutSessionDto,
+} from "./dtos/create-breakout-room.dto";
 import { Roles } from "../core/decorators/roles.decorator";
 import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
 
@@ -44,6 +47,25 @@ export class BreakoutRoomsController {
       meetingCode,
       body.rooms,
       body.durationMinutes,
+    );
+  }
+
+  /**
+   * POST /api/meetings/:code/breakout/assign-users
+   * HOST: Thêm / gán người dùng vào phòng Breakout (Chỉ Owner/Admin mới được phép)
+   */
+  @Post(":code/breakout/assign-users")
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, MeetingRoleGuard)
+  @HttpCode(HttpStatus.OK)
+  async assignUsers(
+    @Param("code") meetingCode: string,
+    @Body() body: AssignUsersBreakoutDto,
+  ) {
+    return this.breakoutRoomsService.assignUsersToBreakout(
+      meetingCode,
+      body.breakoutRoomId,
+      body.userIds,
     );
   }
 

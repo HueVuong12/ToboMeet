@@ -585,7 +585,14 @@
       "room_full": "Room full",
       "join": "Join",
       "assigned_only": "Assigned only",
-      "no_rooms_created": "No breakout rooms created yet."
+      "no_rooms_created": "No breakout rooms created yet.",
+      "add_user": "Add user to room",
+      "search_participant": "Search participants...",
+      "no_participants_to_add": "No participants available to add",
+      "add_user_success": "Added successfully",
+      "add_user_error": "Failed to add user to room",
+      "add": "Add",
+      "adding": "Adding..."
     },
     "breakout_sync": {
       "session_ended": "Breakout session has ended",

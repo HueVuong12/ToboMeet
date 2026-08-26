@@ -15,20 +15,22 @@ import {
   ErrorCode,
   LivekitBreakoutRoom,
   LivekitRoomMetadata,
-  MainRoomMetadata,
   MeetingJoinResponse,
   ParticipantMetadata,
 } from "@tobomeet/shared/types";
 import { MeetingsService } from "./meetings.service";
 import { CreateBreakoutRoomDto } from "./dtos/create-breakout-room.dto";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 
 @Injectable()
 export class BreakoutRoomsService {
   private livekitRoomService: RoomServiceClient;
-  private breakoutTimers: Map<string, NodeJS.Timeout[]> = new Map();
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
+    @InjectQueue("meeting") private meetingQueue: Queue,
     private meetingsService: MeetingsService,
   ) {
     const livekitHost = process.env.LIVEKIT_API_URL;
@@ -44,14 +46,15 @@ export class BreakoutRoomsService {
     }
   }
 
-  private clearTimersForMeeting(meetingCode: string) {
-    const timers = this.breakoutTimers.get(meetingCode);
-    if (timers) {
-      timers.forEach((timer) => clearTimeout(timer));
-      this.breakoutTimers.delete(meetingCode);
-      console.log(
-        `[Breakout] Đã huỷ các timer đếm ngược cũ của ${meetingCode}`,
-      );
+  private async clearBreakoutJob(meetingCode: string) {
+    try {
+      const jobId = `breakout-timer-${meetingCode}`;
+      const job = await this.meetingQueue.getJob(jobId);
+      if (job) {
+        await job.remove();
+      }
+    } catch (error) {
+      console.error(`[Breakout] Lỗi khi huỷ delayed job cho ${meetingCode}:`, error);
     }
   }
 
@@ -209,106 +212,111 @@ export class BreakoutRoomsService {
         }
       }
 
-      // ===== Tự động đóng phòng khi hết giờ =====
-      this.clearTimersForMeeting(mainMeetingCode);
+      // ===== Tự động đóng phòng khi hết giờ bằng BullMQ Delay Queue =====
+      await this.clearBreakoutJob(mainMeetingCode);
 
-      const currentTimers: NodeJS.Timeout[] = [];
-      let maxDuration = 0;
-      const GRACE_PERIOD_MS = 2000;
+      if (globalDurationMinutes && globalDurationMinutes > 0) {
+        const delayMs = globalDurationMinutes * 60 * 1000;
 
-      breakoutRooms.forEach((room) => {
-        if (room.durationMinutes > 0) {
-          // Tìm ra thời lượng dài nhất
-          if (room.durationMinutes > maxDuration) {
-            maxDuration = room.durationMinutes;
-          }
-
-          const timeoutMs = room.durationMinutes * 60 * 1000 + GRACE_PERIOD_MS;
-
-          const roomTimer = setTimeout(async () => {
-            const fullSubRoomId = `${mainMeetingCode}_${room.id}`;
-            try {
-              const subRooms = await this.livekitRoomService.listRooms([
-                fullSubRoomId,
-              ]);
-
-              if (subRooms.length > 0 && subRooms[0].metadata) {
-                const subMeta: BreakoutRoomMetadata = JSON.parse(
-                  subRooms[0].metadata,
-                );
-
-                if (subMeta.status === "active") {
-                  subMeta.status = "closing";
-
-                  await this.livekitRoomService.updateRoomMetadata(
-                    fullSubRoomId,
-                    JSON.stringify(subMeta),
-                  );
-                  console.log(
-                    `[Breakout] Đã tự động hết giờ và đóng phòng ${fullSubRoomId}`,
-                  );
-                }
-              }
-            } catch (error) {
-              console.error(
-                `Lỗi khi auto-close phòng ${fullSubRoomId}:`,
-                error,
-              );
-            }
-          }, timeoutMs);
-
-          currentTimers.push(roomTimer);
-        }
-      });
-
-      // Lên lịch dọn dẹp metadata của Main Room khi phòng cuối cùng (dài nhất) kết thúc
-      if (maxDuration > 0) {
-        const cleanupTimeoutMs = maxDuration * 60 * 1000 + GRACE_PERIOD_MS;
-
-        const cleanupTimer = setTimeout(async () => {
-          try {
-            const mainRooms = await this.livekitRoomService.listRooms([
-              mainMeetingCode,
-            ]);
-            if (mainRooms.length > 0 && mainRooms[0].metadata) {
-              const currentMeta: MainRoomMetadata = JSON.parse(
-                mainRooms[0].metadata,
-              );
-
-              // ĐỐI CHIẾU THỜI GIAN: Chỉ dọn dẹp nếu session hiện tại trên LiveKit
-              // khớp với session đã tạo cái setTimeout này (bảo vệ khi host kết thúc sớm và tạo phiên mới)
-              if (
-                currentMeta.breakoutSession &&
-                currentMeta.breakoutSession.startedAt === sessionStartedAt
-              ) {
-                delete currentMeta.breakoutSession;
-
-                await this.livekitRoomService.updateRoomMetadata(
-                  mainMeetingCode,
-                  JSON.stringify(currentMeta),
-                );
-                console.log(
-                  `[Breakout] Đã dọn dẹp metadata phòng chính ${mainMeetingCode} sau khi toàn bộ phòng phụ kết thúc`,
-                );
-              }
-            }
-          } catch (error) {
-            console.error(
-              `Lỗi khi auto-clean phòng chính ${mainMeetingCode}:`,
-              error,
-            );
-          }
-        }, cleanupTimeoutMs);
-
-        currentTimers.push(cleanupTimer);
-      }
-
-      if (currentTimers.length > 0) {
-        this.breakoutTimers.set(mainMeetingCode, currentTimers);
+        await this.meetingQueue.add(
+          "auto-end-breakout",
+          {
+            mainMeetingCode,
+            sessionStartedAt,
+          },
+          {
+            jobId: `breakout-timer-${mainMeetingCode}`,
+            delay: delayMs,
+            removeOnComplete: true,
+            removeOnFail: true,
+          },
+        );
       }
     } catch (error) {
-      console.error("Lỗi khi tạo Breakout Session:", error);
       throw new AppException(ErrorCode.START_BREAKOUT_FAILED);
+    }
+  }
+
+  /**
+   * BULLMQ WORKER: Tự động kết thúc phiên Breakout khi hết globalDurationMinutes
+   */
+  async handleAutoEndBreakout(
+    mainMeetingCode: string,
+    sessionStartedAt: number,
+  ) {
+    if (!this.livekitRoomService) return;
+
+    try {
+      const mainRooms = await this.livekitRoomService.listRooms([
+        mainMeetingCode,
+      ]);
+      if (mainRooms.length === 0 || !mainRooms[0].metadata) return;
+
+      let currentMeta: LivekitRoomMetadata = {} as LivekitRoomMetadata;
+      try {
+        currentMeta = JSON.parse(mainRooms[0].metadata);
+      } catch (e) {
+        console.error(
+          `[Breakout] Lỗi parse metadata phòng chính ${mainMeetingCode}:`,
+          e,
+        );
+        return;
+      }
+
+      if (currentMeta.roomType === "breakout") return;
+
+      // Kiểm tra xem session có đang chạy và đúng phiên đã lên lịch không
+      if (!currentMeta.breakoutSession) {
+        return;
+      }
+
+      if (
+        sessionStartedAt &&
+        currentMeta.breakoutSession.startedAt &&
+        currentMeta.breakoutSession.startedAt !== sessionStartedAt
+      ) {
+        return;
+      }
+
+      const breakoutRooms = currentMeta.breakoutSession.rooms || [];
+
+      // Xóa trạng thái breakout ở phòng chính
+      delete currentMeta.breakoutSession;
+      await this.livekitRoomService.updateRoomMetadata(
+        mainMeetingCode,
+        JSON.stringify(currentMeta),
+      );
+
+      // Gửi tín hiệu 'closing' vào các phòng phụ
+      for (const room of breakoutRooms) {
+        const fullSubRoomId = `${mainMeetingCode}_${room.id}`;
+        try {
+          const subRooms = await this.livekitRoomService.listRooms([
+            fullSubRoomId,
+          ]);
+          if (subRooms.length > 0) {
+            const subMeta = subRooms[0].metadata
+              ? JSON.parse(subRooms[0].metadata)
+              : {};
+            subMeta.status = "closing";
+
+            await this.livekitRoomService.updateRoomMetadata(
+              fullSubRoomId,
+              JSON.stringify(subMeta),
+            );
+          }
+        } catch (e) {
+          console.error(
+            `[Breakout] Lỗi khi đóng phòng phụ ${fullSubRoomId}:`,
+            e,
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        `[Breakout] Lỗi khi xử lý auto-end breakout cho ${mainMeetingCode}:`,
+        error,
+      );
     }
   }
 
@@ -320,7 +328,7 @@ export class BreakoutRoomsService {
     if (!this.livekitRoomService) return;
 
     try {
-      this.clearTimersForMeeting(mainMeetingCode);
+      await this.clearBreakoutJob(mainMeetingCode);
       // BƯỚC A: Cập nhật Metadata phòng chính về lại bình thường
       const mainRooms = await this.livekitRoomService.listRooms([
         mainMeetingCode,
@@ -372,6 +380,143 @@ export class BreakoutRoomsService {
     } catch (error) {
       console.log(error);
       throw new AppException(ErrorCode.END_BREAKOUT_FAILED);
+    }
+  }
+
+  /**
+   * HOST: Thêm / gán người dùng vào phòng Breakout đang hoạt động
+   */
+  async assignUsersToBreakout(
+    mainMeetingCode: string,
+    breakoutRoomId: string,
+    userIds: string[],
+  ) {
+    if (!this.livekitRoomService)
+      throw new AppException(ErrorCode.SERVER_ERROR);
+
+    if (!userIds || userIds.length === 0) return { success: true };
+
+    try {
+      // 1. Lấy metadata của phòng chính
+      const mainRooms = await this.livekitRoomService.listRooms([
+        mainMeetingCode,
+      ]);
+      if (mainRooms.length === 0 || !mainRooms[0].metadata) {
+        throw new AppException(ErrorCode.MAIN_ROOM_NOT_ACTIVE);
+      }
+
+      let mainMeta: LivekitRoomMetadata;
+      try {
+        mainMeta = JSON.parse(mainRooms[0].metadata);
+      } catch (e) {
+        throw new AppException(ErrorCode.BREAKOUT_ROOM_DATA_INVALID);
+      }
+
+      if (
+        mainMeta.roomType !== "main" ||
+        !mainMeta.breakoutSession ||
+        mainMeta.breakoutSession.status !== "active"
+      ) {
+        throw new AppException(ErrorCode.BREAKOUT_ROOM_NOT_ACTIVE);
+      }
+
+      // 2. Tìm phòng breakout tương ứng trong metadata phòng chính
+      const targetRoom = mainMeta.breakoutSession.rooms.find(
+        (r) => r.id === breakoutRoomId,
+      );
+
+      if (!targetRoom) {
+        throw new AppException(ErrorCode.BREAKOUT_ROOM_NOT_FOUND_OR_CLOSED);
+      }
+
+      // CHẶN: Nếu phòng ở chế độ tự do chọn (assignedUsers không phải là mảng) thì không được gán
+      if (!Array.isArray(targetRoom.assignedUsers)) {
+        throw new AppException(ErrorCode.BREAKOUT_ROOM_FREE_TO_CHOOSE);
+      }
+
+      // Loại bỏ Host/Owner ra khỏi danh sách gán
+      const meeting = await this.meetingModel
+        .findOne({ meetingCode: mainMeetingCode })
+        .lean();
+      const validUserIds = meeting?.ownerId
+        ? userIds.filter((id) => id !== meeting.ownerId)
+        : userIds;
+
+      if (validUserIds.length === 0) {
+        return {
+          success: true,
+          breakoutRoomId,
+          assignedUsers: targetRoom.assignedUsers,
+        };
+      }
+
+      const existingAssigned = targetRoom.assignedUsers;
+      const newAssignedUsers = Array.from(
+        new Set([...existingAssigned, ...validUserIds]),
+      );
+      targetRoom.assignedUsers = newAssignedUsers;
+
+      // Cập nhật lại metadata phòng chính
+      await this.livekitRoomService.updateRoomMetadata(
+        mainMeetingCode,
+        JSON.stringify(mainMeta),
+      );
+
+      // 3. Cập nhật metadata của phòng phụ
+      const fullSubRoomId = `${mainMeetingCode}_${breakoutRoomId}`;
+      try {
+        const subRooms = await this.livekitRoomService.listRooms([
+          fullSubRoomId,
+        ]);
+        if (subRooms.length > 0 && subRooms[0].metadata) {
+          const subMeta: BreakoutRoomMetadata = JSON.parse(
+            subRooms[0].metadata,
+          );
+          subMeta.assignedUsers = newAssignedUsers;
+          await this.livekitRoomService.updateRoomMetadata(
+            fullSubRoomId,
+            JSON.stringify(subMeta),
+          );
+        }
+      } catch (err) {
+        console.error(
+          `Lỗi khi cập nhật metadata cho phòng phụ ${fullSubRoomId}:`,
+          err,
+        );
+      }
+
+      // 4. Phát tín hiệu FORCE_JOIN_BREAKOUT qua DataChannel của phòng chính
+      const payload = JSON.stringify({
+        id: Date.now().toString(),
+        type: "SYSTEM",
+        command: "FORCE_JOIN_BREAKOUT",
+        breakoutRoomId: breakoutRoomId,
+        targetUsers: userIds,
+        timestamp: Date.now(),
+      });
+
+      const encoder = new TextEncoder();
+      const data = encoder.encode(payload);
+
+      try {
+        await this.livekitRoomService.sendData(
+          mainMeetingCode,
+          data,
+          DataPacket_Kind.RELIABLE,
+        );
+      } catch (err) {
+        console.error("Lỗi khi bắn tín hiệu auto-join cho user mới:", err);
+      }
+
+      return {
+        success: true,
+        breakoutRoomId,
+        assignedUsers: newAssignedUsers,
+      };
+    } catch (error) {
+      if (error instanceof AppException) throw error;
+      console.error("Lỗi khi gán người dùng vào breakout:", error);
+      throw new AppException(ErrorCode.START_BREAKOUT_FAILED);
     }
   }
 

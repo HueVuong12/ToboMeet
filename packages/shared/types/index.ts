@@ -242,6 +242,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Bạn không được phân công vào phòng thảo luận này",
     statusCode: 403,
   },
+  BREAKOUT_ROOM_FREE_TO_CHOOSE: {
+    code: 4028,
+    message: "Phòng thảo luận ở chế độ tự do chọn, không thể chỉ định thành viên",
+    statusCode: 400,
+  },
 };
 
 export interface NavLink {

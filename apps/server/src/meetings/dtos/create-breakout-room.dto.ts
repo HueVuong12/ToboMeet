@@ -38,3 +38,14 @@ export class StartBreakoutSessionDto {
   @Min(0)
   durationMinutes?: number;
 }
+
+export class AssignUsersBreakoutDto {
+  @IsString()
+  breakoutRoomId: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  userIds: string[];
+}
+

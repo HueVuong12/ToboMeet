@@ -282,6 +282,18 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Thêm / gán người dùng vào phòng Breakout (Gọi bởi Host)
+    assignUsersToBreakout: builder.mutation<
+      { success: boolean; breakoutRoomId: string; assignedUsers: string[] },
+      { code: string; breakoutRoomId: string; userIds: string[] }
+    >({
+      query: ({ code, breakoutRoomId, userIds }) => ({
+        url: `/meetings/${code}/breakout/assign-users`,
+        method: "POST",
+        data: { breakoutRoomId, userIds },
+      }),
+    }),
+
     // Lấy số lượng thành viên các phòng breakout
     getBreakoutCounts: builder.query<
       { counts: Record<string, number>; serverTime: number },
@@ -324,7 +336,9 @@ export const {
   // Breakout room APIs
   useStartBreakoutSessionMutation, // Bắt đầu phiên breakout
   useEndBreakoutSessionMutation, // Kết thúc phiên breakout
+  useAssignUsersToBreakoutMutation, // Gán người dùng vào phòng breakout
   useJoinBreakoutRoomMutation, // Tham gia breakout
   useReturnToMainRoomMutation, // Trở về phòng chính
   useGetBreakoutCountsQuery, // Số lượng người trong từng phòng breakout
 } = meetingsApi;
+

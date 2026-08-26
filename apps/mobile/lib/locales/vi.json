@@ -587,7 +587,14 @@
       "room_full": "Đã đầy",
       "join": "Tham gia",
       "assigned_only": "Chỉ định sẵn",
-      "no_rooms_created": "Chưa có nhóm thảo luận nào được tạo."
+      "no_rooms_created": "Chưa có nhóm thảo luận nào được tạo.",
+      "add_user": "Thêm người vào phòng",
+      "search_participant": "Tìm kiếm người tham gia...",
+      "no_participants_to_add": "Không có người tham gia phù hợp",
+      "add_user_success": "Đã thêm thành công",
+      "add_user_error": "Không thể thêm người dùng vào phòng",
+      "add": "Thêm",
+      "adding": "Đang thêm..."
     },
     "breakout_sync": {
       "session_ended": "Phiên thảo luận đã kết thúc",

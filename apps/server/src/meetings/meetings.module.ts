@@ -1,6 +1,7 @@
 // src/meetings/meetings.module.ts
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
+import { BullModule } from "@nestjs/bullmq";
 import {
   ChannelMeetingsController,
   MeetingsController,
@@ -34,6 +35,7 @@ import {
 import { MeetingInviteService } from "./meeting-invite.service";
 import { BreakoutRoomsController } from "./breakout-rooms.controller";
 import { BreakoutRoomsService } from "./breakout-rooms.service";
+import { MeetingProcessor } from "./processors/meeting.processor";
 
 @Module({
   imports: [
@@ -47,6 +49,9 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
       { name: MeetingSession.name, schema: MeetingSessionSchema },
       { name: "Post", schema: require("../news-feed/schemas/post.schema").PostSchema },
     ]),
+    BullModule.registerQueue({
+      name: "meeting",
+    }),
     SupabaseModule,
     NotificationsModule,
     CoreModule,
@@ -63,6 +68,7 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
     MeetingInviteService,
     CalendarService,
     MeetingsGateway,
+    MeetingProcessor,
   ],
   exports: [
     BreakoutRoomsService,
@@ -73,3 +79,4 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
   ],
 })
 export class MeetingsModule { }
+
