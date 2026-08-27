@@ -737,6 +737,7 @@
     "delete": "Xóa",
     "cancel": "Hủy",
     "save": "Lưu",
+    "confirm": "Xác nhận",
     "select_start_time": "Chọn thời gian bắt đầu...",
     "select_end_time": "Chọn thời gian kết thúc...",
     "picker_title": "Chọn ngày & giờ",
