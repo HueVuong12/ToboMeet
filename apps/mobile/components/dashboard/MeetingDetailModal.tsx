@@ -11,12 +11,14 @@ import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
+import { axiosInstance } from "../../lib/axios";
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   event: any | null;
   onEdit: (event: any) => void;
+  onDelete: (event: any) => void;
   onJoin: (meetingCode: string) => void;
 }
 
@@ -25,11 +27,13 @@ export default function MeetingDetailModal({
   onClose,
   event,
   onEdit,
+  onDelete,
   onJoin,
 }: Props) {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [invitees, setInvitees] = useState<any[]>([]);
 
   useEffect(() => {
     if (visible) {
@@ -40,6 +44,21 @@ export default function MeetingDetailModal({
       });
     }
   }, [visible]);
+
+  // Fetch invitation list when modal becomes visible or event changes
+  useEffect(() => {
+    if (visible && event) {
+      axiosInstance.get(`/calendar/${event._id}/rsvp`)
+        .then((response: any) => {
+          setInvitees(response || []);
+        })
+        .catch((err) => {
+          console.log("Error fetching RSVP list:", err);
+        });
+    } else {
+      setInvitees([]);
+    }
+  }, [visible, event]);
 
   if (!event) return null;
 
@@ -53,6 +72,12 @@ export default function MeetingDetailModal({
   };
 
   const isChannelMeeting = event.roomType === "channel_meeting";
+  const hasInvitees = invitees && invitees.length > 0;
+  const showJoin = event.meetingCode && (isChannelMeeting || hasInvitees);
+
+  // Check if description has actual text content
+  const cleanDesc = event.description ? event.description.replace(/<[^>]*>/g, "").trim() : "";
+  const hasDescription = cleanDesc.length > 0;
 
   return (
     <Modal
@@ -88,6 +113,34 @@ export default function MeetingDetailModal({
               </View>
             )}
 
+            {/* Microsoft Teams style Action Buttons (Tham gia & Trò chuyện) under Title */}
+            {showJoin && (
+              <View style={styles.meetActionsRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onJoin(event.meetingCode);
+                  }}
+                  style={styles.meetJoinBtn}
+                >
+                  <Feather name="video" size={16} color="#FFFFFF" />
+                  <Text style={styles.meetJoinText}>
+                    {i18n.language === "vi" ? "Tham gia" : "Join"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {}}
+                  style={styles.meetChatBtn}
+                >
+                  <Feather name="message-square" size={16} color="#475569" />
+                  <Text style={styles.meetChatText}>
+                    {i18n.language === "vi" ? "Trò chuyện" : "Chat"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Info Items */}
             <View style={styles.infoSection}>
               {/* Time */}
@@ -104,7 +157,7 @@ export default function MeetingDetailModal({
               </View>
 
               {/* Description */}
-              {event.description && (
+              {hasDescription && (
                 <View style={styles.infoRow}>
                   <Feather name="align-left" size={18} color="#0052FF" style={styles.infoIcon} />
                   <View style={styles.infoTextContainer}>
@@ -112,14 +165,14 @@ export default function MeetingDetailModal({
                       {i18n.language === "vi" ? "Mô tả" : "Description"}
                     </Text>
                     <Text style={styles.infoValue}>
-                      {event.description.replace(/<[^>]*>/g, "")}
+                      {cleanDesc}
                     </Text>
                   </View>
                 </View>
               )}
 
               {/* Invitees / Participants */}
-              {event.invitees && event.invitees.length > 0 && (
+              {hasInvitees && (
                 <View style={styles.infoRow}>
                   <Feather name="users" size={18} color="#0052FF" style={styles.infoIcon} />
                   <View style={styles.infoTextContainer}>
@@ -127,7 +180,7 @@ export default function MeetingDetailModal({
                       {i18n.language === "vi" ? "Người tham gia" : "Participants"}
                     </Text>
                     <View style={styles.inviteeList}>
-                      {event.invitees.map((inv: any, idx: number) => (
+                      {invitees.map((inv: any, idx: number) => (
                         <View key={idx} style={styles.inviteeItem}>
                           <View style={styles.avatarPlaceholder}>
                             <Text style={styles.avatarText}>
@@ -146,28 +199,12 @@ export default function MeetingDetailModal({
             </View>
           </ScrollView>
 
-          {/* Actions Footer */}
-          <View style={styles.footer}>
-            {/* Join Button */}
-            {event.meetingCode && (
+          {/* Actions Footer - Management Only */}
+          {isHost && (
+            <View style={styles.footer}>
+              {/* Edit Button */}
               <TouchableOpacity
-                onPress={() => {
-                  onClose();
-                  onJoin(event.meetingCode);
-                }}
-                style={styles.joinBtn}
-              >
-                <Feather name="video" size={18} color="#FFFFFF" />
-                <Text style={styles.joinBtnText}>
-                  {i18n.language === "vi" ? "Tham gia" : "Join"}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Edit Button */}
-            {isHost && (
-              <TouchableOpacity
-                onPress={() => onEdit(event)}
+                onPress={() => onEdit({ ...event, invitees })}
                 style={styles.editBtn}
               >
                 <Feather name="edit-2" size={18} color="#475569" />
@@ -175,8 +212,19 @@ export default function MeetingDetailModal({
                   {i18n.language === "vi" ? "Chỉnh sửa" : "Edit"}
                 </Text>
               </TouchableOpacity>
-            )}
-          </View>
+
+              {/* Delete Button */}
+              <TouchableOpacity
+                onPress={() => onDelete({ ...event, invitees })}
+                style={styles.deleteBtn}
+              >
+                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Text style={styles.deleteBtnText}>
+                  {i18n.language === "vi" ? "Xóa" : "Delete"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -228,7 +276,7 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     flexDirection: "row",
-    marginBottom: 18,
+    marginBottom: 8,
   },
   badgeChannel: {
     backgroundColor: "#ECFDF5",
@@ -241,6 +289,44 @@ const styles = StyleSheet.create({
   badgeTextChannel: {
     color: "#047857",
     fontSize: 11,
+    fontWeight: "bold",
+  },
+  meetActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  meetJoinBtn: {
+    flex: 1,
+    backgroundColor: "#0052FF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  meetJoinText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+  meetChatBtn: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  meetChatText: {
+    color: "#475569",
+    fontSize: 13,
     fontWeight: "bold",
   },
   infoSection: {
@@ -315,21 +401,6 @@ const styles = StyleSheet.create({
     borderTopColor: "#F1F5F9",
     gap: 12,
   },
-  joinBtn: {
-    flex: 1,
-    backgroundColor: "#0052FF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-  },
-  joinBtnText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
   editBtn: {
     flex: 1,
     backgroundColor: "#F1F5F9",
@@ -344,6 +415,23 @@ const styles = StyleSheet.create({
   },
   editBtnText: {
     color: "#475569",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: "#FEF2F2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+  },
+  deleteBtnText: {
+    color: "#EF4444",
     fontSize: 14,
     fontWeight: "600",
   },

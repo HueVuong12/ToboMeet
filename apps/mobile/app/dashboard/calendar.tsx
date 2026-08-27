@@ -284,6 +284,38 @@ export default function CalendarScreen() {
     fetchCalendar();
   };
 
+  const handleDeleteEvent = (event: CalendarEvent) => {
+    Alert.alert(
+      t("calendar.delete") || "Xóa sự kiện",
+      t("calendar.alert_delete_confirm") || "Bạn có chắc chắn muốn xóa sự kiện này?",
+      [
+        { text: t("calendar.cancel") || "Hủy", style: "cancel" },
+        {
+          text: t("calendar.delete") || "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsFetching(true);
+              await axiosInstance.delete(`/calendar/${event._id}`);
+              Alert.alert(
+                t("password_reset.password_success") || "Thành công",
+                t("calendar.alert_delete_success") || "Xóa sự kiện thành công!"
+              );
+              cache.current = {};
+              fetchCalendar(selectedDate, viewMode, true);
+              setDetailModalVisible(false);
+              setSelectedEventForDetail(null);
+            } catch (err: any) {
+              Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", err?.response?.data?.message || "Error");
+            } finally {
+              setIsFetching(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleJoin = (meetingCode: string) => {
     router.push(`/meeting/join?code=${meetingCode}`);
   };
@@ -1014,7 +1046,10 @@ export default function CalendarScreen() {
       <ChannelMeetingModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onSuccess={fetchCalendar}
+        onSuccess={() => {
+          cache.current = {};
+          fetchCalendar(selectedDate, viewMode, true);
+        }}
       />
 
       <MeetingDetailModal
@@ -1030,6 +1065,7 @@ export default function CalendarScreen() {
           setEventToEdit(evt);
           setEventModalVisible(true);
         }}
+        onDelete={handleDeleteEvent}
         onJoin={(meetingCode) => {
           handleJoin(meetingCode);
         }}
@@ -1042,7 +1078,10 @@ export default function CalendarScreen() {
           setEventModalVisible(false);
           setEventToEdit(null);
         }}
-        onSuccess={fetchCalendar}
+        onSuccess={() => {
+          cache.current = {};
+          fetchCalendar(selectedDate, viewMode, true);
+        }}
       />
     </SafeAreaView>
   );

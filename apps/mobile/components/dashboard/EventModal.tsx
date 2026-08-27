@@ -207,9 +207,12 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
         description,
         startDate: startVal.toISOString(),
         endDate: endVal.toISOString(),
-        roomType: "meeting", // Default type for events
+        roomType: eventToEdit?.roomType || "meeting",
         invitees: inviteeList,
       };
+
+      if (eventToEdit?.roomId) payload.roomId = eventToEdit.roomId;
+      if (eventToEdit?.channelId) payload.channelId = eventToEdit.channelId;
 
       if (recurrence !== "NONE") {
         payload.recurrenceRule = `FREQ=${recurrence}`;
