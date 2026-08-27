@@ -1,0 +1,51 @@
+// src/meetings/meetings.gateway.ts
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
+} from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
+
+@WebSocketGateway({
+  cors: {
+    origin: process.env.CLIENT_URL
+      ? process.env.CLIENT_URL.split(",").map((o) => o.trim())
+      : true,
+    credentials: true,
+  },
+})
+export class MeetingsGateway {
+  @WebSocketServer()
+  server: Server;
+
+  // Khi User bấm vào 1 kênh ở Frontend, sẽ gửi event này lên
+  @SubscribeMessage("join_channel")
+  handleJoinChannel(
+    @MessageBody() channelId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    client.join(channelId);
+    console.log(`[Socket] Client ${client.id} joined channel: ${channelId}`);
+  }
+
+  // Khi User chuyển kênh khác, gửi event rời kênh cũ
+  @SubscribeMessage("leave_channel")
+  handleLeaveChannel(
+    @MessageBody() channelId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    client.leave(channelId);
+  }
+
+  /**
+   * Cập nhật trạng thái cuộc họp mới cho tất cả người dùng trong kênh
+   */
+  notifyMeetingStatus(
+    channelId: string,
+    data: { isOngoing: boolean; meetingCode?: string },
+  ) {
+    this.server.to(channelId).emit("meeting_status_changed", data);
+  }
+}

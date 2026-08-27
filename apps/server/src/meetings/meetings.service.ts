@@ -1,0 +1,1372 @@
+// src/meetings/meetings.service.ts
+import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
+import { User, UserDocument } from "../users/schemas/user.schema";
+import {
+  AccessToken,
+  RoomServiceClient,
+  TrackType,
+  Room as LiveKitRoom,
+  TrackSource,
+} from "livekit-server-sdk";
+import { Room, RoomDocument } from "../rooms/schemas/room.schema";
+import {
+  ErrorCode,
+  LivekitRoomMetadata,
+  MainRoomMetadata,
+  MeetingDeviceStatus,
+  MeetingJoinResponse,
+  ParticipantMetadata,
+  PresignedUploadResponse,
+  RoomMemberStatus,
+} from "@tobomeet/shared/types";
+import { MeetingsGateway } from "./meetings.gateway";
+import { AppException } from "../core/exceptions/app.exception";
+import { SupabaseService } from "../supabase/supabase.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  MeetingSession,
+  MeetingSessionDocument,
+} from "./schemas/meeting-session.schema";
+
+@Injectable()
+export class MeetingsService {
+  private livekitRoomService: RoomServiceClient;
+  private readonly BUCKET_NAME = "meeting-chat";
+  constructor(
+    private eventEmitter: EventEmitter2,
+    private readonly supabaseService: SupabaseService,
+    @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
+    @InjectModel(MeetingSession.name)
+    private sessionModel: Model<MeetingSessionDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    private readonly meetingsGateway: MeetingsGateway,
+  ) {
+    const livekitHost = process.env.LIVEKIT_API_URL;
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+    if (livekitHost && apiKey && apiSecret) {
+      this.livekitRoomService = new RoomServiceClient(
+        livekitHost,
+        apiKey,
+        apiSecret,
+      );
+    }
+  }
+
+  /**
+   * Tham gia hoặc tự động khởi tạo mã cuộc họp lần đầu nếu chưa có ai tạo trong kênh
+   * Chỉ cho phép 1 thiết bị vào 1 kênh họp tại 1 thời điểm
+   */
+  async joinOrCreateMeeting(
+    roomId: string,
+    channelId: string,
+    userId: string,
+    deviceId: string,
+    displayName?: string,
+    forceSwitch?: boolean,
+  ): Promise<MeetingJoinResponse> {
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const room = await this.roomModel.findOne({
+      _id: roomId,
+      "channels._id": channelId,
+    });
+
+    if (!room) {
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+    }
+
+    // Thông tin tên hiển thị của User để làm Identity trong LiveKit
+    const user = await this.userModel.findOne({ supabaseId: userId }).exec();
+    const finalDisplayName =
+      displayName || user?.displayName || "Người dùng ẩn danh";
+    const avatarUrl = user?.avatarUrl || "";
+
+    // Tìm cuộc họp để lấy meetingCode trong kênh này
+    let meeting = await this.meetingModel
+      .findOne({
+        roomId,
+        channelId,
+      })
+      .exec();
+
+    // Chặn user tham gia cuộc họp nếu họ đã tham gia trên một thiết bị khác (tránh join nhiều tab)
+    if (meeting && this.livekitRoomService) {
+      try {
+        const participants = await this.livekitRoomService.listParticipants(
+          meeting.meetingCode,
+        );
+
+        const isAlreadyInThisRoom = participants.some((p) =>
+          p.identity.startsWith(userId),
+        );
+
+        if (isAlreadyInThisRoom) {
+          if (forceSwitch) {
+            console.log(`Tiến hành cấp Token thế chỗ cho user ${userId}`);
+          } else {
+            throw new AppException(ErrorCode.ALREADY_IN_MEETING);
+          }
+        }
+      } catch (error) {
+        if (error instanceof AppException) {
+          throw error;
+        }
+      }
+    }
+
+    // Nếu chưa có cuộc họp (meetingCode) nào, tiến hành tạo mới 1 lần duy nhất (lazy init)
+    if (!meeting) {
+      const randomString = Math.random().toString(36).substring(2, 9);
+      const meetingCode = `meet-${roomId.substring(0, 4)}-${randomString}`;
+
+      meeting = await this.meetingModel.create({
+        roomId,
+        channelId,
+        meetingCode,
+      });
+    }
+
+    let livekitRoom = await this.isRoomActive(meeting.meetingCode);
+    const isMeetingStarting = !livekitRoom;
+
+    let currentSessionId = "";
+
+    // Tạo meeting session khi khởi tạo cuộc họp mới
+    if (isMeetingStarting) {
+      // Nếu là người đầu tiên kích hoạt phòng -> Tạo Session 'ongoing'
+      try {
+        const newSession = await this.sessionModel.create({
+          roomId,
+          channelId,
+          meetingCode: meeting.meetingCode,
+          hostId: userId,
+          status: "ongoing",
+        });
+        currentSessionId = newSession._id.toString(); // ID mặc định của Mongo
+      } catch (error) {
+        console.log(error);
+        // Xử lý nảy sinh nếu có 2 request tạo phòng đến cùng 1 mili-giây (Partial Index sẽ bắt lỗi)
+        const ongoingSession = await this.sessionModel.findOne({
+          meetingCode: meeting.meetingCode,
+          status: "ongoing",
+        });
+        if (ongoingSession) currentSessionId = ongoingSession._id.toString();
+      }
+    }
+
+    // Phân quyền theo kênh
+    const currentChannel = room.channels.find(
+      (c) => c._id?.toString() === channelId.toString(),
+    );
+
+    // Khởi tạo phòng ngay lập tức (eager init) với metadata mặc định
+    if (!livekitRoom && this.livekitRoomService) {
+      try {
+        livekitRoom = await this.livekitRoomService.createRoom({
+          name: meeting.meetingCode,
+          emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
+          departureTimeout: 5 * 60,
+          metadata: JSON.stringify({
+            roomName: currentChannel?.name, // có thể tuỳ biến
+            roomType: "main",
+            sessionId: currentSessionId,
+            isWaitingRoomEnabled: false,
+            isChatEnabled: true,
+            approvalPermission: "admin_only",
+          } as LivekitRoomMetadata),
+        });
+      } catch (e) {
+        console.error("Lỗi Eager Init phòng LiveKit:", e);
+      }
+    }
+
+    // Chỉ thông báo lần đầu khi phòng chưa active
+    if (isMeetingStarting) {
+      this.meetingsGateway.notifyMeetingStatus(channelId, {
+        isOngoing: true,
+        meetingCode: meeting.meetingCode,
+      });
+    }
+
+    if (!apiKey || !apiSecret) {
+      console.error("Chưa cấu hình LiveKit API Key/Secret ở file .env");
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    // Chỉ dùng đúng userId làm định danh duy nhất
+    const uniqueIdentity = userId;
+
+    const userRole = this.getUserRoleInChannel(
+      room,
+      currentChannel._id.toString(),
+      userId,
+    );
+
+    const hasAdminPowers = userRole === "owner" || userRole === "admin";
+
+    // Kiểm tra xem phòng chờ (Waiting Room) có đang bật hay không
+    let isWaitingRoomEnabled = false;
+    if (livekitRoom && livekitRoom.metadata) {
+      try {
+        const roomMeta = JSON.parse(livekitRoom.metadata);
+        isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
+      } catch (e) {
+        console.error("Không thể parse metadata của phòng LiveKit", e);
+      }
+    }
+
+    // Nếu phòng chờ đang bật VÀ user không phải là admin/owner -> Bị cho vào phòng chờ
+    const isWaiting = isWaitingRoomEnabled && !hasAdminPowers;
+    const participantStatus = isWaiting ? "waiting" : "joined";
+
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity: uniqueIdentity,
+      name: finalDisplayName,
+      ttl: "5m",
+      metadata: JSON.stringify({
+        deviceId: deviceId,
+        avatarUrl: avatarUrl,
+        hasAdminPowers: hasAdminPowers,
+        role: userRole,
+        status: participantStatus,
+      } as ParticipantMetadata),
+    });
+
+    at.addGrant({
+      roomJoin: true,
+      room: meeting.meetingCode,
+      canPublish: !isWaiting, // Khóa micro/camera nếu đang chờ
+      canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE], // Chưa cấp quyền share màn hình
+      canSubscribe: !isWaiting, // Khóa stream (bị mù/điếc) nếu đang chờ
+      canUpdateOwnMetadata: true, // Cho phép cập nhật metadata của chính mình (ví dụ: đổi tên hiển thị)
+    });
+
+    return {
+      token: await at.toJwt(),
+      meetingCode: meeting.meetingCode,
+      status: "ongoing",
+      displayName: finalDisplayName,
+
+      roomId: roomId.toString(),
+      channelId: channelId.toString(),
+    };
+  }
+
+  async joinMeeting(
+    meetingCode: string,
+    userId: string,
+    deviceId: string,
+    displayName?: string,
+    forceSwitch = false,
+    allowStart = false,
+  ): Promise<MeetingJoinResponse> {
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+    if (!apiKey || !apiSecret) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    // Tìm meeting
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+    if (!meeting) {
+      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
+    }
+
+    // Lấy thông tin user
+    const user = await this.userModel.findOne({ supabaseId: userId }).exec();
+    const finalDisplayName = displayName || user?.displayName || "Người dùng ẩn danh";
+    const avatarUrl = user?.avatarUrl || "";
+
+    // Kiểm tra phòng LiveKit có đang active không
+    let livekitRoom = await this.isRoomActive(meeting.meetingCode);
+    const isMeetingStarting = !livekitRoom;
+
+    if (isMeetingStarting) {
+      // Không cho phép start → chặn (người lạ / refresh người cuối)
+      if (!allowStart) {
+        throw new AppException(ErrorCode.MEETING_NOT_STARTED_OR_ENDED);
+      }
+
+      // Cho phép start → kiểm tra quyền
+      const { canStart } = await this.canStartMeeting(meetingCode, userId);
+      if (!canStart) {
+        throw new AppException(ErrorCode.INVALID_PERMISSION);
+      }
+    }
+
+    // Chặn user đang join ở thiết bị khác (trừ khi forceSwitch)
+    if (livekitRoom && this.livekitRoomService) {
+      try {
+        const participants = await this.livekitRoomService.listParticipants(meeting.meetingCode);
+        const isAlreadyInThisRoom = participants.some((p) => p.identity === userId);
+
+        if (isAlreadyInThisRoom && !forceSwitch) {
+          throw new AppException(ErrorCode.ALREADY_IN_MEETING);
+        }
+      } catch (error) {
+        if (error instanceof AppException) throw error;
+      }
+    }
+
+    // Tạo Session nếu đang start mới
+    let currentSessionId = "";
+    if (isMeetingStarting) {
+      try {
+        const newSession = await this.sessionModel.create({
+          meetingCode: meeting.meetingCode,
+          hostId: userId,
+          status: "ongoing",
+          roomId: meeting.roomId,
+          channelId: meeting.channelId,
+        });
+        currentSessionId = newSession._id.toString();
+      } catch (error) {
+        // Race condition: đã có session ongoing
+        const ongoing = await this.sessionModel.findOne({
+          meetingCode: meeting.meetingCode,
+          status: "ongoing",
+        });
+        if (ongoing) currentSessionId = ongoing._id.toString();
+      }
+    }
+
+    // Eager create LiveKit room nếu chưa có
+    if (!livekitRoom && this.livekitRoomService) {
+      try {
+        livekitRoom = await this.livekitRoomService.createRoom({
+          name: meeting.meetingCode,
+          emptyTimeout: 5 * 60,
+          departureTimeout: 5 * 60,
+          metadata: JSON.stringify({
+            roomType: "main",
+            meetingType: meeting.type === "personal" ? "personal" : "channel",
+            sessionId: currentSessionId,
+            isWaitingRoomEnabled: false,
+            isChatEnabled: true,
+            approvalPermission: "admin_only",
+          } as MainRoomMetadata),
+        });
+      } catch (e) {
+        console.error("Lỗi tạo phòng LiveKit:", e);
+      }
+    }
+
+    // Thông báo status (chỉ khi start mới + là channel meeting)
+    if (isMeetingStarting && meeting.type === "channel" && meeting.channelId) {
+      this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
+        isOngoing: true,
+        meetingCode: meeting.meetingCode,
+      });
+    }
+
+    // Xác định role & quyền
+    const { role, hasAdminPowers } = await this.resolveParticipantRole(meeting, userId);
+
+    // Waiting room logic
+    let isWaitingRoomEnabled = false;
+    if (livekitRoom?.metadata) {
+      try {
+        const meta = JSON.parse(livekitRoom.metadata);
+        isWaitingRoomEnabled = meta.isWaitingRoomEnabled === true;
+      } catch { }
+    }
+
+    const isWaiting = isWaitingRoomEnabled && !hasAdminPowers;
+    const participantStatus = isWaiting ? "waiting" : "joined";
+
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity: userId,
+      name: finalDisplayName,
+      ttl: "5m",
+      metadata: JSON.stringify({
+        deviceId,
+        avatarUrl,
+        hasAdminPowers,
+        role,
+        status: participantStatus,
+      } as ParticipantMetadata),
+    });
+
+    at.addGrant({
+      roomJoin: true,
+      room: meeting.meetingCode,
+      canPublish: !isWaiting,
+      canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE],
+      canSubscribe: !isWaiting,
+      canUpdateOwnMetadata: true,
+    });
+
+    return {
+      token: await at.toJwt(),
+      meetingCode: meeting.meetingCode,
+      status: "ongoing",
+      displayName: finalDisplayName,
+
+      // Chỉ trả về khi người dùng là thành viên trong kênh
+      roomId: role !== "guest" && meeting.roomId?.toString(),
+      channelId: role !== "guest" && meeting.channelId?.toString(),
+    };
+  }
+
+  /**
+   * Kiểm tra user có quyền start meeting này không
+   * (dùng cho frontend hiện nút Start + backend validate)
+   */
+  async canStartMeeting(
+    meetingCode: string,
+    userId: string,
+  ): Promise<{ canStart: boolean; reason?: string }> {
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+    if (!meeting) {
+      return { canStart: false, reason: "MEETING_NOT_FOUND" };
+    }
+
+    // Nếu phòng đang active → không cần start nữa
+    const isActive = !!(await this.isRoomActive(meeting.meetingCode));
+    if (isActive) {
+      return { canStart: false, reason: "ALREADY_ONGOING" };
+    }
+
+    // Kiểm tra quyền theo type
+    if (meeting.type === "personal") {
+      const isOwner = meeting.ownerId === userId;
+      return {
+        canStart: isOwner,
+        reason: isOwner ? undefined : "NOT_OWNER",
+      };
+    }
+
+    // type === "channel"
+    if (!meeting.roomId || !meeting.channelId) {
+      return { canStart: false, reason: "INVALID_MEETING" };
+    }
+
+    const room = await this.roomModel.findById(meeting.roomId).exec();
+    if (!room) {
+      return { canStart: false, reason: "ROOM_NOT_FOUND" };
+    }
+
+    const role = this.getUserRoleInChannel(room, meeting.channelId, userId);
+    const allowed = role === "owner" || role === "admin" || role === "member";
+
+    return {
+      canStart: allowed,
+      reason: allowed ? undefined : "INVALID_PERMISSION",
+    };
+  }
+
+  /** Lấy role của participant trong cuộc họp */
+  async resolveParticipantRole(
+    meeting: MeetingDocument,
+    userId: string,
+  ): Promise<{ role: string; hasAdminPowers: boolean }> {
+    if (meeting.type === "personal") {
+      const isOwner = meeting.ownerId === userId;
+      return {
+        role: isOwner ? "owner" : "guest",
+        hasAdminPowers: isOwner,
+      };
+    }
+
+    // Channel meeting
+    const room = await this.roomModel.findById(meeting.roomId).exec();
+    if (!room) {
+      return { role: "guest", hasAdminPowers: false };
+    }
+
+    const role = this.getUserRoleInChannel(room, meeting.channelId!, userId);
+    const hasAdminPowers = role === "owner" || role === "admin";
+    return { role, hasAdminPowers };
+  }
+
+  /**
+ * Lấy hoặc tạo meetingCode cho một channel.
+ * Chỉ member trở lên mới được tạo mới.
+ */
+  async ensureChannelMeeting(
+    roomId: string,
+    channelId: string,
+    userId: string,
+  ): Promise<{ meetingCode: string }> {
+    // Tìm meeting hiện có
+    let meeting = await this.meetingModel
+      .findOne({ roomId, channelId, type: "channel" })
+      .exec();
+
+    if (meeting) {
+      return { meetingCode: meeting.meetingCode };
+    }
+
+    // Chưa có → kiểm tra quyền tạo
+    const room = await this.roomModel.findById(roomId).exec();
+    if (!room) {
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+    }
+
+    const role = this.getUserRoleInChannel(room, channelId, userId);
+    if (role === "guest") {
+      throw new AppException(ErrorCode.INVALID_PERMISSION);
+    }
+
+    // Tạo meeting mới
+    const randomString = Math.random().toString(36).substring(2, 9);
+    const meetingCode = `meet-${roomId.substring(0, 4)}-${randomString}`;
+
+    meeting = await this.meetingModel.create({
+      type: "channel",
+      roomId,
+      channelId,
+      meetingCode,
+    });
+
+    return { meetingCode: meeting.meetingCode };
+  }
+
+  /**
+ * Lấy hoặc tạo personal meeting cho user.
+ * Mỗi user chỉ có 1 personal meeting (dựa vào ownerId + type).
+ */
+  async ensurePersonalMeeting(userId: string): Promise<{ meetingCode: string }> {
+    let meeting = await this.meetingModel
+      .findOne({ type: "personal", ownerId: userId })
+      .exec();
+
+    if (meeting) {
+      return { meetingCode: meeting.meetingCode };
+    }
+
+    // Tạo mới
+    const meetingCode = `p-${userId.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
+
+    meeting = await this.meetingModel.create({
+      type: "personal",
+      meetingCode,
+      ownerId: userId,
+    });
+
+    return { meetingCode: meeting.meetingCode };
+  }
+
+  /**
+   * Bật tắt chế độ phòng chờ (Waiting Room)
+   */
+  async toggleWaitingRoom(meetingCode: string, isWaitingRoomEnabled: boolean) {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    try {
+      // Cập nhật trạng thái phòng chờ vào Room Metadata
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      let currentMeta = {};
+
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        try {
+          currentMeta = JSON.parse(rooms[0].metadata);
+        } catch (e) {
+          console.error("Lỗi parse metadata phòng", e);
+        }
+      }
+
+      const metadataString = JSON.stringify({
+        ...currentMeta,
+        isWaitingRoomEnabled,
+      });
+
+      await this.livekitRoomService.updateRoomMetadata(
+        meetingCode,
+        metadataString,
+      );
+
+      // Tự động duyệt tất cả người đang chờ vào phòng chính nếu tắt phòng chờ
+      if (!isWaitingRoomEnabled) {
+        const participants =
+          await this.livekitRoomService.listParticipants(meetingCode);
+
+        const approvePromises = participants.map(async (participant) => {
+          let pMeta: ParticipantMetadata = {} as ParticipantMetadata;
+
+          if (participant.metadata) {
+            try {
+              pMeta = JSON.parse(participant.metadata);
+            } catch (e) {
+              console.error("Lỗi parse metadata của participant", e);
+            }
+          }
+
+          // Kiểm tra xem người này có đang bị nhốt ở phòng chờ không
+          if (pMeta.status === "waiting") {
+            pMeta.status = "joined";
+
+            // Cập nhật lại Metadata và mở toàn bộ quyền (Micro, Camera, Data)
+            return this.livekitRoomService.updateParticipant(
+              meetingCode,
+              participant.identity,
+              JSON.stringify(pMeta),
+              {
+                canPublish: true,
+                canSubscribe: true,
+                canPublishData: true,
+                canUpdateMetadata: true,
+              },
+            );
+          }
+        });
+
+        await Promise.all(approvePromises);
+      }
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái phòng chờ:", error);
+      throw new AppException(ErrorCode.WAITING_ROOM_UPDATE_FAILED);
+    }
+  }
+
+  /**
+   * Duyệt người dùng từ phòng chờ vào phòng chính
+   */
+  async approveParticipant(
+    requesterId: string,
+    meetingCode: string,
+    participantIdentity: string,
+  ) {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+    if (!meeting) {
+      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
+    }
+
+    const room = await this.roomModel.findById(meeting.roomId).exec();
+    if (!room) {
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+    }
+
+    const channel = room.channels.find(
+      (c) => c._id?.toString() === meeting.channelId.toString(),
+    );
+    if (!channel) {
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+    }
+
+    // Xác định role của requester (người đang gửi yêu cầu duyệt) để kiểm tra quyền
+    const requesterRole = this.getUserRoleInChannel(
+      room,
+      channel._id.toString(),
+      requesterId,
+    );
+
+    // Lấy thông tin quyền duyệt từ metadata của phòng LiveKit để kiểm tra xem requester có quyền duyệt hay không
+    let approvalPermission = "admin_only"; // Mặc định nếu chưa setup
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        const meta = JSON.parse(rooms[0].metadata);
+        if (meta.approvalPermission) {
+          approvalPermission = meta.approvalPermission;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi parse metadata phòng khi check quyền", e);
+    }
+
+    let hasPermission = false;
+
+    // Owner và Admin LUÔN CÓ QUYỀN
+    if (requesterRole === "owner" || requesterRole === "admin") {
+      hasPermission = true;
+    }
+    // Nếu phòng setup cho mọi người (everyone)
+    else if (approvalPermission === "everyone") {
+      hasPermission = true;
+    }
+    // Nếu phòng setup cho member_and_admin và người này là member
+    else if (
+      approvalPermission === "member_and_admin" &&
+      requesterRole === "member"
+    ) {
+      hasPermission = true;
+    }
+
+    if (!hasPermission) {
+      throw new AppException(ErrorCode.INVALID_PERMISSION);
+    }
+
+    try {
+      if (participantIdentity === "all") {
+        // Logic duyệt tất cả người dùng đang chờ
+        const participants =
+          await this.livekitRoomService.listParticipants(meetingCode);
+
+        const approvePromises = participants.map(async (participant) => {
+          let pMeta: ParticipantMetadata = {} as ParticipantMetadata;
+          if (participant.metadata) {
+            try {
+              pMeta = JSON.parse(participant.metadata);
+            } catch (e) {
+              console.error("Lỗi parse metadata của participant", e);
+            }
+          }
+
+          if (pMeta.status === "waiting") {
+            pMeta.status = "joined";
+            return this.livekitRoomService.updateParticipant(
+              meetingCode,
+              participant.identity,
+              JSON.stringify(pMeta),
+              {
+                canPublish: true,
+                canSubscribe: true,
+                canPublishData: true,
+                canUpdateMetadata: true,
+              },
+            );
+          }
+        });
+
+        await Promise.all(approvePromises);
+      } else {
+        // Logic duyệt 1 người dùng cũ
+        const participant = await this.livekitRoomService.getParticipant(
+          meetingCode,
+          participantIdentity,
+        );
+
+        let currentMeta = {};
+        if (participant.metadata) {
+          currentMeta = JSON.parse(participant.metadata);
+        }
+
+        // Mở lại toàn bộ quyền cho người dùng
+        await this.livekitRoomService.updateParticipant(
+          meetingCode,
+          participantIdentity,
+          JSON.stringify({ ...currentMeta, status: "joined" }), // Update metadata thành "joined"
+          {
+            canPublish: true,
+            canSubscribe: true,
+            canPublishData: true,
+            canUpdateMetadata: true,
+          },
+        );
+      }
+    } catch (error) {
+      console.error("Lỗi khi duyệt người dùng:", error);
+      throw new AppException(ErrorCode.APPROVE_PARTICIPANT_FAILED);
+    }
+  }
+
+  /**
+   * Cập nhật cấu hình: Ai có quyền duyệt người từ phòng chờ
+   * @param permission "admin_only" | "member_and_admin" | "everyone"
+   */
+  async updateApprovalPermission(
+    meetingCode: string,
+    permission: "admin_only" | "member_and_admin" | "everyone",
+  ) {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      let currentMeta = {};
+
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        try {
+          currentMeta = JSON.parse(rooms[0].metadata);
+        } catch (e) {
+          console.error("Lỗi parse metadata phòng", e);
+        }
+      }
+
+      // Gộp thuộc tính quyền duyệt mới vào metadata cũ
+      const metadataString = JSON.stringify({
+        ...currentMeta,
+        approvalPermission: permission,
+      });
+
+      console.log("Cập nhật quyền duyệt thành:", metadataString);
+
+      await this.livekitRoomService.updateRoomMetadata(
+        meetingCode,
+        metadataString,
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật quyền duyệt:", error);
+      throw new AppException(ErrorCode.APPROVAL_PERMISSION_UPDATE_FAILED);
+    }
+  }
+
+  /**
+   * Kiểm tra xem thiết bị hiện tại có đang nằm trong cuộc họp của kênh này không.
+   */
+  async getDeviceStatus(
+    meetingCode: string,
+    userId: string,
+    deviceId: string,
+  ): Promise<MeetingDeviceStatus> {
+    const meeting = await this.meetingModel
+      .findOne({
+        meetingCode
+      })
+      .exec();
+
+    if (!meeting || !this.livekitRoomService) {
+      return { isJoinedOnThisDevice: false, meetingCode: null };
+    }
+
+    try {
+      // Hỏi trực tiếp LiveKit xem có ai đang trong phòng không
+      const participants = await this.livekitRoomService.listParticipants(
+        meeting.meetingCode,
+      );
+
+      // Tìm xem user này có đang kết nối không
+      const userParticipant = participants.find((p) => p.identity === userId);
+
+      if (userParticipant && userParticipant.metadata) {
+        try {
+          // Giải mã metadata để lấy deviceId
+          const meta = JSON.parse(userParticipant.metadata);
+
+          if (meta.deviceId === deviceId) {
+            return {
+              isJoinedOnThisDevice: true,
+              meetingCode: meeting.meetingCode,
+            };
+          }
+        } catch (parseError) {
+          console.error("Lỗi parse metadata từ LiveKit:", parseError);
+        }
+      }
+
+      // Có người trong phòng nhưng không phải là thiết bị này
+      return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
+    } catch (error) {
+      console.log(error);
+      // Khi không có ai trong phòng, LiveKit SFU tự động dọn dẹp (xóa) phòng.
+      return { isJoinedOnThisDevice: false, meetingCode: meeting.meetingCode };
+    }
+  }
+
+  /**
+   * Xin cấp quyền chia sẻ màn hình (Dynamic Permission)
+   * Chặn nếu đã có người khác đang chia sẻ
+   */
+  async requestScreenShare(
+    meetingCode: string,
+    identity: string,
+  ): Promise<void> {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    const participants =
+      await this.livekitRoomService.listParticipants(meetingCode);
+
+    const participant = participants.find((p) => p.identity === identity);
+    if (!participant) {
+      throw new AppException(ErrorCode.PARTICIPANT_NOT_IN_MEETING);
+    }
+
+    // Tìm xem có ai ĐÃ ĐƯỢC CẤP QUYỀN chia sẻ màn hình chưa (ngoại trừ chính mình)
+    const isSomeoneSharing = participants.some(
+      (p) =>
+        p.permission?.canPublishSources?.includes(TrackSource.SCREEN_SHARE) &&
+        p.identity !== identity,
+    );
+
+    if (isSomeoneSharing) {
+      throw new AppException(ErrorCode.SCREEN_SHARE_ALREADY_ACTIVE);
+    }
+
+    await this.livekitRoomService.updateParticipant(
+      meetingCode,
+      identity,
+      participant.metadata, // Giữ nguyên tên, avatar, role...
+      {
+        canPublish: participant.permission?.canPublish,
+        canSubscribe: participant.permission?.canSubscribe,
+        canPublishData: participant.permission?.canPublishData,
+        canUpdateMetadata: participant.permission?.canUpdateMetadata,
+        canPublishSources: [
+          TrackSource.CAMERA,
+          TrackSource.MICROPHONE,
+          TrackSource.SCREEN_SHARE,
+        ],
+      },
+    );
+  }
+
+  /**
+   * Thu hồi quyền chia sẻ màn hình
+   */
+  async revokeScreenShare(
+    meetingCode: string,
+    identity: string,
+  ): Promise<void> {
+    if (!this.livekitRoomService) return;
+
+    try {
+      const participant = await this.livekitRoomService.getParticipant(
+        meetingCode,
+        identity,
+      );
+
+      // Thu hồi quyền, trả người dùng về trạng thái mặc định ban đầu
+      await this.livekitRoomService.updateParticipant(
+        meetingCode,
+        identity,
+        participant.metadata,
+        {
+          canPublish: participant.permission?.canPublish,
+          canSubscribe: participant.permission?.canSubscribe,
+          canPublishData: participant.permission?.canPublishData,
+          canUpdateMetadata: participant.permission?.canUpdateMetadata,
+          canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE],
+        },
+      );
+    } catch (error) {
+      console.log(
+        `Lỗi khi thu hồi quyền share màn hình của ${identity}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Kiểm tra xem một người dùng có phải là thành viên chính thức của phòng hay không
+   * (Dựa vào mã cuộc họp meetingCode)
+   * Phục vụ việc chuyển hướng (Redirect) khi rời phòng hoặc phòng đã kết thúc.
+   */
+  async getMemberStatus(
+    meetingCode: string,
+    userId: string,
+  ): Promise<RoomMemberStatus> {
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+
+    if (!meeting) {
+      return { isMember: false, roomId: null };
+    }
+
+    const room = await this.roomModel.findById(meeting.roomId).exec();
+
+    if (!room) {
+      return { isMember: false, roomId: null };
+    }
+
+    const userInRoom = room.members.find(
+      (m) => m.userId === userId && m.status === "active",
+    );
+    const isMember = !!userInRoom;
+
+    return {
+      isMember,
+      roomId: isMember ? meeting.roomId : undefined,
+    };
+  }
+
+  /**
+   * Sinh presigned url upload cho meeting chat
+   */
+  async generatePresignedUrl(
+    originalFileName: string,
+    meetingCode: string,
+  ): Promise<PresignedUploadResponse> {
+    try {
+      // Chống trùng lặp tên file (Thêm timestamp và chuỗi ngẫu nhiên)
+      const fileExtension = originalFileName.includes(".")
+        ? originalFileName.split(".").pop()
+        : "bin";
+      const safeName = originalFileName
+        .replace(/[^a-zA-Z0-9]/g, "_")
+        .substring(0, 20);
+      const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${safeName}.${fileExtension}`;
+
+      // Phân loại theo meeting code
+      const filePath = `${meetingCode}/${uniqueFileName}`;
+
+      // Gọi hàm tạo URL upload tạm thời (Hết hạn sau 60 giây)
+      const { data, error } = await this.supabaseService.admin.storage
+        .from(this.BUCKET_NAME)
+        .createSignedUploadUrl(filePath);
+
+      if (error) {
+        console.error("Supabase Storage Error:", error);
+        throw new AppException(ErrorCode.SERVER_ERROR);
+      }
+
+      // Lấy Public URL để lưu vào database
+      const { data: publicUrlData } = this.supabaseService.admin.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(filePath);
+
+      return {
+        presignedUrl: data.signedUrl,
+        publicUrl: publicUrlData.publicUrl,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Tham gia cuộc họp bằng link/code
+   * Tất cả những ai đã đăng nhập đều dùng được, kể cả thành viên trong phòng
+   * Không cho người bên ngoài phòng tự ý tạo cuộc họp trước
+   */
+  async joinMeetingByCode(
+    meetingCode: string,
+    userId: string,
+    deviceId: string,
+    displayName?: string,
+  ): Promise<MeetingJoinResponse> {
+    const meeting = await this.meetingModel
+      .findOne({
+        meetingCode,
+      })
+      .exec();
+
+    if (!meeting) {
+      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+    }
+
+    const isActuallyOngoing = await this.isRoomActive(meeting.meetingCode);
+
+    // Chặn vào phòng bằng code(link) nếu đã kết thúc
+    // Chặn refresh khi phòng còn duy nhất 1 người
+    if (!isActuallyOngoing)
+      throw new AppException(ErrorCode.MEETING_NOT_STARTED_OR_ENDED);
+
+    return this.joinOrCreateMeeting(
+      meeting.roomId,
+      meeting.channelId,
+      userId,
+      deviceId,
+      displayName,
+      false,
+    );
+  }
+
+  /**
+   * Lấy trạng thái cuộc họp hiện tại của một kênh
+   * (Nâng cấp: Xác thực trạng thái thực tế trực tiếp từ LiveKit)
+   */
+  async getActiveMeeting(roomId: string, channelId: string) {
+    const meeting = await this.meetingModel
+      .findOne({
+        roomId,
+        channelId,
+      })
+      .exec();
+
+    if (!meeting) {
+      return {
+        isOngoing: false,
+        meetingCode: null,
+        hostId: null,
+      };
+    }
+
+    const isActuallyOngoing = !!(await this.isRoomActive(meeting.meetingCode));
+
+    return {
+      isOngoing: isActuallyOngoing,
+      meetingCode: meeting.meetingCode,
+    };
+  }
+
+  /**
+   * Xoá người dùng ra khỏi cuộc họp
+   */
+  async removeParticipant(meetingCode: string, participantIdentity: string) {
+    if (!this.livekitRoomService) {
+      console.error("LiveKit Admin Client chưa được cấu hình");
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    try {
+      await this.livekitRoomService.removeParticipant(
+        meetingCode,
+        participantIdentity,
+      );
+
+      this.eventEmitter.emit("notification.participant_removed", {
+        userId: participantIdentity, // Gửi thông báo cho người bị xoá
+        metadata: {
+          meetingCode: meetingCode,
+        },
+      });
+    } catch (error) {
+      console.error("Lỗi khi kick:", error);
+      throw new AppException(ErrorCode.REMOVE_PARTICIPANT_FAILED);
+    }
+  }
+
+  /**
+   * Ép LiveKit xóa phòng ngay lập tức không cần đợi Timeout
+   */
+  async forceDeleteLiveKitRoom(meetingCode: string) {
+    if (!this.livekitRoomService) return;
+    try {
+      await this.livekitRoomService.deleteRoom(meetingCode);
+    } catch (error) {
+      console.error(
+        `Không thể xóa phòng ${meetingCode} (có thể đã tự xóa):`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Kiểm tra thực tế số người trong phòng, nếu bằng 0 thì ép xóa, bỏ qua nếu là phòng breakout
+   */
+  async checkAndCloseEmptyRoom(meetingCode: string) {
+    if (!this.livekitRoomService) return;
+
+    try {
+      // Lấy thông tin phòng để kiểm tra metadata trước
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      if (rooms && rooms.length > 0) {
+        const room = rooms[0];
+
+        let isBreakoutRoom = false;
+        let hasActiveBreakoutSession = false;
+
+        if (room.metadata) {
+          try {
+            const meta: LivekitRoomMetadata = JSON.parse(room.metadata);
+            if (meta.roomType === "breakout") {
+              isBreakoutRoom = true;
+            } else if (meta.breakoutSession?.status === "active") {
+              hasActiveBreakoutSession = true;
+            }
+          } catch (e) {
+            console.error("Lỗi parse metadata phòng khi check empty:", e);
+          }
+        }
+
+        // Bỏ qua việc tự động đóng nếu là phòng breakout
+        if (isBreakoutRoom) {
+          console.log(
+            `Bỏ qua tự động dọn dẹp cho phòng breakout: ${meetingCode}`,
+          );
+          return;
+        }
+
+        if (hasActiveBreakoutSession) {
+          console.log(
+            `Bỏ qua tự động dọn dẹp phòng chính ${meetingCode} vì đang có người trong breakout.`,
+          );
+          return;
+        }
+      }
+
+      // Nếu không phải phòng breakout, tiếp tục logic kiểm tra số người
+      // Gọi API trực tiếp lên LiveKit Server để lấy danh sách người dùng hiện tại
+      const participants =
+        await this.livekitRoomService.listParticipants(meetingCode);
+
+      if (participants.length === 0) {
+        await this.endMeetingByCode(meetingCode);
+        await this.forceDeleteLiveKitRoom(meetingCode);
+      }
+    } catch (error) {
+      console.log(`Phòng ${meetingCode} có thể đã được dọn dẹp.`, error);
+    }
+  }
+
+  /**
+   * Bật tắt chat trong cuộc họp
+   */
+  async toggleRoomChat(meetingCode: string, isChatEnabled: boolean) {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      let currentMeta = {};
+
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        try {
+          currentMeta = JSON.parse(rooms[0].metadata);
+        } catch (e) {
+          console.error("Lỗi parse metadata phòng", e);
+        }
+      }
+
+      const metadataString = JSON.stringify({ ...currentMeta, isChatEnabled });
+
+      await this.livekitRoomService.updateRoomMetadata(
+        meetingCode,
+        metadataString,
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái chat:", error);
+      throw new AppException(ErrorCode.TOGGLE_CHAT_FAILED);
+    }
+  }
+
+  /**
+   * Tắt Mic hoặc Camera của người dùng
+   */
+  async muteParticipantTrack(
+    meetingCode: string,
+    participantIdentity: string,
+    trackType: "audio" | "video",
+  ) {
+    if (!this.livekitRoomService) return;
+    try {
+      const participant = await this.livekitRoomService.getParticipant(
+        meetingCode,
+        participantIdentity,
+      );
+      const targetTrackType =
+        trackType === "audio" ? TrackType.AUDIO : TrackType.VIDEO;
+
+      // Tìm track (luồng dữ liệu) tương ứng đang được phát
+      const track = participant.tracks.find((t) => t.type === targetTrackType);
+      if (track) {
+        // Ép tắt track đó
+        await this.livekitRoomService.mutePublishedTrack(
+          meetingCode,
+          participantIdentity,
+          track.sid,
+          true,
+        );
+      }
+    } catch (error) {
+      console.error(`Lỗi khi tắt ${trackType}:`, error);
+      throw new AppException(ErrorCode.MUTE_PARTICIPANT_FAILED);
+    }
+  }
+
+  // utils, helpers
+
+  /**
+   * Xác định Role của User trong một Kênh cụ thể
+   */
+  getUserRoleInChannel(
+    room: RoomDocument,
+    channelId: string,
+    userId: string,
+  ): string {
+    if (!room) return "guest";
+
+    const channel = room.channels.find(
+      (c) => c._id?.toString() === channelId.toString(),
+    );
+    if (!channel) return "guest";
+
+    const isRoomOwner = room.ownerId === userId;
+    const roomMember = room.members.find(
+      (m) => m.userId === userId && m.status === "active",
+    );
+    const channelMember = channel.members?.find((m) => m.userId === userId);
+
+    let userRole = "guest";
+    if (isRoomOwner) {
+      userRole = "owner";
+    } else if (channelMember) {
+      userRole = channelMember.role;
+    } else if (!channel.isPrivate && roomMember) {
+      userRole = roomMember.role;
+    }
+
+    return userRole;
+  }
+
+  /**
+   * Đồng bộ cập nhật Role của người dùng trực tiếp trong cuộc họp đang diễn ra
+   */
+  async updateParticipantRole(
+    roomId: string,
+    channelId: string,
+    participantIdentity: string,
+    newRole: "admin" | "member" | "owner",
+  ) {
+    if (!this.livekitRoomService) return;
+
+    const meeting = await this.meetingModel
+      .findOne({ roomId, channelId })
+      .exec();
+    if (!meeting) return;
+    const hasAdminPowers = newRole === "admin";
+
+    try {
+      // Lấy thông tin người dùng từ phòng LiveKit
+      const participant = await this.livekitRoomService.getParticipant(
+        meeting.meetingCode,
+        participantIdentity,
+      );
+
+      // Nếu người dùng đang có mặt trong phòng, tiến hành cập nhật Metadata
+      if (participant && participant.metadata) {
+        const meta: ParticipantMetadata = JSON.parse(participant.metadata);
+
+        // Cập nhật role mới
+        meta.role = newRole;
+        meta.hasAdminPowers = hasAdminPowers;
+
+        // Ghi đè lại Metadata lên LiveKit Server
+        await this.livekitRoomService.updateParticipant(
+          meeting.meetingCode,
+          participantIdentity,
+          JSON.stringify(meta),
+        );
+      }
+    } catch (error) {
+      // Bỏ qua lỗi nếu người dùng không có mặt trong phòng lúc này
+      console.log(
+        `Người dùng ${participantIdentity} không trực tuyến trong phòng họp. ${error}`,
+      );
+    }
+  }
+
+  async endMeetingByCode(meetingCode: string) {
+    const meeting = await this.meetingModel.findOne({
+      meetingCode,
+    });
+
+    if (meeting) {
+      // Đóng Session hiện tại (vô hiệu hoá lời mời)
+      await this.sessionModel.updateMany(
+        { meetingCode, status: "ongoing" },
+        { $set: { status: "ended", endedAt: new Date() } },
+      );
+
+      // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
+      this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
+        isOngoing: false,
+        meetingCode: null,
+      });
+    }
+  }
+
+  async isRoomActive(meetingCode: string): Promise<LiveKitRoom | null> {
+    if (this.livekitRoomService) {
+      try {
+        const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+
+        // Trả về object phòng của LiveKit để tái sử dụng metadata, tránh gọi 2 lần
+        if (rooms && rooms.length > 0) {
+          return rooms[0];
+        }
+      } catch (error) {
+        console.log("Lỗi kiểm tra phòng LiveKit:", error);
+      }
+    }
+    return null;
+  }
+}
