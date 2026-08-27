@@ -206,4 +206,45 @@ export class UsersController {
     }
     return { success: true };
   }
+
+  /**
+   * PUT /api/users/me/password
+   * Doi mat khau cua nguoi dung hien tai.
+   * Body: { currentPassword, newPassword }
+   */
+  @UseGuards(SupabaseGuard)
+  @Put("me/password")
+  async changePassword(
+    @Request() req,
+    @Body() body: { currentPassword?: string; newPassword?: string },
+  ) {
+    const userId = req.user.id as string;
+    const email = req.user.email as string;
+
+    const { currentPassword, newPassword } = body || {};
+
+    if (!currentPassword || !currentPassword.trim()) {
+      throw new BadRequestException("currentPassword la bat buoc.");
+    }
+    if (!newPassword || !newPassword.trim()) {
+      throw new BadRequestException("newPassword la bat buoc.");
+    }
+    if (newPassword.trim().length < 8) {
+      throw new BadRequestException(
+        "newPassword phai co it nhat 8 ky tu.",
+      );
+    }
+    if (newPassword === currentPassword) {
+      throw new BadRequestException(
+        "newPassword khong duoc trung voi currentPassword.",
+      );
+    }
+
+    return this.usersService.changePassword(
+      userId,
+      email,
+      currentPassword.trim(),
+      newPassword.trim(),
+    );
+  }
 }

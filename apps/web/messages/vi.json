@@ -362,7 +362,8 @@
     "tabs": {
       "language": "Ngôn ngữ",
       "devices": "Quản lý thiết bị",
-      "recording": "Ghi hình & Lưu trữ"
+      "recording": "Ghi hình & Lưu trữ",
+      "password": "Mật khẩu"
     },
     "language": {
       "header": "Ngôn ngữ hiển thị",
@@ -418,6 +419,39 @@
       "method_qr": "Mã QR",
       "unknown": "Không rõ",
       "cancel": "Hủy"
+    },
+    "password": {
+      "header": "Đổi mật khẩu",
+      "desc": "Cập nhật mật khẩu để bảo mật tài khoản của bạn.",
+      "current_label": "Mật khẩu hiện tại",
+      "current_placeholder": "Nhập mật khẩu hiện tại",
+      "new_label": "Mật khẩu mới",
+      "new_placeholder": "Nhập mật khẩu mới",
+      "confirm_label": "Nhập lại mật khẩu mới",
+      "confirm_placeholder": "Nhập lại mật khẩu mới",
+      "submit": "Đổi mật khẩu",
+      "submitting": "Đang đổi mật khẩu...",
+      "cancel": "Hủy",
+      "success": "Đổi mật khẩu thành công.",
+      "error_current_required": "Vui lòng nhập mật khẩu hiện tại.",
+      "error_new_required": "Vui lòng nhập mật khẩu mới.",
+      "error_new_min": "Mật khẩu mới phải có ít nhất 8 ký tự.",
+      "error_new_uppercase": "Mật khẩu mới phải có ít nhất 1 chữ hoa (A-Z).",
+      "error_new_lowercase": "Mật khẩu mới phải có ít nhất 1 chữ thường (a-z).",
+      "error_new_digit": "Mật khẩu mới phải có ít nhất 1 chữ số (0-9).",
+      "error_new_special": "Mật khẩu mới phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*...).",
+      "error_new_same": "Mật khẩu mới không được trùng với mật khẩu hiện tại.",
+      "error_confirm_required": "Vui lòng nhập lại mật khẩu mới.",
+      "error_confirm_mismatch": "Mật khẩu xác nhận không khớp.",
+      "error_wrong_current": "Mật khẩu hiện tại không chính xác.",
+      "error_generic": "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+      "error_network": "Không thể kết nối đến hệ thống. Vui lòng kiểm tra kết nối và thử lại.",
+      "hint_title": "Yêu cầu mật khẩu:",
+      "hint_min": "Ít nhất 8 ký tự",
+      "hint_uppercase": "Một chữ hoa (A-Z)",
+      "hint_lowercase": "Một chữ thường (a-z)",
+      "hint_digit": "Một chữ số (0-9)",
+      "hint_special": "Một ký tự đặc biệt (!@#$%^&*)"
     }
   },
   "room": {

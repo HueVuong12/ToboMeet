@@ -1252,4 +1252,56 @@ export class UsersService {
       return { sessions: [], total: 0, page, limit };
     }
   }
+
+  /**
+   * Doi mat khau nguoi dung.
+   * - Buoc 1: Xac minh mat khau hien tai bang Supabase signInWithPassword.
+   * - Buoc 2: Su dung chinh session do de goi auth.updateUser de doi mat khau (chi rotate session nay).
+   * - Buoc 3: Dang xuat khoi temp session de don dep.
+   */
+  async changePassword(
+    userId: string,
+    email: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Buoc 1: Xac minh mat khau hien tai
+    const supabasePublic = createClient(
+      this.supabaseUrl,
+      this.configService.get<string>("SUPABASE_ANON_KEY"),
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+
+    const { data: authData, error: signInError } = await supabasePublic.auth.signInWithPassword(
+      { email, password: currentPassword },
+    );
+
+    if (signInError || !authData?.session) {
+      throw new BadRequestException("Mat khau hien tai khong chinh xac.");
+    }
+
+    // Set session vao client de thuc hien update
+    await supabasePublic.auth.setSession({
+      access_token: authData.session.access_token,
+      refresh_token: authData.session.refresh_token,
+    });
+
+    // Buoc 2: Doi mat khau bang client auth api (chi rotate temp session, khong anh huong den browser session)
+    const { error: updateError } =
+      await supabasePublic.auth.updateUser({
+        password: newPassword,
+      });
+
+    if (updateError) {
+      this.logger.error("Loi doi mat khau: " + updateError.message);
+      throw new BadRequestException(
+        updateError.message || "Khong the doi mat khau. Vui long thu lai.",
+      );
+    }
+
+    // Buoc 3: Dang xuat temp session de cleanup
+    await supabasePublic.auth.signOut({ scope: "local" });
+
+    return { success: true, message: "Doi mat khau thanh cong." };
+  }
 }

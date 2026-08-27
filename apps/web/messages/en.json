@@ -375,7 +375,8 @@
     "tabs": {
       "language": "Language",
       "devices": "Devices",
-      "recording": "Recording & Storage"
+      "recording": "Recording & Storage",
+      "password": "Password"
     },
     "recording": {
       "header": "Recording Configuration",
@@ -431,6 +432,39 @@
       "method_qr": "QR code",
       "unknown": "Unknown",
       "cancel": "Cancel"
+    },
+    "password": {
+      "header": "Change Password",
+      "desc": "Update your password to keep your account secure.",
+      "current_label": "Current Password",
+      "current_placeholder": "Enter current password",
+      "new_label": "New Password",
+      "new_placeholder": "Enter new password",
+      "confirm_label": "Confirm New Password",
+      "confirm_placeholder": "Re-enter new password",
+      "submit": "Change Password",
+      "submitting": "Changing password...",
+      "cancel": "Cancel",
+      "success": "Password changed successfully.",
+      "error_current_required": "Please enter your current password.",
+      "error_new_required": "Please enter a new password.",
+      "error_new_min": "New password must be at least 8 characters.",
+      "error_new_uppercase": "New password must contain at least one uppercase letter (A-Z).",
+      "error_new_lowercase": "New password must contain at least one lowercase letter (a-z).",
+      "error_new_digit": "New password must contain at least one digit (0-9).",
+      "error_new_special": "New password must contain at least one special character (!@#$%^&*...).",
+      "error_new_same": "New password must be different from your current password.",
+      "error_confirm_required": "Please confirm your new password.",
+      "error_confirm_mismatch": "Passwords do not match.",
+      "error_wrong_current": "Current password is incorrect.",
+      "error_generic": "An error occurred. Please try again later.",
+      "error_network": "Unable to connect to the system. Please check your connection and try again.",
+      "hint_title": "Password requirements:",
+      "hint_min": "At least 8 characters",
+      "hint_uppercase": "One uppercase letter (A-Z)",
+      "hint_lowercase": "One lowercase letter (a-z)",
+      "hint_digit": "One digit (0-9)",
+      "hint_special": "One special character (!@#$%^&*)"
     }
   },
   "room": {
