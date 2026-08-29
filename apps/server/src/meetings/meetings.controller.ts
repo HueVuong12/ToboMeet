@@ -12,6 +12,7 @@ import {
   Get,
   Put,
   Patch,
+  Query,
 } from "@nestjs/common";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
@@ -19,6 +20,7 @@ import { Roles } from "../core/decorators/roles.decorator";
 import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { MeetingInviteService } from "./meeting-invite.service";
 import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
+import { AttendanceService } from "./attendance.service";
 
 // TODO (Gấp): bỏ sự phụ thuộc vào channelId và roomId, chỉ phụ thuộc vào meetingCode
 // Do sau này sẽ có thêm private meeting (meeting thuộc về 1 cá nhân nào đó, không phải 1 kênh của phòng)
@@ -73,6 +75,7 @@ export class ChannelMeetingsController {
 export class MeetingsController {
   constructor(
     private readonly meetingsService: MeetingsService,
+    private readonly attendanceService: AttendanceService,
     private readonly meetingInviteService: MeetingInviteService,
   ) { }
 
@@ -347,5 +350,14 @@ export class MeetingsController {
       userId,
       deviceId,
     );
+  }
+
+  @Get(":code/attendance")
+  @UseGuards(SupabaseGuard)
+  async getAttendance(
+    @Param("code") meetingCode: string,
+    @Query("sessionId") sessionId?: string,
+  ) {
+    return this.attendanceService.getByMeetingCode(meetingCode, sessionId);
   }
 }

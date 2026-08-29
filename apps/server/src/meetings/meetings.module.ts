@@ -36,6 +36,8 @@ import { MeetingInviteService } from "./meeting-invite.service";
 import { BreakoutRoomsController } from "./breakout-rooms.controller";
 import { BreakoutRoomsService } from "./breakout-rooms.service";
 import { MeetingProcessor } from "./processors/meeting.processor";
+import { Attendance, AttendanceSchema } from "./schemas/attendance.schema";
+import { AttendanceService } from "./attendance.service";
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { MeetingProcessor } from "./processors/meeting.processor";
       { name: Room.name, schema: RoomSchema },
       { name: RoomActivity.name, schema: RoomActivitySchema },
       { name: MeetingSession.name, schema: MeetingSessionSchema },
+      { name: Attendance.name, schema: AttendanceSchema },
       { name: "Post", schema: require("../news-feed/schemas/post.schema").PostSchema },
     ]),
     BullModule.registerQueue({
@@ -66,11 +69,13 @@ import { MeetingProcessor } from "./processors/meeting.processor";
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
+    AttendanceService,
     CalendarService,
     MeetingsGateway,
     MeetingProcessor,
   ],
   exports: [
+    AttendanceService,
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,

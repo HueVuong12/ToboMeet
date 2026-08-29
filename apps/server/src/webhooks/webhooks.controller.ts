@@ -1,16 +1,25 @@
 // src/webhooks/webhooks.controller.ts
-import { Controller, Post, Req, RawBodyRequest, Headers } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Req,
+  RawBodyRequest,
+  Headers,
+} from "@nestjs/common";
 import { WebhookReceiver } from "livekit-server-sdk";
-import { MeetingsService } from "../meetings/meetings.service";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 
 @Controller("webhooks")
 export class WebhooksController {
   private receiver: WebhookReceiver;
 
-  constructor(private meetingsService: MeetingsService) {
+  constructor(
+    @InjectQueue("meeting") private readonly meetingQueue: Queue,
+  ) {
     this.receiver = new WebhookReceiver(
-      process.env.LIVEKIT_API_KEY,
-      process.env.LIVEKIT_API_SECRET,
+      process.env.LIVEKIT_API_KEY!,
+      process.env.LIVEKIT_API_SECRET!,
     );
   }
 
@@ -22,10 +31,54 @@ export class WebhooksController {
     const rawBody = req.rawBody ? req.rawBody.toString() : "";
     const event = await this.receiver.receive(rawBody, authHeader);
 
-    if (event.event === "participant_left") {
-      const meetingCode = event.room.name;
+    const meetingCode = event.room?.name;
+    const userId = event.participant?.identity;
+    const displayName = event.participant?.name;
 
-      await this.meetingsService.checkAndCloseEmptyRoom(meetingCode);
+    switch (event.event) {
+      case "participant_joined":
+        if (meetingCode && userId) {
+          await this.meetingQueue.add(
+            "attendance-joined",
+            { meetingCode, userId, displayName },
+            {
+              attempts: 3,
+              backoff: { type: "exponential", delay: 2000 },
+              removeOnComplete: 100,
+              removeOnFail: 50,
+            },
+          );
+        }
+        break;
+
+      case "participant_left":
+        if (meetingCode && userId) {
+          await this.meetingQueue.add(
+            "attendance-left",
+            { meetingCode, userId },
+            {
+              attempts: 3,
+              backoff: { type: "exponential", delay: 2000 },
+              removeOnComplete: 100,
+              removeOnFail: 50,
+            },
+          );
+        }
+        break;
+
+      case "room_finished":
+        if (meetingCode) {
+          // Đóng hết visit còn mở + end session nếu cần
+          await this.meetingQueue.add(
+            "attendance-close-all",
+            { meetingCode },
+            {
+              attempts: 3,
+              removeOnComplete: true,
+            },
+          );
+        }
+        break;
     }
 
     return { received: true };
