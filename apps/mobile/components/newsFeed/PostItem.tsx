@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
 import {
   PostDto,
   useDeletePostMutation,
@@ -31,7 +32,8 @@ export default function PostItem({
   currentUserId,
   onEditPost,
 }: PostItemProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
   const [deletePost] = useDeletePostMutation();
   const [toggleReaction] = useTogglePostReactionMutation();
 
@@ -60,6 +62,22 @@ export default function PostItem({
     const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const dateFormatted = date.toLocaleDateString();
     return `${time} ${dateFormatted}`;
+  };
+
+  const formatMeetingDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const isVi = i18n.language === "vi";
+    const daysVi = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+    const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayName = isVi ? daysVi[date.getDay()] : daysEn[date.getDay()];
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    if (isVi) {
+      return `${dayName}, ${date.getDate()} tháng ${date.getMonth() + 1}, ${date.getFullYear()} ${hours}:${minutes}`;
+    }
+    const monthsEn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${dayName}, ${monthsEn[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} ${hours}:${minutes}`;
   };
 
   const handleDelete = () => {
@@ -138,42 +156,82 @@ export default function PostItem({
         )}
       </View>
 
-      {/* Content */}
-      <Text className="text-base text-slate-700 leading-relaxed mb-3">
-        {renderFormattedText(post.content)}
-      </Text>
-
-      {/* Attachments */}
-      {post.attachments && post.attachments.length > 0 && (
-        <View className="flex-row flex-wrap gap-2 mb-3">
-          {post.attachments.map((att, idx) => (
-            <View
-              key={idx}
-              className="w-full h-56 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100"
-            >
-              {att.fileType === "image" ? (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => setPreviewImageUrl(att.url)}
-                  className="w-full h-full"
-                >
-                  <Image
-                    source={{ uri: att.url }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              ) : (
-                <View className="flex-1 justify-center items-center p-4">
-                  <Feather name="file-text" size={32} color="#0052FF" />
-                  <Text className="text-sm font-semibold text-slate-700 mt-2">
-                    {att.fileName}
-                  </Text>
-                </View>
-              )}
+      {/* Content hoặc Meeting Card */}
+      {post.isMeeting ? (
+        <View className="mb-3">
+          {/* Meeting card */}
+          <View className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-row items-center justify-between gap-3 mb-2">
+            <View className="flex-row items-center gap-3 flex-1 min-w-0">
+              {/* Calendar icon */}
+              <View className="w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-xl items-center justify-center shrink-0">
+                <Feather name="calendar" size={20} color="#4F46E5" />
+              </View>
+              {/* Info */}
+              <View className="flex-1 min-w-0">
+                <Text className="text-sm font-bold text-slate-800" numberOfLines={1}>
+                  {post.meetingTitle || ""}
+                </Text>
+                <Text className="text-xs text-slate-400 font-semibold mt-0.5" numberOfLines={1}>
+                  {formatMeetingDate(post.meetingStartDate || "")}
+                </Text>
+              </View>
             </View>
-          ))}
+            {/* Tham gia button */}
+            <TouchableOpacity
+              onPress={() => router.push(`/room/${post.roomId}`)}
+              className="bg-indigo-600 px-4 py-2 rounded-xl shrink-0"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-xs font-bold">
+                {i18n.language === "vi" ? "Tham gia" : "Join"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {/* Label */}
+          <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+            {i18n.language === "vi" ? "Đã lên lịch cuộc họp" : "Scheduled a meeting"}
+          </Text>
         </View>
+      ) : (
+        <>
+          {/* Content */}
+          <Text className="text-base text-slate-700 leading-relaxed mb-3">
+            {renderFormattedText(post.content)}
+          </Text>
+
+          {/* Attachments */}
+          {post.attachments && post.attachments.length > 0 && (
+            <View className="flex-row flex-wrap gap-2 mb-3">
+              {post.attachments.map((att, idx) => (
+                <View
+                  key={idx}
+                  className="w-full h-56 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100"
+                >
+                  {att.fileType === "image" ? (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setPreviewImageUrl(att.url)}
+                      className="w-full h-full"
+                    >
+                      <Image
+                        source={{ uri: att.url }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View className="flex-1 justify-center items-center p-4">
+                      <Feather name="file-text" size={32} color="#0052FF" />
+                      <Text className="text-sm font-semibold text-slate-700 mt-2">
+                        {att.fileName}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </>
       )}
 
       {/* Stats Bar */}

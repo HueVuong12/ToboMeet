@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -31,6 +31,9 @@ interface CalendarEvent {
   invitees?: { email: string; displayName?: string }[];
   recurrenceRule?: string;
   hostId?: string;
+  // Pre-fetched fields — populated before opening detail modal
+  _prefetchedInvitees?: { email: string; displayName?: string }[];
+  _currentUserId?: string | null;
 }
 
 import ChannelMeetingModal from "../../components/dashboard/ChannelMeetingModal";
@@ -38,6 +41,7 @@ import EventModal from "../../components/dashboard/EventModal";
 import MeetingDetailModal from "../../components/dashboard/MeetingDetailModal";
 import { socket } from "../../lib/socket";
 import { axiosInstance } from "../../lib/axios";
+import { supabase } from "../../lib/supabase";
 
 const HOUR_HEIGHT = 60;
 const TIME_AXIS_WIDTH = 50;
@@ -54,6 +58,7 @@ export default function CalendarScreen() {
   const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedEventForDetail, setSelectedEventForDetail] = useState<CalendarEvent | null>(null);
+  const [detailPrefetching, setDetailPrefetching] = useState<string | null>(null); // stores _id of event being prefetched
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const router = useRouter();
 
@@ -316,6 +321,31 @@ export default function CalendarScreen() {
     );
   };
 
+  // Pre-fetch session + RSVP data before opening detail modal so all info is ready instantly
+  const handleEventPress = useCallback(async (item: CalendarEvent) => {
+    setDetailPrefetching(item._id);
+    try {
+      const [sessionRes, rsvpRes] = await Promise.all([
+        supabase.auth.getSession(),
+        axiosInstance.get(`/calendar/${item._id}/rsvp`).catch(() => []),
+      ]);
+      const currentUserId = sessionRes?.data?.session?.user?.id ?? null;
+      const prefetchedInvitees: { email: string; displayName?: string }[] =
+        Array.isArray(rsvpRes) ? rsvpRes : [];
+      setSelectedEventForDetail({
+        ...item,
+        _prefetchedInvitees: prefetchedInvitees,
+        _currentUserId: currentUserId,
+      });
+    } catch {
+      // On error, still open modal with basic event data
+      setSelectedEventForDetail({ ...item, _prefetchedInvitees: [], _currentUserId: null });
+    } finally {
+      setDetailPrefetching(null);
+      setDetailModalVisible(true);
+    }
+  }, []);
+
   const handleJoin = (meetingCode: string) => {
     router.push(`/meeting/join?code=${meetingCode}`);
   };
@@ -472,10 +502,8 @@ export default function CalendarScreen() {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={isChannelMeeting ? 1 : 0.7}
-        onPress={() => {
-          setSelectedEventForDetail(item);
-          setDetailModalVisible(true);
-        }}
+        disabled={detailPrefetching === item._id}
+        onPress={() => handleEventPress(item)}
       >
         <View style={styles.dateBlock}>
           <Text style={styles.dateText}>{dateStr}</Text>
@@ -564,10 +592,8 @@ export default function CalendarScreen() {
                 return (
                   <TouchableOpacity
                     key={`${event._id}_${event.startDate}`}
-                    onPress={() => {
-                      setSelectedEventForDetail(event);
-                      setDetailModalVisible(true);
-                    }}
+                    disabled={detailPrefetching === event._id}
+                    onPress={() => handleEventPress(event)}
                     style={[
                       styles.eventCard,
                       {
@@ -686,10 +712,8 @@ export default function CalendarScreen() {
                       return (
                         <TouchableOpacity
                           key={`${event._id}_${event.startDate}`}
-                          onPress={() => {
-                            setSelectedEventForDetail(event);
-                            setDetailModalVisible(true);
-                          }}
+                          disabled={detailPrefetching === event._id}
+                          onPress={() => handleEventPress(event)}
                           style={[
                             styles.eventCard,
                             {

@@ -22,5 +22,28 @@ config.resolver.nodeModulesPaths = [
 // Tắt tra cứu phân cấp để tránh lỗi tìm nhầm module
 config.resolver.disableHierarchicalLookup = true;
 
-// 3. XUẤT CẤU HÌNH ĐÃ KẾT HỢP NATIVEWIND
+// 3. Sửa lỗi UnableToResolveError cho livekit-client
+// Expo SDK 54+ bật unstable_enablePackageExports mặc định, khiến Metro đọc
+// trường "exports" của livekit-client và chọn file .esm.mjs (Metro không hỗ trợ).
+// Giải pháp: buộc Metro dùng file UMD (CJS) thay vì ESM.
+const originalResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === "livekit-client") {
+    const livekitDir = path.resolve(
+      projectRoot,
+      "node_modules/livekit-client"
+    );
+    return {
+      filePath: path.join(livekitDir, "dist/livekit-client.umd.js"),
+      type: "sourceFile",
+    };
+  }
+  // Fallback to default resolver
+  if (originalResolveRequest) {
+    return originalResolveRequest(context, moduleName, platform);
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
+// 4. XUẤT CẤU HÌNH ĐÃ KẾT HỢP NATIVEWIND
 module.exports = withNativeWind(config, { input: "./global.css" });

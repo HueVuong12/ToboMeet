@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   Modal,
   View,
@@ -10,8 +10,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
-import { axiosInstance } from "../../lib/axios";
+
 
 interface Props {
   visible: boolean;
@@ -32,35 +31,13 @@ export default function MeetingDetailModal({
 }: Props) {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [invitees, setInvitees] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (visible) {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data?.session?.user) {
-          setCurrentUserId(data.session.user.id);
-        }
-      });
-    }
-  }, [visible]);
-
-  // Fetch invitation list when modal becomes visible or event changes
-  useEffect(() => {
-    if (visible && event) {
-      axiosInstance.get(`/calendar/${event._id}/rsvp`)
-        .then((response: any) => {
-          setInvitees(response || []);
-        })
-        .catch((err) => {
-          console.log("Error fetching RSVP list:", err);
-        });
-    } else {
-      setInvitees([]);
-    }
-  }, [visible, event]);
 
   if (!event) return null;
+
+  // Data pre-fetched in calendar.tsx before modal opened — available immediately
+  const currentUserId = event._currentUserId ?? null;
+  const invitees: { email: string; displayName?: string }[] =
+    event._prefetchedInvitees ?? [];
 
   const isHost = currentUserId && event.hostId && currentUserId === event.hostId;
 
@@ -179,19 +156,71 @@ export default function MeetingDetailModal({
                     <Text style={styles.infoLabel}>
                       {i18n.language === "vi" ? "Người tham gia" : "Participants"}
                     </Text>
-                    <View style={styles.inviteeList}>
-                      {invitees.map((inv: any, idx: number) => (
-                        <View key={idx} style={styles.inviteeItem}>
-                          <View style={styles.avatarPlaceholder}>
-                            <Text style={styles.avatarText}>
-                              {(inv.displayName || inv.email).substring(0, 1).toUpperCase()}
-                            </Text>
-                          </View>
-                          <Text style={styles.inviteeName} numberOfLines={1}>
-                            {inv.displayName || inv.email.split("@")[0]}
+                    <View style={styles.participantList}>
+
+                      {/* Host row */}
+                      <View style={styles.participantRow}>
+                        <View style={styles.participantAvatar}>
+                          <Text style={styles.participantAvatarText}>
+                            {(event.hostDisplayName || event.hostEmail || "?").substring(0, 1).toUpperCase()}
                           </Text>
                         </View>
-                      ))}
+                        <View style={styles.participantInfo}>
+                          <Text style={styles.participantName} numberOfLines={1}>
+                            {event.hostDisplayName || event.hostEmail?.split("@")[0] || ""}
+                          </Text>
+                          {event.hostEmail ? (
+                            <Text style={styles.participantEmail} numberOfLines={1}>
+                              {event.hostEmail}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: "#EEF2FF" }]}>
+                          <Text style={[styles.statusBadgeText, { color: "#4F46E5" }]}>
+                            {i18n.language === "vi" ? "Người tổ chức" : "Organizer"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Invitee rows */}
+                      {invitees.map((inv: any, idx: number) => {
+                        const status: string = inv.status || "PENDING";
+                        let dotColor = "#94A3B8";
+                        if (status === "ACCEPTED") dotColor = "#10B981";
+                        else if (status === "DECLINED") dotColor = "#F43F5E";
+                        else if (status === "TENTATIVE") dotColor = "#F59E0B";
+
+                        const statusLabel =
+                          status === "ACCEPTED"
+                            ? i18n.language === "vi" ? "Đã chấp nhận" : "Accepted"
+                            : status === "DECLINED"
+                            ? i18n.language === "vi" ? "Đã từ chối" : "Declined"
+                            : i18n.language === "vi" ? "Chưa phản hồi" : "Pending";
+
+                        return (
+                          <View key={idx} style={styles.participantRow}>
+                            <View style={styles.participantAvatar}>
+                              <Text style={styles.participantAvatarText}>
+                                {(inv.displayName || inv.email || "?").substring(0, 1).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={styles.participantInfo}>
+                              <Text style={styles.participantName} numberOfLines={1}>
+                                {inv.displayName || inv.email?.split("@")[0]}
+                              </Text>
+                              {inv.email ? (
+                                <Text style={styles.participantEmail} numberOfLines={1}>
+                                  {inv.email}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={styles.statusBadge}>
+                              <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                              <Text style={styles.statusBadgeText}>{statusLabel}</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
                 </View>
@@ -355,41 +384,64 @@ const styles = StyleSheet.create({
     color: "#334155",
     lineHeight: 20,
   },
-  inviteeList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  participantList: {
+    marginTop: 10,
     gap: 12,
-    marginTop: 8,
   },
-  inviteeItem: {
+  participantRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    maxWidth: 150,
+    gap: 10,
   },
-  avatarPlaceholder: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  participantAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#E2E8F0",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 6,
+    flexShrink: 0,
   },
-  avatarText: {
-    fontSize: 10,
+  participantAvatarText: {
+    fontSize: 13,
     fontWeight: "bold",
     color: "#475569",
   },
-  inviteeName: {
-    fontSize: 12,
-    color: "#475569",
+  participantInfo: {
     flex: 1,
+    minWidth: 0,
+  },
+  participantName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0F172A",
+  },
+  participantEmail: {
+    fontSize: 11,
+    color: "#94A3B8",
+    marginTop: 1,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    flexShrink: 0,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#64748B",
   },
   footer: {
     flexDirection: "row",
