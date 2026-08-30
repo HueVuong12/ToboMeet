@@ -972,9 +972,9 @@ export default function CalendarScreen() {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setFabMenuOpen(false)}
-          style={StyleSheet.absoluteFillObject}
+          style={[StyleSheet.absoluteFillObject, { zIndex: 998 }]}
         >
-          <View style={{ flex: 1, backgroundColor: "rgba(15, 23, 42, 0.2)" }} />
+          <View style={{ flex: 1, backgroundColor: "rgba(15, 23, 42, 0.4)" }} />
         </TouchableOpacity>
       )}
 
