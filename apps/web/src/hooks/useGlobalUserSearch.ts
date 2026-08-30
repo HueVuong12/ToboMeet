@@ -1,6 +1,6 @@
 import { useSearchUsersQuery } from "@/lib/redux/api/usersApi";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import debounce from "lodash/debounce";
+import { debounce } from "lodash";
 
 interface UseGlobalUserSearchOptions {
   q: string;

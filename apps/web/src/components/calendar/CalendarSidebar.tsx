@@ -8,8 +8,6 @@ interface CalendarSidebarProps {
   currentDate: Date;
   onSetCurrentDate: (date: Date) => void;
   events: CalendarEvent[];
-  typeFilter: string;
-  onSetTypeFilter: (type: string) => void;
 }
 
 export default function CalendarSidebar({
@@ -17,8 +15,6 @@ export default function CalendarSidebar({
   currentDate,
   onSetCurrentDate,
   events,
-  typeFilter,
-  onSetTypeFilter,
 }: CalendarSidebarProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -34,43 +30,6 @@ export default function CalendarSidebar({
   for (let i = 0; i < 42; i++) {
     cells.push(new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000));
   }
-
-  const filterOptions = [
-    {
-      value: "all",
-      label: locale === "vi" ? "Tất cả cuộc họp" : "All meetings",
-      color: "bg-slate-200",
-    },
-    {
-      value: "meeting",
-      label:
-        locale === "vi"
-          ? "Meeting (Họp nhóm)"
-          : "Meeting (Group)",
-      color: "bg-indigo-500",
-    },
-    {
-      value: "classroom",
-      label:
-        locale === "vi"
-          ? "Classroom (Lớp học)"
-          : "Classroom (Class)",
-      color: "bg-emerald-500",
-    },
-    {
-      value: "livestream",
-      label: "Livestream",
-      color: "bg-amber-500",
-    },
-    {
-      value: "private",
-      label:
-        locale === "vi"
-          ? "Private (Cá nhân)"
-          : "Private (Personal)",
-      color: "bg-purple-500",
-    },
-  ];
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 p-5 flex flex-col gap-6 flex-shrink-0 animate-in slide-in-from-left duration-200">
@@ -166,29 +125,6 @@ export default function CalendarSidebar({
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Filter types */}
-      <div>
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-          {locale === "vi" ? "Bộ lọc cuộc họp" : "Meeting Filters"}
-        </h3>
-        <div className="space-y-1.5">
-          {filterOptions.map((item) => (
-            <button
-              key={item.value}
-              onClick={() => onSetTypeFilter(item.value)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                typeFilter === item.value
-                  ? "bg-slate-100 text-slate-900"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <span className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
-              <span>{item.label}</span>
-            </button>
-          ))}
         </div>
       </div>
     </aside>
