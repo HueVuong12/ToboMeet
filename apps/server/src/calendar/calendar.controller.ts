@@ -13,8 +13,8 @@ import {
 } from "@nestjs/common";
 import { CalendarService } from "./calendar.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
-import { CreateEventDto } from "./dtos/create-event.dto";
-import { UpdateEventDto } from "./dtos/update-event.dto";
+import { CreateEventDto } from "./dto/create-event.dto";
+import { UpdateEventDto } from "./dto/update-event.dto";
 
 interface AuthenticatedRequest extends Request {
   user: {

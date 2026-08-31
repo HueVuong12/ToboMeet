@@ -5,18 +5,8 @@ import {
   ChannelMeetingsController,
   MeetingsController,
 } from "./meetings.controller";
-import { CalendarController } from "./calendar.controller";
 import { MeetingsService } from "./meetings.service";
-import { CalendarService } from "./calendar.service";
 import { Meeting, MeetingSchema } from "./schemas/meeting.schema";
-import {
-  CalendarEvent,
-  CalendarEventSchema,
-} from "./schemas/calendar-event.schema";
-import {
-  MeetingInvitation,
-  MeetingInvitationSchema,
-} from "./schemas/meeting-invitation.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
 import { Room, RoomSchema } from "../rooms/schemas/room.schema";
 import {
@@ -39,13 +29,10 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
   imports: [
     MongooseModule.forFeature([
       { name: Meeting.name, schema: MeetingSchema },
-      { name: CalendarEvent.name, schema: CalendarEventSchema },
-      { name: MeetingInvitation.name, schema: MeetingInvitationSchema },
       { name: User.name, schema: UserSchema },
       { name: Room.name, schema: RoomSchema },
       { name: RoomActivity.name, schema: RoomActivitySchema },
       { name: MeetingSession.name, schema: MeetingSessionSchema },
-      { name: "Post", schema: require("../news-feed/schemas/post.schema").PostSchema },
     ]),
     SupabaseModule,
     NotificationsModule,
@@ -55,21 +42,18 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
     BreakoutRoomsController,
     MeetingsController,
     ChannelMeetingsController,
-    CalendarController,
   ],
   providers: [
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
-    CalendarService,
     MeetingsGateway,
   ],
   exports: [
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
-    CalendarService,
     MeetingsGateway,
   ],
 })
-export class MeetingsModule { }
+export class MeetingsModule {}
