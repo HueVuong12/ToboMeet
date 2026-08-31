@@ -2,6 +2,7 @@ import { WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import { Server } from "socket.io";
 import { AssignmentDocument } from "./schemas/assignment.schema";
 import { AssignmentSubmissionDocument } from "./schemas/submission.schema";
+import { AssignmentCommentDocument } from "./schemas/assignment-comment.schema";
 
 @WebSocketGateway({
   cors: {
@@ -32,7 +33,6 @@ export class AssignmentsGateway {
   }
 
   notifyAssignmentGradingUpdated(roomId: string, channelId: string, studentId: string, submission: AssignmentSubmissionDocument) {
-    // G?i realtime cho c? room ho?c c? th? student
     this.server.to(`room_${roomId}`).emit("assignment_graded", {
       roomId,
       channelId,
@@ -40,4 +40,13 @@ export class AssignmentsGateway {
       submission,
     });
   }
+
+  notifyCommentAdded(roomId: string, assignmentId: string, comment: AssignmentCommentDocument) {
+    this.server.to(`room_${roomId}`).emit("assignment_comment_added", {
+      roomId,
+      assignmentId,
+      comment,
+    });
+  }
 }
+

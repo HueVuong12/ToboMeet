@@ -268,19 +268,16 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
     );
   };
 
-  const getRoleLabel = (role: string) => {
-    if (role === "owner" || role === "admin") {
+  const getRoleLabel = (role?: string) => {
+    const r = role?.toLowerCase();
+    if (r === "owner" || r === "admin") {
       return (
         <span className="bg-brand-50 text-brand-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
           {t("teacher_label")}
         </span>
       );
     }
-    return (
-      <span className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider">
-        {t("student_label")}
-      </span>
-    );
+    return null;
   };
 
   const totalReactionsCount = post.reactionStats?.reduce((sum, curr) => sum + curr.count, 0) || 0;

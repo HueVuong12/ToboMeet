@@ -7,7 +7,7 @@ import {
   useRemoveMemberMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
-import { Loader2, Menu, X, Info } from "lucide-react";
+import { Loader2, Menu, X, Info, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
@@ -62,6 +62,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
+  const [assignmentView, setAssignmentView] = useState("list");
   const [showChannelMeetingModal, setShowChannelMeetingModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
     userId: string;
@@ -356,6 +357,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               />
             )}
 
+            {activeChannel === "__assignments__" &&
+              (isCurrentUserRoomOwner ||
+                (currentUserRoomRole &&
+                  ["owner", "admin", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase()))) &&
+              assignmentView === "list" && (
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("trigger-create-assignment"))}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-bold transition-all shadow-sm mr-1.5"
+                >
+                  <Plus size={16} />
+                  <span>Tạo bài tập</span>
+                </button>
+              )}
+
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
               className={`p-2 rounded-md transition-colors flex items-center gap-2 text-sm font-medium ${isRightSidebarOpen
@@ -375,6 +390,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             userId={userId}
             channels={room.channels}
             roomMembers={members}
+            onViewChange={setAssignmentView}
           />
         ) : currentChannel ? (
           activeTab === "files" ? (

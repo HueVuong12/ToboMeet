@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Submission, Assignment } from "../types";
 import { Upload, Trash2, File, CheckCircle2, Clock, Calendar } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
@@ -42,7 +42,7 @@ export default function AssignmentSubmission({
           {
             name: file.name,
             url: uploaded.url,
-            size: file.fileSize,
+            size: file.size,
             type: file.type,
           },
         ]);

@@ -1,9 +1,12 @@
-﻿import { baseApi } from "./baseApi";
+import { baseApi } from "./baseApi";
 
 export const assignmentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getRoomAssignments: builder.query<any[], string>({
-      query: (roomId) => `/assignments/room/${roomId}`,
+    getRoomAssignments: builder.query<any[], { roomId: string; status?: string }>({
+      query: ({ roomId, status }) => ({
+        url: `/assignments/room/${roomId}`,
+        params: status ? { status } : {},
+      }),
       providesTags: (result) =>
         result
           ? [
@@ -13,7 +16,7 @@ export const assignmentsApi = baseApi.injectEndpoints({
           : [{ type: "Assignments", id: "LIST" }],
     }),
     getAssignmentDetail: builder.query<any, string>({
-      query: (id) => `/assignments/${id}`,
+      query: (id) => ({ url: `/assignments/${id}` }),
       providesTags: (result, error, id) => [{ type: "Assignments", id }],
     }),
     createAssignment: builder.mutation<any, any>({
@@ -54,11 +57,11 @@ export const assignmentsApi = baseApi.injectEndpoints({
       ],
     }),
     getSubmissions: builder.query<any[], string>({
-      query: (assignmentId) => `/assignments/${assignmentId}/submissions`,
+      query: (assignmentId) => ({ url: `/assignments/${assignmentId}/submissions` }),
       providesTags: [{ type: "Submissions", id: "LIST" }],
     }),
     getMySubmission: builder.query<any, string>({
-      query: (assignmentId) => `/assignments/${assignmentId}/my-submission`,
+      query: (assignmentId) => ({ url: `/assignments/${assignmentId}/my-submission` }),
       providesTags: (result, error, assignmentId) => [
         { type: "Submissions", id: `MY_${assignmentId}` },
       ],
@@ -74,6 +77,44 @@ export const assignmentsApi = baseApi.injectEndpoints({
         { type: "Submissions", id: `MY_${assignmentId}` },
       ],
     }),
+    deleteSubmission: builder.mutation<any, string>({
+      query: (assignmentId) => ({
+        url: `/assignments/${assignmentId}/submit`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, assignmentId) => [
+        { type: "Submissions", id: "LIST" },
+        { type: "Submissions", id: `MY_${assignmentId}` },
+      ],
+    }),
+    addSubmissionComment: builder.mutation<any, { submissionId: string; content: string; assignmentId: string }>({
+      query: ({ submissionId, content }) => ({
+        url: `/assignments/submissions/${submissionId}/comments`,
+        method: "POST",
+        data: { content },
+      }),
+      invalidatesTags: (result, error, { assignmentId }) => [
+        { type: "Submissions", id: `MY_${assignmentId}` },
+      ],
+    }),
+    getAssignmentComments: builder.query<any[], string>({
+      query: (assignmentId) => ({
+        url: `/assignments/${assignmentId}/comments`,
+      }),
+      providesTags: (result, error, assignmentId) => [
+        { type: "Assignments", id: `COMMENTS_${assignmentId}` },
+      ],
+    }),
+    addAssignmentComment: builder.mutation<any, { assignmentId: string; content: string }>({
+      query: ({ assignmentId, content }) => ({
+        url: `/assignments/${assignmentId}/comments`,
+        method: "POST",
+        data: { content },
+      }),
+      invalidatesTags: (result, error, { assignmentId }) => [
+        { type: "Assignments", id: `COMMENTS_${assignmentId}` },
+      ],
+    }),
   }),
 });
 
@@ -87,4 +128,8 @@ export const {
   useGetSubmissionsQuery,
   useGetMySubmissionQuery,
   useGradeSubmissionMutation,
+  useDeleteSubmissionMutation,
+  useAddSubmissionCommentMutation,
+  useGetAssignmentCommentsQuery,
+  useAddAssignmentCommentMutation,
 } = assignmentsApi;

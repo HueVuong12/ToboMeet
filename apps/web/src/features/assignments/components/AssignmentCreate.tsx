@@ -78,14 +78,14 @@ export default function AssignmentCreate({
           {
             name: file.name,
             url: uploaded.url,
-            size: file.fileSize,
+            size: file.size,
             type: file.type,
           },
         ]);
       }
       toast.success(t("upload_evidence_success"));
     } catch (err: any) {
-      toast.error(err?.message || t("upload_evidence_failed"));
+      toast.error(err?.response?.data?.message || err?.message || t("upload_evidence_failed"));
     } finally {
       setIsUploading(false);
     }
@@ -217,6 +217,7 @@ export default function AssignmentCreate({
                 <input
                   type="file"
                   multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z,image/*"
                   onChange={handleFileUpload}
                   disabled={isUploading}
                   className="absolute inset-0 opacity-0 cursor-pointer"

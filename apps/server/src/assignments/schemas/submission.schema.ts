@@ -23,6 +23,7 @@ export class AssignmentSubmission {
       url: { type: String, required: true },
       size: { type: Number },
       type: { type: String },
+      uploadedAt: { type: Date, default: Date.now },
     }],
     default: [],
   })
@@ -31,6 +32,7 @@ export class AssignmentSubmission {
     url: string;
     size?: number;
     type?: string;
+    uploadedAt?: Date;
   }[];
 
   @Prop({ required: true })
@@ -57,6 +59,22 @@ export class AssignmentSubmission {
 
   @Prop()
   gradedAt?: Date;
+
+  @Prop({
+    type: [{
+      userId: { type: String, required: true },
+      userName: { type: String, required: true },
+      content: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  })
+  comments: {
+    userId: string;
+    userName: string;
+    content: string;
+    createdAt: Date;
+  }[];
 }
 
 export const AssignmentSubmissionSchema = SchemaFactory.createForClass(AssignmentSubmission);

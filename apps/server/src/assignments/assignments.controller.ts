@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Delete, Get, Body, Param, UseGuards, Req } from "@nestjs/common";
+import { Controller, Post, Put, Delete, Get, Body, Param, UseGuards, Req, Query } from "@nestjs/common";
 import { AssignmentsService } from "./assignments.service";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { SubmitAssignmentDto } from "./dto/submit-assignment.dto";
@@ -32,8 +32,12 @@ export class AssignmentsController {
   }
 
   @Get("room/:roomId")
-  getRoomAssignments(@Param("roomId") roomId: string, @Req() req: AuthenticatedRequest) {
-    return this.assignmentsService.getRoomAssignments(roomId, req.user.id);
+  getRoomAssignments(
+    @Param("roomId") roomId: string,
+    @Query("status") status: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.getRoomAssignments(roomId, req.user.id, status);
   }
 
   @Get(":id")
@@ -59,5 +63,36 @@ export class AssignmentsController {
   @Post("submissions/:submissionId/grade")
   grade(@Param("submissionId") submissionId: string, @Body() gradeDto: GradeSubmissionDto, @Req() req: AuthenticatedRequest) {
     return this.assignmentsService.grade(submissionId, gradeDto, req.user.id);
+  }
+
+  @Delete(":id/submit")
+  deleteSubmission(@Param("id") assignmentId: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.deleteSubmission(assignmentId, req.user.id);
+  }
+
+  @Post("submissions/:submissionId/comments")
+  addComment(
+    @Param("submissionId") submissionId: string,
+    @Body("content") content: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.addComment(submissionId, content, req.user.id);
+  }
+
+  @Post(":assignmentId/comments")
+  addAssignmentComment(
+    @Param("assignmentId") assignmentId: string,
+    @Body("content") content: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.addAssignmentComment(assignmentId, content, req.user.id);
+  }
+
+  @Get(":assignmentId/comments")
+  getAssignmentComments(
+    @Param("assignmentId") assignmentId: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.getAssignmentComments(assignmentId, req.user.id);
   }
 }

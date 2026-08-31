@@ -3,6 +3,7 @@ export interface Attachment {
   url: string;
   size?: number;
   type?: string;
+  uploadedAt?: string;
 }
 
 export interface Assignment {
@@ -22,6 +23,8 @@ export interface Assignment {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  mySubmission?: Submission | null;
+  submissions?: Submission[];
 }
 
 export interface Submission {
@@ -40,4 +43,5 @@ export interface Submission {
   gradedAt?: string;
   createdAt: string;
   updatedAt: string;
+  comments?: any[];
 }
