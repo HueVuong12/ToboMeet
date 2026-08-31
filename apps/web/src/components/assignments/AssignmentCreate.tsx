@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Assignment } from "../types";
+import { Assignment } from "./types";
 import { ArrowLeft, Save, Send, Upload, X, Trash2, Calendar, File } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";

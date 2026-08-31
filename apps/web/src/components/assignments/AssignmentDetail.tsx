@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Assignment, Submission } from "../types";
+import { Assignment, Submission } from "./types";
 import {
   ArrowLeft,
   Calendar,

@@ -13,10 +13,10 @@ import {
   useAddAssignmentCommentMutation,
 } from "@/lib/redux/api/assignmentsApi";
 import { Assignment } from "./types";
-import AssignmentList from "./components/AssignmentList";
-import AssignmentCreate from "./components/AssignmentCreate";
-import AssignmentDetail from "./components/AssignmentDetail";
-import AssignmentGrading from "./components/AssignmentGrading";
+import AssignmentList from "./AssignmentList";
+import AssignmentCreate from "./AssignmentCreate";
+import AssignmentDetail from "./AssignmentDetail";
+import AssignmentGrading from "./AssignmentGrading";
 import { Loader2 } from "lucide-react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";

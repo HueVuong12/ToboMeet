@@ -25,7 +25,7 @@ import ChannelFilesTab from "./ChannelFilesTab";
 import RoomRightSidebar from "./RoomRightSidebar";
 import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
 import ChannelMeetingButton from "./ChannelMeetingButton";
-import AssignmentModule from "@/features/assignments";
+import AssignmentModule from "@/components/assignments/AssignmentModule";
 
 interface RoomContentProps {
   roomId: string;

@@ -1,5 +1,5 @@
 import React from "react";
-import { Assignment } from "../types";
+import { Assignment } from "./types";
 import { Plus, Calendar, Lock, FileText, CheckCircle2, FileUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 

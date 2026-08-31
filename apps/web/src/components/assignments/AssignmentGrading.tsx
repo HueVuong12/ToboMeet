@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Assignment, Submission } from "../types";
+import { Assignment, Submission } from "./types";
 import { File, CheckCircle2, AlertCircle, Save, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
