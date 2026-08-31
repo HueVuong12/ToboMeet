@@ -25,6 +25,7 @@ import ChannelFilesTab from "./ChannelFilesTab";
 import RoomRightSidebar from "./RoomRightSidebar";
 import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
 import ChannelMeetingButton from "./ChannelMeetingButton";
+import AssignmentModule from "@/features/assignments";
 
 interface RoomContentProps {
   roomId: string;
@@ -112,6 +113,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   // Navigation Guard: Nếu kênh hiện tại không còn thuộc room.channels (do bị xóa hoặc vừa rời), tự động switch về kênh đầu tiên
   useEffect(() => {
+    if (activeChannel === "__assignments__") return;
     if (room?.channels && room.channels.length > 0) {
       const channelExists = room.channels.some((c: any) => c.name === activeChannel);
       if (!channelExists) {
@@ -149,6 +151,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   // Navigation Guard: Nếu kênh hiện tại không nằm trong danh sách được phép truy cập (VD: bị xóa khỏi Kênh riêng tư)
   useEffect(() => {
+    if (activeChannel === "__assignments__") return;
     if (room?.channels && room.channels.length > 0) {
       const channelExists = room.channels.some(
         (c: any) => c.name === activeChannel,
@@ -313,41 +316,45 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                 {room.name.charAt(0).toUpperCase()}
               </div>
               <h1 className="text-lg font-bold text-slate-800">
-                {activeChannel}
+                {activeChannel === "__assignments__" ? t("assignments") : activeChannel}
               </h1>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
-              <button
-                onClick={() => setActiveTab("feed")}
-                className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "feed"
-                  ? "border-brand-500 text-brand-600 font-semibold"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-              >
-                {t("class_feed")}
-              </button>
-              {/* localized files tab */}
-              <button
-                onClick={() => setActiveTab("files")}
-                className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "files"
-                  ? "border-brand-500 text-brand-600 font-semibold"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-              >
-                {t("files")}
-              </button>
-            </div>
+            {activeChannel !== "__assignments__" && (
+              <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
+                <button
+                  onClick={() => setActiveTab("feed")}
+                  className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "feed"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                  {t("class_feed")}
+                </button>
+                {/* localized files tab */}
+                <button
+                  onClick={() => setActiveTab("files")}
+                  className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "files"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                  {t("files")}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
             {/* Nút Cuộc họp / Tham gia */}
-            <ChannelMeetingButton
-              roomId={roomId}
-              channelId={currentChannelId}
-              isOngoing={!!activeMeeting?.isOngoing}
-              onScheduleMeeting={() => setShowChannelMeetingModal(true)}
-            />
+            {activeChannel !== "__assignments__" && (
+              <ChannelMeetingButton
+                roomId={roomId}
+                channelId={currentChannelId}
+                isOngoing={!!activeMeeting?.isOngoing}
+                onScheduleMeeting={() => setShowChannelMeetingModal(true)}
+              />
+            )}
 
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
@@ -361,8 +368,15 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           </div>
         </header>
 
-        {/* News Feed / Files Panel */}
-        {currentChannel ? (
+        {/* News Feed / Files / Assignment Panel */}
+        {activeChannel === "__assignments__" ? (
+          <AssignmentModule
+            roomId={roomId}
+            userId={userId}
+            channels={room.channels}
+            roomMembers={members}
+          />
+        ) : currentChannel ? (
           activeTab === "files" ? (
             <ChannelFilesTab
               key={`files-${currentChannel._id || activeChannel}`}

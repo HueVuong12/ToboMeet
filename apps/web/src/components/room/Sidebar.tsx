@@ -414,6 +414,23 @@ export default function Sidebar({
         </div>
       </div>
 
+      {/* BÀI TẬP */}
+      <div className="px-2 pt-3 pb-1 border-b border-slate-200">
+        <button
+          onClick={() => {
+            setActiveChannel("__assignments__");
+            if (onClose) onClose();
+          }}
+          className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+            activeChannel === "__assignments__"
+              ? "bg-white text-brand-600 shadow-sm border border-slate-200/60"
+              : "text-slate-700 hover:bg-slate-200/50"
+          }`}
+        >
+          <span>{t("assignments")}</span>
+        </button>
+      </div>
+
       {/* Channels Section */}
       <div className="flex-1 overflow-y-auto py-3">
         <div className="w-full flex items-center justify-between px-4 py-1 text-xs font-semibold text-slate-500 tracking-wide">
