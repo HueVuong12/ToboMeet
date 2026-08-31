@@ -685,7 +685,7 @@ export class BreakoutRoomsService {
     const finalDisplayName = user?.displayName || "Người dùng ẩn danh";
 
     // Sinh token cấp quyền vào lại phòng chính
-    return this.meetingsService.joinMeetingByCode(
+    return this.meetingsService.joinMeeting(
       parentRoomCode,
       userId,
       deviceId,

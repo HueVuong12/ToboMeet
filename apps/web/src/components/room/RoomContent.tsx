@@ -22,6 +22,7 @@ import {
 } from "@/lib/redux/api/meetingsApi";
 import NewsFeed from "./NewsFeed";
 import ChannelFilesTab from "./ChannelFilesTab";
+import ChannelSessionsTab from "./ChannelSessionsTab";
 import RoomRightSidebar from "./RoomRightSidebar";
 import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
 import ChannelMeetingButton from "./ChannelMeetingButton";
@@ -60,7 +61,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
-  const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "files" | "sessions">("feed");
   const [showChannelMeetingModal, setShowChannelMeetingModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
     userId: string;
@@ -320,7 +321,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
               <button
                 onClick={() => setActiveTab("feed")}
-                className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "feed"
+                className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "feed"
                   ? "border-brand-500 text-brand-600 font-semibold"
                   : "border-transparent text-slate-500 hover:text-slate-700"
                   }`}
@@ -330,12 +331,22 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               {/* localized files tab */}
               <button
                 onClick={() => setActiveTab("files")}
-                className={`px-3 py-4 border-b-2 transition-colors ${activeTab === "files"
+                className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "files"
                   ? "border-brand-500 text-brand-600 font-semibold"
                   : "border-transparent text-slate-500 hover:text-slate-700"
                   }`}
               >
                 {t("files")}
+              </button>
+              {/* meeting sessions tab */}
+              <button
+                onClick={() => setActiveTab("sessions")}
+                className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "sessions"
+                  ? "border-brand-500 text-brand-600 font-semibold"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  }`}
+              >
+                {t("meeting_sessions", { defaultValue: "Phiên họp" })}
               </button>
             </div>
           </div>
@@ -351,7 +362,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              className={`p-2 rounded-md transition-colors flex items-center gap-2 text-sm font-medium ${isRightSidebarOpen
+              className={`p-2 rounded-md transition-colors flex items-center gap-2 text-sm font-medium cursor-pointer ${isRightSidebarOpen
                 ? "bg-brand-50 text-brand-600"
                 : "hover:bg-slate-100 text-slate-600"
                 }`}
@@ -361,7 +372,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           </div>
         </header>
 
-        {/* News Feed / Files Panel */}
+        {/* News Feed / Files / Sessions Panel */}
         {currentChannel ? (
           activeTab === "files" ? (
             <ChannelFilesTab
@@ -370,6 +381,14 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               channelId={currentChannel._id || ""}
               userId={userId}
               canManageFiles={isCurrentUserRoomOwner || isCurrentUserRoomAdmin}
+            />
+          ) : activeTab === "sessions" ? (
+            <ChannelSessionsTab
+              key={`sessions-${currentChannel._id || activeChannel}`}
+              roomId={roomId}
+              channelId={currentChannel._id || ""}
+              channelName={activeChannel}
+              userId={userId}
             />
           ) : (
             <NewsFeed

@@ -467,3 +467,38 @@ export interface NotificationResponse {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface MeetingSessionResponse {
+  _id: string;
+  meetingCode: string;
+  status: "ongoing" | "ended";
+  startedAt: string | Date;
+  endedAt?: string | Date;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  durationSeconds?: number;
+  totalParticipants?: number;
+}
+
+export interface GetMeetingSessionsArgs {
+  meetingCode: string;
+  page: number;
+  limit?: number;
+}
+
+export interface SessionAttendanceItem {
+  userId: string;
+  displayName?: string;
+  totalDurationSeconds: number;
+  visitCount: number;
+  isCounted: boolean;
+  status: "present" | "left_early" | "late";
+  visits?: Array<{
+    joinedAt: Date | string;
+    leftAt?: Date | string;
+    durationSeconds: number;
+  }>;
+  firstJoinedAt?: Date | string;
+  lastLeftAt?: Date | string;
+}
+

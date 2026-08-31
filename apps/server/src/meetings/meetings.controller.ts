@@ -360,4 +360,25 @@ export class MeetingsController {
   ) {
     return this.attendanceService.getByMeetingCode(meetingCode, sessionId);
   }
+
+  /**
+   * GET /api/meetings/:code/sessions
+   * Lấy danh sách các phiên họp của meetingCode có phân trang
+   */
+  @Get(":code/sessions")
+  @UseGuards(SupabaseGuard)
+  async getMeetingSessions(
+    @Param("code") meetingCode: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    const parsedPage = Math.max(1, Number(page) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 50));
+    return this.meetingsService.getMeetingSessions(
+      meetingCode,
+      parsedPage,
+      parsedLimit,
+    );
+  }
 }
+

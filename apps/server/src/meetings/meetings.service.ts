@@ -18,6 +18,8 @@ import {
   MainRoomMetadata,
   MeetingDeviceStatus,
   MeetingJoinResponse,
+  MeetingSessionResponse,
+  PageResponse,
   ParticipantMetadata,
   PresignedUploadResponse,
   RoomMemberStatus,
@@ -30,6 +32,7 @@ import {
   MeetingSession,
   MeetingSessionDocument,
 } from "./schemas/meeting-session.schema";
+import { Attendance, AttendanceDocument } from "./schemas/attendance.schema";
 
 @Injectable()
 export class MeetingsService {
@@ -41,6 +44,8 @@ export class MeetingsService {
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
     @InjectModel(MeetingSession.name)
     private sessionModel: Model<MeetingSessionDocument>,
+    @InjectModel(Attendance.name)
+    private attendanceModel: Model<AttendanceDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     private readonly meetingsGateway: MeetingsGateway,
@@ -56,206 +61,6 @@ export class MeetingsService {
         apiSecret,
       );
     }
-  }
-
-  /**
-   * Tham gia hoặc tự động khởi tạo mã cuộc họp lần đầu nếu chưa có ai tạo trong kênh
-   * Chỉ cho phép 1 thiết bị vào 1 kênh họp tại 1 thời điểm
-   */
-  async joinOrCreateMeeting(
-    roomId: string,
-    channelId: string,
-    userId: string,
-    deviceId: string,
-    displayName?: string,
-    forceSwitch?: boolean,
-  ): Promise<MeetingJoinResponse> {
-    const apiKey = process.env.LIVEKIT_API_KEY;
-    const apiSecret = process.env.LIVEKIT_API_SECRET;
-    const room = await this.roomModel.findOne({
-      _id: roomId,
-      "channels._id": channelId,
-    });
-
-    if (!room) {
-      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
-    }
-
-    // Thông tin tên hiển thị của User để làm Identity trong LiveKit
-    const user = await this.userModel.findOne({ supabaseId: userId }).exec();
-    const finalDisplayName =
-      displayName || user?.displayName || "Người dùng ẩn danh";
-    const avatarUrl = user?.avatarUrl || "";
-
-    // Tìm cuộc họp để lấy meetingCode trong kênh này
-    let meeting = await this.meetingModel
-      .findOne({
-        roomId,
-        channelId,
-      })
-      .exec();
-
-    // Chặn user tham gia cuộc họp nếu họ đã tham gia trên một thiết bị khác (tránh join nhiều tab)
-    if (meeting && this.livekitRoomService) {
-      try {
-        const participants = await this.livekitRoomService.listParticipants(
-          meeting.meetingCode,
-        );
-
-        const isAlreadyInThisRoom = participants.some((p) =>
-          p.identity.startsWith(userId),
-        );
-
-        if (isAlreadyInThisRoom) {
-          if (forceSwitch) {
-            console.log(`Tiến hành cấp Token thế chỗ cho user ${userId}`);
-          } else {
-            throw new AppException(ErrorCode.ALREADY_IN_MEETING);
-          }
-        }
-      } catch (error) {
-        if (error instanceof AppException) {
-          throw error;
-        }
-      }
-    }
-
-    // Nếu chưa có cuộc họp (meetingCode) nào, tiến hành tạo mới 1 lần duy nhất (lazy init)
-    if (!meeting) {
-      const randomString = Math.random().toString(36).substring(2, 9);
-      const meetingCode = `meet-${roomId.substring(0, 4)}-${randomString}`;
-
-      meeting = await this.meetingModel.create({
-        roomId,
-        channelId,
-        meetingCode,
-      });
-    }
-
-    let livekitRoom = await this.isRoomActive(meeting.meetingCode);
-    const isMeetingStarting = !livekitRoom;
-
-    let currentSessionId = "";
-
-    // Tạo meeting session khi khởi tạo cuộc họp mới
-    if (isMeetingStarting) {
-      // Nếu là người đầu tiên kích hoạt phòng -> Tạo Session 'ongoing'
-      try {
-        const newSession = await this.sessionModel.create({
-          roomId,
-          channelId,
-          meetingCode: meeting.meetingCode,
-          hostId: userId,
-          status: "ongoing",
-        });
-        currentSessionId = newSession._id.toString(); // ID mặc định của Mongo
-      } catch (error) {
-        console.log(error);
-        // Xử lý nảy sinh nếu có 2 request tạo phòng đến cùng 1 mili-giây (Partial Index sẽ bắt lỗi)
-        const ongoingSession = await this.sessionModel.findOne({
-          meetingCode: meeting.meetingCode,
-          status: "ongoing",
-        });
-        if (ongoingSession) currentSessionId = ongoingSession._id.toString();
-      }
-    }
-
-    // Phân quyền theo kênh
-    const currentChannel = room.channels.find(
-      (c) => c._id?.toString() === channelId.toString(),
-    );
-
-    // Khởi tạo phòng ngay lập tức (eager init) với metadata mặc định
-    if (!livekitRoom && this.livekitRoomService) {
-      try {
-        livekitRoom = await this.livekitRoomService.createRoom({
-          name: meeting.meetingCode,
-          emptyTimeout: 5 * 60, // Tự động xóa sau 5 phút nếu trống
-          departureTimeout: 5 * 60,
-          metadata: JSON.stringify({
-            roomName: currentChannel?.name, // có thể tuỳ biến
-            roomType: "main",
-            sessionId: currentSessionId,
-            isWaitingRoomEnabled: false,
-            isChatEnabled: true,
-            approvalPermission: "admin_only",
-          } as LivekitRoomMetadata),
-        });
-      } catch (e) {
-        console.error("Lỗi Eager Init phòng LiveKit:", e);
-      }
-    }
-
-    // Chỉ thông báo lần đầu khi phòng chưa active
-    if (isMeetingStarting) {
-      this.meetingsGateway.notifyMeetingStatus(channelId, {
-        isOngoing: true,
-        meetingCode: meeting.meetingCode,
-      });
-    }
-
-    if (!apiKey || !apiSecret) {
-      console.error("Chưa cấu hình LiveKit API Key/Secret ở file .env");
-      throw new AppException(ErrorCode.SERVER_ERROR);
-    }
-
-    // Chỉ dùng đúng userId làm định danh duy nhất
-    const uniqueIdentity = userId;
-
-    const userRole = this.getUserRoleInChannel(
-      room,
-      currentChannel._id.toString(),
-      userId,
-    );
-
-    const hasAdminPowers = userRole === "owner" || userRole === "admin";
-
-    // Kiểm tra xem phòng chờ (Waiting Room) có đang bật hay không
-    let isWaitingRoomEnabled = false;
-    if (livekitRoom && livekitRoom.metadata) {
-      try {
-        const roomMeta = JSON.parse(livekitRoom.metadata);
-        isWaitingRoomEnabled = roomMeta.isWaitingRoomEnabled === true;
-      } catch (e) {
-        console.error("Không thể parse metadata của phòng LiveKit", e);
-      }
-    }
-
-    // Nếu phòng chờ đang bật VÀ user không phải là admin/owner -> Bị cho vào phòng chờ
-    const isWaiting = isWaitingRoomEnabled && !hasAdminPowers;
-    const participantStatus = isWaiting ? "waiting" : "joined";
-
-    const at = new AccessToken(apiKey, apiSecret, {
-      identity: uniqueIdentity,
-      name: finalDisplayName,
-      ttl: "5m",
-      metadata: JSON.stringify({
-        deviceId: deviceId,
-        avatarUrl: avatarUrl,
-        hasAdminPowers: hasAdminPowers,
-        role: userRole,
-        status: participantStatus,
-      } as ParticipantMetadata),
-    });
-
-    at.addGrant({
-      roomJoin: true,
-      room: meeting.meetingCode,
-      canPublish: !isWaiting, // Khóa micro/camera nếu đang chờ
-      canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE], // Chưa cấp quyền share màn hình
-      canSubscribe: !isWaiting, // Khóa stream (bị mù/điếc) nếu đang chờ
-      canUpdateOwnMetadata: true, // Cho phép cập nhật metadata của chính mình (ví dụ: đổi tên hiển thị)
-    });
-
-    return {
-      token: await at.toJwt(),
-      meetingCode: meeting.meetingCode,
-      status: "ongoing",
-      displayName: finalDisplayName,
-
-      roomId: roomId.toString(),
-      channelId: channelId.toString(),
-    };
   }
 
   async joinMeeting(
@@ -321,10 +126,7 @@ export class MeetingsService {
       try {
         const newSession = await this.sessionModel.create({
           meetingCode: meeting.meetingCode,
-          hostId: userId,
           status: "ongoing",
-          roomId: meeting.roomId,
-          channelId: meeting.channelId,
         });
         currentSessionId = newSession._id.toString();
       } catch (error) {
@@ -623,7 +425,6 @@ export class MeetingsService {
         await Promise.all(approvePromises);
       }
     } catch (error) {
-      console.error("Lỗi khi cập nhật trạng thái phòng chờ:", error);
       throw new AppException(ErrorCode.WAITING_ROOM_UPDATE_FAILED);
     }
   }
@@ -759,7 +560,6 @@ export class MeetingsService {
         );
       }
     } catch (error) {
-      console.error("Lỗi khi duyệt người dùng:", error);
       throw new AppException(ErrorCode.APPROVE_PARTICIPANT_FAILED);
     }
   }
@@ -794,14 +594,11 @@ export class MeetingsService {
         approvalPermission: permission,
       });
 
-      console.log("Cập nhật quyền duyệt thành:", metadataString);
-
       await this.livekitRoomService.updateRoomMetadata(
         meetingCode,
         metadataString,
       );
     } catch (error) {
-      console.error("Lỗi khi cập nhật quyền duyệt:", error);
       throw new AppException(ErrorCode.APPROVAL_PERMISSION_UPDATE_FAILED);
     }
   }
@@ -1018,44 +815,6 @@ export class MeetingsService {
       console.error(error);
       throw new AppException(ErrorCode.SERVER_ERROR);
     }
-  }
-
-  /**
-   * Tham gia cuộc họp bằng link/code
-   * Tất cả những ai đã đăng nhập đều dùng được, kể cả thành viên trong phòng
-   * Không cho người bên ngoài phòng tự ý tạo cuộc họp trước
-   */
-  async joinMeetingByCode(
-    meetingCode: string,
-    userId: string,
-    deviceId: string,
-    displayName?: string,
-  ): Promise<MeetingJoinResponse> {
-    const meeting = await this.meetingModel
-      .findOne({
-        meetingCode,
-      })
-      .exec();
-
-    if (!meeting) {
-      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
-    }
-
-    const isActuallyOngoing = await this.isRoomActive(meeting.meetingCode);
-
-    // Chặn vào phòng bằng code(link) nếu đã kết thúc
-    // Chặn refresh khi phòng còn duy nhất 1 người
-    if (!isActuallyOngoing)
-      throw new AppException(ErrorCode.MEETING_NOT_STARTED_OR_ENDED);
-
-    return this.joinOrCreateMeeting(
-      meeting.roomId,
-      meeting.channelId,
-      userId,
-      deviceId,
-      displayName,
-      false,
-    );
   }
 
   /**
@@ -1346,7 +1105,7 @@ export class MeetingsService {
         { $set: { status: "ended", endedAt: new Date() } },
       );
 
-      // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này (Socket.io)
+      // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
         isOngoing: false,
         meetingCode: null,
@@ -1369,4 +1128,104 @@ export class MeetingsService {
     }
     return null;
   }
+
+  /**
+   * Lấy danh sách các session của 1 meetingCode có phân trang
+   */
+  async getMeetingSessions(
+    meetingCode: string,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<PageResponse<MeetingSessionResponse>> {
+    if (!meetingCode || !meetingCode.trim()) {
+      return {
+        items: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        hasNext: false,
+      };
+    }
+
+    const cleanCode = meetingCode.trim();
+    const skip = (page - 1) * limit;
+    const filter = { meetingCode: cleanCode };
+
+    const [total, sessions] = await Promise.all([
+      this.sessionModel.countDocuments(filter),
+      this.sessionModel
+        .find(filter)
+        .sort({ startedAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+    ]);
+
+    const sessionIds = sessions.map((s) => s._id.toString());
+
+    // Đếm số người tham gia (attendance) cho từng session trong trang hiện tại
+    const participantCountsMap = new Map<string, number>();
+    if (sessionIds.length > 0) {
+      try {
+        const counts = await this.attendanceModel.aggregate([
+          { $match: { sessionId: { $in: sessionIds } } },
+          { $group: { _id: "$sessionId", count: { $sum: 1 } } },
+        ]);
+        counts.forEach((c) => {
+          participantCountsMap.set(c._id.toString(), c.count);
+        });
+      } catch (e) {
+        console.error("Lỗi khi lấy số lượng người tham gia:", e);
+      }
+    }
+
+    const items: MeetingSessionResponse[] = sessions.map((doc: any) => {
+      const started = doc.startedAt
+        ? new Date(doc.startedAt)
+        : doc.createdAt
+          ? new Date(doc.createdAt)
+          : new Date();
+      let durationSeconds = 0;
+      if (doc.endedAt) {
+        durationSeconds = Math.max(
+          0,
+          Math.floor(
+            (new Date(doc.endedAt).getTime() - started.getTime()) / 1000,
+          ),
+        );
+      } else if (doc.status === "ongoing") {
+        durationSeconds = Math.max(
+          0,
+          Math.floor((Date.now() - started.getTime()) / 1000),
+        );
+      }
+
+      return {
+        _id: doc._id.toString(),
+        meetingCode: doc.meetingCode,
+        status: doc.status as "ongoing" | "ended",
+        startedAt: doc.startedAt || doc.createdAt,
+        endedAt: doc.endedAt,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+        durationSeconds,
+        totalParticipants: participantCountsMap.get(doc._id.toString()) || 0,
+      };
+    });
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNext = page < totalPages;
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext,
+    };
+  }
 }
+

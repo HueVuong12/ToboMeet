@@ -42,12 +42,7 @@ export class AttendanceService {
         displayName?: string,
     ) {
         const session = await this.findOngoingSession(meetingCode);
-        if (!session) {
-            this.logger.debug(
-                `Không có session ongoing cho ${meetingCode}, bỏ qua điểm danh`,
-            );
-            return;
-        }
+        if (!session) return;
 
         const sessionId = session._id.toString();
         const now = new Date();
@@ -179,9 +174,6 @@ export class AttendanceService {
 
         if (bulkOps.length > 0) {
             await this.attendanceModel.bulkWrite(bulkOps as any);
-            this.logger.log(
-                `Closed ${bulkOps.length} open visits for ${meetingCode}`,
-            );
         }
     }
 

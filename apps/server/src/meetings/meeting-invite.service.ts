@@ -106,8 +106,8 @@ export class MeetingInviteService {
       throw new AppException(ErrorCode.MEETING_INVITE_SESSION_NOT_FOUND);
     }
 
-    const room = await this.roomModel.findById(session.roomId);
-    const roomName = room.name;
+    // const room = await this.roomModel.findById(session.roomId);
+    // const roomName = room.name;
     const inviterName = inviter?.displayName;
 
     // Logic chống spam gửi lời mời và lưu thông báo
@@ -140,7 +140,7 @@ export class MeetingInviteService {
         inviterId,
         inviterName,
         invitedAt: now.toISOString(),
-        roomName,
+        // roomName,
       };
 
       const updatedNotif = await existingNotif.save();
@@ -162,7 +162,7 @@ export class MeetingInviteService {
         inviterId,
         inviterName,
         invitedAt: now.toISOString(),
-        roomName,
+        // roomName,
       },
       isRead: false,
       isNotified: false,
@@ -187,9 +187,7 @@ export class MeetingInviteService {
     }
 
     return {
-      meetingCode: session.meetingCode,
-      roomId: session.roomId,
-      channelId: session.channelId,
+      meetingCode: session.meetingCode
     };
   }
 }
