@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Modal,
   View,
@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePickerJS from "./DateTimePickerJS";
@@ -21,11 +23,43 @@ import {
 } from "../../lib/redux/api/calendarApi";
 import { useGlobalUserSearch } from "../../hooks/useGlobalUserSearch";
 
+interface CalendarEvent {
+  _id: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  recurrenceRule?: string;
+  roomType?: string;
+  roomId?: string;
+  channelId?: string;
+  invitees?: { email: string; displayName?: string; status?: string }[];
+}
+
+interface Invitee {
+  email: string;
+  displayName: string;
+  fullName?: string;
+  avatarUrl?: string;
+}
+
+interface EventPayload {
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  roomType: string;
+  invitees: { email: string; displayName: string }[];
+  roomId?: string;
+  channelId?: string;
+  recurrenceRule?: string;
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  eventToEdit?: any | null; // If passed, we are in Edit mode
+  eventToEdit?: CalendarEvent | null; // If passed, we are in Edit mode
 }
 
 export default function EventModal({ visible, onClose, onSuccess, eventToEdit }: Props) {
@@ -33,7 +67,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedInvitees, setSelectedInvitees] = useState<any[]>([]);
+  const [selectedInvitees, setSelectedInvitees] = useState<Invitee[]>([]);
   const [recurrence, setRecurrence] = useState("NONE");
 
   // DateTimePicker states
@@ -41,8 +75,6 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   const [endDate, setEndDate] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<"start" | "end">("start");
-  const [pickerMode, setPickerMode] = useState<"date" | "time">("date");
-  const [tempDate, setTempDate] = useState<Date | null>(null);
 
   // Local UI states
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
@@ -52,6 +84,8 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   const [createEvent, { isLoading: isCreating }] = useCreateCalendarEventMutation();
   const [updateEvent, { isLoading: isUpdating }] = useUpdateCalendarEventMutation();
   const [deleteEvent, { isLoading: isDeleting }] = useDeleteCalendarEventMutation();
+
+  const scrollRef = useRef<ScrollView>(null);
 
   const {
     users: suggestedUsers = [],
@@ -87,7 +121,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
 
         if (eventToEdit.invitees) {
           setSelectedInvitees(
-            eventToEdit.invitees.map((inv: any) => ({
+            eventToEdit.invitees.map((inv) => ({
               email: inv.email,
               displayName: inv.displayName || inv.email,
             }))
@@ -202,14 +236,17 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
     }));
 
     try {
-      const payload: any = {
+      const payload: EventPayload = {
         title,
         description,
         startDate: startVal.toISOString(),
         endDate: endVal.toISOString(),
-        roomType: "meeting", // Default type for events
+        roomType: eventToEdit?.roomType || "meeting",
         invitees: inviteeList,
       };
+
+      if (eventToEdit?.roomId) payload.roomId = eventToEdit.roomId;
+      if (eventToEdit?.channelId) payload.channelId = eventToEdit.channelId;
 
       if (recurrence !== "NONE") {
         payload.recurrenceRule = `FREQ=${recurrence}`;
@@ -225,8 +262,9 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
 
       onSuccess();
       handleClose();
-    } catch (error: any) {
-      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", error?.data?.message || "Error");
+    } catch (error: unknown) {
+      const errObj = error as { data?: { message?: string } };
+      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", errObj?.data?.message || "Error");
     }
   };
 
@@ -247,8 +285,9 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
               Alert.alert(t("password_reset.password_success"), t("calendar.alert_delete_success"));
               onSuccess();
               handleClose();
-            } catch (err: any) {
-              Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", err?.data?.message || "Error");
+            } catch (err: unknown) {
+              const errObj = err as { data?: { message?: string } };
+              Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", errObj?.data?.message || "Error");
             }
           },
         },
@@ -280,8 +319,12 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.overlay}>
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
         <View style={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           {/* Header */}
           <View style={styles.header}>
@@ -293,7 +336,12 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 24 }}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={{ gap: 16 }}>
               {/* Tiêu đề */}
               <View>
@@ -522,6 +570,11 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
                   multiline
                   numberOfLines={4}
                   style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollRef.current?.scrollToEnd({ animated: true });
+                    }, 300);
+                  }}
                 />
               </View>
             </View>
@@ -544,16 +597,9 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
             )}
 
             <TouchableOpacity
-              onPress={handleClose}
-              style={[styles.btn, styles.btnCancel, eventToEdit ? { flex: 1.5 } : { flex: 1 }]}
-            >
-              <Text style={styles.btnCancelText}>{t("calendar.cancel")}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={handleSave}
               disabled={isCreating || isUpdating}
-              style={[styles.btn, styles.btnSave, eventToEdit ? { flex: 1.5 } : { flex: 1 }]}
+              style={[styles.btn, styles.btnSave]}
             >
               {isCreating || isUpdating ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -563,7 +609,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -744,6 +790,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   btnSave: {
+    flex: 1,
     backgroundColor: "#0052FF",
   },
   btnSaveText: {

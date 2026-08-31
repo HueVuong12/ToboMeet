@@ -97,7 +97,7 @@ export default function DateTimePickerJS({ visible, value, onClose, onChange }: 
               <Text style={styles.cancelBtnText}>{t("calendar.cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleConfirm} style={styles.confirmBtn}>
-              <Text style={styles.confirmBtnText}>{t("verify")}</Text>
+              <Text style={styles.confirmBtnText}>{t("calendar.confirm")}</Text>
             </TouchableOpacity>
           </View>
         </View>

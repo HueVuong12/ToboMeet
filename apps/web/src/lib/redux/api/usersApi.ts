@@ -40,6 +40,11 @@ export type SearchUsersArgs = {
   limit?: number;
 };
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMe: builder.query<UserResponse, void>({
@@ -159,6 +164,17 @@ export const usersApi = baseApi.injectEndpoints({
         params: { lat, lon },
       }),
     }),
+
+    changePassword: builder.mutation<
+      { success: boolean; message: string },
+      ChangePasswordPayload
+    >({
+      query: (data) => ({
+        url: "/users/me/password",
+        method: "PUT",
+        data,
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -173,4 +189,5 @@ export const {
   useUpdateCurrentSessionLocationMutation,
   useSearchUsersQuery,
   useLazyReverseGeocodeQuery,
+  useChangePasswordMutation,
 } = usersApi;

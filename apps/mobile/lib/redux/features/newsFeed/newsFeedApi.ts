@@ -46,6 +46,13 @@ export interface PostDto {
   createdAt: string;
   updatedAt: string;
   author: AuthorDto;
+  // Meeting post fields
+  isMeeting?: boolean;
+  meetingId?: string;
+  meetingTitle?: string;
+  meetingCode?: string;
+  meetingStartDate?: string;
+  meetingEndDate?: string;
 }
 
 export interface CommentDto {

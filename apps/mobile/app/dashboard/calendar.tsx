@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,12 @@ import {
   RefreshControl,
   SafeAreaView,
   TextInput,
+  ScrollView,
+  useWindowDimensions,
+  PanResponder,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 
 interface CalendarEvent {
@@ -28,20 +30,35 @@ interface CalendarEvent {
   roomType?: string;
   invitees?: { email: string; displayName?: string }[];
   recurrenceRule?: string;
+  hostId?: string;
+  // Pre-fetched fields — populated before opening detail modal
+  _prefetchedInvitees?: { email: string; displayName?: string }[];
+  _currentUserId?: string | null;
 }
 
 import ChannelMeetingModal from "../../components/dashboard/ChannelMeetingModal";
 import EventModal from "../../components/dashboard/EventModal";
+import MeetingDetailModal from "../../components/dashboard/MeetingDetailModal";
 import { socket } from "../../lib/socket";
+import { axiosInstance } from "../../lib/axios";
+import { supabase } from "../../lib/supabase";
+
+const HOUR_HEIGHT = 60;
+const TIME_AXIS_WIDTH = 50;
 
 export default function CalendarScreen() {
   const { t, i18n } = useTranslation();
+  const { width: screenWidth } = useWindowDimensions();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedEventForDetail, setSelectedEventForDetail] = useState<CalendarEvent | null>(null);
+  const [detailPrefetching, setDetailPrefetching] = useState<string | null>(null); // stores _id of event being prefetched
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const router = useRouter();
 
@@ -50,42 +67,162 @@ export default function CalendarScreen() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // View mode states
-  const [viewMode, setViewMode] = useState<"DAY" | "WEEK" | "MONTH" | "YEAR">("WEEK");
+  const [viewMode, setViewMode] = useState<"DAY" | "WEEK" | "MONTH">("WEEK");
   const [viewDropdownVisible, setViewDropdownVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  const fetchCalendar = async () => {
-    if (searchActive) return; // Do not fetch default calendar when searching
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem("session_token");
-      const host = "http://localhost:3001"; // Hoặc API URL nội bộ của mobile
-      const start = new Date().toISOString();
-      
-      let durationDays = 7;
-      if (viewMode === "DAY") durationDays = 1;
-      else if (viewMode === "WEEK") durationDays = 7;
-      else if (viewMode === "MONTH") durationDays = 30;
-      else if (viewMode === "YEAR") durationDays = 365;
+  // Performance Optimization Refs
+  const cache = useRef<Record<string, CalendarEvent[]>>({});
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const viewModeRef = useRef(viewMode);
+  viewModeRef.current = viewMode;
 
-      const end = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+  const getMonday = (d: Date) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+  };
 
-      const response = await fetch(`${host}/api/calendar?start=${start}&end=${end}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+  const getWeekDates = (d: Date) => {
+    const monday = getMonday(d);
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      return day;
+    });
+  };
 
-      if (response.ok) {
-        const data = await response.json();
-        // Lấy đúng mảng sự kiện (cả từ data.result nếu có)
-        const eventList = Array.isArray(data) ? data : data.result ?? [];
-        setEvents(eventList);
+  const generateMonthDays = (d: Date) => {
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const startDate = new Date(firstDay);
+    startDate.setDate(firstDay.getDate() - startOffset);
+    
+    const days = [];
+    for (let i = 0; i < 42; i++) {
+      days.push(new Date(startDate));
+      startDate.setDate(startDate.getDate() + 1);
+    }
+    return days;
+  };
+
+  const getDateBounds = (mode: "DAY" | "WEEK" | "MONTH", date: Date) => {
+    let start: string;
+    let end: string;
+    if (mode === "DAY") {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      start = d.toISOString();
+      const e = new Date(d);
+      e.setDate(d.getDate() + 1);
+      end = e.toISOString();
+    } else if (mode === "WEEK") {
+      const monday = getMonday(date);
+      monday.setHours(0, 0, 0, 0);
+      start = monday.toISOString();
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 7);
+      end = sunday.toISOString();
+    } else {
+      const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+      firstDay.setHours(0, 0, 0, 0);
+      start = firstDay.toISOString();
+      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      lastDay.setHours(23, 59, 59, 999);
+      end = lastDay.toISOString();
+    }
+    return { start, end };
+  };
+
+  const prefetchNeighbors = async (date: Date, mode: "DAY" | "WEEK" | "MONTH") => {
+    const nextDate = new Date(date);
+    const prevDate = new Date(date);
+    if (mode === "DAY") {
+      nextDate.setDate(nextDate.getDate() + 1);
+      prevDate.setDate(prevDate.getDate() - 1);
+    } else if (mode === "WEEK") {
+      nextDate.setDate(nextDate.getDate() + 7);
+      prevDate.setDate(prevDate.getDate() - 7);
+    } else {
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      prevDate.setMonth(prevDate.getMonth() - 1);
+    }
+
+    const fetchAndCache = async (d: Date) => {
+      const { start, end } = getDateBounds(mode, d);
+      const cacheKey = `${start}_${end}`;
+      if (cache.current[cacheKey]) return; // already cached
+      try {
+        const response = await axiosInstance.get(`/calendar?start=${start}&end=${end}`);
+        cache.current[cacheKey] = (response as any) || [];
+      } catch (e) {
+        // Ignore prefetch network cancel or generic errors
       }
-    } catch (e) {
-      console.log("Lỗi tải lịch họp:", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    };
+
+    fetchAndCache(nextDate);
+    fetchAndCache(prevDate);
+  };
+
+  const fetchCalendar = async (targetDate = selectedDate, targetMode = viewMode, skipDebounce = false) => {
+    if (searchActive) return;
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    const { start, end } = getDateBounds(targetMode, targetDate);
+    const cacheKey = `${start}_${end}`;
+
+    if (cache.current[cacheKey]) {
+      setEvents(cache.current[cacheKey]);
+      setIsFetching(false);
+      setInitialLoading(false);
+    } else {
+      if (events.length === 0) {
+        setInitialLoading(true);
+      } else {
+        setIsFetching(true);
+      }
+    }
+
+    const performFetch = async () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const response = await axiosInstance.get(`/calendar?start=${start}&end=${end}`, {
+          signal: controller.signal,
+        });
+        const eventList = response as any;
+        cache.current[cacheKey] = eventList || [];
+        setEvents(eventList || []);
+        prefetchNeighbors(targetDate, targetMode);
+      } catch (err: any) {
+        if (err.name !== "CanceledError" && err.message !== "canceled") {
+          console.log("Lỗi tải lịch họp:", err);
+        }
+      } finally {
+        if (abortControllerRef.current === controller) {
+          setIsFetching(false);
+          setInitialLoading(false);
+        }
+      }
+    };
+
+    if (skipDebounce) {
+      performFetch();
+    } else {
+      debounceTimeoutRef.current = setTimeout(performFetch, 250);
     }
   };
 
@@ -94,38 +231,31 @@ export default function CalendarScreen() {
       setEvents([]);
       return;
     }
-    setLoading(true);
+    setInitialLoading(true);
     try {
-      const token = await AsyncStorage.getItem("session_token");
-      const host = "http://localhost:3001";
-      const response = await fetch(`${host}/api/calendar/search?q=${encodeURIComponent(query.trim())}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const eventList = data.result || [];
-        setEvents(eventList);
-      }
+      const data = (await axiosInstance.get(`/calendar/search?q=${encodeURIComponent(query.trim())}`)) as any;
+      setEvents(data || []);
     } catch (e) {
       console.log("Lỗi tìm kiếm lịch họp:", e);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
+  };
+
+  const clearCache = () => {
+    cache.current = {};
   };
 
   useEffect(() => {
     if (!searchActive) {
-      fetchCalendar();
+      fetchCalendar(selectedDate, viewMode, false);
     } else {
       const delayDebounceFn = setTimeout(() => {
         fetchSearch(searchQuery);
       }, 300);
       return () => clearTimeout(delayDebounceFn);
     }
-  }, [searchQuery, searchActive, viewMode]);
+  }, [searchQuery, searchActive, viewMode, selectedDate]);
 
   useEffect(() => {
     if (!socket.connected) {
@@ -134,7 +264,8 @@ export default function CalendarScreen() {
 
     const handleRefresh = () => {
       if (!searchActive) {
-        fetchCalendar();
+        clearCache();
+        fetchCalendar(selectedDate, viewMode, true);
       }
     };
 
@@ -151,15 +282,206 @@ export default function CalendarScreen() {
       socket.off("calendar_event_received", handleRefresh);
       socket.off("channel_calendar_event_created", handleRefresh);
     };
-  }, []);
+  }, [selectedDate, viewMode]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchCalendar();
   };
 
+  const handleDeleteEvent = (event: CalendarEvent) => {
+    Alert.alert(
+      t("calendar.delete") || "Xóa sự kiện",
+      t("calendar.alert_delete_confirm") || "Bạn có chắc chắn muốn xóa sự kiện này?",
+      [
+        { text: t("calendar.cancel") || "Hủy", style: "cancel" },
+        {
+          text: t("calendar.delete") || "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsFetching(true);
+              await axiosInstance.delete(`/calendar/${event._id}`);
+              Alert.alert(
+                t("password_reset.password_success") || "Thành công",
+                t("calendar.alert_delete_success") || "Xóa sự kiện thành công!"
+              );
+              cache.current = {};
+              fetchCalendar(selectedDate, viewMode, true);
+              setDetailModalVisible(false);
+              setSelectedEventForDetail(null);
+            } catch (err: any) {
+              Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", err?.response?.data?.message || "Error");
+            } finally {
+              setIsFetching(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Pre-fetch session + RSVP data before opening detail modal so all info is ready instantly
+  const handleEventPress = useCallback(async (item: CalendarEvent) => {
+    setDetailPrefetching(item._id);
+    try {
+      const [sessionRes, rsvpRes] = await Promise.all([
+        supabase.auth.getSession(),
+        axiosInstance.get(`/calendar/${item._id}/rsvp`).catch(() => []),
+      ]);
+      const currentUserId = sessionRes?.data?.session?.user?.id ?? null;
+      const prefetchedInvitees: { email: string; displayName?: string }[] =
+        Array.isArray(rsvpRes) ? rsvpRes : [];
+      setSelectedEventForDetail({
+        ...item,
+        _prefetchedInvitees: prefetchedInvitees,
+        _currentUserId: currentUserId,
+      });
+    } catch {
+      // On error, still open modal with basic event data
+      setSelectedEventForDetail({ ...item, _prefetchedInvitees: [], _currentUserId: null });
+    } finally {
+      setDetailPrefetching(null);
+      setDetailModalVisible(true);
+    }
+  }, []);
+
   const handleJoin = (meetingCode: string) => {
     router.push(`/meeting/join?code=${meetingCode}`);
+  };
+
+  const handlePrev = () => {
+    setSelectedDate(prevDate => {
+      const nextDate = new Date(prevDate);
+      const currentMode = viewModeRef.current;
+      if (currentMode === "DAY") {
+        nextDate.setDate(nextDate.getDate() - 1);
+      } else if (currentMode === "WEEK") {
+        nextDate.setDate(nextDate.getDate() - 7);
+      } else if (currentMode === "MONTH") {
+        nextDate.setMonth(nextDate.getMonth() - 1);
+      }
+      return nextDate;
+    });
+  };
+
+  const handleNext = () => {
+    setSelectedDate(prevDate => {
+      const nextDate = new Date(prevDate);
+      const currentMode = viewModeRef.current;
+      if (currentMode === "DAY") {
+        nextDate.setDate(nextDate.getDate() + 1);
+      } else if (currentMode === "WEEK") {
+        nextDate.setDate(nextDate.getDate() + 7);
+      } else if (currentMode === "MONTH") {
+        nextDate.setMonth(nextDate.getMonth() + 1);
+      }
+      return nextDate;
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 40 && Math.abs(gestureState.dy) < 30;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > 40) {
+          handlePrev();
+        } else if (gestureState.dx < -40) {
+          handleNext();
+        }
+      },
+    })
+  ).current;
+
+  const getWeekMonthAndYear = (d: Date) => {
+    const dates = getWeekDates(d);
+    const monthCounts: Record<string, number> = {};
+    const yearCounts: Record<string, number> = {};
+
+    dates.forEach(date => {
+      const monthKey = `${date.getMonth() + 1}`;
+      const yearKey = `${date.getFullYear()}`;
+      monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+      yearCounts[yearKey] = (yearCounts[yearKey] || 0) + 1;
+    });
+
+    let maxMonth = d.getMonth() + 1;
+    let maxMonthCount = 0;
+    Object.keys(monthCounts).forEach(m => {
+      if (monthCounts[m] > maxMonthCount) {
+        maxMonthCount = monthCounts[m];
+        maxMonth = parseInt(m, 10);
+      }
+    });
+
+    let maxYear = d.getFullYear();
+    let maxYearCount = 0;
+    Object.keys(yearCounts).forEach(y => {
+      if (yearCounts[y] > maxYearCount) {
+        maxYearCount = yearCounts[y];
+        maxYear = parseInt(y, 10);
+      }
+    });
+
+    return { month: maxMonth, year: maxYear };
+  };
+
+  const getDayHeaderText = (date: Date) => {
+    const localeCode = i18n.language === "vi" ? "vi-VN" : "en-US";
+    return date.toLocaleDateString(localeCode, {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const getHeaderTitle = () => {
+    const localeCode = i18n.language === "vi" ? "vi-VN" : "en-US";
+    if (viewMode === "DAY") {
+      if (i18n.language === "vi") {
+        return `Tháng ${selectedDate.getMonth() + 1}/${selectedDate.getFullYear()}`;
+      } else {
+        return selectedDate.toLocaleDateString(localeCode, {
+          month: "long",
+          year: "numeric",
+        });
+      }
+    } else if (viewMode === "WEEK") {
+      const { month, year } = getWeekMonthAndYear(selectedDate);
+      if (i18n.language === "vi") {
+        return `Tháng ${month}/${year}`;
+      } else {
+        const refDate = new Date(year, month - 1, 15);
+        return refDate.toLocaleDateString(localeCode, {
+          month: "long",
+          year: "numeric",
+        });
+      }
+    } else {
+      return selectedDate.toLocaleDateString(localeCode, {
+        month: "long",
+        year: "numeric",
+      });
+    }
+  };
+
+  const getEventLayout = (event: CalendarEvent) => {
+    const start = new Date(event.startDate);
+    const end = new Date(event.endDate);
+    
+    const startHour = start.getHours() + start.getMinutes() / 60;
+    const endHour = end.getHours() + end.getMinutes() / 60;
+    
+    const clampedStart = Math.max(1, Math.min(23, startHour));
+    const clampedEnd = Math.max(1, Math.min(23.99, endHour));
+    
+    const top = (clampedStart - 1) * HOUR_HEIGHT;
+    const height = Math.max(30, (clampedEnd - clampedStart) * HOUR_HEIGHT);
+    
+    return { top, height };
   };
 
   const renderItem = ({ item }: { item: CalendarEvent }) => {
@@ -180,12 +502,8 @@ export default function CalendarScreen() {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={isChannelMeeting ? 1 : 0.7}
-        onPress={() => {
-          if (!isChannelMeeting) {
-            setEventToEdit(item);
-            setEventModalVisible(true);
-          }
-        }}
+        disabled={detailPrefetching === item._id}
+        onPress={() => handleEventPress(item)}
       >
         <View style={styles.dateBlock}>
           <Text style={styles.dateText}>{dateStr}</Text>
@@ -220,6 +538,314 @@ export default function CalendarScreen() {
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
+    );
+  };
+
+  const renderDayView = () => {
+    const hours = Array.from({ length: 23 }, (_, i) => i + 1);
+    const colWidth = screenWidth - TIME_AXIS_WIDTH - 24;
+
+    const dayEvents = events.filter(e => {
+      const eDate = new Date(e.startDate);
+      return eDate.getFullYear() === selectedDate.getFullYear() &&
+             eDate.getMonth() === selectedDate.getMonth() &&
+             eDate.getDate() === selectedDate.getDate();
+    });
+
+    return (
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+        {/* Timeline headers */}
+        <View style={styles.dayHeader}>
+          <Text style={styles.dayHeaderText}>{getDayHeaderText(selectedDate)}</Text>
+        </View>
+
+        <View style={styles.timelineGridContainer}>
+          {/* Time axis */}
+          <View style={{ width: TIME_AXIS_WIDTH }}>
+            {hours.map(hour => (
+              <View key={hour} style={{ height: HOUR_HEIGHT, justifyContent: "flex-start", alignItems: "center", paddingTop: 4 }}>
+                <Text style={styles.timeLabel}>{`${hour.toString().padStart(2, "0")}:00`}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Events & Grid Column */}
+          <View style={{ flex: 1, position: "relative" }}>
+            {/* Horizontal Grid lines */}
+            <View style={StyleSheet.absoluteFill}>
+              {hours.map(hour => (
+                <View key={hour} style={{ height: HOUR_HEIGHT, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" }} />
+              ))}
+            </View>
+
+            {/* Day Column */}
+            <View style={[styles.gridColumn, { width: colWidth }]}>
+              {dayEvents.map(event => {
+                const { top, height } = getEventLayout(event);
+                return (
+                  <TouchableOpacity
+                    key={`${event._id}_${event.startDate}`}
+                    disabled={detailPrefetching === event._id}
+                    onPress={() => handleEventPress(event)}
+                    style={[
+                      styles.eventCard,
+                      {
+                        top,
+                        height,
+                        backgroundColor: "#EFF6FF",
+                        borderLeftWidth: 4,
+                        borderLeftColor: "#0052FF",
+                        opacity: isFetching ? 0.6 : 1,
+                      }
+                    ]}
+                  >
+                    <Text style={styles.eventTitleText} numberOfLines={2}>
+                      {event.title}
+                    </Text>
+                    {height > 40 && event.description && (
+                      <Text style={styles.eventDescText} numberOfLines={1}>
+                        {event.description.replace(/<[^>]*>/g, "")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+  };
+
+  const renderWeekView = () => {
+    const hours = Array.from({ length: 23 }, (_, i) => i + 1);
+    const weekDates = getWeekDates(selectedDate);
+    const remainingWidth = screenWidth - TIME_AXIS_WIDTH - 20;
+    const colWidth = remainingWidth / 7;
+
+    const weekdayHeaders = i18n.language === "vi"
+      ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    return (
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        {/* Horizontal columns header */}
+        <View style={styles.weekHeaderContainer}>
+          <View style={{ width: TIME_AXIS_WIDTH }} />
+          <View style={styles.weekDayHeaderRow}>
+            {weekDates.map((dayDate, index) => {
+              const isToday = new Date().toDateString() === dayDate.toDateString();
+              const isSelected = selectedDate.toDateString() === dayDate.toDateString();
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.weekDayHeaderCell, { width: colWidth }, isSelected && styles.weekHeaderCellSelected]}
+                  onPress={() => setSelectedDate(dayDate)}
+                >
+                  <Text style={[styles.weekDayHeaderText, isToday && styles.textPrimary]}>{weekdayHeaders[index]}</Text>
+                  <Text style={[styles.weekDayDateText, isToday && styles.textPrimaryBold]}>{dayDate.getDate()}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.timelineGridContainer}>
+            {/* Time axis */}
+            <View style={{ width: TIME_AXIS_WIDTH }}>
+              {hours.map(hour => (
+                <View key={hour} style={{ height: HOUR_HEIGHT, justifyContent: "flex-start", alignItems: "center", paddingTop: 4 }}>
+                  <Text style={styles.timeLabel}>{`${hour.toString().padStart(2, "0")}:00`}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Grid & Columns */}
+            <View style={{ flex: 1, flexDirection: "row", position: "relative" }}>
+              {/* Horizontal Grid lines */}
+              <View style={StyleSheet.absoluteFill}>
+                {hours.map(hour => (
+                  <View key={hour} style={{ height: HOUR_HEIGHT, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" }} />
+                ))}
+              </View>
+
+              {/* Vertical Columns */}
+              {weekDates.map((dayDate, index) => {
+                const dayEvents = events.filter(e => {
+                  const eDate = new Date(e.startDate);
+                  return eDate.getFullYear() === dayDate.getFullYear() &&
+                         eDate.getMonth() === dayDate.getMonth() &&
+                         eDate.getDate() === dayDate.getDate();
+                });
+                const isToday = new Date().toDateString() === dayDate.toDateString();
+
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.gridColumn,
+                      {
+                        width: colWidth,
+                        borderRightWidth: index < 6 ? 1 : 0,
+                        borderRightColor: "#E2E8F0",
+                        backgroundColor: isToday ? "#0052FF08" : "transparent",
+                      }
+                    ]}
+                  >
+                    {dayEvents.map(event => {
+                      const { top, height } = getEventLayout(event);
+                      return (
+                        <TouchableOpacity
+                          key={`${event._id}_${event.startDate}`}
+                          disabled={detailPrefetching === event._id}
+                          onPress={() => handleEventPress(event)}
+                          style={[
+                            styles.eventCard,
+                            {
+                              top,
+                              height,
+                              backgroundColor: "#EFF6FF",
+                              borderLeftWidth: 3,
+                              borderLeftColor: "#0052FF",
+                              opacity: isFetching ? 0.6 : 1,
+                            }
+                          ]}
+                        >
+                          <Text style={styles.eventTitleText} numberOfLines={1}>
+                            {event.title}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderMonthView = () => {
+    const days = generateMonthDays(selectedDate);
+    const currentMonth = selectedDate.getMonth();
+    
+    const weekDaysHeader = i18n.language === "vi"
+      ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    return (
+      <View style={styles.monthContainer} {...panResponder.panHandlers}>
+        {/* Month Weekdays Header */}
+        <View style={styles.monthWeekdayRow}>
+          {weekDaysHeader.map((d, index) => (
+            <View key={index} style={styles.monthWeekdayCell}>
+              <Text style={styles.monthWeekdayText}>{d}</Text>
+            </View>
+          ))}
+        </View>
+        
+        {/* Days Grid */}
+        <View style={styles.monthGrid}>
+          {days.map((dayDate, index) => {
+            const isCurrentMonth = dayDate.getMonth() === currentMonth;
+            const isToday = new Date().toDateString() === dayDate.toDateString();
+            const isSelected = selectedDate.toDateString() === dayDate.toDateString();
+            
+            const dayEvents = events.filter(e => {
+              const eDate = new Date(e.startDate);
+              return eDate.getFullYear() === dayDate.getFullYear() &&
+                     eDate.getMonth() === dayDate.getMonth() &&
+                     eDate.getDate() === dayDate.getDate();
+            });
+            
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.monthDayCell,
+                  !isCurrentMonth && styles.monthDayCellInactive,
+                  isSelected && styles.monthDayCellSelected,
+                  isToday && styles.monthDayCellToday,
+                ]}
+                onPress={() => {
+                  setSelectedDate(dayDate);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.monthDayText,
+                    !isCurrentMonth && styles.monthDayTextInactive,
+                    isSelected && styles.monthDayTextSelected,
+                    isToday && styles.monthDayTextToday,
+                  ]}
+                >
+                  {dayDate.getDate()}
+                </Text>
+                
+                <View style={styles.monthEventContainer}>
+                  {dayEvents.slice(0, 2).map((event) => (
+                    <View
+                      key={`${event._id}_${event.startDate}`}
+                      style={[
+                        styles.monthEventIndicator,
+                        { backgroundColor: event.roomType === "channel_meeting" ? "#10B981" : "#0052FF" }
+                      ]}
+                    />
+                  ))}
+                  {dayEvents.length > 2 && (
+                    <Text style={styles.monthEventMoreText}>+{dayEvents.length - 2}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Selected date's events list */}
+        <View style={styles.monthDetailContainer}>
+          <Text style={styles.monthDetailHeader}>
+            {selectedDate.toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US", {
+              weekday: "long",
+              day: "numeric",
+              month: "numeric",
+            })}
+          </Text>
+          <FlatList
+            data={events.filter(e => {
+              const eDate = new Date(e.startDate);
+              return eDate.getFullYear() === selectedDate.getFullYear() &&
+                     eDate.getMonth() === selectedDate.getMonth() &&
+                     eDate.getDate() === selectedDate.getDate();
+            })}
+            keyExtractor={item => `${item._id}_${item.startDate}`}
+            renderItem={renderItem}
+            ListEmptyComponent={
+              <Text style={styles.monthDetailEmpty}>{t("calendar.empty_state") || "Không có sự kiện"}</Text>
+            }
+            contentContainerStyle={{ paddingBottom: 16 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+        </View>
+      </View>
     );
   };
 
@@ -259,6 +885,13 @@ export default function CalendarScreen() {
 
       {!searchActive && (
         <View style={styles.toolbar}>
+          <View style={styles.navHeader}>
+            <Text style={styles.navHeaderText}>{getHeaderTitle()}</Text>
+            {isFetching && (
+              <ActivityIndicator size="small" color="#0052FF" style={{ marginLeft: 6 }} />
+            )}
+          </View>
+
           <View style={{ position: "relative", zIndex: 100 }}>
             <TouchableOpacity
               onPress={() => setViewDropdownVisible(!viewDropdownVisible)}
@@ -268,14 +901,13 @@ export default function CalendarScreen() {
                 {viewMode === "DAY" && t("calendar.view_day")}
                 {viewMode === "WEEK" && t("calendar.view_week")}
                 {viewMode === "MONTH" && t("calendar.view_month")}
-                {viewMode === "YEAR" && t("calendar.view_year")}
               </Text>
               <Feather name="chevron-down" size={14} color="#0052FF" />
             </TouchableOpacity>
 
             {viewDropdownVisible && (
               <View style={styles.dropdownMenu}>
-                {(["DAY", "WEEK", "MONTH", "YEAR"] as const).map((mode) => {
+                {(["DAY", "WEEK", "MONTH"] as const).map((mode) => {
                   const isActive = viewMode === mode;
                   return (
                     <TouchableOpacity
@@ -290,7 +922,6 @@ export default function CalendarScreen() {
                         {mode === "DAY" && t("calendar.view_day")}
                         {mode === "WEEK" && t("calendar.view_week")}
                         {mode === "MONTH" && t("calendar.view_month")}
-                        {mode === "YEAR" && t("calendar.view_year")}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -309,28 +940,31 @@ export default function CalendarScreen() {
         />
       )}
 
-      {loading && !refreshing ? (
+      {initialLoading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#0052FF" />
         </View>
-      ) : (
+      ) : searchActive ? (
         <FlatList
           data={events}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => `${item._id}_${item.startDate}`}
           renderItem={renderItem}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Feather name="calendar" size={48} color="#94A3B8" />
               <Text style={styles.emptyText}>
-                {searchActive ? t("calendar.no_results") : t("calendar.empty_state")}
+                {t("calendar.no_results") || "Không tìm thấy kết quả"}
               </Text>
             </View>
           }
           contentContainerStyle={styles.listContent}
         />
+      ) : (
+        <View style={{ flex: 1 }}>
+          {viewMode === "DAY" && renderDayView()}
+          {viewMode === "WEEK" && renderWeekView()}
+          {viewMode === "MONTH" && renderMonthView()}
+        </View>
       )}
 
       {/* Floating Action Menu Overlay */}
@@ -338,9 +972,9 @@ export default function CalendarScreen() {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setFabMenuOpen(false)}
-          style={StyleSheet.absoluteFillObject}
+          style={[StyleSheet.absoluteFillObject, { zIndex: 998 }]}
         >
-          <View style={{ flex: 1, backgroundColor: "rgba(15, 23, 42, 0.2)" }} />
+          <View style={{ flex: 1, backgroundColor: "rgba(15, 23, 42, 0.4)" }} />
         </TouchableOpacity>
       )}
 
@@ -436,7 +1070,29 @@ export default function CalendarScreen() {
       <ChannelMeetingModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onSuccess={fetchCalendar}
+        onSuccess={() => {
+          cache.current = {};
+          fetchCalendar(selectedDate, viewMode, true);
+        }}
+      />
+
+      <MeetingDetailModal
+        visible={detailModalVisible}
+        onClose={() => {
+          setDetailModalVisible(false);
+          setSelectedEventForDetail(null);
+        }}
+        event={selectedEventForDetail}
+        onEdit={(evt) => {
+          setDetailModalVisible(false);
+          setSelectedEventForDetail(null);
+          setEventToEdit(evt);
+          setEventModalVisible(true);
+        }}
+        onDelete={handleDeleteEvent}
+        onJoin={(meetingCode) => {
+          handleJoin(meetingCode);
+        }}
       />
 
       <EventModal
@@ -446,7 +1102,10 @@ export default function CalendarScreen() {
           setEventModalVisible(false);
           setEventToEdit(null);
         }}
-        onSuccess={fetchCalendar}
+        onSuccess={() => {
+          cache.current = {};
+          fetchCalendar(selectedDate, viewMode, true);
+        }}
       />
     </SafeAreaView>
   );
@@ -483,11 +1142,27 @@ const styles = StyleSheet.create({
   },
   toolbar: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+    paddingVertical: 12,
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
     zIndex: 99,
+  },
+  navHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  navBtn: {
+    padding: 4,
+  },
+  navHeaderText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F172A",
   },
   dropdownBtn: {
     flexDirection: "row",
@@ -516,8 +1191,8 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: "absolute",
-    top: 47, // Đặt ngay dưới button (cách 9px)
-    right: 0, // Căn lề phải thẳng hàng với nút bấm
+    top: 47,
+    right: 0,
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 4,
@@ -639,4 +1314,194 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
   },
+
+  // Custom views styles
+  dayHeader: {
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  dayHeaderText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F172A",
+    textAlign: "center",
+  },
+  timelineGridContainer: {
+    flexDirection: "row",
+    paddingRight: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: "#94A3B8",
+    fontWeight: "500",
+  },
+  gridColumn: {
+    position: "relative",
+  },
+  eventCard: {
+    position: "absolute",
+    left: 4,
+    right: 4,
+    borderRadius: 8,
+    padding: 6,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  eventTitleText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#1E3A8A",
+  },
+  eventDescText: {
+    fontSize: 9,
+    color: "#60A5FA",
+    marginTop: 2,
+  },
+
+  // Week view styles
+  weekHeaderContainer: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    paddingRight: 12,
+    paddingVertical: 8,
+  },
+  weekDayHeaderRow: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  weekDayHeaderCell: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  weekHeaderCellSelected: {
+    backgroundColor: "#EFF6FF",
+  },
+  weekDayHeaderText: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  weekDayDateText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0F172A",
+    marginTop: 2,
+  },
+  textPrimary: {
+    color: "#0052FF",
+  },
+  textPrimaryBold: {
+    color: "#0052FF",
+    fontWeight: "bold",
+  },
+
+  // Month view styles
+  monthContainer: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  monthWeekdayRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    paddingVertical: 8,
+  },
+  monthWeekdayCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  monthWeekdayText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  monthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  monthDayCell: {
+    width: "14.28%",
+    height: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    borderRightWidth: 1,
+    borderRightColor: "#F1F5F9",
+    padding: 4,
+    justifyContent: "space-between",
+  },
+  monthDayCellInactive: {
+    backgroundColor: "#F8FAFC",
+  },
+  monthDayCellSelected: {
+    backgroundColor: "#EFF6FF",
+  },
+  monthDayCellToday: {
+    backgroundColor: "#EFF6FF",
+  },
+  monthDayText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#334155",
+  },
+  monthDayTextInactive: {
+    color: "#94A3B8",
+  },
+  monthDayTextSelected: {
+    color: "#0052FF",
+    fontWeight: "bold",
+  },
+  monthDayTextToday: {
+    color: "#0052FF",
+    fontWeight: "bold",
+  },
+  monthEventContainer: {
+    flexDirection: "row",
+    gap: 2,
+    flexWrap: "wrap",
+    marginTop: 2,
+  },
+  monthEventIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  monthEventIndicatorText: {
+    display: "none",
+  },
+  monthEventMoreText: {
+    fontSize: 8,
+    color: "#64748B",
+    fontWeight: "bold",
+  },
+  monthDetailContainer: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    padding: 16,
+  },
+  monthDetailHeader: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#475569",
+    marginBottom: 12,
+  },
+  monthDetailEmpty: {
+    fontSize: 14,
+    color: "#94A3B8",
+    textAlign: "center",
+    marginTop: 24,
+  },
 });
+

@@ -403,8 +403,6 @@ function CalendarContent() {
             currentDate={currentDate}
             onSetCurrentDate={setCurrentDate}
             events={events}
-            typeFilter={typeFilter}
-            onSetTypeFilter={setTypeFilter}
           />
         )}
 

@@ -142,7 +142,7 @@ function NotificationCard({
         return {
           title: t("notification.types.room_disbanded.title"),
           content: t("notification.types.room_disbanded.content", {
-            roomName: metadata?.roomName || t("notification.common.room"),
+            roomName: metadata?.roomName || t("common.room"),
           }),
           icon: "trash-2",
           colorClass: "bg-orange-100",
@@ -152,7 +152,7 @@ function NotificationCard({
         return {
           title: t("notification.types.meeting_invite.title"),
           content: t("notification.types.meeting_invite.content", {
-            inviterName: metadata?.inviterName || t("notification.common.someone"),
+            inviterName: metadata?.inviterName || t("common.someone"),
             roomName: metadata?.roomName || "",
           }),
           icon: "video",
@@ -211,8 +211,8 @@ function NotificationCard({
     } catch (error: any) {
       Toast.show({
         type: "error",
-        text1: t("notification.errors.title"),
-        text2: error?.message || t("notification.errors.session_ended"),
+        text1: t("errors.title"),
+        text2: error?.message || t("errors.session_ended"),
       });
     } finally {
       setIsProcessing(false);
