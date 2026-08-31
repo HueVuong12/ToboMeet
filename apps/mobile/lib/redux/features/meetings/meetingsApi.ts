@@ -1,10 +1,14 @@
 import {
   ActiveMeetingResponse,
   CreateBreakoutRoomDto,
+  GetMeetingSessionsArgs,
   MeetingDeviceStatus,
   MeetingJoinResponse,
+  MeetingSessionResponse,
+  PageResponse,
   PresignedUploadResponse,
   RoomMemberStatus,
+  SessionAttendanceItem,
 } from "@tobomeet/shared/types";
 import { baseApi } from "../../api/baseApi";
 
@@ -303,6 +307,63 @@ export const meetingsApi = baseApi.injectEndpoints({
         method: "GET",
       }),
     }),
+
+    // Lấy danh sách các session của meetingCode có phân trang
+    getMeetingSessions: builder.query<
+      PageResponse<MeetingSessionResponse>,
+      GetMeetingSessionsArgs
+    >({
+      query: ({ meetingCode, page, limit = 50 }) => ({
+        url: `/meetings/${meetingCode}/sessions`,
+        params: { page, limit },
+      }),
+
+      // Chỉ tạo khoá (Cache Key) dựa trên meetingCode, bỏ qua page và limit
+      serializeQueryArgs: ({ endpointName, queryArgs }) => {
+        const queryKey = queryArgs.meetingCode || "";
+        return `${endpointName}-${queryKey}`;
+      },
+
+      // Gộp (Merge) dữ liệu mới vào cache cũ khi fetch trang mới
+      merge: (currentCache, newItems, { arg }) => {
+        if (arg.page === 1) {
+          // Nếu gọi lại trang 1 (refresh hoặc đổi mã), ghi đè toàn bộ
+          return newItems;
+        }
+
+        // Nếu gọi các trang tiếp theo, nối (push) thêm dữ liệu vào mảng items cũ
+        currentCache.items.push(...newItems.items);
+
+        // Cập nhật lại các thông tin phân trang
+        currentCache.page = newItems.page;
+        currentCache.hasNext = newItems.hasNext;
+        currentCache.total = newItems.total;
+        currentCache.totalPages = newItems.totalPages;
+      },
+
+      // Bắt buộc gọi lại API khi page hoặc meetingCode thay đổi
+      forceRefetch({ currentArg, previousArg }) {
+        return (
+          currentArg?.page !== previousArg?.page ||
+          currentArg?.meetingCode !== previousArg?.meetingCode
+        );
+      },
+
+      providesTags: (result, error, { meetingCode }) => [
+        { type: "MeetingSessions", id: meetingCode },
+      ],
+    }),
+
+    // Lấy thông tin điểm danh / người tham gia của session
+    getSessionAttendance: builder.query<
+      SessionAttendanceItem[],
+      { meetingCode: string; sessionId?: string }
+    >({
+      query: ({ meetingCode, sessionId }) => ({
+        url: `/meetings/${meetingCode}/attendance`,
+        params: sessionId ? { sessionId } : undefined,
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -339,5 +400,12 @@ export const {
   useJoinBreakoutRoomMutation,
   useReturnToMainRoomMutation,
   useGetBreakoutCountsQuery,
+
+  // Meeting Sessions APIs
+  useGetMeetingSessionsQuery,
+  useLazyGetMeetingSessionsQuery,
+  useGetSessionAttendanceQuery,
+  useLazyGetSessionAttendanceQuery,
 } = meetingsApi;
+
 

@@ -491,8 +491,6 @@ export interface SessionAttendanceItem {
   displayName?: string;
   totalDurationSeconds: number;
   visitCount: number;
-  isCounted: boolean;
-  status: "present" | "left_early" | "late";
   visits?: Array<{
     joinedAt: Date | string;
     leftAt?: Date | string;
@@ -501,4 +499,5 @@ export interface SessionAttendanceItem {
   firstJoinedAt?: Date | string;
   lastLeftAt?: Date | string;
 }
+
 

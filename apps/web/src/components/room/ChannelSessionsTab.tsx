@@ -19,13 +19,11 @@ import {
   RefreshCw,
   Loader2,
   CheckCircle2,
-  AlertCircle,
   PlayCircle,
   Radio,
   Timer,
   UserCheck,
   UserX,
-  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,7 +65,7 @@ export default function ChannelSessionsTab({
         console.error("Lỗi khi lấy meetingCode:", err);
         if (isMounted) {
           toast.error(
-            err?.data?.message || err?.message || "Không thể tải thông tin cuộc họp của kênh",
+            err?.data?.message || err?.message || t("session_error_get_meeting"),
           );
         }
       }
@@ -80,7 +78,7 @@ export default function ChannelSessionsTab({
     return () => {
       isMounted = false;
     };
-  }, [roomId, channelId, ensureChannelMeeting]);
+  }, [roomId, channelId, ensureChannelMeeting, t]);
 
   // Hook fetch meeting sessions có phân trang (50 sessions / page)
   const {
@@ -132,14 +130,16 @@ export default function ChannelSessionsTab({
     const s = sec % 60;
 
     if (h > 0) {
-      return locale === "vi"
-        ? `${h} giờ ${m > 0 ? `${m} phút` : ""}`
-        : `${h}h ${m > 0 ? `${m}m` : ""}`;
+      return m > 0
+        ? t("session_duration_hours", { hours: h, minutes: m })
+        : t("session_duration_hours_only", { hours: h });
     }
     if (m > 0) {
-      return locale === "vi" ? `${m} phút ${s > 0 ? `${s}s` : ""}` : `${m}m ${s > 0 ? `${s}s` : ""}`;
+      return s > 0
+        ? t("session_duration_minutes", { minutes: m, seconds: s })
+        : t("session_duration_minutes_only", { minutes: m });
     }
-    return locale === "vi" ? `${s} giây` : `${s}s`;
+    return t("session_duration_seconds", { seconds: s });
   };
 
   const handleJoinMeeting = (e: React.MouseEvent, code: string) => {
@@ -190,7 +190,7 @@ export default function ChannelSessionsTab({
         formatTimeOnly={formatTimeOnly}
         formatDuration={formatDuration}
         onJoinMeeting={(code) => router.push(`/meeting/${code}`)}
-        locale={locale}
+        t={t}
       />
     );
   }
@@ -203,10 +203,10 @@ export default function ChannelSessionsTab({
         <div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-base font-bold text-slate-900">
-              {locale === "vi" ? "Lịch sử phiên họp" : "Meeting Sessions"}
+              {t("sessions_title")}
             </h2>
             <span className="px-2 py-0.5 text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200/60 rounded-full">
-              {total} {locale === "vi" ? "phiên" : "sessions"}
+              {t("sessions_count", { count: total })}
             </span>
             {channelName && (
               <span className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-500 font-medium">
@@ -215,9 +215,7 @@ export default function ChannelSessionsTab({
             )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            {locale === "vi"
-              ? "Danh sách các phiên họp đã và đang diễn ra trong kênh này"
-              : "List of past and ongoing meeting sessions in this channel"}
+            {t("sessions_subtitle")}
           </p>
         </div>
 
@@ -228,7 +226,7 @@ export default function ChannelSessionsTab({
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-brand-600 bg-slate-100 hover:bg-brand-50 hover:border-brand-200 border border-slate-200/80 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={14} className={isFetching ? "animate-spin text-brand-600" : ""} />
-            <span>{locale === "vi" ? "Làm mới" : "Refresh"}</span>
+            <span>{t("sessions_refresh")}</span>
           </button>
         </div>
       </div>
@@ -241,12 +239,10 @@ export default function ChannelSessionsTab({
               <Video size={28} />
             </div>
             <h3 className="text-sm font-bold text-slate-800 mb-1">
-              {locale === "vi" ? "Chưa có phiên họp nào" : "No meeting sessions recorded"}
+              {t("sessions_empty_title")}
             </h3>
             <p className="text-xs text-slate-500 max-w-sm">
-              {locale === "vi"
-                ? "Khi bắt đầu một cuộc họp trong kênh này, thông tin phiên họp và danh sách điểm danh sẽ tự động xuất hiện tại đây."
-                : "When a meeting begins in this channel, session logs and attendance data will appear here automatically."}
+              {t("sessions_empty_desc")}
             </p>
           </div>
         ) : (
@@ -291,18 +287,18 @@ export default function ChannelSessionsTab({
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-sm text-slate-900 group-hover:text-brand-600 transition-colors">
-                          {locale === "vi" ? `Phiên họp #${sessionIndex}` : `Meeting Session #${sessionIndex}`}
+                          {t("session_item_title", { index: sessionIndex })}
                         </span>
 
                         {isOngoing ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300 animate-pulse">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                            {locale === "vi" ? "Đang diễn ra" : "Live Now"}
+                            {t("session_live")}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
                             <CheckCircle2 size={12} className="text-slate-500" />
-                            {locale === "vi" ? "Đã kết thúc" : "Ended"}
+                            {t("session_ended")}
                           </span>
                         )}
 
@@ -318,7 +314,7 @@ export default function ChannelSessionsTab({
                           <Calendar size={13} className="text-slate-400 shrink-0" />
                           <span>
                             <strong className="font-medium text-slate-700">
-                              {locale === "vi" ? "Bắt đầu:" : "Started:"}
+                              {t("session_started")}
                             </strong>{" "}
                             {formatDateTime(session.startedAt || session.createdAt)}
                           </span>
@@ -330,7 +326,7 @@ export default function ChannelSessionsTab({
                             <Clock size={13} className="text-slate-400 shrink-0" />
                             <span>
                               <strong className="font-medium text-slate-700">
-                                {locale === "vi" ? "Kết thúc:" : "Ended:"}
+                                {t("session_ended_label")}
                               </strong>{" "}
                               {formatDateTime(session.endedAt)}
                             </span>
@@ -341,7 +337,7 @@ export default function ChannelSessionsTab({
                         <div className="flex items-center gap-1.5">
                           <Timer size={13} className="text-slate-400 shrink-0" />
                           <span className="font-medium text-slate-700">
-                            {locale === "vi" ? "Thời lượng:" : "Duration:"}{" "}
+                            {t("session_duration")}{" "}
                             <span className="font-bold text-slate-900">
                               {formatDuration(session.durationSeconds)}
                             </span>
@@ -354,9 +350,8 @@ export default function ChannelSessionsTab({
                             <Users size={13} className="text-slate-400 shrink-0" />
                             <span className="font-medium text-slate-700">
                               <span className="font-bold text-slate-900">
-                                {session.totalParticipants}
-                              </span>{" "}
-                              {locale === "vi" ? "người tham gia" : "participants"}
+                                {t("session_participants_count", { count: session.totalParticipants })}
+                              </span>
                             </span>
                           </div>
                         )}
@@ -372,13 +367,13 @@ export default function ChannelSessionsTab({
                         className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 cursor-pointer active:scale-95"
                       >
                         <PlayCircle size={15} />
-                        <span>{locale === "vi" ? "Tham gia" : "Join Now"}</span>
+                        <span>{t("session_join_now")}</span>
                       </button>
                     )}
 
                     <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 group-hover:text-brand-600 transition-colors">
                       <span className="hidden sm:inline">
-                        {locale === "vi" ? "Chi tiết" : "Details"}
+                        {t("session_details")}
                       </span>
                       <ChevronRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                     </div>
@@ -398,10 +393,10 @@ export default function ChannelSessionsTab({
                   {isLoadingMore ? (
                     <>
                       <Loader2 size={15} className="animate-spin text-brand-600" />
-                      <span>{locale === "vi" ? "Đang tải thêm phiên..." : "Loading more sessions..."}</span>
+                      <span>{t("session_loading_more")}</span>
                     </>
                   ) : (
-                    <span>{locale === "vi" ? "Tải thêm các phiên trước đó" : "Load more past sessions"}</span>
+                    <span>{t("session_load_more")}</span>
                   )}
                 </button>
               </div>
@@ -422,7 +417,7 @@ interface SessionDetailViewProps {
   formatTimeOnly: (d?: string | Date) => string;
   formatDuration: (s?: number) => string;
   onJoinMeeting: (code: string) => void;
-  locale: string;
+  t: any;
 }
 
 function SessionDetailView({
@@ -432,7 +427,7 @@ function SessionDetailView({
   formatTimeOnly,
   formatDuration,
   onJoinMeeting,
-  locale,
+  t,
 }: SessionDetailViewProps) {
   const isOngoing = session.status === "ongoing";
 
@@ -451,24 +446,24 @@ function SessionDetailView({
           <button
             onClick={onBack}
             className="p-1.5 -ml-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-            title={locale === "vi" ? "Quay lại" : "Back"}
+            title={t("session_back")}
           >
             <ArrowLeft size={20} />
           </button>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900">
-                {locale === "vi" ? "Chi tiết phiên họp" : "Session Details"}
+                {t("session_detail_title")}
               </h2>
               {isOngoing ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300 animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  {locale === "vi" ? "Đang diễn ra" : "Live Now"}
+                  {t("session_live")}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">
                   <CheckCircle2 size={12} className="text-slate-500" />
-                  {locale === "vi" ? "Đã kết thúc" : "Ended"}
+                  {t("session_ended")}
                 </span>
               )}
             </div>
@@ -484,7 +479,7 @@ function SessionDetailView({
             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 cursor-pointer active:scale-95"
           >
             <PlayCircle size={16} />
-            <span>{locale === "vi" ? "Tham gia ngay" : "Join Now"}</span>
+            <span>{t("session_join_now")}</span>
           </button>
         )}
       </div>
@@ -496,7 +491,7 @@ function SessionDetailView({
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div className="flex items-center gap-2.5 text-slate-500 text-xs font-medium mb-1.5">
               <Calendar size={15} className="text-brand-500" />
-              <span>{locale === "vi" ? "Thời gian bắt đầu" : "Start Time"}</span>
+              <span>{t("session_start_time")}</span>
             </div>
             <div className="text-sm font-bold text-slate-800">
               {formatDateTime(session.startedAt || session.createdAt)}
@@ -506,21 +501,19 @@ function SessionDetailView({
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div className="flex items-center gap-2.5 text-slate-500 text-xs font-medium mb-1.5">
               <Clock size={15} className="text-amber-500" />
-              <span>{locale === "vi" ? "Thời gian kết thúc" : "End Time"}</span>
+              <span>{t("session_end_time")}</span>
             </div>
             <div className="text-sm font-bold text-slate-800">
               {session.endedAt
                 ? formatDateTime(session.endedAt)
-                : locale === "vi"
-                  ? "Chưa kết thúc"
-                  : "In progress"}
+                : t("session_in_progress")}
             </div>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div className="flex items-center gap-2.5 text-slate-500 text-xs font-medium mb-1.5">
               <Timer size={15} className="text-purple-500" />
-              <span>{locale === "vi" ? "Tổng thời lượng" : "Total Duration"}</span>
+              <span>{t("session_total_duration")}</span>
             </div>
             <div className="text-sm font-bold text-slate-800">
               {formatDuration(session.durationSeconds)}
@@ -530,13 +523,13 @@ function SessionDetailView({
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
             <div className="flex items-center gap-2.5 text-slate-500 text-xs font-medium mb-1.5">
               <Users size={15} className="text-emerald-500" />
-              <span>{locale === "vi" ? "Người tham gia" : "Participants"}</span>
+              <span>{t("session_participants")}</span>
             </div>
             <div className="text-sm font-bold text-slate-800">
               {attendanceList.length > 0
-                ? `${attendanceList.length} ${locale === "vi" ? "người" : "users"}`
+                ? t("session_users_count", { count: attendanceList.length })
                 : session.totalParticipants !== undefined
-                  ? `${session.totalParticipants} ${locale === "vi" ? "người" : "users"}`
+                  ? t("session_users_count", { count: session.totalParticipants })
                   : "0"}
             </div>
           </div>
@@ -548,26 +541,24 @@ function SessionDetailView({
             <div className="flex items-center gap-2">
               <UserCheck size={18} className="text-brand-600" />
               <h3 className="text-sm font-bold text-slate-900">
-                {locale === "vi" ? "Danh sách điểm danh & người tham gia" : "Attendance & Participant Log"}
+                {t("session_attendance_title")}
               </h3>
             </div>
             <span className="text-xs text-slate-500 font-semibold">
-              {attendanceList.length} {locale === "vi" ? "thành viên" : "records"}
+              {t("session_records_count", { count: attendanceList.length })}
             </span>
           </div>
 
           {isAttendanceLoading ? (
             <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
               <Loader2 size={24} className="animate-spin text-brand-500" />
-              <p className="text-xs">{locale === "vi" ? "Đang tải dữ liệu điểm danh..." : "Loading attendance..."}</p>
+              <p className="text-xs">{t("session_attendance_loading")}</p>
             </div>
           ) : attendanceList.length === 0 ? (
             <div className="p-12 text-center text-slate-400">
               <UserX size={32} className="mx-auto mb-2 text-slate-300" />
               <p className="text-xs font-medium">
-                {locale === "vi"
-                  ? "Chưa có bản ghi điểm danh nào cho phiên họp này."
-                  : "No attendance records recorded for this session."}
+                {t("session_attendance_empty")}
               </p>
             </div>
           ) : (
@@ -575,30 +566,15 @@ function SessionDetailView({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-200">
-                    <th className="py-3 px-4">{locale === "vi" ? "Thành viên" : "Participant"}</th>
-                    <th className="py-3 px-4">{locale === "vi" ? "Trạng thái" : "Status"}</th>
-                    <th className="py-3 px-4">{locale === "vi" ? "Vào lần đầu" : "First Joined"}</th>
-                    <th className="py-3 px-4">{locale === "vi" ? "Rời lần cuối" : "Last Left"}</th>
-                    <th className="py-3 px-4">{locale === "vi" ? "Thời gian có mặt" : "Time in Session"}</th>
-                    <th className="py-3 px-4 text-center">{locale === "vi" ? "Số lần vào" : "Visits"}</th>
+                    <th className="py-3 px-4">{t("session_th_participant")}</th>
+                    <th className="py-3 px-4">{t("session_th_first_joined")}</th>
+                    <th className="py-3 px-4">{t("session_th_last_left")}</th>
+                    <th className="py-3 px-4">{t("session_th_time_in_session")}</th>
+                    <th className="py-3 px-4 text-center">{t("session_th_visits")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {attendanceList.map((att: SessionAttendanceItem, idx: number) => {
-                    const statusText =
-                      att.status === "present"
-                        ? locale === "vi" ? "Có mặt" : "Present"
-                        : att.status === "late"
-                          ? locale === "vi" ? "Đi muộn" : "Late"
-                          : locale === "vi" ? "Rời sớm" : "Left early";
-
-                    const statusBadgeClass =
-                      att.status === "present"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : att.status === "late"
-                          ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : "bg-orange-50 text-orange-700 border-orange-200";
-
                     return (
                       <tr key={att.userId || idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="py-3 px-4">
@@ -608,7 +584,7 @@ function SessionDetailView({
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-slate-800 truncate">
-                                {att.displayName || (locale === "vi" ? "Người dùng" : "Participant")}
+                                {att.displayName || t("session_user_default")}
                               </p>
                               <p className="text-[10px] text-slate-400 font-mono truncate">
                                 {att.userId}
@@ -617,20 +593,12 @@ function SessionDetailView({
                           </div>
                         </td>
 
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${statusBadgeClass}`}
-                          >
-                            {statusText}
-                          </span>
-                        </td>
-
                         <td className="py-3 px-4 text-slate-600 font-mono">
                           {formatTimeOnly(att.firstJoinedAt)}
                         </td>
 
                         <td className="py-3 px-4 text-slate-600 font-mono">
-                          {att.lastLeftAt ? formatTimeOnly(att.lastLeftAt) : (isOngoing ? "-- (Đang họp)" : "--")}
+                          {att.lastLeftAt ? formatTimeOnly(att.lastLeftAt) : (isOngoing ? `-- (${t("session_in_call")})` : "--")}
                         </td>
 
                         <td className="py-3 px-4 font-semibold text-slate-800">

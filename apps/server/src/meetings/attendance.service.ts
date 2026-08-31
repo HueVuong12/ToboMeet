@@ -14,7 +14,6 @@ import {
 @Injectable()
 export class AttendanceService {
     private readonly logger = new Logger(AttendanceService.name);
-    private readonly MIN_DURATION_SECONDS = 60; // ≥ 1 phút mới tính có mặt
 
     constructor(
         @InjectModel(Attendance.name)
@@ -69,7 +68,6 @@ export class AttendanceService {
                 $set: {
                     displayName,
                     meetingCode,
-                    status: "present",
                 },
                 $push: {
                     visits: {
@@ -81,7 +79,6 @@ export class AttendanceService {
                     sessionId,
                     userId,
                     totalDurationSeconds: 0,
-                    isCounted: false,
                 },
             },
             { upsert: true },
@@ -111,7 +108,6 @@ export class AttendanceService {
             (leftAt.getTime() - new Date(openVisit.joinedAt).getTime()) / 1000,
         );
         const newTotal = (doc.totalDurationSeconds || 0) + thisDuration;
-        const isCounted = newTotal >= this.MIN_DURATION_SECONDS;
 
         await this.attendanceModel.updateOne(
             { sessionId, userId },
@@ -120,8 +116,6 @@ export class AttendanceService {
                     [`visits.${openIndex}.leftAt`]: leftAt,
                     [`visits.${openIndex}.durationSeconds`]: thisDuration,
                     totalDurationSeconds: newTotal,
-                    isCounted,
-                    status: isCounted ? "present" : "left_early",
                 },
             },
         );
@@ -153,7 +147,6 @@ export class AttendanceService {
                     (now.getTime() - openVisit.joinedAt.getTime()) / 1000,
                 );
                 const newTotal = (doc.totalDurationSeconds || 0) + thisDuration;
-                const isCounted = newTotal >= this.MIN_DURATION_SECONDS;
 
                 return {
                     updateOne: {
@@ -163,8 +156,6 @@ export class AttendanceService {
                                 [`visits.${openIndex}.leftAt`]: now,
                                 [`visits.${openIndex}.durationSeconds`]: thisDuration,
                                 totalDurationSeconds: newTotal,
-                                isCounted,
-                                status: isCounted ? "present" : "left_early",
                             },
                         },
                     },
@@ -191,8 +182,6 @@ export class AttendanceService {
             displayName: item.displayName,
             totalDurationSeconds: item.totalDurationSeconds,
             visitCount: item.visits?.length || 0,
-            isCounted: item.isCounted,
-            status: item.status,
             visits: item.visits,
             firstJoinedAt: item.visits?.[0]?.joinedAt,
             lastLeftAt: item.visits?.slice(-1)?.[0]?.leftAt,

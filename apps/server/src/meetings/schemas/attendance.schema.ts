@@ -35,12 +35,6 @@ export class Attendance {
 
     @Prop({ default: 0 })
     totalDurationSeconds: number;
-
-    @Prop({ default: false })
-    isCounted: boolean;
-
-    @Prop({ default: 'present' })
-    status: 'present' | 'left_early' | 'late';
 }
 
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);

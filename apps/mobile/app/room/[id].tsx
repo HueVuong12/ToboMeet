@@ -54,6 +54,7 @@ import RoomLeftDrawer from "../../components/room/RoomLeftDrawer";
 import MemberActionMenuModal from "../../components/room/MemberActionMenuModal";
 import { useRoomPermissions } from "../../hooks/useRoomPermissions";
 import ChannelFilesTab from "../../components/room/ChannelFilesTab";
+import ChannelSessionsTab from "../../components/room/ChannelSessionsTab";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -133,7 +134,7 @@ export default function RoomDetailScreen() {
   // News Feed state
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [editingPost, setEditingPost] = useState<PostDto | null>(null);
-  const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "files" | "sessions">("feed");
 
   const {
     data: posts = [],
@@ -566,7 +567,7 @@ export default function RoomDetailScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setActiveTab("files")}
-          className={`py-3 border-b-2 ${activeTab === "files" ? "border-blue-600" : "border-transparent"
+          className={`py-3 mr-6 border-b-2 ${activeTab === "files" ? "border-blue-600" : "border-transparent"
             }`}
         >
           <Text
@@ -576,9 +577,21 @@ export default function RoomDetailScreen() {
             {t("room.files", { defaultValue: "Tệp" })}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab("sessions")}
+          className={`py-3 border-b-2 ${activeTab === "sessions" ? "border-blue-600" : "border-transparent"
+            }`}
+        >
+          <Text
+            className={`font-bold text-sm ${activeTab === "sessions" ? "text-blue-600" : "text-slate-500"
+              }`}
+          >
+            {t("room.sessions", { defaultValue: "Phiên họp" })}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Main News Feed / Posts / Files View */}
+      {/* Main News Feed / Posts / Files / Sessions View */}
       <View className="flex-1 bg-slate-50 relative">
         {activeTab === "files" ? (
           activeChannelId ? (
@@ -591,6 +604,19 @@ export default function RoomDetailScreen() {
           ) : (
             <View className="flex-1 justify-center items-center">
               <Text className="text-slate-400">{t("room.select_channel_to_view_files", { defaultValue: "Chọn kênh để xem tệp" })}</Text>
+            </View>
+          )
+        ) : activeTab === "sessions" ? (
+          activeChannelId ? (
+            <ChannelSessionsTab
+              roomId={id || ""}
+              channelId={activeChannelId}
+              channelName={activeChannel?.name}
+              userId={profile?.supabaseId || ""}
+            />
+          ) : (
+            <View className="flex-1 justify-center items-center">
+              <Text className="text-slate-400">{t("room.select_channel_to_start", { defaultValue: "Chọn kênh để xem phiên họp" })}</Text>
             </View>
           )
         ) : isLoadingPosts ? (
