@@ -15,6 +15,8 @@ export const baseApi = createApi({
     "ChannelFile",
     "Notification",
     "UserSearch",
+    "CalendarEvent",
+    "CalendarRsvp",
   ],
   endpoints: () => ({}),
 });
