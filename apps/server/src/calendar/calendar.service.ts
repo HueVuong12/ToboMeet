@@ -1,13 +1,15 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
+
 import { CalendarEvent, CalendarEventDocument } from "./schemas/calendar-event.schema";
 import { MeetingInvitation, MeetingInvitationDocument } from "./schemas/meeting-invitation.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
-import { RRule, rrulestr } from "rrule";
+import { rrulestr } from "rrule";
 import { AppGateway } from "../core/gateways/app.gateway";
 import * as nodemailer from "nodemailer";
+import { UpdateEventDto } from "./dto/update-event.dto";
 
 @Injectable()
 export class CalendarService {
@@ -18,6 +20,7 @@ export class CalendarService {
     @InjectModel(MeetingInvitation.name) private meetingInvitationModel: Model<MeetingInvitationDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     @InjectModel("Post") private postModel: Model<any>,
     private readonly appGateway: AppGateway,
   ) {
@@ -210,7 +213,7 @@ export class CalendarService {
     const rangeEnd = new Date(endRange);
 
     // 1. Tìm các cuộc họp do user tổ chức hoặc được mời
-    let query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (filters?.roomId) {
       query.roomId = filters.roomId;
@@ -301,7 +304,7 @@ export class CalendarService {
     userId: string,
     eventId: string,
     updateType: "single" | "all",
-    data: any,
+    data: Partial<UpdateEventDto>,
     occurrenceDate?: string,
   ) {
     const event = await this.calendarEventModel.findById(eventId);
@@ -497,7 +500,7 @@ export class CalendarService {
     const trimmedQuery = queryText.trim();
 
     // Query toàn bộ sự kiện có title hoặc description chứa keyword (Global Search)
-    const query: any = {
+    const query: Record<string, unknown> = {
       $or: [
         { title: { $regex: trimmedQuery, $options: "i" } }
       ]

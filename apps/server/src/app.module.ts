@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { UsersModule } from "./users/users.module";
 import { RoomsModule } from "./rooms/rooms.module";
 import { MeetingsModule } from "./meetings/meetings.module";
+import { CalendarModule } from "./calendar/calendar.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { AdminModule } from "./admin/admin.module";
 import { SupabaseModule } from "./supabase/supabase.module";
@@ -34,6 +35,7 @@ import { BullModule } from "@nestjs/bullmq";
       },
     }),
     MeetingsModule,
+    CalendarModule,
     UsersModule,
     RoomsModule,
     WebhooksModule,

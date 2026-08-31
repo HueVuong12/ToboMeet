@@ -27,6 +27,11 @@ export interface SessionsResponse {
   totalLoggedOut: number;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export type SearchUsersArgs = {
   q: string;
   page: number;
@@ -123,6 +128,17 @@ export const usersApi = baseApi.injectEndpoints({
       },
       invalidatesTags: ["UserSessions"],
     }),
+
+    changePassword: builder.mutation<
+      { success: boolean; message: string },
+      ChangePasswordPayload
+    >({
+      query: (data) => ({
+        url: "/users/me/password",
+        method: "PUT",
+        data,
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -135,4 +151,5 @@ export const {
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
   useSearchUsersQuery,
+  useChangePasswordMutation,
 } = usersApi;

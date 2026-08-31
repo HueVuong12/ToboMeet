@@ -6,6 +6,8 @@ import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
 import { useGlobalUserSearch } from "@/hooks/useGlobalUserSearch";
 import { CalendarEvent, InviteeItem, formatDateTimeLocal } from "./types";
 
+import { useCreateCalendarEventMutation, useUpdateCalendarEventMutation } from "@/lib/redux/api/calendarApi";
+
 interface CreateEventModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,6 +27,9 @@ export default function CreateEventModal({
   initialStartDate,
   initialEndDate,
 }: CreateEventModalProps) {
+  const [createCalendarEvent] = useCreateCalendarEventMutation();
+  const [updateCalendarEvent] = useUpdateCalendarEventMutation();
+
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -143,31 +148,16 @@ export default function CreateEventModal({
         }
       }
 
-      const url = editingEvent
-        ? `/api/calendar/${editingEvent._id}?type=all`
-        : "/api/calendar";
-      const method = editingEvent ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(
-          errData.message ||
-            (editingEvent
-              ? "Không thể cập nhật cuộc họp"
-              : "Không thể tạo cuộc họp"),
-        );
+      if (editingEvent) {
+        await updateCalendarEvent({ id: editingEvent._id, body: payload }).unwrap();
+      } else {
+        await createCalendarEvent(payload).unwrap();
       }
 
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.data?.message || err.message || (editingEvent ? "Không thể cập nhật cuộc họp" : "Không thể tạo cuộc họp"));
     }
   };
 

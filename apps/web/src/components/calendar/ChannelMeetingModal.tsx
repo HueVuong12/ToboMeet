@@ -5,6 +5,9 @@ import { useLocale } from "next-intl";
 import { X, ChevronDown, Search, RefreshCw, Users2 } from "lucide-react";
 import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
 
+import { useGetMyRoomsQuery } from "@/lib/redux/api/roomsApi";
+import { useCreateCalendarEventMutation } from "@/lib/redux/api/calendarApi";
+
 interface ChannelMeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,6 +25,12 @@ export default function ChannelMeetingModal({
 }: ChannelMeetingModalProps) {
   const locale = useLocale();
 
+  // RTK Query Hooks
+  const { data: roomsData, isLoading: isLoadingRooms } = useGetMyRoomsQuery(undefined, { skip: !isOpen });
+  const [createCalendarEvent] = useCreateCalendarEventMutation();
+
+  const myRooms = Array.isArray(roomsData) ? roomsData : (roomsData as any)?.result ?? [];
+
   // Form states
   const [cmTitle, setCmTitle] = useState("");
   const cmDescRef = useRef("");
@@ -33,8 +42,6 @@ export default function ChannelMeetingModal({
   const [cmErrorMsg, setCmErrorMsg] = useState("");
 
   // Room/Channel selection
-  const [myRooms, setMyRooms] = useState<any[]>([]);
-  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
 
   // searchQuery: Từ khóa nhập để tìm phòng
@@ -48,21 +55,6 @@ export default function ChannelMeetingModal({
   const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({});
   const [expandedRoomsInputMode, setExpandedRoomsInputMode] = useState(false);
   const roomDropdownRef = useRef<HTMLDivElement>(null);
-
-  const fetchMyRooms = async () => {
-    setIsLoadingRooms(true);
-    try {
-      const res = await fetch("/api/rooms/my");
-      if (res.ok) {
-        const data = await res.json();
-        setMyRooms(Array.isArray(data) ? data : data.result ?? []);
-      }
-    } catch (e) {
-      console.error("Lỗi fetch rooms:", e);
-    } finally {
-      setIsLoadingRooms(false);
-    }
-  };
 
   const resetChannelMeetingForm = () => {
     setCmTitle("");
@@ -85,8 +77,6 @@ export default function ChannelMeetingModal({
   // Đồng bộ hóa khởi tạo form khi mở/đóng modal
   useEffect(() => {
     if (isOpen) {
-      fetchMyRooms();
-
       if (initialRoom) {
         setSelectedRoom(initialRoom);
       }
@@ -181,21 +171,12 @@ export default function ChannelMeetingModal({
         }
       }
 
-      const res = await fetch("/api/calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Không thể tạo cuộc họp kênh");
-      }
+      await createCalendarEvent(payload).unwrap();
 
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setCmErrorMsg(err.message);
+      setCmErrorMsg(err.data?.message || err.message || "Không thể tạo cuộc họp kênh");
     }
   };
 
@@ -379,7 +360,6 @@ export default function ChannelMeetingModal({
                     setRoomDropdownOpen(true);
                     setRoomSearchQuery("");
                     setExpandedRoomsInputMode(false);
-                    fetchMyRooms();
                   }}
                   placeholder={
                     locale === "vi" ? "Chọn phòng và kênh..." : "Select room and channel..."
@@ -421,19 +401,19 @@ export default function ChannelMeetingModal({
                       <span>{locale === "vi" ? "Đang tải..." : "Loading..."}</span>
                     </div>
                   ) : (() => {
-                    const filtered = myRooms.filter((r) =>
+                    const filtered = myRooms.filter((r: any) =>
                       r.name.toLowerCase().includes(roomSearchQuery.toLowerCase())
                     );
 
                     if (filtered.length === 0) {
                       return (
                         <div className="p-3 text-center text-xs text-slate-400">
-                          {locale === "vi" ? "Không tìm thấy phòng" : "No rooms found"}
+                {locale === "vi" ? "Không tìm thấy phòng" : "No rooms found"}
                         </div>
                       );
                     }
 
-                    return filtered.map((room) => {
+                    return filtered.map((room: any) => {
                       const isExpanded = expandedRoomsInputMode ? true : (expandedRooms[room._id] ?? (selectedRoom?._id === room._id));
 
                       const CARD_GRADIENTS = [

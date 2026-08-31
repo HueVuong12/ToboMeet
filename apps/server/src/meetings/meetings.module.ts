@@ -6,18 +6,8 @@ import {
   ChannelMeetingsController,
   MeetingsController,
 } from "./meetings.controller";
-import { CalendarController } from "./calendar.controller";
 import { MeetingsService } from "./meetings.service";
-import { CalendarService } from "./calendar.service";
 import { Meeting, MeetingSchema } from "./schemas/meeting.schema";
-import {
-  CalendarEvent,
-  CalendarEventSchema,
-} from "./schemas/calendar-event.schema";
-import {
-  MeetingInvitation,
-  MeetingInvitationSchema,
-} from "./schemas/meeting-invitation.schema";
 import { User, UserSchema } from "../users/schemas/user.schema";
 import { Room, RoomSchema } from "../rooms/schemas/room.schema";
 import {
@@ -43,14 +33,11 @@ import { AttendanceService } from "./attendance.service";
   imports: [
     MongooseModule.forFeature([
       { name: Meeting.name, schema: MeetingSchema },
-      { name: CalendarEvent.name, schema: CalendarEventSchema },
-      { name: MeetingInvitation.name, schema: MeetingInvitationSchema },
       { name: User.name, schema: UserSchema },
       { name: Room.name, schema: RoomSchema },
       { name: RoomActivity.name, schema: RoomActivitySchema },
       { name: MeetingSession.name, schema: MeetingSessionSchema },
       { name: Attendance.name, schema: AttendanceSchema },
-      { name: "Post", schema: require("../news-feed/schemas/post.schema").PostSchema },
     ]),
     BullModule.registerQueue({
       name: "meeting",
@@ -63,14 +50,12 @@ import { AttendanceService } from "./attendance.service";
     BreakoutRoomsController,
     MeetingsController,
     ChannelMeetingsController,
-    CalendarController,
   ],
   providers: [
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
     AttendanceService,
-    CalendarService,
     MeetingsGateway,
     MeetingProcessor,
   ],
@@ -79,7 +64,6 @@ import { AttendanceService } from "./attendance.service";
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
-    CalendarService,
     MeetingsGateway,
   ],
 })

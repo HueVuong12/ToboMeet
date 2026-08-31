@@ -12,6 +12,10 @@ interface ForceLogoutPayload {
   reason?: string;
 }
 
+interface SessionRevokedPayload {
+  sessionId: string;
+}
+
 function parseSessionIdFromJwt(jwt: string): string | null {
   try {
     const base64Payload = jwt.split(".")[1];
@@ -58,8 +62,7 @@ async function getCurrentSessionId(): Promise<string | null> {
 }
 
 /**
- * Lắng nghe sự kiện "force_logout" từ server.
- * Được kích hoạt khi một thiết bị khác bấm "Đăng xuất tất cả".
+ * Lắng nghe sự kiện "force_logout" và "session_revoked" từ server.
  * Tự động: hiển thị Alert → clear token → signOut → redirect Login.
  */
 export function useForceLogoutSocket() {
@@ -95,10 +98,39 @@ export function useForceLogoutSocket() {
       }, 1500);
     };
 
+    const handleSessionRevoked = async (data: SessionRevokedPayload) => {
+      if (!data?.sessionId) return;
+
+      const currentSessionId = await getCurrentSessionId();
+
+      // Không phải session của thiết bị này → bỏ qua
+      if (!currentSessionId || currentSessionId !== data.sessionId) return;
+
+      Alert.alert(
+        "Thiết bị bị đăng xuất",
+        "Phiên đăng nhập trên thiết bị này đã bị thu hồi từ xa.",
+        [
+          {
+            text: "OK",
+            onPress: async () => {
+              await performLogout();
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+
+      setTimeout(() => {
+        performLogout();
+      }, 1500);
+    };
+
     socket.on("force_logout", handleForceLogout);
+    socket.on("session_revoked", handleSessionRevoked);
 
     return () => {
       socket.off("force_logout", handleForceLogout);
+      socket.off("session_revoked", handleSessionRevoked);
     };
   }, []);
 }
