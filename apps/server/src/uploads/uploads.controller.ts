@@ -47,6 +47,15 @@ export class UploadsController {
       ".gif",
       ".bmp",
       ".svg",
+      ".mp4",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".webm",
+      ".mp3",
+      ".wav",
+      ".m4a",
+      ".ogg",
     ];
 
     const allowedMimeTypes = [
@@ -76,6 +85,18 @@ export class UploadsController {
       "application/octet-stream",
       "text/plain",
       "text/csv",
+      "video/mp4",
+      "video/quicktime",
+      "video/x-msvideo",
+      "video/webm",
+      "video/x-matroska",
+      "audio/mpeg",
+      "audio/wav",
+      "audio/mp3",
+      "audio/mp4",
+      "audio/m4a",
+      "audio/x-m4a",
+      "audio/ogg",
     ];
 
     const isExtensionAllowed = allowedExtensions.includes(ext);
@@ -83,7 +104,7 @@ export class UploadsController {
 
     if (!isExtensionAllowed && !isMimeTypeAllowed) {
       throw new BadRequestException(
-        `Định dạng file không được hỗ trợ (${ext || mimeType}). Vui lòng tải lên file PDF, Word, Excel, PowerPoint, ZIP, RAR, hoặc Ảnh.`
+        `Định dạng file không được hỗ trợ (${ext || mimeType}). Vui lòng tải lên file PDF, Word, Excel, PowerPoint, ZIP, RAR, Ảnh hoặc Video/Audio.`
       );
     }
 

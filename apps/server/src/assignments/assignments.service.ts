@@ -4,13 +4,15 @@ import { Model } from "mongoose";
 import { Assignment, AssignmentDocument } from "./schemas/assignment.schema";
 import { AssignmentSubmission, AssignmentSubmissionDocument } from "./schemas/submission.schema";
 import { AssignmentComment, AssignmentCommentDocument } from "./schemas/assignment-comment.schema";
-import { CreateAssignmentDto } from "./dto/create-assignment.dto";
+import { CreateAssignmentDto, AttachmentDto } from "./dto/create-assignment.dto";
 import { SubmitAssignmentDto } from "./dto/submit-assignment.dto";
 import { GradeSubmissionDto } from "./dto/grade-submission.dto";
 import { RoomsService } from "../rooms/rooms.service";
 import { AssignmentsGateway } from "./assignments.gateway";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { RoomMember } from "../rooms/schemas/room-member.schema";
+import { Channel } from "../rooms/schemas/channel.schema";
+import { ChannelMember } from "../rooms/schemas/channel-member.schema";
 import { UsersService } from "../users/users.service";
 
 @Injectable()
@@ -47,11 +49,11 @@ export class AssignmentsService {
     if (!channelIds || channelIds.length === 0) return false;
 
     return channelIds.some((cId: string) => {
-      const channel = room.channels?.find((c: any) => c._id?.toString() === cId);
+      const channel = room.channels?.find((c: Channel) => c._id?.toString() === cId);
       if (!channel) return false;
 
       if (channel.isPrivate) {
-        return channel.members?.some((m: any) => m.userId === userId) ?? false;
+        return channel.members?.some((m: ChannelMember) => m.userId === userId) ?? false;
       } else {
         return !(channel.leftMemberIds?.includes(userId) ?? false);
       }
@@ -70,16 +72,16 @@ export class AssignmentsService {
     const memberSet = new Set<string>([room.ownerId]);
 
     for (const cId of channelIds) {
-      const channel = room.channels?.find((c: any) => c._id?.toString() === cId);
+      const channel = room.channels?.find((c: Channel) => c._id?.toString() === cId);
       if (!channel) continue;
 
       if (channel.isPrivate) {
-        (channel.members || []).forEach((m: any) => memberSet.add(m.userId));
+        (channel.members || []).forEach((m: ChannelMember) => memberSet.add(m.userId));
       } else {
         const leftIds = new Set<string>(channel.leftMemberIds || []);
         (room.members || [])
-          .filter((m: any) => m.status === "active" && !leftIds.has(m.userId))
-          .forEach((m: any) => memberSet.add(m.userId));
+          .filter((m: RoomMember) => m.status === "active" && !leftIds.has(m.userId))
+          .forEach((m: RoomMember) => memberSet.add(m.userId));
       }
     }
 
@@ -136,6 +138,8 @@ export class AssignmentsService {
 
     if (saved.status === "published") {
       this.assignmentsGateway.notifyAssignmentPublished(saved.roomId, saved.channelId, saved);
+    } else {
+      this.assignmentsGateway.notifyAssignmentCreated(saved.roomId, saved.channelId, saved);
     }
     return saved;
   }
@@ -194,6 +198,8 @@ export class AssignmentsService {
 
     if (wasDraft && saved.status === "published") {
       this.assignmentsGateway.notifyAssignmentPublished(saved.roomId, saved.channelId, saved);
+    } else {
+      this.assignmentsGateway.notifyAssignmentUpdated(saved.roomId, saved.channelId, saved);
     }
     return saved;
   }
@@ -215,6 +221,7 @@ export class AssignmentsService {
 
     await this.assignmentModel.findByIdAndDelete(id);
     await this.submissionModel.deleteMany({ assignmentId: id });
+    this.assignmentsGateway.notifyAssignmentDeleted(assignment.roomId, assignment.channelId, id);
     return { success: true };
   }
 
@@ -224,7 +231,7 @@ export class AssignmentsService {
       throw new ForbiddenException("You are not a member of this room");
     }
 
-    const query: any = { roomId };
+    const query: Record<string, any> = { roomId };
     if (status) {
       query.status = status;
       if (status === "draft") {
@@ -237,18 +244,17 @@ export class AssignmentsService {
       const assignments = await this.assignmentModel.find(query).sort({ createdAt: -1 }).exec();
       const roomSubmissions = await this.submissionModel.find({ roomId }).exec();
 
-      const submissionsMap = new Map<string, any[]>();
+      const submissionsMap = new Map<string, AssignmentSubmissionDocument[]>();
       for (const sub of roomSubmissions) {
         const list = submissionsMap.get(sub.assignmentId.toString()) || [];
         list.push(sub);
         submissionsMap.set(sub.assignmentId.toString(), list);
       }
 
-      return assignments.map(item => {
-        const itemObj = item.toObject() as any;
-        itemObj.submissions = submissionsMap.get(item._id.toString()) || [];
-        return itemObj;
-      });
+      return assignments.map(item => ({
+        ...item.toObject(),
+        submissions: submissionsMap.get(item._id.toString()) || [],
+      }));
     }
 
     // Học viên không được phép xem các bài tập draft
@@ -284,11 +290,10 @@ export class AssignmentsService {
       return false; // fallback an toàn
     });
 
-    return filtered.map(item => {
-      const itemObj = item.toObject() as any;
-      itemObj.mySubmission = mySubmissionsMap.get(item._id.toString()) || null;
-      return itemObj;
-    });
+    return filtered.map(item => ({
+      ...item.toObject(),
+      mySubmission: mySubmissionsMap.get(item._id.toString()) || null,
+    }));
   }
 
   async findOne(id: string, userId: string) {
@@ -340,7 +345,7 @@ export class AssignmentsService {
       throw new BadRequestException("This assignment is not published yet");
     }
 
-    const { isOwnerOrAdmin, isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    const { isMember } = await this.verifyUserRole(assignment.roomId, userId);
     if (!isMember) {
       throw new ForbiddenException("You are not a member of this room");
     }
@@ -389,10 +394,10 @@ export class AssignmentsService {
       }
 
       const existingAttachmentsMap = new Map(
-        (submission.attachments || []).map((att: any) => [att.url, att.uploadedAt || submission.submittedAt || now])
+        (submission.attachments || []).map(att => [att.url, att.uploadedAt || submission.submittedAt || now])
       );
 
-      const updatedAttachments = submitDto.attachments.map((att: any) => ({
+      const updatedAttachments = submitDto.attachments.map((att: AttachmentDto) => ({
         name: att.name,
         url: att.url,
         size: att.size,
@@ -400,13 +405,13 @@ export class AssignmentsService {
         uploadedAt: att.uploadedAt ? new Date(att.uploadedAt) : (existingAttachmentsMap.get(att.url) || now),
       }));
 
-      submission.attachments = updatedAttachments;
+      submission.attachments = updatedAttachments as typeof submission.attachments;
       submission.submittedAt = now;
       submission.submissionStatus = submissionStatus;
       submission.lateMinutes = lateMinutes;
       submission = await submission.save();
     } else {
-      const formattedAttachments = submitDto.attachments.map((att: any) => ({
+      const formattedAttachments = submitDto.attachments.map((att: AttachmentDto) => ({
         name: att.name,
         url: att.url,
         size: att.size,
@@ -493,6 +498,16 @@ export class AssignmentsService {
     }
 
     await this.submissionModel.deleteOne({ _id: submission._id });
+    console.log(
+      `[BACKEND] DB deleted submission ${submission._id} for assignment ${assignmentId} student ${userId}`
+    );
+    this.assignmentsGateway.notifySubmissionDeleted(
+      submission.roomId,
+      submission.channelId,
+      assignmentId,
+      submission._id.toString(),
+      userId
+    );
     return { success: true };
   }
 
@@ -506,7 +521,7 @@ export class AssignmentsService {
     const userName = user?.displayName || "Thành viên";
 
     if (!submission.comments) {
-      (submission as any).comments = [];
+      submission.comments = [];
     }
 
     submission.comments.push({
@@ -571,5 +586,28 @@ export class AssignmentsService {
     }
 
     return this.commentModel.find({ assignmentId }).sort({ createdAt: 1 }).exec();
+  }
+
+  async deleteAssignmentComment(assignmentId: string, commentId: string, userId: string) {
+    const comment = await this.commentModel.findById(commentId);
+    if (!comment) {
+      throw new NotFoundException("Comment not found");
+    }
+
+    if (comment.assignmentId.toString() !== assignmentId) {
+      throw new BadRequestException("Comment does not belong to this assignment");
+    }
+
+    // Người dùng chỉ được xóa phản hồi do chính mình tạo
+    if (comment.userId !== userId) {
+      throw new ForbiddenException("You can only delete your own comments");
+    }
+
+    await this.commentModel.findByIdAndDelete(commentId);
+
+    // Phát socket realtime
+    this.assignmentsGateway.notifyCommentDeleted(comment.roomId, assignmentId, commentId);
+
+    return { success: true, commentId };
   }
 }

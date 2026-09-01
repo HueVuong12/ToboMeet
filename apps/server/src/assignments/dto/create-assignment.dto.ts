@@ -1,4 +1,37 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsArray, IsNumber, Min } from "class-validator";
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  IsArray,
+  IsNumber,
+  Min,
+  ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
+
+export class AttachmentDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  url: string;
+
+  @IsNumber()
+  @IsOptional()
+  size?: number;
+
+  @IsString()
+  @IsOptional()
+  type?: string;
+
+  @IsDateString()
+  @IsOptional()
+  uploadedAt?: string;
+}
 
 export class CreateAssignmentDto {
   @IsString()
@@ -29,7 +62,12 @@ export class CreateAssignmentDto {
   @IsOptional()
   submissionPolicy?: string;
 
-  @IsEnum(["all_current_and_future", "current_members", "current_and_future_members", "specific_members"])
+  @IsEnum([
+    "all_current_and_future",
+    "current_members",
+    "current_and_future_members",
+    "specific_members",
+  ])
   @IsOptional()
   recipientType?: string;
 
@@ -47,8 +85,10 @@ export class CreateAssignmentDto {
   maxScore?: number;
 
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
   @IsOptional()
-  attachments?: any[];
+  attachments?: AttachmentDto[];
 
   @IsEnum(["draft", "published"])
   status: string;

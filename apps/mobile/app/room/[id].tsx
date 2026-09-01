@@ -54,6 +54,7 @@ import RoomLeftDrawer from "../../components/room/RoomLeftDrawer";
 import MemberActionMenuModal from "../../components/room/MemberActionMenuModal";
 import { useRoomPermissions } from "../../hooks/useRoomPermissions";
 import ChannelFilesTab from "../../components/room/ChannelFilesTab";
+import AssignmentModule from "../../components/assignments/AssignmentModule";
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -130,10 +131,10 @@ export default function RoomDetailScreen() {
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
   const [showReportRoomModal, setShowReportRoomModal] = useState(false);
 
-  // News Feed state
+  // News Feed & Assignments state
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [editingPost, setEditingPost] = useState<PostDto | null>(null);
-  const [activeTab, setActiveTab] = useState<"feed" | "files">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "files" | "assignments">("feed");
 
   const {
     data: posts = [],
@@ -471,47 +472,64 @@ export default function RoomDetailScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-slate-50"
     >
-      {/* Main Top Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-slate-100">
-        {/* Left header group */}
-        <View className="flex-row items-center gap-2">
-          {/* Menu button to open Left Drawer */}
-          <TouchableOpacity
-            onPress={() => setShowLeftDrawer(true)}
-            className="p-1"
-          >
-            <Feather name="menu" size={24} color="#1E293B" />
-          </TouchableOpacity>
+      {/* Main Top Header (Only when NOT in assignments) */}
+      {activeTab !== "assignments" && (
+        <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-slate-100">
+          {/* Left header group */}
+          <View className="flex-row items-center gap-2">
+            {/* Menu button to open Left Drawer */}
+            <TouchableOpacity
+              onPress={() => setShowLeftDrawer(true)}
+              className="p-1"
+            >
+              <Feather name="menu" size={24} color="#1E293B" />
+            </TouchableOpacity>
 
-          {/* Room visual indicator square */}
-          <View className="w-8 h-8 rounded-lg bg-blue-100 justify-center items-center">
-            <Text className="font-bold text-blue-600 text-sm">
-              {room.name.charAt(0).toUpperCase()}
+            {/* Room visual indicator square */}
+            <View className="w-8 h-8 rounded-lg bg-blue-100 justify-center items-center">
+              <Text className="font-bold text-blue-600 text-sm">
+                {room.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+
+            {/* Active channel name */}
+            <Text className="font-bold text-slate-800 text-lg">
+              {activeChannel ? activeChannel.name : "General"}
             </Text>
           </View>
 
-          {/* Active channel name */}
-          <Text className="font-bold text-slate-800 text-lg">
-            {activeChannel ? activeChannel.name : "General"}
-          </Text>
-        </View>
-
-        {/* Right header group */}
-        <View className="flex-row items-center gap-2">
-          {/* Cuộc họp Button */}
-          {activeMeeting?.isOngoing ? (
-            isJoinedOnThisDevice ? (
-              <View className="bg-emerald-100 border border-emerald-300 px-4 py-2.5 rounded-xl flex-row items-center gap-2">
-                <Feather name="video" size={16} color="#059669" />
-                <Text className="text-emerald-700 font-bold text-sm">
-                  {t("room.ongoing")}
-                </Text>
-              </View>
+          {/* Right header group */}
+          <View className="flex-row items-center gap-2">
+            {/* Cuộc họp Button */}
+            {activeMeeting?.isOngoing ? (
+              isJoinedOnThisDevice ? (
+                <View className="bg-emerald-100 border border-emerald-300 px-4 py-2.5 rounded-xl flex-row items-center gap-2">
+                  <Feather name="video" size={16} color="#059669" />
+                  <Text className="text-emerald-700 font-bold text-sm">
+                    {t("room.ongoing")}
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleStartOrJoinMeeting}
+                  disabled={isJoining}
+                  className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
+                >
+                  {isJoining ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Feather name="video" size={16} color="#ffffff" />
+                  )}
+                  <Text className="text-white font-bold text-sm">
+                    {t("room.join")}
+                  </Text>
+                </TouchableOpacity>
+              )
             ) : (
               <TouchableOpacity
                 onPress={handleStartOrJoinMeeting}
                 disabled={isJoining}
-                className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
+                className="bg-[#0052FF] px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
               >
                 {isJoining ? (
                   <ActivityIndicator size="small" color="#ffffff" />
@@ -519,68 +537,64 @@ export default function RoomDetailScreen() {
                   <Feather name="video" size={16} color="#ffffff" />
                 )}
                 <Text className="text-white font-bold text-sm">
-                  {t("room.join")}
+                  {t("room.start_meeting")}
                 </Text>
               </TouchableOpacity>
-            )
-          ) : (
-            <TouchableOpacity
-              onPress={handleStartOrJoinMeeting}
-              disabled={isJoining}
-              className="bg-[#0052FF] px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
-            >
-              {isJoining ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Feather name="video" size={16} color="#ffffff" />
-              )}
-              <Text className="text-white font-bold text-sm">
-                {t("room.start_meeting")}
-              </Text>
-            </TouchableOpacity>
-          )}
+            )}
 
-          {/* Info Button to open Right Drawer */}
+            {/* Info Button to open Right Drawer */}
+            <TouchableOpacity
+              onPress={() => setShowRightDrawer(true)}
+              className="p-1"
+            >
+              <Feather name="info" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Tab Switcher (Only when NOT in assignments) */}
+      {activeTab !== "assignments" && (
+        <View className="flex-row bg-white border-b border-slate-100 px-4">
           <TouchableOpacity
-            onPress={() => setShowRightDrawer(true)}
-            className="p-1"
+            onPress={() => setActiveTab("feed")}
+            className={`py-3 mr-6 border-b-2 ${activeTab === "feed" ? "border-blue-600" : "border-transparent"
+              }`}
           >
-            <Feather name="info" size={22} color="#64748B" />
+            <Text
+              className={`font-bold text-sm ${activeTab === "feed" ? "text-blue-600" : "text-slate-500"
+                }`}
+            >
+              {t("room.feed", { defaultValue: "Bảng tin" })}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("files")}
+            className={`py-3 border-b-2 ${activeTab === "files" ? "border-blue-600" : "border-transparent"
+              }`}
+          >
+            <Text
+              className={`font-bold text-sm ${activeTab === "files" ? "text-blue-600" : "text-slate-500"
+                }`}
+            >
+              {t("room.files", { defaultValue: "Tệp" })}
+            </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      )}
 
-      {/* Tab Switcher */}
-      <View className="flex-row bg-white border-b border-slate-100 px-4">
-        <TouchableOpacity
-          onPress={() => setActiveTab("feed")}
-          className={`py-3 mr-6 border-b-2 ${activeTab === "feed" ? "border-blue-600" : "border-transparent"
-            }`}
-        >
-          <Text
-            className={`font-bold text-sm ${activeTab === "feed" ? "text-blue-600" : "text-slate-500"
-              }`}
-          >
-            {t("room.feed", { defaultValue: "Bảng tin" })}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setActiveTab("files")}
-          className={`py-3 border-b-2 ${activeTab === "files" ? "border-blue-600" : "border-transparent"
-            }`}
-        >
-          <Text
-            className={`font-bold text-sm ${activeTab === "files" ? "text-blue-600" : "text-slate-500"
-              }`}
-          >
-            {t("room.files", { defaultValue: "Tệp" })}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Main News Feed / Posts / Files View */}
+      {/* Main News Feed / Posts / Files / Assignments View */}
       <View className="flex-1 bg-slate-50 relative">
-        {activeTab === "files" ? (
+        {activeTab === "assignments" ? (
+          <AssignmentModule
+            roomId={id || ""}
+            userId={profile?.supabaseId || ""}
+            channels={room?.channels || []}
+            roomMembers={membersList || []}
+            onOpenLeftDrawer={() => setShowLeftDrawer(true)}
+            onOpenRightDrawer={() => setShowRightDrawer(true)}
+          />
+        ) : activeTab === "files" ? (
           activeChannelId ? (
             <ChannelFilesTab
               roomId={id || ""}
@@ -676,7 +690,16 @@ export default function RoomDetailScreen() {
         onClose={() => setShowLeftDrawer(false)}
         room={room}
         activeChannelId={activeChannelId}
-        onSelectChannel={setActiveChannelId}
+        onSelectChannel={(cId) => {
+          if (cId === "__assignments__") {
+            setActiveTab("assignments");
+          } else {
+            setActiveChannelId(cId);
+            if (activeTab === "assignments") {
+              setActiveTab("feed");
+            }
+          }
+        }}
         isOwner={isOwner}
         isRoomVice={isCurrentUserRoomVice}
         currentUserId={profile?.supabaseId}

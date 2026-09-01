@@ -95,4 +95,13 @@ export class AssignmentsController {
   ) {
     return this.assignmentsService.getAssignmentComments(assignmentId, req.user.id);
   }
+
+  @Delete(":assignmentId/comments/:commentId")
+  deleteAssignmentComment(
+    @Param("assignmentId") assignmentId: string,
+    @Param("commentId") commentId: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.deleteAssignmentComment(assignmentId, commentId, req.user.id);
+  }
 }

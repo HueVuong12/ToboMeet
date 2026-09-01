@@ -37,7 +37,9 @@ interface AssignmentDetailProps {
   onGradeClick: () => void;
   refetchSubmission?: () => void;
   onDeleteSubmission: () => Promise<void>;
+  onDeleteAssignment?: () => Promise<void>;
   onAddComment: (assignmentId: string, content: string) => Promise<void>;
+  onDeleteComment?: (commentId: string) => Promise<void>;
 }
 
 export default function AssignmentDetail({
@@ -53,13 +55,30 @@ export default function AssignmentDetail({
   onGradeClick,
   refetchSubmission,
   onDeleteSubmission,
+  onDeleteAssignment,
   onAddComment,
+  onDeleteComment,
 }: AssignmentDetailProps) {
   const t = useTranslations("room.assignments_i18n");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
   const [commentInput, setCommentInput] = useState("");
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
+
+  const handleConfirmDeleteComment = async () => {
+    if (!commentToDelete || !onDeleteComment || isDeletingComment) return;
+    try {
+      setIsDeletingComment(true);
+      await onDeleteComment(commentToDelete);
+      setCommentToDelete(null);
+    } catch (e) {
+      console.error("Delete comment error:", e);
+    } finally {
+      setIsDeletingComment(false);
+    }
+  };
 
   // Form states
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -76,22 +95,39 @@ export default function AssignmentDetail({
     }
   }, [submission]);
 
-  // Realtime updates via socket for grading
+  const assignmentId = String(assignment?._id || assignment?.id || "");
+  const assignmentRoomId = assignment?.roomId;
+
+  const refetchSubmissionRef = useRef(refetchSubmission);
+  useEffect(() => {
+    refetchSubmissionRef.current = refetchSubmission;
+  }, [refetchSubmission]);
+
+  // Realtime updates via socket for grading & submission deletion
   useEffect(() => {
     if (!socket.connected) socket.connect();
 
     const handleAssignmentGraded = (data: any) => {
-      if (data.roomId === assignment.roomId && refetchSubmission) {
-        refetchSubmission();
+      if (data.roomId === assignmentRoomId && refetchSubmissionRef.current) {
+        refetchSubmissionRef.current();
+      }
+    };
+
+    const handleSubmissionDeleted = (data: any) => {
+      const eventAssignId = String(data?.assignmentId || data?.submission?.assignmentId || "");
+      if ((eventAssignId === assignmentId || data?.roomId === assignmentRoomId) && refetchSubmissionRef.current) {
+        refetchSubmissionRef.current();
       }
     };
 
     socket.on("assignment_graded", handleAssignmentGraded);
+    socket.on("assignment_submission_deleted", handleSubmissionDeleted);
 
     return () => {
       socket.off("assignment_graded", handleAssignmentGraded);
+      socket.off("assignment_submission_deleted", handleSubmissionDeleted);
     };
-  }, [assignment.roomId, refetchSubmission]);
+  }, [assignmentId, assignmentRoomId]);
 
   // Date formatting helpers matching Moodle format (e.g. Sunday, 15 December 2024, 12:00 AM)
   const formatLMSDate = (dateStr: string | Date) => {
@@ -425,7 +461,8 @@ export default function AssignmentDetail({
                   {comments.length > 0 ? (
                     <div className="flex flex-col gap-2.5 max-h-52 overflow-y-auto">
                       {comments.map((comment, index) => (
-                        <div key={index} className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex flex-col gap-1">
+                        <div key={index} className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex flex-col gap-0.5">
+                          {/* Row 1: TÊN (trái) và BUTTON XÓA (phải) */}
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="font-bold text-slate-700 flex items-center gap-1.5">
                               {resolveMemberName(comment.userId)}
@@ -435,11 +472,25 @@ export default function AssignmentDetail({
                                 </span>
                               )}
                             </span>
-                            <span className="text-slate-400">
-                              {new Date(comment.createdAt).toLocaleString("vi-VN")}
-                            </span>
+                            {comment.userId === userId && onDeleteComment && (
+                              <button
+                                type="button"
+                                onClick={() => setCommentToDelete(comment._id)}
+                                className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                                title={t("detail.delete_comment_btn")}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
                           </div>
-                          <p className="text-xs text-slate-600">{comment.content}</p>
+
+                          {/* Row 2: THỜI GIAN */}
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(comment.createdAt).toLocaleString("vi-VN")}
+                          </span>
+
+                          {/* Row 3: NỘI DUNG */}
+                          <p className="text-xs text-slate-600 mt-1 leading-relaxed">{comment.content}</p>
                         </div>
                       ))}
                     </div>
@@ -844,7 +895,8 @@ export default function AssignmentDetail({
                         {comments.length > 0 ? (
                           <div className="flex flex-col gap-2.5 max-h-52 overflow-y-auto">
                             {comments.map((comment, index) => (
-                              <div key={index} className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex flex-col gap-1">
+                              <div key={index} className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex flex-col gap-0.5">
+                                {/* Row 1: TÊN (trái) và BUTTON XÓA (phải) */}
                                 <div className="flex justify-between items-center text-[10px]">
                                   <span className="font-bold text-slate-700 flex items-center gap-1.5">
                                     {resolveMemberName(comment.userId)}
@@ -854,11 +906,25 @@ export default function AssignmentDetail({
                                       </span>
                                     )}
                                   </span>
-                                  <span className="text-slate-400">
-                                    {new Date(comment.createdAt).toLocaleString("vi-VN")}
-                                  </span>
+                                  {comment.userId === userId && onDeleteComment && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setCommentToDelete(comment._id)}
+                                      className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                                      title={t("detail.delete_comment_btn")}
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
                                 </div>
-                                <p className="text-xs text-slate-600">{comment.content}</p>
+
+                                {/* Row 2: THỜI GIAN */}
+                                <span className="text-[10px] text-slate-400">
+                                  {new Date(comment.createdAt).toLocaleString("vi-VN")}
+                                </span>
+
+                                {/* Row 3: NỘI DUNG */}
+                                <p className="text-xs text-slate-600 mt-1 leading-relaxed">{comment.content}</p>
                               </div>
                             ))}
                           </div>
@@ -955,12 +1021,48 @@ export default function AssignmentDetail({
               </button>
               <button
                 onClick={async () => {
-                  await onDeleteSubmission();
+                  if (onDeleteAssignment && isTeacher) {
+                    await onDeleteAssignment();
+                  } else {
+                    await onDeleteSubmission();
+                  }
                   setShowConfirmDelete(false);
                 }}
                 className="px-4 py-2 text-xs font-bold text-white bg-[#d9534f] hover:bg-[#c9302c] rounded-lg transition-colors shadow-sm"
               >
                 {t("detail.delete_confirm_btn")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Comment Confirmation Popup */}
+      {commentToDelete && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-xs animate-fade-in p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 mx-4 flex flex-col transform transition-all duration-300">
+            <h3 className="text-base font-bold text-slate-900 mb-2">
+              {t("detail.confirm_delete_comment_title")}
+            </h3>
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              {t("detail.confirm_delete_comment_msg")}
+            </p>
+            <div className="flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCommentToDelete(null)}
+                disabled={isDeletingComment}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+              >
+                {t("detail.cancel_btn")}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteComment}
+                disabled={isDeletingComment}
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:bg-red-300 rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
+              >
+                {isDeletingComment && <Loader2 size={13} className="animate-spin" />}
+                {t("detail.delete_comment_btn")}
               </button>
             </div>
           </div>

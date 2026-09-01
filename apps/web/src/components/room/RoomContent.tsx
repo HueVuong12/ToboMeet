@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
@@ -46,16 +46,6 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   const [removeMember] = useRemoveMemberMutation();
-  useRoomUpdateListener(roomId, userId, {
-    onUserLeftChannel: (leftChannelId) => {
-      // Khi user vừa rời kênh, nếu đang ở kênh đó thì switch về General / kênh đầu tiên
-      const leftChannelObj = room?.channels?.find((c: any) => (c._id || c.id) === leftChannelId);
-      if (leftChannelObj && leftChannelObj.name === activeChannel) {
-        const firstChannel = room?.channels?.find((c: any) => (c._id || c.id) !== leftChannelId);
-        setActiveChannel(firstChannel?.name || "General");
-      }
-    },
-  });
 
   // Trạng thái Layout, Tìm kiếm & Quản lý Phân quyền
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
@@ -72,6 +62,23 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     userId: string;
     displayName: string;
   } | null>(null);
+
+  // useCallback để ổn định reference, tránh useRoomUpdateListener re-run liên tục
+  const handleUserLeftChannel = useCallback(
+    (leftChannelId: string) => {
+      // Khi user vừa rời kênh, nếu đang ở kênh đó thì switch về General / kênh đầu tiên
+      const leftChannelObj = room?.channels?.find((c: any) => (c._id || c.id) === leftChannelId);
+      if (leftChannelObj && leftChannelObj.name === activeChannel) {
+        const firstChannel = room?.channels?.find((c: any) => (c._id || c.id) !== leftChannelId);
+        setActiveChannel(firstChannel?.name || "General");
+      }
+    },
+    [room?.channels, activeChannel]
+  );
+
+  useRoomUpdateListener(roomId, userId, {
+    onUserLeftChannel: handleUserLeftChannel,
+  });
 
   // Tìm thông tin chi tiết của kênh đang được active
   const currentChannel = room?.channels.find(

@@ -14,6 +14,8 @@ export const baseApi = createApi({
     "ChannelFile",
     "UserSearch",
     "Notification",
+    "Assignments",
+    "Submissions",
   ],
   endpoints: () => ({}),
 });

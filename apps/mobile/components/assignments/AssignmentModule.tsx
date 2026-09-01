@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { View, ActivityIndicator, Alert } from "react-native";
+import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useDispatch } from "react-redux";
 import {
   assignmentsApi,
@@ -11,19 +14,16 @@ import {
   useGetMySubmissionQuery,
   useGradeSubmissionMutation,
   useDeleteSubmissionMutation,
-  useAddSubmissionCommentMutation,
   useGetAssignmentCommentsQuery,
   useAddAssignmentCommentMutation,
   useDeleteAssignmentCommentMutation,
-} from "@/lib/redux/api/assignmentsApi";
+} from "../../lib/redux/api/assignmentsApi";
 import { Assignment } from "./types";
 import AssignmentList from "./AssignmentList";
 import AssignmentCreate from "./AssignmentCreate";
 import AssignmentDetail from "./AssignmentDetail";
 import AssignmentGrading from "./AssignmentGrading";
-import { Loader2 } from "lucide-react";
-import { socket } from "@/lib/socket";
-import { toast } from "sonner";
+import { socket } from "../../lib/socket";
 
 interface AssignmentModuleProps {
   roomId: string;
@@ -31,21 +31,26 @@ interface AssignmentModuleProps {
   channels: any[];
   roomMembers: any[];
   onViewChange?: (view: string) => void;
+  onOpenLeftDrawer?: () => void;
+  onOpenRightDrawer?: () => void;
 }
 
 export default function AssignmentModule({
   roomId,
   userId,
-  channels,
-  roomMembers,
+  channels = [],
+  roomMembers = [],
   onViewChange,
+  onOpenLeftDrawer,
+  onOpenRightDrawer,
 }: AssignmentModuleProps) {
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const [view, setView] = useState<"list" | "create" | "edit" | "detail" | "grade">("list");
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "grading" | "overdue" | "returned" | "draft">("upcoming");
 
-  const { data: assignments = [], isLoading, refetch } = useGetRoomAssignmentsQuery({
+  const { data: assignments = [], isLoading, refetch, isFetching } = useGetRoomAssignmentsQuery({
     roomId,
     status: activeTab === "draft" ? "draft" : undefined,
   });
@@ -56,69 +61,33 @@ export default function AssignmentModule({
     }
   }, [view, onViewChange]);
 
-  useEffect(() => {
-    const handleTrigger = () => {
-      setView("create");
-    };
-    window.addEventListener("trigger-create-assignment", handleTrigger);
-    return () => {
-      window.removeEventListener("trigger-create-assignment", handleTrigger);
-    };
-  }, []);
-
-
-
-  const [createAssignment, { isLoading: isCreating }] = useCreateAssignmentMutation();
-  const [updateAssignment, { isLoading: isUpdating }] = useUpdateAssignmentMutation();
-  const [submitAssignment, { isLoading: isSubmitting }] = useSubmitAssignmentMutation();
-  const [gradeSubmission, { isLoading: isGrading }] = useGradeSubmissionMutation();
-  const [deleteSubmission] = useDeleteSubmissionMutation();
-  const [addAssignmentComment] = useAddAssignmentCommentMutation();
-  const [deleteAssignmentComment] = useDeleteAssignmentCommentMutation();
-  const [deleteAssignment] = useDeleteAssignmentMutation();
-
-  // Xác định xem user có phải giáo viên/chủ phòng hay không
-  // Dựa vào members list truyền từ RoomContent
-  const currentUserRole = roomMembers.find((m: any) => m.userId === userId)?.role;
+  // Determine if current user is teacher / owner
+  const currentUserRole = roomMembers.find(
+    (m: any) => (m.userId || m.supabaseId) === userId
+  )?.role;
   const isTeacher =
     ["owner", "admin", "teacher", "leader"].includes(currentUserRole?.toLowerCase() || "") ||
-    roomMembers[0]?.userId === userId; // fallback: đầu danh sách thường là owner
+    roomMembers[0]?.userId === userId;
 
-  // Queries cho học viên
+  // Queries for student submission - phải khai báo TRƯỚC useEffect
   const { data: mySubmission = null, refetch: refetchMySubmission } = useGetMySubmissionQuery(
     selectedAssignment?._id || "",
     { skip: !selectedAssignment || isTeacher }
   );
 
-  // Queries cho giáo viên
+  // Queries for teacher submissions
   const { data: submissions = [], refetch: refetchSubmissions } = useGetSubmissionsQuery(
     selectedAssignment?._id || "",
     { skip: !selectedAssignment || !isTeacher }
   );
 
-  // Comments độc lập
+  // Comments query
   const { data: comments = [], refetch: refetchComments } = useGetAssignmentCommentsQuery(
     selectedAssignment?._id || "",
     { skip: !selectedAssignment }
   );
 
-  useEffect(() => {
-    if (onViewChange) {
-      onViewChange(view);
-    }
-  }, [view, onViewChange]);
-
-  useEffect(() => {
-    const handleTrigger = () => {
-      setView("create");
-    };
-    window.addEventListener("trigger-create-assignment", handleTrigger);
-    return () => {
-      window.removeEventListener("trigger-create-assignment", handleTrigger);
-    };
-  }, []);
-
-  // Dùng ref để giữ tham chiếu tới các hàm mới nhất, tránh stale closures trong socket listeners
+  // Stable refs để tránh stale closures trong socket listeners
   const selectedAssignmentRef = React.useRef(selectedAssignment);
   const refetchMySubmissionRef = React.useRef(refetchMySubmission);
   const refetchSubmissionsRef = React.useRef(refetchSubmissions);
@@ -131,12 +100,12 @@ export default function AssignmentModule({
   useEffect(() => { refetchCommentsRef.current = refetchComments; }, [refetchComments]);
   useEffect(() => { isTeacherRef.current = isTeacher; }, [isTeacher]);
 
-  // Realtime Socket.IO synchronization for Web
+  // Realtime Socket.IO synchronization for Mobile
   // Dependency array KHÔNG có selectedAssignment/refetch functions để tránh re-register listeners
   useEffect(() => {
     const joinRoomSocket = () => {
       if (roomId) {
-        console.log("[WEB] [SOCKET] Emitting join_room for roomId:", roomId);
+        console.log("[MOBILE] [SOCKET] Emitting join_room for roomId:", roomId);
         socket.emit("join_room", roomId);
       }
     };
@@ -145,6 +114,15 @@ export default function AssignmentModule({
       joinRoomSocket();
       refetch();
     };
+
+    // Đăng ký connect handler TRƯỚC khi connect
+    socket.on("connect", handleConnect);
+
+    if (socket.connected) {
+      joinRoomSocket();
+    } else {
+      socket.connect();
+    }
 
     const handleAssignmentCreated = (data: any) => {
       if (data.roomId === roomId) refetch();
@@ -158,11 +136,9 @@ export default function AssignmentModule({
       if (data.roomId === roomId) {
         refetch();
         const eventAssignId = String(data.assignmentId || data.assignment?._id || data._id || "");
-        const currentSelected = selectedAssignmentRef.current;
-        if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
-          setSelectedAssignment((prev) =>
-            prev ? { ...prev, ...(data.assignment || {}) } : null
-          );
+        const cur = selectedAssignmentRef.current;
+        if (cur && eventAssignId && eventAssignId === String(cur._id)) {
+          setSelectedAssignment((prev) => prev ? { ...prev, ...(data.assignment || {}) } : null);
         }
       }
     };
@@ -171,9 +147,9 @@ export default function AssignmentModule({
       if (data.roomId === roomId || data.assignmentId) {
         refetch();
         const deletedId = String(data.assignmentId || data._id || "");
-        const currentSelected = selectedAssignmentRef.current;
-        if (currentSelected && deletedId && String(currentSelected._id) === deletedId) {
-          toast.error("Nhiệm vụ này đã bị xóa khỏi hệ thống.");
+        const cur = selectedAssignmentRef.current;
+        if (cur && deletedId && String(cur._id) === deletedId) {
+          Alert.alert(t("room.notice"), t("assignments.deleted_notice"));
           setSelectedAssignment(null);
           setView("list");
         }
@@ -182,36 +158,26 @@ export default function AssignmentModule({
 
     const handleAssignmentSubmitted = (data: any) => {
       if (data.roomId === roomId) {
-        refetch();
+        refetch?.();
         const eventAssignId = String(data.submission?.assignmentId || data.assignmentId || "");
-        const currentSelected = selectedAssignmentRef.current;
-        if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
+        const cur = selectedAssignmentRef.current;
+        if (cur && eventAssignId && eventAssignId === String(cur._id)) {
           if (isTeacherRef.current) {
-            refetchSubmissionsRef.current();
+            try { refetchSubmissionsRef.current?.(); } catch (e) {}
           } else {
-            refetchMySubmissionRef.current();
+            try { refetchMySubmissionRef.current?.(); } catch (e) {}
           }
         }
       }
     };
 
     const handleSubmissionDeleted = (data: any) => {
-      console.log("[WEB] Received assignment_submission_deleted event:", data);
+      console.log("[MOBILE] Received assignment_submission_deleted event:", data);
       const eventAssignId = String(data.assignmentId || data.submission?.assignmentId || "");
       if (eventAssignId) {
-        console.log("[WEB] [CACHE] Updating getMySubmission cache to null for assignment:", eventAssignId);
+        console.log("[MOBILE] [CACHE] Updating getMySubmission cache to null for assignment:", eventAssignId);
         dispatch(
           assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, () => null)
-        );
-        dispatch(
-          assignmentsApi.util.updateQueryData("getSubmissions", eventAssignId, (draft) => {
-            if (Array.isArray(draft)) {
-              return draft.filter(
-                (s: any) => s._id !== data.submissionId && s.studentId !== data.studentId
-              );
-            }
-            return draft;
-          })
         );
         dispatch(
           assignmentsApi.util.invalidateTags([
@@ -222,27 +188,27 @@ export default function AssignmentModule({
           ])
         );
       }
-      refetch();
-      // Chỉ refetch submission query nếu người dùng đang thực sự xem bài tập đó (query không bị skip)
+      refetch?.();
+      // Chỉ refetch submission query nếu người dùng đang thực sự xem bài tập đó
       if (selectedAssignmentRef.current) {
         if (isTeacherRef.current) {
-          refetchSubmissionsRef.current?.();
+          try { refetchSubmissionsRef.current?.(); } catch (e) {}
         } else {
-          refetchMySubmissionRef.current?.();
+          try { refetchMySubmissionRef.current?.(); } catch (e) {}
         }
       }
     };
 
     const handleAssignmentGraded = (data: any) => {
       if (data.roomId === roomId) {
-        refetch();
+        refetch?.();
         const eventAssignId = String(data.submission?.assignmentId || data.assignmentId || "");
-        const currentSelected = selectedAssignmentRef.current;
-        if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
+        const cur = selectedAssignmentRef.current;
+        if (cur && eventAssignId && eventAssignId === String(cur._id)) {
           if (isTeacherRef.current) {
-            refetchSubmissionsRef.current();
+            try { refetchSubmissionsRef.current?.(); } catch (e) {}
           } else {
-            refetchMySubmissionRef.current();
+            try { refetchMySubmissionRef.current?.(); } catch (e) {}
           }
         }
       }
@@ -250,16 +216,16 @@ export default function AssignmentModule({
 
     const handleCommentAdded = (data: any) => {
       const eventAssignId = String(data.assignmentId || "");
-      const currentSelected = selectedAssignmentRef.current;
-      if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
-        refetchCommentsRef.current();
+      const cur = selectedAssignmentRef.current;
+      if (cur && eventAssignId && eventAssignId === String(cur._id)) {
+        try { refetchCommentsRef.current?.(); } catch (e) {}
       }
     };
 
     const handleCommentDeleted = (data: any) => {
       const eventAssignId = String(data.assignmentId || "");
-      const currentSelected = selectedAssignmentRef.current;
-      if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
+      const cur = selectedAssignmentRef.current;
+      if (cur && eventAssignId && eventAssignId === String(cur._id)) {
         if (data.commentId) {
           dispatch(
             assignmentsApi.util.updateQueryData("getAssignmentComments", eventAssignId, (draft) => {
@@ -270,19 +236,9 @@ export default function AssignmentModule({
             })
           );
         }
-        refetchCommentsRef.current();
+        try { refetchCommentsRef.current?.(); } catch (e) {}
       }
     };
-
-    // Đăng ký connect handler TRƯỚC khi connect
-    socket.on("connect", handleConnect);
-
-    // Nếu đã connected thì join room ngay, nếu chưa thì connect
-    if (socket.connected) {
-      joinRoomSocket();
-    } else {
-      socket.connect();
-    }
 
     socket.on("assignment_created", handleAssignmentCreated);
     socket.on("assignment_published", handleAssignmentPublished);
@@ -309,12 +265,26 @@ export default function AssignmentModule({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
+  const router = useRouter();
+
+  const [createAssignment, { isLoading: isCreating }] = useCreateAssignmentMutation();
+  const [updateAssignment, { isLoading: isUpdating }] = useUpdateAssignmentMutation();
+  const [deleteAssignment] = useDeleteAssignmentMutation();
+  const [submitAssignment, { isLoading: isSubmitting }] = useSubmitAssignmentMutation();
+  const [gradeSubmission, { isLoading: isGrading }] = useGradeSubmissionMutation();
+  const [deleteSubmission] = useDeleteSubmissionMutation();
+  const [addAssignmentComment] = useAddAssignmentCommentMutation();
+  const [deleteAssignmentComment] = useDeleteAssignmentCommentMutation();
+
   const handleSelectAssignment = (assignment: Assignment) => {
     setSelectedAssignment(assignment);
     if (assignment.status === "draft") {
       setView("edit");
     } else {
-      setView("detail");
+      router.push({
+        pathname: "/assignment/[id]",
+        params: { id: assignment._id, roomId },
+      });
     }
   };
 
@@ -322,15 +292,20 @@ export default function AssignmentModule({
     try {
       if (view === "edit" && selectedAssignment) {
         await updateAssignment({ id: selectedAssignment._id, body: payload }).unwrap();
-        toast.success("Cập nhật nhiệm vụ thành công!");
+        Alert.alert(t("room.success"), t("assignments.toast_update_success"));
       } else {
         await createAssignment(payload).unwrap();
-        toast.success(payload.status === "published" ? "Giao nhiệm vụ thành công!" : "Lưu bản nháp thành công!");
+        Alert.alert(
+          t("room.success"),
+          payload.status === "published"
+            ? t("assignments.toast_create_success")
+            : t("assignments.toast_save_draft_success")
+        );
       }
       setView("list");
       setSelectedAssignment(null);
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Đã xảy ra lỗi khi tạo nhiệm vụ");
+      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
     }
   };
 
@@ -338,9 +313,9 @@ export default function AssignmentModule({
     if (!selectedAssignment) return;
     try {
       await submitAssignment({ id: selectedAssignment._id, body: { attachments } }).unwrap();
-      toast.success("Nộp nhiệm vụ thành công!");
+      Alert.alert(t("room.success"), t("assignments.toast_submit_success"));
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Nộp nhiệm vụ thất bại");
+      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
     }
   };
 
@@ -351,9 +326,9 @@ export default function AssignmentModule({
       dispatch(
         assignmentsApi.util.updateQueryData("getMySubmission", selectedAssignment._id, () => null)
       );
-      toast.success("Hủy nộp nhiệm vụ thành công!");
+      Alert.alert(t("room.success"), t("assignments.remove_submission"));
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Hủy nộp nhiệm vụ thất bại");
+      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
     }
   };
 
@@ -361,24 +336,22 @@ export default function AssignmentModule({
     if (!selectedAssignment) return;
     try {
       await deleteAssignment(selectedAssignment._id).unwrap();
-      toast.success("Xóa nhiệm vụ thành công!");
+      Alert.alert(t("room.success"), t("assignments.deleted_notice"));
       setSelectedAssignment(null);
       setView("list");
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Xóa nhiệm vụ thất bại!");
+      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
     }
   };
 
-  const handleAddComment = async (assignmentId: string, content: string) => {
+  const handleAddComment = async (targetAssignmentId: string, content: string) => {
     try {
       await addAssignmentComment({
-        assignmentId,
+        assignmentId: targetAssignmentId,
         content,
       }).unwrap();
-      toast.success("Thêm bình luận thành công!");
-      refetchComments();
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Thêm bình luận thất bại");
+      Alert.alert(t("room.error"), err?.data?.message || t("assignments.toast_error_generic"));
     }
   };
 
@@ -389,9 +362,8 @@ export default function AssignmentModule({
         assignmentId: selectedAssignment._id,
         commentId,
       }).unwrap();
-      toast.success("Xóa phản hồi thành công");
     } catch (err: any) {
-      toast.error(err?.data?.message || "Xóa phản hồi thất bại");
+      Alert.alert(t("room.error"), err?.data?.message || "Xóa phản hồi thất bại");
     }
   };
 
@@ -407,22 +379,22 @@ export default function AssignmentModule({
         body: { score, feedback },
         assignmentId: selectedAssignment._id,
       }).unwrap();
-      refetchSubmissions();
+      try { refetchSubmissions(); } catch (e) {}
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Đánh giá thất bại");
+      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
-      </div>
+      <View className="flex-1 items-center justify-center bg-slate-50">
+        <ActivityIndicator size="large" color="#0052FF" />
+      </View>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
+    <View className="flex-1 bg-slate-50">
       {view === "list" && (
         <AssignmentList
           assignments={assignments}
@@ -431,6 +403,10 @@ export default function AssignmentModule({
           onCreateClick={() => setView("create")}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          onRefresh={refetch}
+          isRefreshing={isFetching}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
         />
       )}
 
@@ -483,6 +459,6 @@ export default function AssignmentModule({
           isGrading={isGrading}
         />
       )}
-    </div>
+    </View>
   );
 }

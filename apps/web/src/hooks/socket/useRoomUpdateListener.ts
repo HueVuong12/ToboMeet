@@ -1,5 +1,5 @@
 // hooks/socket/useRoomUpdateListener.ts
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { useRoomCacheManager } from "../useRoomCacheManager";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
 import { channelFilesApi } from "@/lib/redux/api/channelFilesApi";
+import { assignmentsApi } from "@/lib/redux/api/assignmentsApi";
 
 interface UseRoomUpdateListenerOptions {
   /** Callback khi user hiện tại vừa rời kênh thành công — để component switch sang kênh khác */
@@ -31,59 +32,82 @@ export function useRoomUpdateListener(
   } = useRoomCacheManager();
   const dispatch = useDispatch<AppDispatch>();
 
-  useEffect(() => {
-    if (!roomId || !userId) return;
+  // ─── Stable Refs: cập nhật mỗi render nhưng socket listeners KHÔNG bị re-register ───
+  const removeMemberRef = useRef(removeMemberFromRoomCache);
+  const addMemberRef = useRef(addMemberToRoomCache);
+  const updateRoomRef = useRef(updateRoomDetailsCache);
+  const invalidateRoomListRef = useRef(invalidateRoomList);
+  const invalidateRoomRef = useRef(invalidateRoom);
+  const onUserLeftChannelRef = useRef(options?.onUserLeftChannel);
+  const tRef = useRef(t);
+  const dispatchRef = useRef(dispatch);
+  const userIdRef = useRef(userId);
 
-    // Đảm bảo kết nối socket
-    if (!socket.connected) {
-      socket.connect();
-    }
+  useEffect(() => { removeMemberRef.current = removeMemberFromRoomCache; }, [removeMemberFromRoomCache]);
+  useEffect(() => { addMemberRef.current = addMemberToRoomCache; }, [addMemberToRoomCache]);
+  useEffect(() => { updateRoomRef.current = updateRoomDetailsCache; }, [updateRoomDetailsCache]);
+  useEffect(() => { invalidateRoomListRef.current = invalidateRoomList; }, [invalidateRoomList]);
+  useEffect(() => { invalidateRoomRef.current = invalidateRoom; }, [invalidateRoom]);
+  useEffect(() => { onUserLeftChannelRef.current = options?.onUserLeftChannel; }, [options?.onUserLeftChannel]);
+  useEffect(() => { tRef.current = t; }, [t]);
+  useEffect(() => { dispatchRef.current = dispatch; }, [dispatch]);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
+
+  // ─── Socket Effect: chỉ re-run khi roomId thay đổi ───
+  // KHÔNG có unstable functions trong dep array → listeners được đăng ký một lần
+  useEffect(() => {
+    if (!roomId) return;
 
     const joinRoomSocket = () => {
+      console.log("[WEB-GLOBAL] [SOCKET] Emitting join_room for roomId:", roomId);
       socket.emit("join_room", roomId);
     };
 
-    if (socket.connected) joinRoomSocket();
+    // Đăng ký connect handler TRƯỚC khi connect
     socket.on("connect", joinRoomSocket);
+
+    // Nếu đã connected, join ngay lập tức; nếu chưa thì connect
+    if (socket.connected) {
+      joinRoomSocket();
+    } else {
+      socket.connect();
+    }
 
     const handleRoomUpdated = (data: any) => {
       if (!data || !data.type) return;
+      const currentUserId = userIdRef.current;
 
       switch (data.type) {
         case "member_removed":
-          // Xóa thành viên khỏi danh sách hiển thị
-          removeMemberFromRoomCache(data.roomId, data.removedUserId);
+          removeMemberRef.current(data.roomId, data.removedUserId);
           break;
 
         case "member_left":
-          // Cập nhật realtime khi có thành viên chủ động rời phòng
-          removeMemberFromRoomCache(data.roomId, data.leftUserId);
-          invalidateRoom(roomId);
-          invalidateRoomList();
+          removeMemberRef.current(data.roomId, data.leftUserId);
+          invalidateRoomRef.current(roomId);
+          invalidateRoomListRef.current();
           break;
 
         case "member_joined":
-          // Thêm người dùng mới vào cache để Sidebar hiển thị lập tức
           if (data.member) {
-            addMemberToRoomCache(data.roomId, data.member);
+            addMemberRef.current(data.roomId, data.member);
             toast.success(`${data.member.displayName} vừa tham gia phòng`);
           }
           break;
 
         case "ownership_transferred":
-          invalidateRoomList();
-          invalidateRoom(roomId);
-          if (data.newOwnerId === userId) {
+          invalidateRoomListRef.current();
+          invalidateRoomRef.current(roomId);
+          if (data.newOwnerId === currentUserId) {
             toast.success(
-              t("toast_transfer_new_owner", {
+              tRef.current("toast_transfer_new_owner", {
                 role: "Leader",
-                defaultValue:
-                  "Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!",
+                defaultValue: "Bạn đã trở thành Quản lý / Trưởng nhóm mới của phòng!",
               }),
             );
-          } else if (data.previousOwnerId !== userId) {
+          } else if (data.previousOwnerId !== currentUserId) {
             toast.info(
-              t("toast_transfer_info", {
+              tRef.current("toast_transfer_info", {
                 defaultValue: "Quyền quản lý phòng vừa được chuyển giao.",
               }),
             );
@@ -91,11 +115,11 @@ export function useRoomUpdateListener(
           break;
 
         case "channel_member_removed":
-          invalidateRoomList();
-          invalidateRoom(roomId);
-          if (data.targetUserId === userId) {
+          invalidateRoomListRef.current();
+          invalidateRoomRef.current(roomId);
+          if (data.targetUserId === currentUserId) {
             toast.warning(
-              t("toast_remove_from_private_channel_warning", {
+              tRef.current("toast_remove_from_private_channel_warning", {
                 defaultValue: "Bạn không còn quyền truy cập kênh riêng tư này.",
               }),
             );
@@ -103,17 +127,15 @@ export function useRoomUpdateListener(
           break;
 
         case "channel_member_left":
-          // Cập nhật cache phòng để sidebar tự loại bỏ kênh đã rời
-          invalidateRoom(roomId);
-          invalidateRoomList();
+          invalidateRoomRef.current(roomId);
+          invalidateRoomListRef.current();
 
-          if (data.userId === userId) {
-            // Chính user vừa rời kênh → callback để component switch sang kênh khác
-            if (options?.onUserLeftChannel) {
-              options.onUserLeftChannel(data.channelId);
+          if (data.userId === currentUserId) {
+            if (onUserLeftChannelRef.current) {
+              onUserLeftChannelRef.current(data.channelId);
             }
             toast.success(
-              t("toast_leave_channel_success", {
+              tRef.current("toast_leave_channel_success", {
                 defaultValue: "Bạn đã rời khỏi kênh thành công.",
               }),
             );
@@ -121,29 +143,27 @@ export function useRoomUpdateListener(
           break;
 
         case "member_role_updated":
-          invalidateRoomList();
-          invalidateRoom(roomId);
+          invalidateRoomListRef.current();
+          invalidateRoomRef.current(roomId);
           break;
 
         case "room_renamed":
-          updateRoomDetailsCache(data.roomId, { name: data.name });
-          invalidateRoomList();
+          updateRoomRef.current(data.roomId, { name: data.name });
+          invalidateRoomListRef.current();
           break;
 
         case "channel_renamed":
-          invalidateRoom(data.roomId);
-          invalidateRoomList();
+          invalidateRoomRef.current(data.roomId);
+          invalidateRoomListRef.current();
           break;
-
 
         case "channel_file_uploaded":
         case "channel_file_renamed":
         case "channel_file_deleted":
         case "channel_file_pinned":
         case "channel_file_unpinned":
-          // Invalidate ChannelFile RTK Query cache để danh sách tệp tự làm mới realtime
           if (data.channelId) {
-            dispatch(
+            dispatchRef.current(
               channelFilesApi.util.invalidateTags([
                 { type: "ChannelFile", id: data.channelId },
               ])
@@ -157,19 +177,44 @@ export function useRoomUpdateListener(
       }
     };
 
+    const handleSubmissionDeletedGlobal = (data: any) => {
+      console.log("[WEB-GLOBAL] Received assignment_submission_deleted event:", data);
+      const eventAssignId = String(data?.assignmentId || data?.submission?.assignmentId || "");
+      if (eventAssignId) {
+        console.log("[WEB-GLOBAL] [CACHE] Updating getMySubmission cache to null for:", eventAssignId);
+        dispatchRef.current(
+          assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, () => null)
+        );
+        dispatchRef.current(
+          assignmentsApi.util.updateQueryData("getSubmissions", eventAssignId, (draft) => {
+            if (Array.isArray(draft)) {
+              return draft.filter(
+                (s: any) => s._id !== data?.submissionId && s.studentId !== data?.studentId
+              );
+            }
+            return draft;
+          })
+        );
+      }
+      dispatchRef.current(
+        assignmentsApi.util.invalidateTags([
+          { type: "Submissions", id: "LIST" },
+          { type: "Assignments", id: "LIST" },
+          ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+        ])
+      );
+    };
+
     socket.on("room_updated", handleRoomUpdated);
+    socket.on("assignment_submission_deleted", handleSubmissionDeletedGlobal);
 
     return () => {
+      // Chỉ leave room khi thực sự rời (unmount hoặc roomId thay đổi)
       socket.emit("leave_room", roomId);
       socket.off("connect", joinRoomSocket);
       socket.off("room_updated", handleRoomUpdated);
+      socket.off("assignment_submission_deleted", handleSubmissionDeletedGlobal);
     };
-  }, [
-    roomId,
-    userId,
-    router,
-    removeMemberFromRoomCache,
-    addMemberToRoomCache,
-    options?.onUserLeftChannel,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 }
