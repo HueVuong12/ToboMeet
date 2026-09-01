@@ -13,6 +13,7 @@ import {
   useRemoveParticipantMutation,
   useMuteParticipantMutation,
   useApproveParticipantMutation,
+  useRenameParticipantMutation,
 } from "../lib/redux/features/meetings/meetingsApi";
 import {
   useTransferRoomOwnershipMutation,
@@ -40,6 +41,8 @@ export function useParticipantManager({
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipant] = useMuteParticipantMutation();
   const [approveParticipantApi] = useApproveParticipantMutation();
+  const [renameParticipant, { isLoading: isRenaming }] =
+    useRenameParticipantMutation();
   const [updateRoleApi] = useUpdateChannelMemberRoleMutation();
   const [transferOwnership] = useTransferRoomOwnershipMutation();
 
@@ -274,13 +277,22 @@ export function useParticipantManager({
 
   // Xử lý Đổi tên
   const handleRenameSubmit = async () => {
-    if (!renameState || !renameState.newName.trim()) return;
+    if (!renameState || !renameState.newName.trim() || !meetingCode || isRenaming) return;
+    const newName = renameState.newName.trim();
+
     try {
-      await localParticipant.setName(renameState.newName.trim());
+      await renameParticipant({
+        code: meetingCode,
+        name: newName,
+      }).unwrap();
       setRenameState(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error(t("meeting.member_modal.rename_error"));
+      const msg =
+        error?.data?.message ||
+        error?.message ||
+        t("meeting.member_modal.rename_error");
+      toast.error(msg);
     }
   };
 
@@ -333,5 +345,6 @@ export function useParticipantManager({
     handleTransferOwnership,
     handleApprove,
     getHandState,
+    isRenaming,
   };
 }

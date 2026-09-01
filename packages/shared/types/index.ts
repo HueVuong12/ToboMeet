@@ -247,6 +247,11 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Phòng thảo luận ở chế độ tự do chọn, không thể chỉ định thành viên",
     statusCode: 400,
   },
+  RENAME_PARTICIPANT_FAILED: {
+    code: 4029,
+    message: "Không thể đổi tên người tham gia",
+    statusCode: 400,
+  },
 };
 
 export interface NavLink {

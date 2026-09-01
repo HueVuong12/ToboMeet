@@ -389,11 +389,15 @@ function SessionDetailView({
 }: SessionDetailViewProps) {
   const isOngoing = session.status === "ongoing";
 
-  const { data: attendanceList = [], isLoading: isAttendanceLoading } =
-    useGetSessionAttendanceQuery({
-      meetingCode: session.meetingCode,
-      sessionId: session._id,
-    });
+  const {
+    data: attendanceList = [],
+    isLoading: isAttendanceLoading,
+    refetch: refetchAttendance,
+    isFetching: isAttendanceFetching,
+  } = useGetSessionAttendanceQuery({
+    meetingCode: session.meetingCode,
+    sessionId: session._id,
+  });
 
   return (
     <View className="flex-1 bg-slate-50">
@@ -512,9 +516,22 @@ function SessionDetailView({
                 {t("room.session_attendance_title")}
               </Text>
             </View>
-            <Text className="text-[11px] text-slate-500 font-semibold">
-              {t("room.session_records_count", { count: attendanceList.length })}
-            </Text>
+            <View className="flex-row items-center gap-2.5">
+              <Text className="text-[11px] text-slate-500 font-semibold">
+                {t("room.session_records_count", { count: attendanceList.length })}
+              </Text>
+              <TouchableOpacity
+                onPress={() => refetchAttendance()}
+                disabled={isAttendanceFetching}
+                className="p-1 rounded-lg bg-slate-100 active:bg-slate-200"
+              >
+                {isAttendanceFetching ? (
+                  <ActivityIndicator size={12} color="#0052FF" />
+                ) : (
+                  <Feather name="rotate-cw" size={12} color="#475569" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {isAttendanceLoading ? (

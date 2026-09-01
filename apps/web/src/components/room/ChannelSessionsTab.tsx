@@ -24,7 +24,9 @@ import {
   Timer,
   UserCheck,
   UserX,
+  FileSpreadsheet,
 } from "lucide-react";
+import axios from "axios";
 import { toast } from "sonner";
 
 interface ChannelSessionsTabProps {
@@ -431,12 +433,71 @@ function SessionDetailView({
 }: SessionDetailViewProps) {
   const isOngoing = session.status === "ongoing";
 
-  // Lấy dữ liệu điểm danh của session
-  const { data: attendanceList = [], isLoading: isAttendanceLoading } =
-    useGetSessionAttendanceQuery({
-      meetingCode: session.meetingCode,
-      sessionId: session._id,
-    });
+  const {
+    data: attendanceList = [],
+    isLoading: isAttendanceLoading,
+    refetch: refetchAttendance,
+    isFetching: isAttendanceFetching,
+  } = useGetSessionAttendanceQuery({
+    meetingCode: session.meetingCode,
+    sessionId: session._id,
+  });
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    const toastId = toast.loading(
+      t("session_export_loading", { defaultValue: "Đang tạo file Excel..." }),
+    );
+    try {
+      const response = await axios.get(
+        `/api/meetings/${session.meetingCode}/attendance/export?sessionId=${session._id}`,
+        { responseType: "blob" },
+      );
+
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const contentDisposition = response.headers["content-disposition"];
+      let fileName = `diem-danh-${session.meetingCode}-${session._id.slice(-6)}.xlsx`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(
+          /filename\*?=(?:UTF-8'')?([^;]+)/i,
+        );
+        if (match && match[1]) {
+          fileName = decodeURIComponent(match[1].replace(/["']/g, ""));
+        }
+      }
+
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(link.href);
+
+      toast.success(
+        t("session_export_success", {
+          defaultValue: "Xuất file Excel thành công!",
+        }),
+        { id: toastId },
+      );
+    } catch (error) {
+      console.error("Export Excel error:", error);
+      toast.error(
+        t("session_export_failed", {
+          defaultValue: "Không thể xuất file Excel. Vui lòng thử lại!",
+        }),
+        { id: toastId },
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50/50">
@@ -544,9 +605,36 @@ function SessionDetailView({
                 {t("session_attendance_title")}
               </h3>
             </div>
-            <span className="text-xs text-slate-500 font-semibold">
-              {t("session_records_count", { count: attendanceList.length })}
-            </span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs text-slate-500 font-semibold">
+                {t("session_records_count", { count: attendanceList.length })}
+              </span>
+              <button
+                onClick={handleExportExcel}
+                disabled={isExporting || attendanceList.length === 0}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                title={t("session_export_excel", { defaultValue: "Xuất Excel" })}
+              >
+                {isExporting ? (
+                  <Loader2 size={12} className="animate-spin text-emerald-600" />
+                ) : (
+                  <FileSpreadsheet size={12} className="text-emerald-600" />
+                )}
+                <span>{t("session_export_excel", { defaultValue: "Xuất Excel" })}</span>
+              </button>
+              <button
+                onClick={() => refetchAttendance()}
+                disabled={isAttendanceFetching}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                title={t("sessions_refresh", { defaultValue: "Làm mới" })}
+              >
+                <RefreshCw
+                  size={12}
+                  className={isAttendanceFetching ? "animate-spin text-brand-600" : ""}
+                />
+                <span>{t("sessions_refresh", { defaultValue: "Làm mới" })}</span>
+              </button>
+            </div>
           </div>
 
           {isAttendanceLoading ? (

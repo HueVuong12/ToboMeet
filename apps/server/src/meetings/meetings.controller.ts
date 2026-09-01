@@ -1,9 +1,9 @@
-// src/meetings/meetings.controller.ts
 import {
   Controller,
   Post,
   Param,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -14,6 +14,7 @@ import {
   Patch,
   Query,
 } from "@nestjs/common";
+import { Response } from "express";
 import { MeetingsService } from "./meetings.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { Roles } from "../core/decorators/roles.decorator";
@@ -21,6 +22,8 @@ import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { MeetingInviteService } from "./meeting-invite.service";
 import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
 import { AttendanceService } from "./attendance.service";
+import { AppException } from "../core/exceptions/app.exception";
+import { ErrorCode } from "@tobomeet/shared/types";
 
 // TODO (Gấp): bỏ sự phụ thuộc vào channelId và roomId, chỉ phụ thuộc vào meetingCode
 // Do sau này sẽ có thêm private meeting (meeting thuộc về 1 cá nhân nào đó, không phải 1 kênh của phòng)
@@ -224,6 +227,26 @@ export class MeetingsController {
   }
 
   /**
+   * PATCH /api/meetings/:code/participants/rename
+   * Đổi tên chính mình trong cuộc họp (Cập nhật Attendance DB và LiveKit realtime)
+   */
+  @Patch(":code/participants/rename")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SupabaseGuard, MeetingRoleGuard)
+  async renameParticipant(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") meetingCode: string,
+    @Body() body: { name: string },
+  ): Promise<void> {
+    const userId = req.user.id;
+    await this.attendanceService.renameParticipant(
+      meetingCode,
+      userId,
+      body.name,
+    );
+  }
+
+  /**
  * PUT /api/meetings/:code/participants/:identity/mute
  * Tắt Mic / Camera của người dùng (Chỉ Admin/Owner)
  */
@@ -359,6 +382,37 @@ export class MeetingsController {
     @Query("sessionId") sessionId?: string,
   ) {
     return this.attendanceService.getByMeetingCode(meetingCode, sessionId);
+  }
+
+  /**
+   * GET /api/meetings/:code/attendance/export
+   * Xuất danh sách điểm danh ra file Excel (.xlsx)
+   */
+  @Get(":code/attendance/export")
+  @UseGuards(SupabaseGuard)
+  async exportAttendanceExcel(
+    @Param("code") meetingCode: string,
+    @Query("sessionId") sessionId: string | undefined,
+    @Res() res: Response,
+  ) {
+    const { buffer, fileName } =
+      await this.attendanceService.exportAttendanceExcel(
+        meetingCode,
+        sessionId,
+      );
+
+    const safeFilename = encodeURIComponent(fileName);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${fileName}"; filename*=UTF-8''${safeFilename}`,
+    );
+    res.setHeader("Content-Length", buffer.length);
+
+    res.send(buffer);
   }
 
   /**

@@ -48,6 +48,7 @@ export default function MembersModal({
     handleUpdateRole,
     handleApprove,
     getHandState,
+    isRenaming,
   } = useParticipantManager({ meetingCode });
 
   useEffect(() => {
@@ -523,6 +524,7 @@ export default function MembersModal({
                 onChangeText={(text) =>
                   setRenameState({ ...renameState, newName: text })
                 }
+                editable={!isRenaming}
                 placeholder={t("meeting.member_modal.rename_placeholder")}
                 placeholderTextColor="#64748b"
                 className="bg-[#222] text-white px-3.5 py-2.5 rounded-xl text-sm mb-4 border border-[#333] focus:border-blue-500"
@@ -532,6 +534,7 @@ export default function MembersModal({
               <View className="flex-row justify-end gap-2.5">
                 <TouchableOpacity
                   onPress={() => setRenameState(null)}
+                  disabled={isRenaming}
                   className="py-2 px-3.5 rounded-lg bg-[#222] border border-[#333]"
                 >
                   <Text className="text-slate-300 font-semibold text-xs">
@@ -540,13 +543,16 @@ export default function MembersModal({
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRenameSubmit}
-                  disabled={!renameState.newName.trim()}
-                  className={`py-2 px-4 rounded-lg shadow-md ${
-                    renameState.newName.trim()
+                  disabled={!renameState.newName.trim() || isRenaming}
+                  className={`py-2 px-4 rounded-lg shadow-md flex-row items-center gap-1.5 ${
+                    renameState.newName.trim() && !isRenaming
                       ? "bg-blue-600 active:bg-blue-500"
                       : "bg-[#333]"
                   }`}
                 >
+                  {isRenaming && (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  )}
                   <Text className="text-white font-bold text-xs">
                     {t("meeting.member_modal.rename_save")}
                   </Text>

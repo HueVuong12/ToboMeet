@@ -10,6 +10,7 @@ import {
   useMuteParticipantMutation,
   useRemoveParticipantMutation,
   useApproveParticipantMutation,
+  useRenameParticipantMutation,
 } from "@/lib/redux/api/meetingsApi";
 import { useTranslations } from "next-intl";
 import {
@@ -36,6 +37,8 @@ export function useParticipantManager({
   const [removeParticipant] = useRemoveParticipantMutation();
   const [muteParticipantApi] = useMuteParticipantMutation();
   const [approveParticipantApi] = useApproveParticipantMutation(); // Khởi tạo mutation
+  const [renameParticipantApi, { isLoading: isRenaming }] =
+    useRenameParticipantMutation();
   const [updateRoleApi] = useUpdateChannelMemberRoleMutation();
   const [transferOwnership] = useTransferRoomOwnershipMutation();
 
@@ -322,13 +325,22 @@ export function useParticipantManager({
   };
 
   const handleRenameSubmit = async () => {
-    if (!renameState || !renameState.newName.trim()) return;
+    if (!renameState || !renameState.newName.trim() || !meetingCode || isRenaming) return;
+    const newName = renameState.newName.trim();
+
     try {
-      await localParticipant.setName(renameState.newName.trim());
+      await renameParticipantApi({
+        code: meetingCode,
+        name: newName,
+      }).unwrap();
       setRenameState(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error(t("rename_error"));
+      toast.error(
+        error?.data?.code
+          ? tServer(String(error.data.code))
+          : t("rename_error"),
+      );
     }
   };
 
@@ -350,5 +362,6 @@ export function useParticipantManager({
     handleRenameSubmit,
     handleApprove,
     getHandState,
+    isRenaming,
   };
 }

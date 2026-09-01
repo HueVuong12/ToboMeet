@@ -47,6 +47,7 @@ export default function ParticipantList({
     handleRenameSubmit,
     handleApprove,
     getHandState,
+    isRenaming,
   } = useParticipantManager({ meetingCode });
 
   return (
@@ -432,25 +433,28 @@ export default function ParticipantList({
                 onChange={(e) =>
                   setRenameState({ ...renameState, newName: e.target.value })
                 }
+                disabled={isRenaming}
                 placeholder={t("enter_new_name")}
-                className="w-full px-3 py-2 bg-[#222] border border-[#333] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 mb-4 transition-colors"
+                className="w-full px-3 py-2 bg-[#222] border border-[#333] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 mb-4 transition-colors disabled:opacity-50"
                 autoFocus
-                onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()}
+                onKeyDown={(e) => e.key === "Enter" && !isRenaming && handleRenameSubmit()}
               />
 
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setRenameState(null)}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#222] rounded-lg transition-colors"
+                  disabled={isRenaming}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#222] rounded-lg transition-colors disabled:opacity-50"
                 >
                   {t("cancel")}
                 </button>
                 <button
                   onClick={handleRenameSubmit}
-                  disabled={!renameState.newName.trim()}
-                  className="px-4 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 shadow-md shadow-blue-500/20"
+                  disabled={!renameState.newName.trim() || isRenaming}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 shadow-md shadow-blue-500/20"
                 >
-                  {t2("save_changes")}
+                  {isRenaming && <Loader2 size={13} className="animate-spin" />}
+                  <span>{t2("save_changes")}</span>
                 </button>
               </div>
             </div>

@@ -191,6 +191,21 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Đổi tên người tham gia
+    renameParticipant: builder.mutation<
+      void,
+      {
+        code: string;
+        name: string;
+      }
+    >({
+      query: ({ code, name }) => ({
+        url: `/meetings/${code}/participants/rename`,
+        method: "PATCH",
+        data: { name },
+      }),
+    }),
+
     startScreenShare: builder.mutation<void, { meetingCode: string }>({
       query: ({ meetingCode }) => ({
         url: `/meetings/${meetingCode}/screen-share/start`,
@@ -389,6 +404,7 @@ export const {
   useRemoveParticipantMutation,
   useApproveParticipantMutation,
   useMuteParticipantMutation,
+  useRenameParticipantMutation,
   useGeneratePresignedUploadUrlMutation,
   useSendMeetingInviteMutation,
   useExchangeSessionQuery,
