@@ -14,8 +14,12 @@ export class CreateAssignmentDto {
   roomId: string;
 
   @IsString()
-  @IsNotEmpty()
-  channelId: string;
+  @IsOptional()
+  channelId?: string;
+
+  @IsArray()
+  @IsOptional()
+  channelIds?: string[];
 
   @IsDateString()
   @IsOptional()

@@ -38,60 +38,52 @@ export class AssignmentsService {
   }
 
   /**
-   * Kiểm tra user có quyền truy cập vào một kênh cụ thể trong phòng hay không.
-   * - Kênh công khai (public): user hợp lệ nếu KHÔNG có trong leftMemberIds[]
-   * - Kênh riêng tư (private): user hợp lệ nếu CÓ trong channel.members[]
-   * - Owner phòng: luôn hợp lệ với mọi kênh
+   * Kiểm tra user có quyền truy cập vào bất kỳ kênh nào trong danh sách channelIds của bài tập hay không.
+   * - Owner phòng: luôn hợp lệ
+   * - Với mỗi kênh: nếu private -> check channel.members; nếu public -> check không nằm trong leftMemberIds
    */
-  private isUserInChannel(room: RoomDocument, channelId: string, userId: string): boolean {
-    // Owner phòng luôn có quyền truy cập mọi kênh
+  private isUserInAnyChannel(room: RoomDocument, channelIds: string[], userId: string): boolean {
     if (room.ownerId === userId) return true;
+    if (!channelIds || channelIds.length === 0) return false;
 
-    // Tìm kênh trong room.channels theo channelId
-    const channel = room.channels?.find(
-      (c: any) => c._id?.toString() === channelId,
-    );
+    return channelIds.some((cId: string) => {
+      const channel = room.channels?.find((c: any) => c._id?.toString() === cId);
+      if (!channel) return false;
 
-    // Kênh không tồn tại (đã bị xóa hoặc ID không hợp lệ) → từ chối truy cập
-    if (!channel) return false;
-
-    if (channel.isPrivate) {
-      // Kênh riêng tư: user phải có mặt trong channel.members[]
-      return channel.members?.some((m: any) => m.userId === userId) ?? false;
-    } else {
-      // Kênh công khai: user là thành viên trừ khi đã rời kênh (leftMemberIds)
-      return !(channel.leftMemberIds?.includes(userId) ?? false);
-    }
+      if (channel.isPrivate) {
+        return channel.members?.some((m: any) => m.userId === userId) ?? false;
+      } else {
+        return !(channel.leftMemberIds?.includes(userId) ?? false);
+      }
+    });
   }
 
   /**
-   * Lấy snapshot danh sách userId của tất cả thành viên thuộc một kênh cụ thể tại thời điểm hiện tại.
+   * Lấy snapshot danh sách userId của tất cả thành viên thuộc TẤT CẢ các kênh trong channelIds tại thời điểm hiện tại.
+   * Loại bỏ toàn bộ userId trùng lặp.
    * Dùng khi tạo/cập nhật nhiệm vụ với recipientType = "current_members".
-   * - Kênh công khai: room members đang active và chưa rời kênh
-   * - Kênh riêng tư: chỉ những ai được thêm tường minh vào channel.members[]
-   * - Owner phòng luôn được include
    */
-  private async getChannelMemberSnapshot(roomId: string, channelId: string): Promise<string[]> {
+  private async getMultiChannelMemberSnapshot(roomId: string, channelIds: string[]): Promise<string[]> {
     const room = await this.roomModel.findOne({ _id: roomId });
     if (!room) return [];
 
-    const channel = room.channels?.find((c: any) => c._id?.toString() === channelId);
-    if (!channel) return [];
+    const memberSet = new Set<string>([room.ownerId]);
 
-    const ownerSet = new Set<string>([room.ownerId]);
+    for (const cId of channelIds) {
+      const channel = room.channels?.find((c: any) => c._id?.toString() === cId);
+      if (!channel) continue;
 
-    if (channel.isPrivate) {
-      // Kênh riêng tư: lấy danh sách thành viên tường minh
-      const memberIds = (channel.members || []).map((m: any) => m.userId);
-      return [...new Set([...ownerSet, ...memberIds])];
-    } else {
-      // Kênh công khai: lấy room members đang active và CHƯA rời kênh
-      const leftIds = new Set<string>(channel.leftMemberIds || []);
-      const activeIds = (room.members || [])
-        .filter((m: any) => m.status === "active" && !leftIds.has(m.userId))
-        .map((m: any) => m.userId);
-      return [...new Set([...ownerSet, ...activeIds])];
+      if (channel.isPrivate) {
+        (channel.members || []).forEach((m: any) => memberSet.add(m.userId));
+      } else {
+        const leftIds = new Set<string>(channel.leftMemberIds || []);
+        (room.members || [])
+          .filter((m: any) => m.status === "active" && !leftIds.has(m.userId))
+          .forEach((m: any) => memberSet.add(m.userId));
+      }
     }
+
+    return [...memberSet];
   }
 
   async create(createDto: CreateAssignmentDto, userId: string) {
@@ -113,10 +105,14 @@ export class AssignmentsService {
       }
     }
 
+    const rawChannelIds = createDto.channelIds?.length
+      ? createDto.channelIds
+      : (createDto.channelId ? [createDto.channelId] : []);
+
     let finalRecipientMemberIds = createDto.recipientMemberIds || [];
     if (createDto.recipientType === "current_members") {
-      // Snapshot thành viên của KÊNH được chọn (không phải toàn bộ phòng)
-      finalRecipientMemberIds = await this.getChannelMemberSnapshot(createDto.roomId, createDto.channelId);
+      // Snapshot thành viên của TẤT CẢ KÊNH được chọn (không trùng lặp)
+      finalRecipientMemberIds = await this.getMultiChannelMemberSnapshot(createDto.roomId, rawChannelIds);
     }
 
     // Tiêu đề mặc định cho bản nháp
@@ -131,6 +127,8 @@ export class AssignmentsService {
     const assignment = new this.assignmentModel({
       ...createDto,
       title: finalTitle,
+      channelId: rawChannelIds[0] || "",
+      channelIds: rawChannelIds,
       recipientMemberIds: finalRecipientMemberIds,
       createdBy: userId,
     });
@@ -173,10 +171,18 @@ export class AssignmentsService {
       }
     }
 
+    const rawChannelIds = updateDto.channelIds?.length
+      ? updateDto.channelIds
+      : (updateDto.channelId ? [updateDto.channelId] : (assignment.channelIds?.length ? assignment.channelIds : (assignment.channelId ? [assignment.channelId] : [])));
+
+    if (updateDto.channelIds || updateDto.channelId) {
+      assignment.channelIds = rawChannelIds;
+      assignment.channelId = rawChannelIds[0] || "";
+    }
+
     if (updateDto.recipientType === "current_members") {
-      // Snapshot thành viên của kênh (channelId có thể đã bị thay đổi bởi updateDto)
-      const effectiveChannelId = (updateDto.channelId || assignment.channelId)?.toString();
-      assignment.recipientMemberIds = await this.getChannelMemberSnapshot(assignment.roomId, effectiveChannelId);
+      // Snapshot thành viên của tất cả các kênh được chọn
+      assignment.recipientMemberIds = await this.getMultiChannelMemberSnapshot(assignment.roomId, rawChannelIds);
     }
 
     // Validation: loại bỏ người tạo/cập nhật nhiệm vụ khỏi danh sách người nhận
@@ -268,10 +274,11 @@ export class AssignmentsService {
         return item.recipientMemberIds?.includes(userId) ?? false;
       }
 
-      // Loại dynamic: check channel membership tại thời điểm xem
+      // Loại dynamic: check channel membership tại thời điểm xem đối với các kênh được chọn
       // Thành viên mới vào kênh sau sẽ thấy các nhiệm vụ loại này
       if (rType === "current_and_future_members" || rType === "all_current_and_future") {
-        return room ? this.isUserInChannel(room, item.channelId?.toString(), userId) : false;
+        const itemChannelIds = item.channelIds?.length ? item.channelIds : (item.channelId ? [item.channelId] : []);
+        return room ? this.isUserInAnyChannel(room, itemChannelIds, userId) : false;
       }
 
       return false; // fallback an toàn
@@ -312,7 +319,8 @@ export class AssignmentsService {
         } else {
           // Loại dynamic (current_and_future_members): check channel membership hiện tại
           const room = await this.roomModel.findOne({ _id: assignment.roomId, isDeleted: { $ne: true } });
-          if (!room || !this.isUserInChannel(room, assignment.channelId?.toString(), userId)) {
+          const itemChannelIds = assignment.channelIds?.length ? assignment.channelIds : (assignment.channelId ? [assignment.channelId] : []);
+          if (!room || !this.isUserInAnyChannel(room, itemChannelIds, userId)) {
             throw new ForbiddenException("You do not have access to this assignment's channel");
           }
         }
@@ -346,7 +354,8 @@ export class AssignmentsService {
     } else {
       // Loại dynamic (current_and_future_members): check channel membership hiện tại
       const submitRoom = await this.roomModel.findOne({ _id: assignment.roomId, isDeleted: { $ne: true } });
-      isAudience = submitRoom ? this.isUserInChannel(submitRoom, assignment.channelId?.toString(), userId) : false;
+      const itemChannelIds = assignment.channelIds?.length ? assignment.channelIds : (assignment.channelId ? [assignment.channelId] : []);
+      isAudience = submitRoom ? this.isUserInAnyChannel(submitRoom, itemChannelIds, userId) : false;
     }
 
     if (!isAudience) {

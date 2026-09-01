@@ -14,8 +14,11 @@ export class Assignment {
   @Prop({ required: true, index: true })
   roomId: string;
 
-  @Prop({ required: true, index: true })
-  channelId: string;
+  @Prop({ required: false, index: true })
+  channelId?: string;
+
+  @Prop({ type: [String], default: [], index: true })
+  channelIds: string[];
 
   @Prop({ required: false })
   deadline?: Date;

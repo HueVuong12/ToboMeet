@@ -12,6 +12,7 @@ export interface Assignment {
   description: string;
   roomId: string;
   channelId: string;
+  channelIds?: string[];
   deadline: string;
   submissionPolicy: "allow_late" | "lock_after_deadline";
   recipientType: "all_current_and_future" | "specific_members";
