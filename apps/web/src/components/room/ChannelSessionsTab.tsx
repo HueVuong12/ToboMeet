@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
+import ExportAttendanceModal, { ExportMode } from "./ExportAttendanceModal";
 
 interface ChannelSessionsTabProps {
   roomId: string;
@@ -443,9 +444,17 @@ function SessionDetailView({
     sessionId: session._id,
   });
 
+  const locale = useLocale();
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = async ({
+    lang,
+    mode,
+  }: {
+    lang: string;
+    mode: ExportMode;
+  }) => {
     if (isExporting) return;
     setIsExporting(true);
     const toastId = toast.loading(
@@ -453,7 +462,7 @@ function SessionDetailView({
     );
     try {
       const response = await axios.get(
-        `/api/meetings/${session.meetingCode}/attendance/export?sessionId=${session._id}`,
+        `/api/meetings/${session.meetingCode}/attendance/export?sessionId=${session._id}&lang=${lang}&mode=${mode}`,
         { responseType: "blob" },
       );
 
@@ -462,7 +471,7 @@ function SessionDetailView({
       });
 
       const contentDisposition = response.headers["content-disposition"];
-      let fileName = `diem-danh-${session.meetingCode}-${session._id.slice(-6)}.xlsx`;
+      let fileName = `diem-danh-${session.meetingCode}-${session._id.slice(-6)}-${mode}.xlsx`;
       if (contentDisposition) {
         const match = contentDisposition.match(
           /filename\*?=(?:UTF-8'')?([^;]+)/i,
@@ -486,6 +495,7 @@ function SessionDetailView({
         }),
         { id: toastId },
       );
+      setShowExportModal(false);
     } catch (error) {
       console.error("Export Excel error:", error);
       toast.error(
@@ -610,7 +620,7 @@ function SessionDetailView({
                 {t("session_records_count", { count: attendanceList.length })}
               </span>
               <button
-                onClick={handleExportExcel}
+                onClick={() => setShowExportModal(true)}
                 disabled={isExporting || attendanceList.length === 0}
                 className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                 title={t("session_export_excel", { defaultValue: "Xuất Excel" })}
@@ -705,6 +715,15 @@ function SessionDetailView({
           )}
         </div>
       </div>
+
+      {/* Modal tùy chỉnh xuất Excel */}
+      <ExportAttendanceModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onConfirm={handleExportExcel}
+        isExporting={isExporting}
+        defaultLang={locale}
+      />
     </div>
   );
 }

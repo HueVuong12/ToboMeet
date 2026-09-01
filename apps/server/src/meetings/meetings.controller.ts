@@ -393,12 +393,18 @@ export class MeetingsController {
   async exportAttendanceExcel(
     @Param("code") meetingCode: string,
     @Query("sessionId") sessionId: string | undefined,
+    @Query("lang") lang: string | undefined,
+    @Query("mode") mode: "detailed" | "minimal" | "summary" | undefined,
     @Res() res: Response,
   ) {
+    const validMode =
+      mode === "minimal" || mode === "summary" ? "minimal" : "detailed";
     const { buffer, fileName } =
       await this.attendanceService.exportAttendanceExcel(
         meetingCode,
         sessionId,
+        lang || "vi",
+        validMode,
       );
 
     const safeFilename = encodeURIComponent(fileName);

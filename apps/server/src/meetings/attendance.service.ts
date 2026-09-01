@@ -14,6 +14,10 @@ import {
     MeetingSessionDocument,
 } from "./schemas/meeting-session.schema";
 import * as ExcelJS from 'exceljs';
+import {
+    getAttendanceExportDict,
+    formatExportDuration,
+} from "./i18n/attendance-export.i18n";
 
 const formatDate = (dateInput?: Date): string => {
     if (!dateInput) return '-';
@@ -222,53 +226,122 @@ export class AttendanceService {
         }));
     }
 
-    async generateAttendanceExcel(attendances: AttendanceDocument[]): Promise<Buffer> {
+    async generateAttendanceExcel(
+        attendances: AttendanceDocument[],
+        lang: string = 'vi',
+        mode: 'detailed' | 'minimal' | 'summary' = 'detailed',
+    ): Promise<Buffer> {
+        const dict = getAttendanceExportDict(lang);
         const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Lịch sử vào ra');
 
-        // Khai báo cột cố định
-        sheet.columns = [
-            { header: 'STT', key: 'stt', width: 5 },
-            { header: 'Tên', key: 'name', width: 25 },
-            { header: 'Tổng thời gian', key: 'total', width: 15 },
-            { header: 'Lượt', key: 'visitIndex', width: 10 },
-            { header: 'Vào', key: 'join', width: 20 },
-            { header: 'Ra', key: 'leave', width: 20 },
-            { header: 'Thời lượng lượt', key: 'duration', width: 15 },
-        ];
+        const isMinimal = mode === 'minimal' || mode === 'summary';
+        const sheetTitle = isMinimal ? dict.sheetNameMinimal : dict.sheetNameDetailed;
+        const sheet = workbook.addWorksheet(sheetTitle);
 
-        let stt = 1;
+        if (isMinimal) {
+            // Chế độ tối giản: STT, Tên, Vào đầu tiên, Ra cuối cùng, Tổng thời gian, Số lượt
+            sheet.columns = [
+                { header: dict.headers.stt, key: 'stt', width: 8 },
+                { header: dict.headers.displayName, key: 'name', width: 28 },
+                { header: dict.headers.firstJoinedAt, key: 'firstJoined', width: 24 },
+                { header: dict.headers.lastLeftAt, key: 'lastLeft', width: 24 },
+                { header: dict.headers.totalDuration, key: 'total', width: 20 },
+                { header: dict.headers.visitCount, key: 'visitCount', width: 14 },
+            ];
 
-        attendances.forEach((record) => {
-            const totalMinutes = Math.round(record.totalDurationSeconds / 60);
+            attendances.forEach((record, index) => {
+                const visits = record.visits || [];
+                const firstJoined = visits.length > 0 ? formatDate(visits[0].joinedAt) : '-';
+                let lastLeft = '-';
+                if (visits.length > 0) {
+                    const lastVisit = visits[visits.length - 1];
+                    lastLeft = lastVisit.leftAt ? formatDate(lastVisit.leftAt) : dict.values.inCall;
+                }
 
-            if (record.visits && record.visits.length > 0) {
-                record.visits.forEach((visit, index) => {
-                    sheet.addRow({
-                        stt: index === 0 ? stt : '',
-                        name: record.displayName || 'Khách',
-                        total: index === 0 ? `${totalMinutes} phút` : '',
-                        visitIndex: index + 1,
-                        join: formatDate(visit.joinedAt),
-                        leave: visit.leftAt ? formatDate(visit.leftAt) : '_',
-                        duration: `${Math.round(visit.durationSeconds / 60)} phút`,
-                    });
-                });
-            } else {
                 sheet.addRow({
-                    stt: stt,
-                    name: record.displayName || 'Khách',
-                    total: '0 phút',
-                    visitIndex: 'Không có',
-                    join: '-', leave: '-', duration: '-'
+                    stt: index + 1,
+                    name: record.displayName || dict.values.guest,
+                    firstJoined,
+                    lastLeft,
+                    total: formatExportDuration(record.totalDurationSeconds, dict),
+                    visitCount: visits.length,
+                });
+            });
+        } else {
+            // Chế độ chi tiết: STT, Tên, Tổng thời gian, Lượt, Vào, Ra, Thời lượng lượt
+            sheet.columns = [
+                { header: dict.headers.stt, key: 'stt', width: 8 },
+                { header: dict.headers.displayName, key: 'name', width: 28 },
+                { header: dict.headers.totalDuration, key: 'total', width: 20 },
+                { header: dict.headers.visitIndex, key: 'visitIndex', width: 10 },
+                { header: dict.headers.joinedAt, key: 'join', width: 24 },
+                { header: dict.headers.leftAt, key: 'leave', width: 24 },
+                { header: dict.headers.visitDuration, key: 'duration', width: 20 },
+            ];
+
+            let stt = 1;
+
+            attendances.forEach((record) => {
+                const visits = record.visits || [];
+                if (visits.length > 0) {
+                    visits.forEach((visit, index) => {
+                        sheet.addRow({
+                            stt: index === 0 ? stt : '',
+                            name: record.displayName || dict.values.guest,
+                            total: index === 0 ? formatExportDuration(record.totalDurationSeconds, dict) : '',
+                            visitIndex: index + 1,
+                            join: formatDate(visit.joinedAt),
+                            leave: visit.leftAt ? formatDate(visit.leftAt) : dict.values.inCall,
+                            duration: formatExportDuration(visit.durationSeconds, dict),
+                        });
+                    });
+                } else {
+                    sheet.addRow({
+                        stt: stt,
+                        name: record.displayName || dict.values.guest,
+                        total: `0 ${dict.values.minutesUnit}`,
+                        visitIndex: dict.values.none,
+                        join: '-',
+                        leave: '-',
+                        duration: '-',
+                    });
+                }
+
+                stt++; // Sang user tiếp theo
+            });
+        }
+
+        // Định dạng Header sang trọng
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1E40AF' }, // Dark Blue #1E40AF
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+        headerRow.height = 28;
+
+        // Định dạng viền và căn chỉnh cho toàn bộ các dòng dữ liệu
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                row.height = 22;
+                row.eachCell((cell, colNumber) => {
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    };
+                    // Cột Tên (cột 2) căn trái, còn lại căn giữa
+                    if (colNumber === 2) {
+                        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                    } else {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
                 });
             }
-
-            stt++; // Sang user tiếp theo
         });
-
-        // Bôi màu Header cho đẹp
-        sheet.getRow(1).font = { bold: true };
 
         const excelData = await workbook.xlsx.writeBuffer();
         return Buffer.from(excelData);
@@ -299,6 +372,8 @@ export class AttendanceService {
     async exportAttendanceExcel(
         meetingCode: string,
         sessionId?: string,
+        lang: string = 'vi',
+        mode: 'detailed' | 'minimal' | 'summary' = 'detailed',
     ): Promise<{ buffer: Buffer; fileName: string }> {
         let targetSessionId = sessionId;
 
@@ -338,8 +413,11 @@ export class AttendanceService {
             }
         }
 
-        const buffer = await this.generateAttendanceExcel(allAttendances);
-        const fileName = `diem-danh-${meetingCode}-${targetSessionId.slice(-6)}.xlsx`;
+        const dict = getAttendanceExportDict(lang);
+        const buffer = await this.generateAttendanceExcel(allAttendances, lang, mode);
+        const isMinimal = mode === 'minimal' || mode === 'summary';
+        const modeSuffix = isMinimal ? 'summary' : 'detailed';
+        const fileName = `${dict.fileNamePrefix}-${meetingCode}-${targetSessionId.slice(-6)}-${modeSuffix}.xlsx`;
 
         return { buffer, fileName };
     }
