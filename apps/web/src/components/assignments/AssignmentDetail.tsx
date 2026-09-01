@@ -330,6 +330,8 @@ export default function AssignmentDetail({
   };
 
   const isOverdue = assignment.deadline ? new Date() > new Date(assignment.deadline) : false;
+  // Nhiệm vụ bị khóa nộp: hết hạn VÀ chính sách là khóa sau deadline
+  const isLocked = isOverdue && assignment.submissionPolicy === "lock_after_deadline";
 
   // 1. TRƯỞNG NHÓM VIEW (GIỮ NGUYÊN KHÔNG ĐƯỢC CHỈNH SỬA)
   if (isTeacher) {
@@ -544,17 +546,17 @@ export default function AssignmentDetail({
           </div>
         )}
 
-        {/* Overdue warning for student when not submitted */}
-        {!submission && isOverdue && (
-          <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm font-semibold flex items-center gap-2">
-            <Clock size={16} />
-            <span>{getRemainingOrOverdueText(assignment.deadline)}</span>
-          </div>
-        )}
+
 
         {/* Action Button for Member */}
-        <div className="flex gap-3">
-          {!submission ? (
+        <div className="flex gap-3 flex-wrap">
+          {isLocked ? (
+            /* Nhiệm vụ đã khóa — không cho nộp/sửa bài mới */
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-semibold">
+              <Lock size={14} />
+              <span>Đã hết hạn nộp bài — Nhiệm vụ đã bị khóa</span>
+            </div>
+          ) : !submission ? (
             <button
               onClick={() => setIsFormOpen(!isFormOpen)}
               className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-1.5"
@@ -563,6 +565,7 @@ export default function AssignmentDetail({
             </button>
           ) : (
             <>
+              {/* Chỉ cho sửa/xóa khi chưa bị khóa */}
               <button
                 onClick={() => setIsFormOpen(true)}
                 className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200"

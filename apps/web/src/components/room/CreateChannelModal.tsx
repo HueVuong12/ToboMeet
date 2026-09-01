@@ -126,7 +126,7 @@ export default function CreateChannelModal({
               value={channelName}
               onChange={(e) => setChannelName(e.target.value)}
               placeholder={t("channel_name_placeholder", {
-                defaultValue: "Ví dụ: NodeJS, ReactJS, Bài tập...",
+                defaultValue: "Ví dụ: NodeJS, ReactJS, Nhiệm vụ...",
               })}
               maxLength={30}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 text-base font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"

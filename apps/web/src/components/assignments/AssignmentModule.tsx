@@ -255,6 +255,7 @@ export default function AssignmentModule({
           roomId={roomId}
           channels={channels}
           roomMembers={roomMembers}
+          userId={userId}
           assignmentToEdit={view === "edit" ? selectedAssignment || undefined : undefined}
           onBack={() => {
             setView("list");

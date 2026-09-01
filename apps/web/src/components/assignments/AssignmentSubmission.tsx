@@ -113,7 +113,7 @@ export default function AssignmentSubmission({
         <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex flex-col items-center text-center gap-1">
           <Clock size={20} className="text-red-500" />
           <span className="text-xs text-red-600 font-bold">Đã hết hạn nộp bài</span>
-          <span className="text-[10px] text-red-400">Bài tập đã bị khóa và không chấp nhận bài nộp mới</span>
+          <span className="text-[10px] text-red-400">Nhiệm vụ đã bị khóa và không chấp nhận bài nộp mới</span>
         </div>
       )}
 

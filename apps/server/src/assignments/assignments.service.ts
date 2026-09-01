@@ -37,6 +37,63 @@ export class AssignmentsService {
     return { isOwnerOrAdmin: !!isOwnerOrAdmin, isMember };
   }
 
+  /**
+   * Kiểm tra user có quyền truy cập vào một kênh cụ thể trong phòng hay không.
+   * - Kênh công khai (public): user hợp lệ nếu KHÔNG có trong leftMemberIds[]
+   * - Kênh riêng tư (private): user hợp lệ nếu CÓ trong channel.members[]
+   * - Owner phòng: luôn hợp lệ với mọi kênh
+   */
+  private isUserInChannel(room: RoomDocument, channelId: string, userId: string): boolean {
+    // Owner phòng luôn có quyền truy cập mọi kênh
+    if (room.ownerId === userId) return true;
+
+    // Tìm kênh trong room.channels theo channelId
+    const channel = room.channels?.find(
+      (c: any) => c._id?.toString() === channelId,
+    );
+
+    // Kênh không tồn tại (đã bị xóa hoặc ID không hợp lệ) → từ chối truy cập
+    if (!channel) return false;
+
+    if (channel.isPrivate) {
+      // Kênh riêng tư: user phải có mặt trong channel.members[]
+      return channel.members?.some((m: any) => m.userId === userId) ?? false;
+    } else {
+      // Kênh công khai: user là thành viên trừ khi đã rời kênh (leftMemberIds)
+      return !(channel.leftMemberIds?.includes(userId) ?? false);
+    }
+  }
+
+  /**
+   * Lấy snapshot danh sách userId của tất cả thành viên thuộc một kênh cụ thể tại thời điểm hiện tại.
+   * Dùng khi tạo/cập nhật nhiệm vụ với recipientType = "current_members".
+   * - Kênh công khai: room members đang active và chưa rời kênh
+   * - Kênh riêng tư: chỉ những ai được thêm tường minh vào channel.members[]
+   * - Owner phòng luôn được include
+   */
+  private async getChannelMemberSnapshot(roomId: string, channelId: string): Promise<string[]> {
+    const room = await this.roomModel.findOne({ _id: roomId });
+    if (!room) return [];
+
+    const channel = room.channels?.find((c: any) => c._id?.toString() === channelId);
+    if (!channel) return [];
+
+    const ownerSet = new Set<string>([room.ownerId]);
+
+    if (channel.isPrivate) {
+      // Kênh riêng tư: lấy danh sách thành viên tường minh
+      const memberIds = (channel.members || []).map((m: any) => m.userId);
+      return [...new Set([...ownerSet, ...memberIds])];
+    } else {
+      // Kênh công khai: lấy room members đang active và CHƯA rời kênh
+      const leftIds = new Set<string>(channel.leftMemberIds || []);
+      const activeIds = (room.members || [])
+        .filter((m: any) => m.status === "active" && !leftIds.has(m.userId))
+        .map((m: any) => m.userId);
+      return [...new Set([...ownerSet, ...activeIds])];
+    }
+  }
+
   async create(createDto: CreateAssignmentDto, userId: string) {
     const { isOwnerOrAdmin } = await this.verifyUserRole(createDto.roomId, userId);
     if (!isOwnerOrAdmin) {
@@ -58,16 +115,18 @@ export class AssignmentsService {
 
     let finalRecipientMemberIds = createDto.recipientMemberIds || [];
     if (createDto.recipientType === "current_members") {
-      const room = await this.roomModel.findOne({ _id: createDto.roomId });
-      if (room && room.members) {
-        finalRecipientMemberIds = room.members
-          .filter((m: RoomMember) => m.status === "active")
-          .map((m: RoomMember) => m.userId);
-      }
+      // Snapshot thành viên của KÊNH được chọn (không phải toàn bộ phòng)
+      finalRecipientMemberIds = await this.getChannelMemberSnapshot(createDto.roomId, createDto.channelId);
     }
 
     // Tiêu đề mặc định cho bản nháp
     const finalTitle = createDto.title?.trim() || "Untitled Draft";
+
+    // Validation: loại bỏ người tạo nhiệm vụ khỏi danh sách người nhận
+    // (người tạo không được giao nhiệm vụ cho chính mình)
+    if (finalRecipientMemberIds.length > 0) {
+      finalRecipientMemberIds = finalRecipientMemberIds.filter((id) => id !== userId);
+    }
 
     const assignment = new this.assignmentModel({
       ...createDto,
@@ -115,12 +174,14 @@ export class AssignmentsService {
     }
 
     if (updateDto.recipientType === "current_members") {
-      const room = await this.roomModel.findOne({ _id: assignment.roomId });
-      if (room && room.members) {
-        assignment.recipientMemberIds = room.members
-          .filter((m: RoomMember) => m.status === "active")
-          .map((m: RoomMember) => m.userId);
-      }
+      // Snapshot thành viên của kênh (channelId có thể đã bị thay đổi bởi updateDto)
+      const effectiveChannelId = (updateDto.channelId || assignment.channelId)?.toString();
+      assignment.recipientMemberIds = await this.getChannelMemberSnapshot(assignment.roomId, effectiveChannelId);
+    }
+
+    // Validation: loại bỏ người tạo/cập nhật nhiệm vụ khỏi danh sách người nhận
+    if (assignment.recipientMemberIds?.length > 0) {
+      assignment.recipientMemberIds = assignment.recipientMemberIds.filter((id: string) => id !== userId);
     }
 
     const saved = await assignment.save();
@@ -195,11 +256,25 @@ export class AssignmentsService {
 
     const mySubmissionsMap = new Map(userSubmissions.map(s => [s.assignmentId.toString(), s]));
 
+    // Load room để check channel membership cho nhiệm vụ loại current_and_future_members
+    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+
     const filtered = assignments.filter(item => {
-      if (item.recipientType === "current_and_future_members" || item.recipientType === "all_current_and_future") {
-        return true;
+      const rType = item.recipientType;
+
+      // Loại snapshot: chỉ check recipientMemberIds đã chốt tại thời điểm giao
+      // KHÔNG check channel membership hiện tại — thành viên cũ bị xóa vẫn thấy, thành viên mới KHÔNG thấy
+      if (rType === "current_members" || rType === "specific_members") {
+        return item.recipientMemberIds?.includes(userId) ?? false;
       }
-      return item.recipientMemberIds?.includes(userId);
+
+      // Loại dynamic: check channel membership tại thời điểm xem
+      // Thành viên mới vào kênh sau sẽ thấy các nhiệm vụ loại này
+      if (rType === "current_and_future_members" || rType === "all_current_and_future") {
+        return room ? this.isUserInChannel(room, item.channelId?.toString(), userId) : false;
+      }
+
+      return false; // fallback an toàn
     });
 
     return filtered.map(item => {
@@ -227,13 +302,19 @@ export class AssignmentsService {
     } else {
       // Học viên truy cập trực tiếp bằng ID qua URL / API
       if (!isOwnerOrAdmin) {
-        const isAudience =
-          assignment.recipientType === "current_and_future_members" ||
-          assignment.recipientType === "all_current_and_future" ||
-          assignment.recipientMemberIds?.includes(userId);
+        const rType = assignment.recipientType;
 
-        if (!isAudience) {
-          throw new ForbiddenException("You are not assigned to this assignment");
+        if (rType === "current_members" || rType === "specific_members") {
+          // Loại snapshot: chỉ check danh sách đã chốt, không check channel membership hiện tại
+          if (!assignment.recipientMemberIds?.includes(userId)) {
+            throw new ForbiddenException("You are not assigned to this assignment");
+          }
+        } else {
+          // Loại dynamic (current_and_future_members): check channel membership hiện tại
+          const room = await this.roomModel.findOne({ _id: assignment.roomId, isDeleted: { $ne: true } });
+          if (!room || !this.isUserInChannel(room, assignment.channelId?.toString(), userId)) {
+            throw new ForbiddenException("You do not have access to this assignment's channel");
+          }
         }
       }
     }
@@ -256,11 +337,17 @@ export class AssignmentsService {
       throw new ForbiddenException("You are not a member of this room");
     }
 
-    // Check recipients
-    const isAudience =
-      assignment.recipientType === "current_and_future_members" ||
-      assignment.recipientType === "all_current_and_future" ||
-      assignment.recipientMemberIds?.includes(userId);
+    // Check recipients — phân biệt snapshot vs dynamic
+    const rType = assignment.recipientType;
+    let isAudience: boolean;
+    if (rType === "current_members" || rType === "specific_members") {
+      // Loại snapshot: chỉ check danh sách đã chốt lúc giao nhiệm vụ
+      isAudience = assignment.recipientMemberIds?.includes(userId) ?? false;
+    } else {
+      // Loại dynamic (current_and_future_members): check channel membership hiện tại
+      const submitRoom = await this.roomModel.findOne({ _id: assignment.roomId, isDeleted: { $ne: true } });
+      isAudience = submitRoom ? this.isUserInChannel(submitRoom, assignment.channelId?.toString(), userId) : false;
+    }
 
     if (!isAudience) {
       throw new ForbiddenException("You are not assigned to this assignment");

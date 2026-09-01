@@ -414,7 +414,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* BÀI TẬP */}
+      {/* NHIỆM VỤ */}
       <div className="px-2 pt-3 pb-1 border-b border-slate-200">
         <button
           onClick={() => {

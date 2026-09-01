@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Assignment } from "./types";
-import { ArrowLeft, Save, Send, Upload, X, Trash2, Calendar, File } from "lucide-react";
+import { ArrowLeft, Save, Send, Upload, X, Trash2, Calendar, File, Search } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -9,6 +9,7 @@ interface AssignmentCreateProps {
   roomId: string;
   channels: any[];
   roomMembers: any[];
+  userId: string;
   assignmentToEdit?: Assignment;
   onBack: () => void;
   onSubmit: (data: any) => Promise<void>;
@@ -19,6 +20,7 @@ export default function AssignmentCreate({
   roomId,
   channels,
   roomMembers,
+  userId,
   assignmentToEdit,
   onBack,
   onSubmit,
@@ -62,6 +64,46 @@ export default function AssignmentCreate({
 
   const [attachments, setAttachments] = useState<any[]>(assignmentToEdit?.attachments || []);
   const [isUploading, setIsUploading] = useState(false);
+
+  // State tìm kiếm thành viên (chỉ dùng cho specific_members)
+  const [searchMember, setSearchMember] = useState("");
+
+  /**
+   * Lấy danh sách thành viên của kênh đang chọn.
+   * - Kênh public: tất cả roomMembers chưa rời kênh (leftMemberIds)
+   * - Kênh private: chỉ những ai có trong channel.members[]
+   * Logic mirrors backend getChannelMemberSnapshot nhưng chạy client-side.
+   */
+  const channelMembers = useMemo(() => {
+    const selectedChannel = channels.find((ch: any) => ch._id === channelId);
+    if (!selectedChannel) return [];
+
+    let members: any[];
+    if (selectedChannel.isPrivate) {
+      // Kênh riêng tư: chỉ thành viên trong channel.members[]
+      const channelMemberIds = new Set<string>(
+        (selectedChannel.members || []).map((m: any) => m.userId)
+      );
+      members = roomMembers.filter((m: any) => channelMemberIds.has(m.userId));
+    } else {
+      // Kênh công khai: roomMembers trừ những ai đã rời kênh
+      const leftIds = new Set<string>(selectedChannel.leftMemberIds || []);
+      members = roomMembers.filter((m: any) => !leftIds.has(m.userId));
+    }
+
+    // Loại bỏ người đang đăng nhập (người tạo nhiệm vụ) khỏi danh sách
+    return members.filter((m: any) => m.userId !== userId);
+  }, [channels, channelId, roomMembers, userId]);
+
+  // Danh sách hiển thị sau khi lọc theo từ khóa tìm kiếm
+  const filteredChannelMembers = useMemo(() => {
+    if (!searchMember.trim()) return channelMembers;
+    const keyword = searchMember.trim().toLowerCase();
+    return channelMembers.filter((m: any) =>
+      (m.displayName || m.userId || "").toLowerCase().includes(keyword)
+    );
+  }, [channelMembers, searchMember]);
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -305,7 +347,11 @@ export default function AssignmentCreate({
                 <label className="text-xs font-bold text-slate-700">{t("field_channel")} *</label>
                 <select
                   value={channelId}
-                  onChange={(e) => setChannelId(e.target.value)}
+                  onChange={(e) => {
+                    setChannelId(e.target.value);
+                    // Reset search khi đổi kênh
+                    setSearchMember("");
+                  }}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 bg-white"
                 >
                   {channels.map((ch) => (
@@ -334,25 +380,74 @@ export default function AssignmentCreate({
               {recipientType === "specific_members" && (
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-700">{t("select_members")}</label>
-                  <div className="border border-slate-200 rounded-xl p-2 max-h-40 overflow-y-auto flex flex-col gap-1">
-                    {roomMembers
-                      .filter((m) => m.userId !== roomMembers[0]?.userId) // Giao cho học viên
-                      .map((m) => {
+
+                  {/* Ô tìm kiếm */}
+                  <div className="relative">
+                    <Search
+                      size={13}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      value={searchMember}
+                      onChange={(e) => setSearchMember(e.target.value)}
+                      placeholder="Tìm kiếm thành viên..."
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                    />
+                    {searchMember && (
+                      <button
+                        onClick={() => setSearchMember("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Danh sách thành viên */}
+                  <div className="border border-slate-200 rounded-xl p-2 max-h-48 overflow-y-auto flex flex-col gap-0.5">
+                    {channelMembers.length === 0 ? (
+                      /* Kênh chưa có thành viên */
+                      <p className="text-xs text-slate-400 text-center py-3">
+                        Kênh này chưa có thành viên
+                      </p>
+                    ) : filteredChannelMembers.length === 0 ? (
+                      /* Tìm không thấy */
+                      <p className="text-xs text-slate-400 text-center py-3">
+                        Không tìm thấy thành viên phù hợp
+                      </p>
+                    ) : (
+                      filteredChannelMembers.map((m: any) => {
                         const isSelected = recipientMemberIds.includes(m.userId);
                         return (
                           <div
                             key={m.userId}
                             onClick={() => toggleRecipientMember(m.userId)}
                             className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs transition-colors ${
-                              isSelected ? "bg-brand-50 text-brand-600 font-semibold" : "hover:bg-slate-50"
+                              isSelected
+                                ? "bg-brand-50 text-brand-600 font-semibold"
+                                : "hover:bg-slate-50 text-slate-700"
                             }`}
                           >
                             <span>{m.displayName || m.userId}</span>
-                            <input type="checkbox" checked={isSelected} readOnly className="pointer-events-none" />
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="pointer-events-none accent-brand-600"
+                            />
                           </div>
                         );
-                      })}
+                      })
+                    )}
                   </div>
+
+                  {/* Đã chọn bao nhiêu */}
+                  {recipientMemberIds.length > 0 && (
+                    <p className="text-[10px] text-slate-500">
+                      Đã chọn {recipientMemberIds.length} thành viên
+                    </p>
+                  )}
                 </div>
               )}
             </div>

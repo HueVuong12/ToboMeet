@@ -367,7 +367,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                   className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-bold transition-all shadow-sm mr-1.5"
                 >
                   <Plus size={16} />
-                  <span>Tạo bài tập</span>
+                  <span>Tạo nhiệm vụ</span>
                 </button>
               )}
 
