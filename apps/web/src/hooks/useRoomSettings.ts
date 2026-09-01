@@ -37,7 +37,8 @@ export function useRoomSettings({
     LivekitBreakoutRoom[]
   >([]);
   const [isBreakoutActive, setIsBreakoutActive] = useState(false);
-  const [endBreakoutApi] = useEndBreakoutSessionMutation();
+  const [endBreakoutApi, { isLoading: isEndingBreakout }] =
+    useEndBreakoutSessionMutation();
   const [breakoutStartedAt, setBreakoutStartedAt] = useState<number>(0);
   const [breakoutDuration, setBreakoutDuration] = useState<number>(0);
   const [roomName, setRoomName] = useState<string>("");
@@ -97,12 +98,15 @@ export function useRoomSettings({
     }
   }, [roomMetadata]);
 
+  // Thành viên có được phép chat không:
+  // - Nếu bật Chat: ai cũng được chat
+  // - Nếu tắt Chat: chỉ Host (owner/admin) mới được gửi tin nhắn
   const canChat = isChatEnabled || isHost;
 
-  // Toggle Chat
+  // Hàm xử lý bật/tắt Chat
   const handleToggleChat = async () => {
     const newState = !isChatEnabled;
-    setIsChatEnabled(newState);
+    setIsChatEnabled(newState); // Optimistic UI
 
     if (!meetingCode) return;
 
@@ -120,10 +124,10 @@ export function useRoomSettings({
     }
   };
 
-  // Toggle Phòng chờ
+  // Hàm xử lý bật/tắt Phòng chờ
   const handleToggleWaitingRoom = async () => {
     const newState = !isWaitingRoomEnabled;
-    setIsWaitingRoomEnabled(newState);
+    setIsWaitingRoomEnabled(newState); // Optimistic UI
 
     if (!meetingCode) return;
 
@@ -192,6 +196,7 @@ export function useRoomSettings({
     isHost,
     roomType,
     roomName,
+    isEndingBreakout,
 
     handleToggleChat,
     handleToggleWaitingRoom,

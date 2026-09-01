@@ -102,6 +102,7 @@ export default function CustomToolbar({
     approvalPermission,
     breakoutRoomsList,
     roomType,
+    isEndingBreakout,
 
     // Actions
     handleToggleChat,
@@ -374,23 +375,29 @@ export default function CustomToolbar({
                         </div>
                       </div>
                     ) : (
-                      <div
+                      <button
+                        type="button"
+                        disabled={isEndingBreakout}
                         onClick={async (e) => {
                           e.stopPropagation();
                           await handleEndBreakout();
                           setIsMoreMenuOpen(false);
                         }}
-                        className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 flex items-center justify-between transition-colors cursor-pointer"
+                        className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 flex items-center justify-between transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <div className="flex items-center gap-2.5 font-medium">
-                          <Square
-                            size={16}
-                            className="text-red-500"
-                            fill="currentColor"
-                          />
+                          {isEndingBreakout ? (
+                            <Loader2 size={16} className="animate-spin text-red-400" />
+                          ) : (
+                            <Square
+                              size={16}
+                              className="text-red-500"
+                              fill="currentColor"
+                            />
+                          )}
                           <span>{t("end_breakout")}</span>
                         </div>
-                      </div>
+                      </button>
                     )}
 
                     <div

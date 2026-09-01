@@ -684,12 +684,15 @@ export class BreakoutRoomsService {
     const user = await this.userModel.findOne({ supabaseId: userId }).exec();
     const finalDisplayName = user?.displayName || "Người dùng ẩn danh";
 
-    // Sinh token cấp quyền vào lại phòng chính
+    // Sinh token cấp quyền vào lại phòng chính (bỏ qua phòng chờ vì đã có quyền ở trong phiên)
     return this.meetingsService.joinMeeting(
       parentRoomCode,
       userId,
       deviceId,
       finalDisplayName,
+      false, // forceSwitch
+      false, // allowStart
+      true, // skipWaitingRoom
     );
   }
 

@@ -70,6 +70,7 @@ export class MeetingsService {
     displayName?: string,
     forceSwitch = false,
     allowStart = false,
+    skipWaitingRoom = false,
   ): Promise<MeetingJoinResponse> {
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -173,14 +174,14 @@ export class MeetingsService {
 
     // Waiting room logic
     let isWaitingRoomEnabled = false;
-    if (livekitRoom?.metadata) {
+    if (livekitRoom?.metadata && !skipWaitingRoom) {
       try {
         const meta = JSON.parse(livekitRoom.metadata);
         isWaitingRoomEnabled = meta.isWaitingRoomEnabled === true;
       } catch { }
     }
 
-    const isWaiting = isWaitingRoomEnabled && !hasAdminPowers;
+    const isWaiting = !skipWaitingRoom && isWaitingRoomEnabled && !hasAdminPowers;
     const participantStatus = isWaiting ? "waiting" : "joined";
 
     const at = new AccessToken(apiKey, apiSecret, {
