@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -113,9 +114,9 @@ export default function AssignmentComments({
                       </View>
                     )}
                   </View>
-                  {isMine && onDeleteComment && (
+                  {isMine && onDeleteComment && comment._id && (
                     <TouchableOpacity
-                      onPress={() => handleDeleteComment(comment._id)}
+                      onPress={() => handleDeleteComment(comment._id!)}
                       className="p-1 -mr-1 rounded-md"
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >

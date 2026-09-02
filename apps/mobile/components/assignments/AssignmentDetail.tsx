@@ -18,6 +18,8 @@ import { Assignment, Submission, AssignmentCommentItem } from "./types";
 import AssignmentSubmissionModal from "./AssignmentSubmissionModal";
 import { useFileViewer } from "../../hooks/useFileViewer";
 import FileViewerModal from "../common/FileViewerModal";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 
 interface AssignmentDetailProps {
   assignment: Assignment;
@@ -30,6 +32,7 @@ interface AssignmentDetailProps {
   onSubmit: (attachments: any[]) => Promise<void>;
   isSubmitting?: boolean;
   onGradeClick?: () => void;
+  onEditAssignment?: () => void;
   refetchSubmission?: () => void;
   onDeleteSubmission?: () => Promise<void>;
   onDeleteAssignment?: () => Promise<void>;
@@ -48,6 +51,7 @@ export default function AssignmentDetail({
   onSubmit,
   isSubmitting = false,
   onGradeClick,
+  onEditAssignment,
   refetchSubmission,
   onDeleteSubmission,
   onDeleteAssignment,
@@ -60,6 +64,7 @@ export default function AssignmentDetail({
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [downloadingAttName, setDownloadingAttName] = useState<string | null>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const { selectedFile, isVisible: isFileViewerVisible, openFile, closeFile } = useFileViewer();
 
@@ -225,11 +230,46 @@ export default function AssignmentDetail({
 
   const creatorName =
     (roomMembers && roomMembers.find((m) => (m.userId || m.supabaseId) === assignment.createdBy)?.displayName) ||
-    assignment.creatorName ||
+    (assignment as any).creatorName ||
     "";
 
-  const handleOpenAttachment = (att: { name: string; url: string; size?: number; type?: string }) => {
-    openFile(att);
+  const handleDownloadAttachment = async (att: { name: string; url: string; size?: number; type?: string }) => {
+    if (!att.url || downloadingAttName) return;
+    setDownloadingAttName(att.name);
+
+    try {
+      const safeName = (att.name || "file_download").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const localUri = `${FileSystem.documentDirectory}${safeName}`;
+
+      const downloadResult = await FileSystem.downloadAsync(att.url, localUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error("Không thể tải tập tin về thiết bị");
+      }
+
+      if (Sharing && typeof Sharing.isAvailableAsync === "function") {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: att.type || "application/octet-stream",
+            dialogTitle: att.name,
+          });
+          return;
+        }
+      }
+
+      Alert.alert(
+        t("room.notice", { defaultValue: "Thông báo" }),
+        `Đã tải tập tin: ${att.name}`
+      );
+    } catch (err: any) {
+      Alert.alert(
+        t("room.error", { defaultValue: "Lỗi" }),
+        err?.message || "Không thể tải tập tin về thiết bị"
+      );
+    } finally {
+      setDownloadingAttName(null);
+    }
   };
 
   const handleConfirmDeleteSubmission = () => {
@@ -283,6 +323,14 @@ export default function AssignmentDetail({
 
         {isTeacher && (
           <View className="flex-row items-center gap-2">
+            {onEditAssignment && (
+              <TouchableOpacity
+                onPress={onEditAssignment}
+                className="p-2 rounded-xl bg-slate-100 border border-slate-200 active:bg-slate-200"
+              >
+                <Feather name="edit-3" size={16} color="#475569" />
+              </TouchableOpacity>
+            )}
             {onGradeClick && (
               <TouchableOpacity
                 onPress={onGradeClick}
@@ -359,24 +407,32 @@ export default function AssignmentDetail({
           {assignment.attachments && assignment.attachments.length > 0 && (
             <View className="mt-2 pt-3 border-t border-slate-100">
               <Text className="font-bold text-slate-800 text-xs mb-2 uppercase">
-                {t("assignments.attachments_title", { count: assignment.attachments.length })}
+                Tài liệu đính kèm
               </Text>
-              {assignment.attachments.map((att, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() => handleOpenAttachment(att)}
-                  className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl p-3 mb-2"
-                >
-                  <Feather name="file-text" size={18} color="#0052FF" />
-                  <Text
-                    className="font-semibold text-slate-700 text-xs ml-3 flex-1"
-                    numberOfLines={1}
+              {assignment.attachments.map((att, idx) => {
+                const isDownloading = downloadingAttName === att.name;
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => handleDownloadAttachment(att)}
+                    disabled={isDownloading}
+                    className="flex-row items-center bg-slate-50 border border-slate-200 active:bg-slate-100 rounded-xl p-3 mb-2"
                   >
-                    {att.name}
-                  </Text>
-                  <Feather name="download" size={16} color="#64748B" />
-                </TouchableOpacity>
-              ))}
+                    {isDownloading ? (
+                      <ActivityIndicator size="small" color="#0052FF" />
+                    ) : (
+                      <Feather name="file-text" size={18} color="#0052FF" />
+                    )}
+                    <Text
+                      className="font-semibold text-slate-700 text-xs ml-3 flex-1"
+                      numberOfLines={1}
+                    >
+                      {att.name}
+                    </Text>
+                    <Feather name="download" size={16} color={isDownloading ? "#0052FF" : "#64748B"} />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
@@ -417,22 +473,35 @@ export default function AssignmentDetail({
                   </View>
                 </View>
 
-                {submission.attachments?.map((att, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    onPress={() => handleOpenAttachment(att)}
-                    className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl p-3 mb-2"
-                  >
-                    <Feather name="file" size={16} color="#0052FF" />
-                    <Text
-                      className="font-semibold text-slate-700 text-xs ml-2 flex-1"
-                      numberOfLines={1}
+                {submission.attachments?.map((att, idx) => {
+                  const isDownloading = downloadingAttName === att.name;
+                  return (
+                    <View
+                      key={idx}
+                      className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl p-3 mb-2"
                     >
-                      {att.name}
-                    </Text>
-                    <Feather name="external-link" size={14} color="#94A3B8" />
-                  </TouchableOpacity>
-                ))}
+                      {isDownloading ? (
+                        <ActivityIndicator size="small" color="#0052FF" />
+                      ) : (
+                        <Feather name="file" size={16} color="#0052FF" />
+                      )}
+                      <Text
+                        className="font-semibold text-slate-700 text-xs ml-2 flex-1"
+                        numberOfLines={1}
+                      >
+                        {att.name}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleDownloadAttachment(att)}
+                        disabled={isDownloading}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        className="p-1"
+                      >
+                        <Feather name="download" size={15} color={isDownloading ? "#0052FF" : "#64748B"} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
 
                 {submission.feedback ? (
                   <View className="mt-3 bg-purple-50 border border-purple-200 p-3 rounded-xl">
@@ -587,9 +656,9 @@ export default function AssignmentDetail({
                             <Text className="font-bold text-xs text-slate-800">
                               {comment.userName}
                             </Text>
-                            {comment.userId === userId && onDeleteComment && (
+                            {comment.userId === userId && onDeleteComment && comment._id && (
                               <TouchableOpacity
-                                onPress={() => handleDeleteCommentClick(comment._id)}
+                                onPress={() => handleDeleteCommentClick(comment._id!)}
                                 className="p-1 -mr-1 rounded-md"
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               >

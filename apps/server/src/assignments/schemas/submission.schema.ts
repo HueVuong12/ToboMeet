@@ -35,15 +35,15 @@ export class AssignmentSubmission {
     uploadedAt?: Date;
   }[];
 
-  @Prop({ required: true })
-  submittedAt: Date;
+  @Prop({ required: false })
+  submittedAt?: Date;
 
   @Prop({
-    required: true,
-    enum: ["on_time", "late"],
-    default: "on_time",
+    required: false,
+    enum: ["on_time", "late", "not_submitted"],
+    default: "not_submitted",
   })
-  submissionStatus: string;
+  submissionStatus?: string;
 
   @Prop({ type: Number, default: 0 })
   lateMinutes: number;

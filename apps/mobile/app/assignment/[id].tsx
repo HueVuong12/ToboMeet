@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../lib/redux/store";
 import {
   assignmentsApi,
   useGetAssignmentDetailQuery,
@@ -22,7 +23,7 @@ import AssignmentDetail from "../../components/assignments/AssignmentDetail";
 import AssignmentGrading from "../../components/assignments/AssignmentGrading";
 
 export default function AssignmentDetailScreen() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { t } = useTranslation();
   const router = useRouter();
   const { id, roomId: paramRoomId } = useLocalSearchParams<{ id: string; roomId?: string }>();

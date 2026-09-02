@@ -67,15 +67,22 @@ export const assignmentsApi = baseApi.injectEndpoints({
         { type: "Submissions", id: `MY_${assignmentId}` },
       ],
     }),
-    gradeSubmission: builder.mutation<any, { submissionId: string; body: any; assignmentId: string }>({
-      query: ({ submissionId, body }) => ({
-        url: `/assignments/submissions/${submissionId}/grade`,
+    gradeSubmission: builder.mutation<
+      any,
+      { submissionId?: string; studentId?: string; body: any; assignmentId: string }
+    >({
+      query: ({ submissionId, studentId, body, assignmentId }) => ({
+        url: submissionId
+          ? `/assignments/submissions/${submissionId}/grade`
+          : `/assignments/${assignmentId}/students/${studentId}/grade`,
         method: "POST",
         data: body,
       }),
       invalidatesTags: (result, error, { assignmentId }) => [
         { type: "Submissions", id: "LIST" },
         { type: "Submissions", id: `MY_${assignmentId}` },
+        { type: "Assignments", id: "LIST" },
+        { type: "Assignments", id: assignmentId },
       ],
     }),
     deleteSubmission: builder.mutation<any, string>({

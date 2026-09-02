@@ -14,6 +14,9 @@ import { RoomMember } from "../rooms/schemas/room-member.schema";
 import { Channel } from "../rooms/schemas/channel.schema";
 import { ChannelMember } from "../rooms/schemas/channel-member.schema";
 import { UsersService } from "../users/users.service";
+import { RoomMemberService } from "../rooms/room-member.service";
+import { Workbook } from "exceljs";
+import type { Response } from "express";
 
 @Injectable()
 export class AssignmentsService {
@@ -25,6 +28,7 @@ export class AssignmentsService {
     private roomsService: RoomsService,
     private assignmentsGateway: AssignmentsGateway,
     private usersService: UsersService,
+    private roomMemberService: RoomMemberService,
   ) {}
 
   private async verifyUserRole(roomId: string, userId: string): Promise<{ isOwnerOrAdmin: boolean; isMember: boolean }> {
@@ -487,6 +491,50 @@ export class AssignmentsService {
     return saved;
   }
 
+  async gradeStudent(assignmentId: string, studentId: string, gradeDto: GradeSubmissionDto, userId: string) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) {
+      throw new NotFoundException("Assignment not found");
+    }
+
+    const { isOwnerOrAdmin } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isOwnerOrAdmin) {
+      throw new ForbiddenException("Only teachers can grade submissions");
+    }
+
+    // Validate score
+    if (assignment.gradingType === "graded" && gradeDto.score !== undefined) {
+      if (gradeDto.score < 0 || (assignment.maxScore !== undefined && gradeDto.score > assignment.maxScore)) {
+        throw new BadRequestException(`Score must be between 0 and max score (${assignment.maxScore})`);
+      }
+    }
+
+    let submission = await this.submissionModel.findOne({ assignmentId, studentId });
+    if (!submission) {
+      submission = new this.submissionModel({
+        assignmentId,
+        studentId,
+        roomId: assignment.roomId,
+        channelId: assignment.channelId || assignment.channelIds?.[0] || "",
+        attachments: [],
+        submissionStatus: "not_submitted",
+        score: gradeDto.score,
+        feedback: gradeDto.feedback,
+        gradedBy: userId,
+        gradedAt: new Date(),
+      });
+    } else {
+      if (gradeDto.score !== undefined) submission.score = gradeDto.score;
+      if (gradeDto.feedback !== undefined) submission.feedback = gradeDto.feedback;
+      submission.gradedBy = userId;
+      submission.gradedAt = new Date();
+    }
+
+    const saved = await submission.save();
+    this.assignmentsGateway.notifyAssignmentGradingUpdated(submission.roomId, submission.channelId, submission.studentId, saved);
+    return saved;
+  }
+
   async deleteSubmission(assignmentId: string, userId: string) {
     const submission = await this.submissionModel.findOne({ assignmentId, studentId: userId });
     if (!submission) {
@@ -609,5 +657,119 @@ export class AssignmentsService {
     this.assignmentsGateway.notifyCommentDeleted(comment.roomId, assignmentId, commentId);
 
     return { success: true, commentId };
+  }
+
+  async exportExcel(assignmentId: string, userId: string, res: Response) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) {
+      throw new NotFoundException("Assignment not found");
+    }
+
+    const { isOwnerOrAdmin } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isOwnerOrAdmin) {
+      throw new ForbiddenException("Only room owners/teachers can export assignment results");
+    }
+
+    const roomMembers = await this.roomMemberService.getRoomMembers(assignment.roomId);
+    let targetMembers = roomMembers.filter((m) => m.userId !== assignment.createdBy);
+    if (assignment.recipientMemberIds && assignment.recipientMemberIds.length > 0) {
+      const recipientSet = new Set(assignment.recipientMemberIds);
+      targetMembers = targetMembers.filter((m) => recipientSet.has(m.userId));
+    }
+
+    const submissions = await this.submissionModel.find({ assignmentId }).exec();
+    const submissionMap = new Map(submissions.map((s) => [s.studentId, s]));
+
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet("Kết quả nhiệm vụ");
+
+    worksheet.columns = [
+      { header: "Họ và tên", key: "displayName", width: 28 },
+      { header: "Địa chỉ email", key: "email", width: 32 },
+      { header: "Điểm đạt được", key: "score", width: 16 },
+      { header: "Điểm tối đa", key: "maxScore", width: 16 },
+      { header: "Phản hồi", key: "feedback", width: 35 },
+      { header: "Thời gian nộp", key: "submissionTiming", width: 25 },
+    ];
+
+    // Style header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF0052FF" },
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "center" };
+    headerRow.height = 28;
+
+    const deadlineTime = assignment.deadline ? new Date(assignment.deadline).getTime() : 0;
+
+    for (const member of targetMembers) {
+      const sub = submissionMap.get(member.userId);
+      let timingText = "Chưa nộp";
+
+      if (sub?.submittedAt && deadlineTime > 0) {
+        const subTime = new Date(sub.submittedAt).getTime();
+        const diffMs = subTime - deadlineTime;
+        const diffMinutes = Math.round(Math.abs(diffMs) / 60000);
+
+        if (Math.abs(diffMs) < 60000) {
+          timingText = "Đúng hạn";
+        } else if (subTime < deadlineTime) {
+          if (diffMinutes < 60) {
+            timingText = `Sớm ${diffMinutes} phút`;
+          } else if (diffMinutes < 1440) {
+            const hours = Math.floor(diffMinutes / 60);
+            const mins = diffMinutes % 60;
+            timingText = mins > 0 ? `Sớm ${hours} giờ ${mins} phút` : `Sớm ${hours} giờ`;
+          } else {
+            const days = Math.floor(diffMinutes / 1440);
+            const remainingHours = Math.floor((diffMinutes % 1440) / 60);
+            timingText = remainingHours > 0 ? `Sớm ${days} ngày ${remainingHours} giờ` : `Sớm ${days} ngày`;
+          }
+        } else {
+          if (diffMinutes < 60) {
+            timingText = `Trễ ${diffMinutes} phút`;
+          } else if (diffMinutes < 1440) {
+            const hours = Math.floor(diffMinutes / 60);
+            const mins = diffMinutes % 60;
+            timingText = mins > 0 ? `Trễ ${hours} giờ ${mins} phút` : `Trễ ${hours} giờ`;
+          } else {
+            const days = Math.floor(diffMinutes / 1440);
+            const remainingHours = Math.floor((diffMinutes % 1440) / 60);
+            timingText = remainingHours > 0 ? `Trễ ${days} ngày ${remainingHours} giờ` : `Trễ ${days} ngày`;
+          }
+        }
+      }
+
+      const row = worksheet.addRow({
+        displayName: member.displayName || "Người dùng",
+        email: member.email || "—",
+        score: sub?.score !== undefined ? sub.score : "—",
+        maxScore: assignment.gradingType === "graded" ? (assignment.maxScore ?? 10) : "—",
+        feedback: sub?.feedback || "—",
+        submissionTiming: timingText,
+      });
+
+      row.alignment = { vertical: "middle" };
+      row.height = 22;
+    }
+
+    const nowStr = new Date().toISOString().slice(0, 10);
+    const rawTitle = (assignment.title || "nhiem-vu")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 40);
+    const fileName = `ket-qua-nhiem-vu-${rawTitle}-${nowStr}.xlsx`;
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
   }
 }

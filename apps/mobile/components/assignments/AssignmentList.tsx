@@ -11,12 +11,14 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Assignment } from "./types";
+import CreateTaskModal from "./CreateTaskModal";
 
 interface AssignmentListProps {
   assignments: Assignment[];
   isTeacher: boolean;
   onSelect: (assignment: Assignment) => void;
   onCreateClick: () => void;
+  onCreateQuizClick?: () => void;
   activeTab: "upcoming" | "grading" | "overdue" | "returned" | "draft";
   setActiveTab: (tab: "upcoming" | "grading" | "overdue" | "returned" | "draft") => void;
   onRefresh?: () => void;
@@ -30,6 +32,7 @@ export default function AssignmentList({
   isTeacher,
   onSelect,
   onCreateClick,
+  onCreateQuizClick,
   activeTab,
   setActiveTab,
   onRefresh,
@@ -39,6 +42,7 @@ export default function AssignmentList({
 }: AssignmentListProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const now = new Date().getTime();
 
@@ -124,7 +128,7 @@ export default function AssignmentList({
         <View className="flex-row items-center gap-2">
           {isTeacher && (
             <TouchableOpacity
-              onPress={onCreateClick}
+              onPress={() => setIsCreateModalOpen(true)}
               className="flex-row items-center gap-1.5 bg-[#0052FF] active:bg-blue-700 px-3.5 py-2 rounded-xl shadow-xs"
             >
               <Feather name="plus" size={16} color="#ffffff" />
@@ -243,6 +247,14 @@ export default function AssignmentList({
           }}
         />
       )}
+
+      {/* Create Task Selection Modal */}
+      <CreateTaskModal
+        visible={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSelectAssignment={onCreateClick}
+        onSelectQuiz={() => onCreateQuizClick?.()}
+      />
     </View>
   );
 }

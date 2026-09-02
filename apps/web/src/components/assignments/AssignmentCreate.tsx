@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Assignment } from "./types";
-import { ArrowLeft, Save, Send, Upload, X, Trash2, Calendar, File, Search, ChevronDown } from "lucide-react";
+import { ArrowLeft, Save, Send, Upload, X, Trash2, Calendar, File, Search, ChevronDown, Loader2 } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -27,6 +27,7 @@ export default function AssignmentCreate({
   isSubmitting,
 }: AssignmentCreateProps) {
   const t = useTranslations("room.assignments_i18n");
+  const isEditMode = Boolean(assignmentToEdit?._id || (assignmentToEdit as any)?.id);
 
   const [title, setTitle] = useState(assignmentToEdit?.title || "");
   const [description, setDescription] = useState(assignmentToEdit?.description || "");
@@ -595,32 +596,48 @@ export default function AssignmentCreate({
           </div>
         </div>
 
-        {/* Footer Actions (Bỏ + Lưu nháp + Giao bài) Căn phải */}
+        {/* Footer Actions */}
         <div className="mt-6 pt-5 border-t border-slate-200 bg-white p-5 rounded-2xl border border-slate-200 flex justify-end gap-3 shrink-0 shadow-sm">
-          <button
-            type="button"
-            onClick={handleDiscardClick}
-            className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-sm font-bold rounded-xl transition-all"
-          >
-            <X size={16} />
-            <span>{t("discard_btn")}</span>
-          </button>
-          <button
-            onClick={() => handleSave("draft")}
-            disabled={isSubmitting || isUploading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold rounded-xl transition-all"
-          >
-            <Save size={16} />
-            <span>{t("save_draft_btn")}</span>
-          </button>
-          <button
-            onClick={() => handleSave("published")}
-            disabled={isSubmitting || isUploading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-all shadow-sm"
-          >
-            <Send size={16} />
-            <span>{t("publish_btn")}</span>
-          </button>
+          {isEditMode ? (
+            <button
+              type="button"
+              onClick={() => handleSave(assignmentToEdit?.status || "published")}
+              disabled={isSubmitting || isUploading}
+              className="flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:bg-slate-300 text-white text-sm font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+            >
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              <span>{t("update_btn")}</span>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleDiscardClick}
+                className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-sm font-bold rounded-xl transition-all cursor-pointer"
+              >
+                <X size={16} />
+                <span>{t("discard_btn")}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("draft")}
+                disabled={isSubmitting || isUploading}
+                className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold rounded-xl transition-all cursor-pointer disabled:bg-slate-200"
+              >
+                <Save size={16} />
+                <span>{t("save_draft_btn")}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("published")}
+                disabled={isSubmitting || isUploading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:bg-slate-300 text-white text-sm font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                <Send size={16} />
+                <span>{t("publish_btn")}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

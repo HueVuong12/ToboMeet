@@ -86,7 +86,7 @@ export default function AssignmentList({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all mr-4 -mb-px ${
+                className={`px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all mr-4 -mb-px cursor-pointer ${
                   isActive
                     ? "border-brand-600 text-brand-600"
                     : "border-transparent text-slate-500 hover:text-slate-800"

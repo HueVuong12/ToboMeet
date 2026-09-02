@@ -266,9 +266,8 @@ export default function AssignmentGrading({
 
                     {/* Files list */}
                     {submission.attachments?.map((att, idx) => (
-                      <TouchableOpacity
+                      <View
                         key={idx}
-                        onPress={() => openFile(att)}
                         className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 mb-1.5"
                       >
                         <Feather name="file-text" size={16} color="#0052FF" />
@@ -278,8 +277,14 @@ export default function AssignmentGrading({
                         >
                           {att.name}
                         </Text>
-                        <Feather name="external-link" size={14} color="#94A3B8" />
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => openFile(att)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          className="p-1"
+                        >
+                          <Feather name="download" size={15} color="#64748B" />
+                        </TouchableOpacity>
+                      </View>
                     ))}
 
                     {/* Grade Button */}

@@ -1,4 +1,5 @@
-import { Controller, Post, Put, Delete, Get, Body, Param, UseGuards, Req, Query } from "@nestjs/common";
+import { Controller, Post, Put, Delete, Get, Body, Param, UseGuards, Req, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { AssignmentsService } from "./assignments.service";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { SubmitAssignmentDto } from "./dto/submit-assignment.dto";
@@ -55,6 +56,15 @@ export class AssignmentsController {
     return this.assignmentsService.getSubmissions(id, req.user.id);
   }
 
+  @Get(":id/export-excel")
+  exportExcel(
+    @Param("id") id: string,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response
+  ) {
+    return this.assignmentsService.exportExcel(id, req.user.id, res);
+  }
+
   @Get(":id/my-submission")
   getMySubmission(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
     return this.assignmentsService.getMySubmission(id, req.user.id);
@@ -63,6 +73,16 @@ export class AssignmentsController {
   @Post("submissions/:submissionId/grade")
   grade(@Param("submissionId") submissionId: string, @Body() gradeDto: GradeSubmissionDto, @Req() req: AuthenticatedRequest) {
     return this.assignmentsService.grade(submissionId, gradeDto, req.user.id);
+  }
+
+  @Post(":id/students/:studentId/grade")
+  gradeStudent(
+    @Param("id") assignmentId: string,
+    @Param("studentId") studentId: string,
+    @Body() gradeDto: GradeSubmissionDto,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.gradeStudent(assignmentId, studentId, gradeDto, req.user.id);
   }
 
   @Delete(":id/submit")

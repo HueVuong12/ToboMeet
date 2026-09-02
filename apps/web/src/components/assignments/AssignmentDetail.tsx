@@ -23,10 +23,18 @@ import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";
 import { socket } from "@/lib/socket";
 import { useTranslations } from "next-intl";
+import AssignmentDetailHeader from "./detail/AssignmentDetailHeader";
+import SubmissionTabs from "./detail/SubmissionTabs";
+import SubmissionMembersTable, { MemberWithSubmission } from "./detail/SubmissionMembersTable";
+import GradingModal from "./detail/GradingModal";
+import { calculateSubmissionTiming } from "./utils/submissionTimeHelper";
+import { downloadFileDirectly } from "./utils/downloadHelper";
+import { useMemo } from "react";
 
 interface AssignmentDetailProps {
   assignment: Assignment;
   submission: Submission | null;
+  submissions?: Submission[];
   isTeacher: boolean;
   roomMembers: any[];
   comments?: any[];
@@ -35,6 +43,14 @@ interface AssignmentDetailProps {
   onSubmit: (attachments: any[]) => Promise<void>;
   isSubmitting: boolean;
   onGradeClick: () => void;
+  onGrade?: (
+    studentId: string,
+    submissionId: string | undefined,
+    score: number | undefined,
+    feedback: string
+  ) => Promise<void>;
+  isGrading?: boolean;
+  onEditAssignment?: () => void;
   refetchSubmission?: () => void;
   onDeleteSubmission: () => Promise<void>;
   onDeleteAssignment?: () => Promise<void>;
@@ -45,6 +61,7 @@ interface AssignmentDetailProps {
 export default function AssignmentDetail({
   assignment,
   submission,
+  submissions = [],
   isTeacher,
   roomMembers,
   comments = [],
@@ -53,6 +70,9 @@ export default function AssignmentDetail({
   onSubmit,
   isSubmitting,
   onGradeClick,
+  onGrade,
+  isGrading = false,
+  onEditAssignment,
   refetchSubmission,
   onDeleteSubmission,
   onDeleteAssignment,
@@ -83,8 +103,81 @@ export default function AssignmentDetail({
   // Form states
   const [attachments, setAttachments] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [downloadingAttName, setDownloadingAttName] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Teacher View States
+  const [activeTeacherTab, setActiveTeacherTab] = useState<"need_return" | "returned">("need_return");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [gradingModalIndex, setGradingModalIndex] = useState<number | null>(null);
+
+  // Danh sách học viên mục tiêu (loại trừ người tạo)
+  const targetMembers = useMemo(() => {
+    const list = (roomMembers || []).filter(
+      (m) => (m.userId || m.supabaseId) !== assignment.createdBy
+    );
+    if (assignment.recipientMemberIds && assignment.recipientMemberIds.length > 0) {
+      const recipientSet = new Set(assignment.recipientMemberIds);
+      return list.filter((m) => recipientSet.has(m.userId || m.supabaseId));
+    }
+    return list;
+  }, [roomMembers, assignment.createdBy, assignment.recipientMemberIds]);
+
+  // Ghép nối mỗi học viên với bài nộp tương ứng
+  const membersWithSubmissions = useMemo<MemberWithSubmission[]>(() => {
+    const subMap = new Map<string, Submission>(
+      (submissions || []).map((s) => [s.studentId, s])
+    );
+
+    return targetMembers.map((member) => {
+      const uId = member.userId || member.supabaseId;
+      const sub = subMap.get(uId);
+      const isSubmitted = !!sub?.submittedAt && ((sub.attachments && sub.attachments.length > 0) || !!(sub as any).content);
+      const isGraded = sub ? (sub.score !== undefined || !!sub.feedback) : false;
+      const timing = calculateSubmissionTiming(sub?.submittedAt, assignment.deadline);
+
+      return {
+        userId: uId,
+        displayName: member.displayName || "Người dùng",
+        email: member.email,
+        avatarUrl: member.avatarUrl,
+        role: member.role,
+        submission: sub,
+        isSubmitted,
+        isGraded,
+        timing,
+      };
+    });
+  }, [targetMembers, submissions, assignment.deadline]);
+
+  // Lọc theo tìm kiếm và tab
+  const filteredMembers = useMemo(() => {
+    let list = membersWithSubmissions;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (m) =>
+          m.displayName.toLowerCase().includes(q) ||
+          (m.email && m.email.toLowerCase().includes(q))
+      );
+    }
+    if (activeTeacherTab === "returned") {
+      return list.filter((m) => m.isGraded);
+    } else {
+      // Cần trả về: bao gồm đã nộp chưa chấm và chưa nộp
+      return list.filter((m) => !m.isGraded);
+    }
+  }, [membersWithSubmissions, searchQuery, activeTeacherTab]);
+
+  const needReturnCount = useMemo(
+    () => membersWithSubmissions.filter((m) => m.isSubmitted && !m.isGraded).length,
+    [membersWithSubmissions]
+  );
+  const returnedCount = useMemo(
+    () => membersWithSubmissions.filter((m) => m.isGraded).length,
+    [membersWithSubmissions]
+  );
 
   // Sync attachments with submission when it changes
   useEffect(() => {
@@ -95,8 +188,13 @@ export default function AssignmentDetail({
     }
   }, [submission]);
 
-  const assignmentId = String(assignment?._id || assignment?.id || "");
+  const assignmentId = String(assignment?._id || (assignment as any)?.id || "");
   const assignmentRoomId = assignment?.roomId;
+
+  const isTeacherRef = useRef(isTeacher);
+  useEffect(() => {
+    isTeacherRef.current = isTeacher;
+  }, [isTeacher]);
 
   const refetchSubmissionRef = useRef(refetchSubmission);
   useEffect(() => {
@@ -109,14 +207,26 @@ export default function AssignmentDetail({
 
     const handleAssignmentGraded = (data: any) => {
       if (data.roomId === assignmentRoomId && refetchSubmissionRef.current) {
-        refetchSubmissionRef.current();
+        if (!isTeacherRef.current) {
+          try {
+            refetchSubmissionRef.current();
+          } catch (e) {
+            // Ignore skipped query
+          }
+        }
       }
     };
 
     const handleSubmissionDeleted = (data: any) => {
       const eventAssignId = String(data?.assignmentId || data?.submission?.assignmentId || "");
       if ((eventAssignId === assignmentId || data?.roomId === assignmentRoomId) && refetchSubmissionRef.current) {
-        refetchSubmissionRef.current();
+        if (!isTeacherRef.current) {
+          try {
+            refetchSubmissionRef.current();
+          } catch (e) {
+            // Ignore skipped query
+          }
+        }
       }
     };
 
@@ -369,157 +479,55 @@ export default function AssignmentDetail({
   // Nhiệm vụ bị khóa nộp: hết hạn VÀ chính sách là khóa sau deadline
   const isLocked = isOverdue && assignment.submissionPolicy === "lock_after_deadline";
 
-  // 1. TRƯỞNG NHÓM VIEW (GIỮ NGUYÊN KHÔNG ĐƯỢC CHỈNH SỬA)
+  // 1. TRƯỞNG NHÓM VIEW (QUẢN LÝ NHIỆM VỤ, TABS & CHẤM BÀI)
   if (isTeacher) {
     return (
       <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
-        {/* Header */}
-        <div className="h-14 px-6 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <span className="font-bold text-slate-800 text-sm">{t("detail.title")}</span>
-          </div>
-          <button
-            onClick={onGradeClick}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-bold transition-all shadow-sm"
-          >
-            {t("detail.grade_btn")}
-          </button>
-        </div>
+        {/* Header thông tin nhiệm vụ + Sửa + Menu 3 chấm xuất Excel */}
+        <AssignmentDetailHeader
+          assignment={assignment}
+          isTeacher={isTeacher}
+          onBack={onBack}
+          onEdit={() => onEditAssignment && onEditAssignment()}
+          onDelete={onDeleteAssignment}
+        />
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col lg:flex-row gap-6">
-          {/* Left: Detail Info */}
-          <div className="flex-1 flex flex-col gap-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <div>
-              <div className="flex justify-between items-start gap-4">
-                <h1 className="text-xl font-bold text-slate-900 leading-tight">
-                  {assignment.title}
-                </h1>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
-                    assignment.gradingType === "graded"
-                      ? "bg-purple-50 text-purple-600 border border-purple-100"
-                      : "bg-slate-100 text-slate-600 border border-slate-200"
-                  }`}
-                >
-                  {assignment.gradingType === "graded" ? t("detail.graded_score", { score: assignment.maxScore ?? 0 }) : t("detail.ungraded")}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-2">
-                <Calendar size={13} />
-                <span>{t("detail.deadline_label", { date: formatLMSDate(assignment.deadline) })}</span>
-              </div>
-            </div>
+        {/* 2 Tabs quản lý trạng thái + Tìm kiếm */}
+        <SubmissionTabs
+          activeTab={activeTeacherTab}
+          onTabChange={setActiveTeacherTab}
+          needReturnCount={needReturnCount}
+          returnedCount={returnedCount}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
-            {/* Description */}
-            <div className="border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-bold text-slate-700 mb-2">{t("detail.instructions")}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
-                {assignment.description || t("detail.no_instructions")}
-              </p>
-            </div>
+        {/* Bảng danh sách thành viên */}
+        <SubmissionMembersTable
+          assignment={assignment}
+          members={filteredMembers}
+          activeTab={activeTeacherTab}
+          onSelectMember={(item) => {
+            const idx = filteredMembers.findIndex((m) => m.userId === item.userId);
+            if (idx !== -1) {
+              setGradingModalIndex(idx);
+            }
+          }}
+        />
 
-            {/* Attachments */}
-            {assignment.attachments.length > 0 && (
-              <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
-                <h3 className="text-xs font-bold text-slate-700">{t("detail.attachments_label")}</h3>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {assignment.attachments.map((file, idx) => (
-                    <a
-                      key={idx}
-                      href={file.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 hover:border-brand-500 rounded-xl text-xs hover:underline hover:text-brand-600 transition-colors"
-                    >
-                      <File size={15} className="text-slate-400 shrink-0" />
-                      <span className="font-medium text-slate-700 truncate">{file.name}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Comments for Teacher */}
-            <div className="border-t border-slate-100 pt-4 flex flex-col gap-3">
-              <button
-                onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
-                className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-800 font-semibold"
-              >
-                {isCommentsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span>{t("detail.comments_count", { count: comments.length })}</span>
-              </button>
-
-              {isCommentsExpanded && (
-                <div className="flex flex-col gap-3 mt-2 border-t border-slate-100 pt-3">
-                  {comments.length > 0 ? (
-                    <div className="flex flex-col gap-2.5 max-h-52 overflow-y-auto">
-                      {comments.map((comment, index) => (
-                        <div key={index} className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex flex-col gap-0.5">
-                          {/* Row 1: TÊN (trái) và BUTTON XÓA (phải) */}
-                          <div className="flex justify-between items-center text-[10px]">
-                            <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                              {resolveMemberName(comment.userId)}
-                              {getRoleLabel(comment.role) && (
-                                <span className="text-[9px] bg-brand-50 text-brand-700 border border-brand-100 px-1 py-0.2 rounded font-semibold uppercase">
-                                  {getRoleLabel(comment.role)}
-                                </span>
-                              )}
-                            </span>
-                            {comment.userId === userId && onDeleteComment && (
-                              <button
-                                type="button"
-                                onClick={() => setCommentToDelete(comment._id)}
-                                className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors"
-                                title={t("detail.delete_comment_btn")}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Row 2: THỜI GIAN */}
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(comment.createdAt).toLocaleString("vi-VN")}
-                          </span>
-
-                          {/* Row 3: NỘI DUNG */}
-                          <p className="text-xs text-slate-600 mt-1 leading-relaxed">{comment.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-slate-400 italic">{t("detail.no_comments")}</span>
-                  )}
-
-                  {/* Add comment box */}
-                  <div className="flex gap-2 items-end">
-                    <textarea
-                      rows={2}
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                      placeholder={t("detail.write_reply")}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none resize-none"
-                    />
-                    <button
-                      onClick={handleAddCommentSubmit}
-                      disabled={!commentInput.trim()}
-                      className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 text-white rounded-lg text-[11px] font-bold shadow-xs transition-colors"
-                    >
-                      {t("detail.send")}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Modal chấm bài chia đôi màn hình khi click học viên */}
+        {gradingModalIndex !== null && onGrade && (
+          <GradingModal
+            isOpen={gradingModalIndex !== null}
+            onClose={() => setGradingModalIndex(null)}
+            assignment={assignment}
+            members={filteredMembers}
+            currentMemberIndex={gradingModalIndex}
+            onNavigateMember={(newIdx) => setGradingModalIndex(newIdx)}
+            onGrade={onGrade}
+            isGrading={!!isGrading}
+          />
+        )}
       </div>
     );
   }
@@ -573,22 +581,36 @@ export default function AssignmentDetail({
                 <div className="grid gap-2 sm:grid-cols-2">
                   {assignment.attachments.map((file, idx) => {
                     const fileMeta = getFileIconAndStyle(file.name);
+                    const isDownloading = downloadingAttName === file.name;
                     return (
-                      <a
+                      <button
                         key={idx}
-                        href={file.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 hover:border-brand-500 rounded-xl text-xs transition-colors hover:underline hover:text-brand-600"
+                        type="button"
+                        onClick={async () => {
+                          if (downloadingAttName) return;
+                          setDownloadingAttName(file.name);
+                          try {
+                            await downloadFileDirectly(file.url, file.name);
+                          } finally {
+                            setDownloadingAttName(null);
+                          }
+                        }}
+                        disabled={isDownloading}
+                        className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 hover:border-brand-500 rounded-xl text-xs transition-colors hover:text-brand-600 cursor-pointer active:bg-slate-100 disabled:opacity-75 text-left"
+                        title={`Tải xuống ${file.name}`}
                       >
-                        <div className="flex items-center gap-2 truncate">
-                          <File size={16} className="text-slate-400 shrink-0" />
+                        <div className="flex items-center gap-2 truncate min-w-0">
+                          {isDownloading ? (
+                            <Loader2 size={16} className="text-brand-600 animate-spin shrink-0" />
+                          ) : (
+                            <File size={16} className="text-slate-400 shrink-0" />
+                          )}
                           <span className="font-medium text-slate-700 truncate">{file.name}</span>
                         </div>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${fileMeta.style}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${fileMeta.style}`}>
                           {fileMeta.label}
                         </span>
-                      </a>
+                      </button>
                     );
                   })}
                 </div>

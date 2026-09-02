@@ -3,6 +3,7 @@ import { View, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../lib/redux/store";
 import {
   assignmentsApi,
   useGetRoomAssignmentsQuery,
@@ -23,6 +24,7 @@ import AssignmentList from "./AssignmentList";
 import AssignmentCreate from "./AssignmentCreate";
 import AssignmentDetail from "./AssignmentDetail";
 import AssignmentGrading from "./AssignmentGrading";
+import QuizCreate from "./quiz/QuizCreate";
 import { socket } from "../../lib/socket";
 
 interface AssignmentModuleProps {
@@ -44,9 +46,9 @@ export default function AssignmentModule({
   onOpenLeftDrawer,
   onOpenRightDrawer,
 }: AssignmentModuleProps) {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { t } = useTranslation();
-  const [view, setView] = useState<"list" | "create" | "edit" | "detail" | "grade">("list");
+  const [view, setView] = useState<"list" | "create" | "create_quiz" | "edit" | "detail" | "grade">("list");
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "grading" | "overdue" | "returned" | "draft">("upcoming");
 
@@ -291,8 +293,10 @@ export default function AssignmentModule({
   const handleCreateAssignment = async (payload: any) => {
     try {
       if (view === "edit" && selectedAssignment) {
-        await updateAssignment({ id: selectedAssignment._id, body: payload }).unwrap();
-        Alert.alert(t("room.success"), t("assignments.toast_update_success"));
+        const updated = await updateAssignment({ id: selectedAssignment._id, body: payload }).unwrap();
+        Alert.alert(t("room.success"), t("assignments.toast_update_success", { defaultValue: "Cập nhật nhiệm vụ thành công!" }));
+        setSelectedAssignment((prev) => (prev ? { ...prev, ...payload, ...(updated || {}) } : null));
+        setView("detail");
       } else {
         await createAssignment(payload).unwrap();
         Alert.alert(
@@ -301,9 +305,9 @@ export default function AssignmentModule({
             ? t("assignments.toast_create_success")
             : t("assignments.toast_save_draft_success")
         );
+        setView("list");
+        setSelectedAssignment(null);
       }
-      setView("list");
-      setSelectedAssignment(null);
     } catch (err: any) {
       Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
     }
@@ -401,6 +405,7 @@ export default function AssignmentModule({
           isTeacher={isTeacher}
           onSelect={handleSelectAssignment}
           onCreateClick={() => setView("create")}
+          onCreateQuizClick={() => setView("create_quiz")}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onRefresh={refetch}
@@ -418,11 +423,27 @@ export default function AssignmentModule({
           userId={userId}
           assignmentToEdit={view === "edit" ? selectedAssignment || undefined : undefined}
           onBack={() => {
-            setView("list");
-            setSelectedAssignment(null);
+            if (view === "edit" && selectedAssignment) {
+              setView("detail");
+            } else {
+              setView("list");
+              setSelectedAssignment(null);
+            }
           }}
           onSubmit={handleCreateAssignment}
           isSubmitting={isCreating || isUpdating}
+        />
+      )}
+
+      {view === "create_quiz" && (
+        <QuizCreate
+          roomId={roomId}
+          channels={channels}
+          roomMembers={roomMembers}
+          userId={userId}
+          onBack={() => {
+            setView("list");
+          }}
         />
       )}
 
@@ -441,6 +462,7 @@ export default function AssignmentModule({
           onSubmit={handleSubmitAssignment}
           isSubmitting={isSubmitting}
           onGradeClick={() => setView("grade")}
+          onEditAssignment={() => setView("edit")}
           refetchSubmission={refetchMySubmission}
           onDeleteSubmission={handleDeleteSubmission}
           onDeleteAssignment={handleDeleteAssignment}

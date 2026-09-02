@@ -8,7 +8,12 @@ interface AssignmentGradingProps {
   submissions: Submission[];
   roomMembers: any[];
   onBack: () => void;
-  onGrade: (submissionId: string, score: number | undefined, feedback: string) => Promise<void>;
+  onGrade: (
+    studentId: string,
+    submissionId: string | undefined,
+    score: number | undefined,
+    feedback: string
+  ) => Promise<void>;
   isGrading: boolean;
 }
 
@@ -51,7 +56,7 @@ export default function AssignmentGrading({
       }
     }
 
-    await onGrade(selectedSubId, score, feedbackInput);
+    await onGrade(activeSubmission.studentId, selectedSubId, score, feedbackInput);
     toast.success("Đã lưu điểm và feedback thành công");
   };
 
