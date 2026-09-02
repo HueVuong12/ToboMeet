@@ -1381,9 +1381,9 @@
     "success_create_post": "Đăng bài viết thành công!",
     "success_update_post": "Cập nhật bài viết thành công!",
     "success_delete_post": "Xóa bài viết thành công!",
-    "failed_create_post": "Lưu bài viết thất bại.",
-    "failed_delete_post": "Xóa bài viết thất bại.",
     "failed_create_comment": "Bình luận thất bại.",
+    "success_delete_comment": "Đã xóa bình luận thành công.",
+    "failed_delete_comment": "Xóa bình luận thất bại.",
     "post_announcement_btn": "Thông báo mới"
   },
   "meeting": {

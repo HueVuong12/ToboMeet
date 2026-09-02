@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Video, MessageSquare, Clock, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { X, Video, MessageSquare, Clock, Paperclip, Pencil, Trash2, ClipboardList, ArrowRight } from "lucide-react";
 import { CalendarEvent, RsvpMember } from "./types";
 
 interface EventDetailModalProps {
@@ -30,6 +30,136 @@ export default function EventDetailModal({
 }: EventDetailModalProps) {
   if (!isOpen || !event) return null;
 
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+  };
+
+  // Trường hợp là Nhiệm vụ (Assignment)
+  if (event.eventType === "assignment") {
+    const statusMap: Record<string, { label: string; color: string }> = {
+      submitted: { label: "Đã nộp", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+      graded: { label: "Đã chấm điểm", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+      overdue: { label: "Đã quá hạn", color: "bg-rose-100 text-rose-700 border-rose-200" },
+      closed: { label: "Đã khóa/đóng", color: "bg-slate-100 text-slate-700 border-slate-200" },
+      in_progress: { label: "Đang thực hiện", color: "bg-blue-100 text-blue-700 border-blue-200" },
+    };
+    const currentStatus = statusMap[event.assignmentStatus || "in_progress"] || statusMap.in_progress;
+
+    const handleOpenAssignment = () => {
+      onClose();
+      window.location.href = `/${locale}/room/${event.roomId}?channel=__assignments__&assignmentId=${event.assignmentId}`;
+    };
+
+    return (
+      <div
+        onClick={onClose}
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-bold text-slate-800 text-[17px]">
+                {locale === "vi" ? "Chi tiết nhiệm vụ" : "Assignment Details"}
+              </h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4 text-left">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${currentStatus.color}`}>
+                  {currentStatus.label}
+                </span>
+              </div>
+              <h4 className="text-lg font-bold text-slate-900 tracking-tight">
+                {event.title}
+              </h4>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-slate-600 bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-medium">
+                  {locale === "vi" ? "Thời gian bắt đầu:" : "Start time:"}
+                </span>
+                <span className="font-semibold text-slate-700">
+                  {formatDateTime(event.assignmentStartDate || event.startDate)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-medium">
+                  {locale === "vi" ? "Thời gian kết thúc:" : "End time:"}
+                </span>
+                <span
+                  className={
+                    event.assignmentStatus === "overdue"
+                      ? "font-bold text-rose-600"
+                      : "font-semibold text-slate-700"
+                  }
+                >
+                  {formatDateTime(event.assignmentDueDate || event.startDate)}
+                </span>
+              </div>
+              {event.hostDisplayName && (
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                  <span className="text-slate-400 font-medium">
+                    {locale === "vi" ? "Người giao:" : "Assigned by:"}
+                  </span>
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    {event.hostAvatarUrl ? (
+                      <img src={event.hostAvatarUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
+                    ) : null}
+                    <span>{event.hostDisplayName}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {event.description && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  {locale === "vi" ? "Mô tả nhiệm vụ" : "Description"}
+                </p>
+                <div className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
+                  {event.description}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                {locale === "vi" ? "Đóng" : "Close"}
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenAssignment}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>{locale === "vi" ? "Xem chi tiết nhiệm vụ" : "View Assignment"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isChannelMeeting =
     event.roomType === "channel_meeting" &&
     event.roomId &&
@@ -39,12 +169,6 @@ export default function EventDetailModal({
   const isHost =
     (currentUserId && currentUserId === event.hostId) ||
     (currentSupabaseId && currentSupabaseId === event.hostId);
-
-  const formatDateTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
-  };
 
   return (
     <div
@@ -79,7 +203,7 @@ export default function EventDetailModal({
                 <button
                   onClick={() => {
                     if (!isChannelMeeting) {
-                      onJoinMeeting(event.meetingCode);
+                      onJoinMeeting(event.meetingCode || "");
                     } else {
                       window.location.href = `/${locale}/room/${event.roomId}?channel=${event.channelId}`;
                     }

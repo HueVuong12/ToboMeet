@@ -24,13 +24,23 @@ interface CalendarEvent {
   description?: string;
   startDate: string;
   endDate: string;
-  meetingCode: string;
+  meetingCode?: string;
   roomId?: string;
   channelId?: string;
+  channelIds?: string[];
   roomType?: string;
   invitees?: { email: string; displayName?: string }[];
   recurrenceRule?: string;
   hostId?: string;
+  hostDisplayName?: string;
+  hostEmail?: string;
+  hostAvatarUrl?: string;
+  // Assignment specific fields
+  eventType?: "meeting" | "assignment";
+  assignmentId?: string;
+  assignmentStartDate?: string;
+  assignmentDueDate?: string;
+  assignmentStatus?: "in_progress" | "submitted" | "graded" | "overdue" | "closed";
   // Pre-fetched fields — populated before opening detail modal
   _prefetchedInvitees?: { email: string; displayName?: string }[];
   _currentUserId?: string | null;
@@ -321,8 +331,35 @@ export default function CalendarScreen() {
     );
   };
 
+  const getEventColors = (event: CalendarEvent) => {
+    if (event.eventType === "assignment") {
+      switch (event.assignmentStatus) {
+        case "submitted":
+        case "graded":
+          return { bg: "#ECFDF5", border: "#10B981", text: "#065F46" };
+        case "overdue":
+          return { bg: "#FFF1F2", border: "#F43F5E", text: "#9F1239" };
+        case "closed":
+          return { bg: "#F8FAFC", border: "#64748B", text: "#334155" };
+        default: // in_progress
+          return { bg: "#EFF6FF", border: "#3B82F6", text: "#1D4ED8" };
+      }
+    }
+    return {
+      bg: event.roomType === "channel_meeting" ? "#F0FDF4" : "#EFF6FF",
+      border: event.roomType === "channel_meeting" ? "#10B981" : "#0052FF",
+      text: event.roomType === "channel_meeting" ? "#065F46" : "#1E40AF",
+    };
+  };
+
   // Pre-fetch session + RSVP data before opening detail modal so all info is ready instantly
   const handleEventPress = useCallback(async (item: CalendarEvent) => {
+    if (item.eventType === "assignment") {
+      setSelectedEventForDetail(item);
+      setDetailModalVisible(true);
+      return;
+    }
+
     setDetailPrefetching(item._id);
     try {
       const [sessionRes, rsvpRes] = await Promise.all([
@@ -476,6 +513,14 @@ export default function CalendarScreen() {
     const endHour = end.getHours() + end.getMinutes() / 60;
     
     const clampedStart = Math.max(1, Math.min(23, startHour));
+    
+    // Đối với Assignment: Hiển thị marker cố định 36px tại đúng mốc deadline
+    if (event.eventType === "assignment") {
+      const top = (clampedStart - 1) * HOUR_HEIGHT;
+      const height = 36;
+      return { top, height };
+    }
+
     const clampedEnd = Math.max(1, Math.min(23.99, endHour));
     
     const top = (clampedStart - 1) * HOUR_HEIGHT;
@@ -497,11 +542,13 @@ export default function CalendarScreen() {
     });
 
     const isChannelMeeting = item.roomType === "channel_meeting" && item.roomId && item.channelId;
+    const isAssignment = item.eventType === "assignment";
+    const colors = getEventColors(item);
 
     return (
       <TouchableOpacity
-        style={styles.card}
-        activeOpacity={isChannelMeeting ? 1 : 0.7}
+        style={[styles.card, isAssignment && { borderLeftColor: colors.border, borderLeftWidth: 4 }]}
+        activeOpacity={0.7}
         disabled={detailPrefetching === item._id}
         onPress={() => handleEventPress(item)}
       >
@@ -510,7 +557,14 @@ export default function CalendarScreen() {
           <Text style={styles.timeText}>{timeStr}</Text>
         </View>
         <View style={styles.infoBlock}>
-          <Text style={styles.title}>{item.title}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            {isAssignment && (
+              <Feather name="clipboard" size={13} color={colors.border} />
+            )}
+            <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>
+              {isAssignment ? `[Nhiệm vụ] ${item.title}` : item.title}
+            </Text>
+          </View>
           {item.description ? (
             <Text style={styles.description} numberOfLines={2}>
               {item.description.replace(/<[^>]*>/g, "")}
@@ -518,24 +572,49 @@ export default function CalendarScreen() {
           ) : null}
         </View>
         <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-          {isChannelMeeting && (
-            <TouchableOpacity
-              style={styles.chatButton}
-              onPress={() => {}}
-            >
-              <Feather name="message-square" size={14} color="#475569" />
-            </TouchableOpacity>
+          {isAssignment ? (
+            <View style={{
+              backgroundColor: colors.bg,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.text }}>
+                {item.assignmentStatus === "submitted"
+                  ? "Đã nộp"
+                  : item.assignmentStatus === "graded"
+                  ? "Đã chấm"
+                  : item.assignmentStatus === "overdue"
+                  ? "Quá hạn"
+                  : item.assignmentStatus === "closed"
+                  ? "Đã khóa"
+                  : "Đang làm"}
+              </Text>
+            </View>
+          ) : (
+            <>
+              {isChannelMeeting && (
+                <TouchableOpacity
+                  style={styles.chatButton}
+                  onPress={() => {}}
+                >
+                  <Feather name="message-square" size={14} color="#475569" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.joinButton}
+                onPress={() => {
+                  if (!isChannelMeeting && item.meetingCode) {
+                    handleJoin(item.meetingCode);
+                  }
+                }}
+              >
+                <Text style={styles.joinButtonText}>Join</Text>
+              </TouchableOpacity>
+            </>
           )}
-          <TouchableOpacity
-            style={styles.joinButton}
-            onPress={() => {
-              if (!isChannelMeeting) {
-                handleJoin(item.meetingCode);
-              }
-            }}
-          >
-            <Text style={styles.joinButtonText}>Join</Text>
-          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -589,6 +668,8 @@ export default function CalendarScreen() {
             <View style={[styles.gridColumn, { width: colWidth }]}>
               {dayEvents.map(event => {
                 const { top, height } = getEventLayout(event);
+                const colors = getEventColors(event);
+                const isAssignment = event.eventType === "assignment";
                 return (
                   <TouchableOpacity
                     key={`${event._id}_${event.startDate}`}
@@ -599,16 +680,20 @@ export default function CalendarScreen() {
                       {
                         top,
                         height,
-                        backgroundColor: "#EFF6FF",
+                        backgroundColor: colors.bg,
                         borderLeftWidth: 4,
-                        borderLeftColor: "#0052FF",
+                        borderLeftColor: colors.border,
                         opacity: isFetching ? 0.6 : 1,
+                        justifyContent: "center",
                       }
                     ]}
                   >
-                    <Text style={styles.eventTitleText} numberOfLines={2}>
-                      {event.title}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      {isAssignment && <Feather name="clipboard" size={11} color={colors.border} />}
+                      <Text style={[styles.eventTitleText, { flex: 1, color: colors.text }]} numberOfLines={height > 36 ? 2 : 1}>
+                        {isAssignment ? `[Nhiệm vụ] ${event.title}` : event.title}
+                      </Text>
+                    </View>
                     {height > 40 && event.description && (
                       <Text style={styles.eventDescText} numberOfLines={1}>
                         {event.description.replace(/<[^>]*>/g, "")}
@@ -709,6 +794,8 @@ export default function CalendarScreen() {
                   >
                     {dayEvents.map(event => {
                       const { top, height } = getEventLayout(event);
+                      const colors = getEventColors(event);
+                      const isAssignment = event.eventType === "assignment";
                       return (
                         <TouchableOpacity
                           key={`${event._id}_${event.startDate}`}
@@ -719,15 +806,16 @@ export default function CalendarScreen() {
                             {
                               top,
                               height,
-                              backgroundColor: "#EFF6FF",
+                              backgroundColor: colors.bg,
                               borderLeftWidth: 3,
-                              borderLeftColor: "#0052FF",
+                              borderLeftColor: colors.border,
                               opacity: isFetching ? 0.6 : 1,
+                              justifyContent: "center",
                             }
                           ]}
                         >
-                          <Text style={styles.eventTitleText} numberOfLines={1}>
-                            {event.title}
+                          <Text style={[styles.eventTitleText, { color: colors.text }, isAssignment && { fontSize: 10 }]} numberOfLines={1}>
+                            {isAssignment ? `[NV] ${event.title}` : event.title}
                           </Text>
                         </TouchableOpacity>
                       );
@@ -800,15 +888,18 @@ export default function CalendarScreen() {
                 </Text>
                 
                 <View style={styles.monthEventContainer}>
-                  {dayEvents.slice(0, 2).map((event) => (
-                    <View
-                      key={`${event._id}_${event.startDate}`}
-                      style={[
-                        styles.monthEventIndicator,
-                        { backgroundColor: event.roomType === "channel_meeting" ? "#10B981" : "#0052FF" }
-                      ]}
-                    />
-                  ))}
+                  {dayEvents.slice(0, 2).map((event) => {
+                    const colors = getEventColors(event);
+                    return (
+                      <View
+                        key={`${event._id}_${event.startDate}`}
+                        style={[
+                          styles.monthEventIndicator,
+                          { backgroundColor: colors.border }
+                        ]}
+                      />
+                    );
+                  })}
                   {dayEvents.length > 2 && (
                     <Text style={styles.monthEventMoreText}>+{dayEvents.length - 2}</Text>
                   )}

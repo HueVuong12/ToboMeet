@@ -104,12 +104,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     return rawMember?.role;
   })();
 
-  // Đọc tham số URL "channel" khi tải trang để chuyển đổi kênh tự động nếu được trỏ đến từ liên kết bên ngoài
+  const [targetAssignmentId, setTargetAssignmentId] = useState<string | null>(null);
+
+  // Đọc tham số URL "channel" và "assignmentId" khi tải trang
   useEffect(() => {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const urlChannel = searchParams.get("channel");
-      if (urlChannel && room?.channels) {
+      const urlAssignmentId = searchParams.get("assignmentId");
+      if (urlChannel === "__assignments__") {
+        setActiveChannel("__assignments__");
+        if (urlAssignmentId) {
+          setTargetAssignmentId(urlAssignmentId);
+        }
+      } else if (urlChannel && room?.channels) {
         const matchingChan = room.channels.find(
           (c: any) => c.name === urlChannel || (c._id && c._id === urlChannel)
         );
@@ -119,6 +127,21 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
       }
     }
   }, [room?.channels]);
+
+  // Lắng nghe sự kiện chuyển trang nhiệm vụ từ PostCard
+  useEffect(() => {
+    const handleNavigateToAssignment = (e: any) => {
+      const assignId = e.detail?.assignmentId;
+      setActiveChannel("__assignments__");
+      if (assignId) {
+        setTargetAssignmentId(assignId);
+      }
+    };
+    window.addEventListener("navigate-to-assignment", handleNavigateToAssignment);
+    return () => {
+      window.removeEventListener("navigate-to-assignment", handleNavigateToAssignment);
+    };
+  }, []);
 
   // Navigation Guard: Nếu kênh hiện tại không còn thuộc room.channels (do bị xóa hoặc vừa rời), tự động switch về kênh đầu tiên
   useEffect(() => {
@@ -400,6 +423,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
             channels={room.channels}
             roomMembers={members}
             onViewChange={setAssignmentView}
+            initialAssignmentId={targetAssignmentId}
           />
         ) : currentChannel ? (
           activeTab === "files" ? (

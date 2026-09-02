@@ -11,6 +11,12 @@ import { AppGateway } from "../core/gateways/app.gateway";
 import * as nodemailer from "nodemailer";
 import { UpdateEventDto } from "./dto/update-event.dto";
 
+import { Assignment, AssignmentDocument } from "../assignments/schemas/assignment.schema";
+import {
+  AssignmentSubmission,
+  AssignmentSubmissionDocument,
+} from "../assignments/schemas/submission.schema";
+
 @Injectable()
 export class CalendarService {
   private transporter: nodemailer.Transporter;
@@ -22,6 +28,8 @@ export class CalendarService {
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     @InjectModel("Post") private postModel: Model<any>,
+    @InjectModel(Assignment.name) private assignmentModel: Model<AssignmentDocument>,
+    @InjectModel(AssignmentSubmission.name) private submissionModel: Model<AssignmentSubmissionDocument>,
     private readonly appGateway: AppGateway,
   ) {
     // Khởi tạo mail transporter từ SMTP Env
@@ -292,6 +300,104 @@ export class CalendarService {
         hostDisplayName: hostUser ? (hostUser.displayName || hostUser.email.split('@')[0]) : "",
         hostAvatarUrl: hostUser ? hostUser.avatarUrl : "",
       });
+    }
+
+    // 2. Tìm các nhiệm vụ (Assignment) có hạn nộp (deadline) trong khoảng thời gian [rangeStart, rangeEnd]
+    const assignmentQuery: Record<string, unknown> = {
+      deadline: { $gte: rangeStart, $lte: rangeEnd },
+      status: "published",
+    };
+
+    if (filters?.roomId) {
+      assignmentQuery.roomId = filters.roomId;
+    }
+
+    const assignments = await this.assignmentModel.find(assignmentQuery).exec();
+    const now = new Date();
+
+    if (assignments.length > 0) {
+      const roomIds = Array.from(new Set(assignments.map((a) => a.roomId)));
+      const rooms = await this.roomModel.find({ _id: { $in: roomIds } }).exec();
+      const roomMap = new Map(rooms.map((r) => [r._id.toString(), r]));
+
+      for (const assignment of assignments) {
+        const room = roomMap.get(assignment.roomId);
+        if (!room) continue;
+
+        const isCreator = assignment.createdBy === userId;
+        const member = room.members?.find((m) => m.userId === userId && m.status === "active");
+
+        // Quyền truy cập: Người tạo HOẶC thành viên hợp lệ trong phòng
+        if (!isCreator) {
+          if (!member) continue;
+
+          // Nếu người nhận là danh sách chỉ định: kiểm tra userId hoặc memberId
+          if (
+            (assignment.recipientType === "specific_members" || assignment.recipientType === "current_members") &&
+            assignment.recipientMemberIds?.length > 0
+          ) {
+            const userMemberId = (member as any)._id?.toString();
+            const hasAccess =
+              assignment.recipientMemberIds.includes(userId) ||
+              (userMemberId && assignment.recipientMemberIds.includes(userMemberId));
+            if (!hasAccess) continue;
+          }
+        }
+
+        // Xác định trạng thái của nhiệm vụ đối với người dùng này
+        let assignmentStatus: "in_progress" | "submitted" | "graded" | "overdue" | "closed" = "in_progress";
+        const submission = await this.submissionModel
+          .findOne({
+            assignmentId: assignment._id.toString(),
+            studentId: userId,
+          })
+          .exec();
+
+        if (assignment.submissionPolicy === "lock_after_deadline" && assignment.deadline && now > assignment.deadline) {
+          assignmentStatus = "closed";
+        }
+
+        if (submission) {
+          if (submission.score !== undefined && submission.score !== null) {
+            assignmentStatus = "graded";
+          } else {
+            assignmentStatus = "submitted";
+          }
+        } else if (assignment.deadline && now > assignment.deadline) {
+          if (assignmentStatus !== "closed") {
+            assignmentStatus = "overdue";
+          }
+        }
+
+        // Thông tin người giao
+        const creatorUser = await this.userModel
+          .findOne({ supabaseId: assignment.createdBy })
+          .select("email displayName avatarUrl")
+          .exec();
+
+        finalEvents.push({
+          _id: `assignment_${assignment._id}`,
+          assignmentId: assignment._id.toString(),
+          title: assignment.title || "Nhiệm vụ",
+          description: assignment.description || "",
+          // QUAN TRỌNG: Nhiệm vụ chỉ hiển thị tại mốc dueDate, không kéo dài block
+          startDate: assignment.deadline,
+          endDate: assignment.deadline,
+          assignmentStartDate: assignment.startDate || (assignment as any).createdAt,
+          assignmentDueDate: assignment.deadline,
+          eventType: "assignment",
+          assignmentStatus,
+          roomId: assignment.roomId,
+          channelIds: assignment.channelIds || [],
+          meetingCode: "",
+          hostId: assignment.createdBy,
+          hostEmail: creatorUser ? creatorUser.email : "",
+          hostDisplayName: creatorUser ? (creatorUser.displayName || creatorUser.email.split("@")[0]) : "",
+          hostAvatarUrl: creatorUser ? creatorUser.avatarUrl : "",
+          roomType: "classroom",
+          status: "active",
+        });
+      }
     }
 
     return finalEvents;

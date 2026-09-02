@@ -17,6 +17,9 @@ import { UsersService } from "../users/users.service";
 import { RoomMemberService } from "../rooms/room-member.service";
 import { Workbook } from "exceljs";
 import type { Response } from "express";
+import { Post, PostDocument } from "../news-feed/schemas/post.schema";
+import { User, UserDocument } from "../users/schemas/user.schema";
+import { AppGateway } from "../core/gateways/app.gateway";
 
 @Injectable()
 export class AssignmentsService {
@@ -25,10 +28,13 @@ export class AssignmentsService {
     @InjectModel(AssignmentSubmission.name) private submissionModel: Model<AssignmentSubmissionDocument>,
     @InjectModel(AssignmentComment.name) private commentModel: Model<AssignmentCommentDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    @InjectModel(Post.name) private postModel: Model<PostDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private roomsService: RoomsService,
     private assignmentsGateway: AssignmentsGateway,
     private usersService: UsersService,
     private roomMemberService: RoomMemberService,
+    private readonly appGateway: AppGateway,
   ) {}
 
   private async verifyUserRole(roomId: string, userId: string): Promise<{ isOwnerOrAdmin: boolean; isMember: boolean }> {
@@ -92,6 +98,109 @@ export class AssignmentsService {
     return [...memberSet];
   }
 
+  /**
+   * Tự động tạo hoặc đồng bộ bài đăng nhiệm vụ trên Bảng tin của các kênh được giao
+   */
+  private async syncAssignmentPosts(assignment: AssignmentDocument, authorId: string) {
+    if (assignment.status !== "published") return;
+
+    const targetChannelIds = assignment.channelIds?.length
+      ? assignment.channelIds
+      : (assignment.channelId ? [assignment.channelId] : []);
+
+    if (targetChannelIds.length === 0) return;
+
+    try {
+      const authorUser = await this.userModel.findOne({ supabaseId: authorId }).exec();
+      const authorInfo = {
+        userId: authorId,
+        displayName: authorUser?.displayName || authorUser?.email?.split("@")[0] || "Người dùng ẩn danh",
+        avatarUrl: authorUser?.avatarUrl || "",
+        role: "teacher",
+      };
+
+      const existingPosts = await this.postModel.find({
+        assignmentId: assignment._id.toString(),
+        isDeleted: { $ne: true },
+      }).exec();
+
+      const existingChannelIds = new Set(existingPosts.map((p) => p.channelId));
+      const targetChannelSet = new Set(targetChannelIds);
+
+      // 1. Xóa các bài đăng ở kênh không còn được giao nữa
+      const postsToDelete = existingPosts.filter((p) => !targetChannelSet.has(p.channelId));
+      for (const p of postsToDelete) {
+        await this.postModel.findByIdAndDelete(p._id);
+        this.appGateway.server.to(`room_${assignment.roomId}`).emit("post_deleted", { postId: p._id.toString() });
+      }
+
+      // 2. Cập nhật các bài đăng ở kênh vẫn còn giữ
+      const postsToUpdate = existingPosts.filter((p) => targetChannelSet.has(p.channelId));
+      for (const p of postsToUpdate) {
+        p.assignmentTitle = assignment.title || "";
+        p.assignmentDeadline = assignment.deadline;
+        p.recipientType = assignment.recipientType || "";
+        p.recipientMemberIds = assignment.recipientMemberIds || [];
+        await p.save();
+
+        const postWithAuthor = {
+          ...p.toObject(),
+          author: authorInfo,
+          commentsCount: 0,
+          reactionStats: [],
+          userReaction: null,
+        };
+        this.appGateway.server.to(`room_${assignment.roomId}`).emit("post_updated", postWithAuthor);
+      }
+
+      // 3. Tạo bài đăng mới ở các kênh mới được chọn
+      const channelsToCreate = targetChannelIds.filter((cId) => !existingChannelIds.has(cId));
+      for (const cId of channelsToCreate) {
+        const newPost = await this.postModel.create({
+          roomId: assignment.roomId,
+          channelId: cId,
+          authorId: authorId,
+          content: "Đã giao nhiệm vụ",
+          isAssignment: true,
+          assignmentId: assignment._id.toString(),
+          assignmentTitle: assignment.title || "",
+          assignmentDeadline: assignment.deadline,
+          recipientType: assignment.recipientType || "",
+          recipientMemberIds: assignment.recipientMemberIds || [],
+          attachments: [],
+          reactions: [],
+          isEdited: false,
+        });
+
+        const postWithAuthor = {
+          ...newPost.toObject(),
+          author: authorInfo,
+          commentsCount: 0,
+          reactionStats: [],
+          userReaction: null,
+        };
+        this.appGateway.server.to(`room_${assignment.roomId}`).emit("post_created", postWithAuthor);
+      }
+    } catch (err) {
+      console.error("Lỗi khi đồng bộ bài đăng nhiệm vụ vào bảng tin:", err);
+    }
+  }
+
+  /**
+   * Tự động xóa tất cả bài đăng bảng tin của một nhiệm vụ khi nhiệm vụ bị xóa
+   */
+  private async deleteAssignmentPosts(assignmentId: string, roomId: string) {
+    try {
+      const posts = await this.postModel.find({ assignmentId }).exec();
+      await this.postModel.deleteMany({ assignmentId });
+      for (const p of posts) {
+        this.appGateway.server.to(`room_${roomId}`).emit("post_deleted", { postId: p._id.toString() });
+      }
+    } catch (err) {
+      console.error("Lỗi khi xóa bài đăng nhiệm vụ trên bảng tin:", err);
+    }
+  }
+
   async create(createDto: CreateAssignmentDto, userId: string) {
     const { isOwnerOrAdmin } = await this.verifyUserRole(createDto.roomId, userId);
     if (!isOwnerOrAdmin) {
@@ -142,6 +251,8 @@ export class AssignmentsService {
 
     if (saved.status === "published") {
       this.assignmentsGateway.notifyAssignmentPublished(saved.roomId, saved.channelId, saved);
+      await this.syncAssignmentPosts(saved, userId);
+      this.appGateway.server.emit("calendar_event_created", saved);
     } else {
       this.assignmentsGateway.notifyAssignmentCreated(saved.roomId, saved.channelId, saved);
     }
@@ -202,8 +313,15 @@ export class AssignmentsService {
 
     if (wasDraft && saved.status === "published") {
       this.assignmentsGateway.notifyAssignmentPublished(saved.roomId, saved.channelId, saved);
+      await this.syncAssignmentPosts(saved, userId);
     } else {
       this.assignmentsGateway.notifyAssignmentUpdated(saved.roomId, saved.channelId, saved);
+      if (saved.status === "published") {
+        await this.syncAssignmentPosts(saved, assignment.createdBy || userId);
+      } else if (saved.status === "draft") {
+        await this.deleteAssignmentPosts(saved._id.toString(), saved.roomId);
+      }
+      this.appGateway.server.emit("calendar_event_updated", saved);
     }
     return saved;
   }
@@ -225,7 +343,9 @@ export class AssignmentsService {
 
     await this.assignmentModel.findByIdAndDelete(id);
     await this.submissionModel.deleteMany({ assignmentId: id });
+    await this.deleteAssignmentPosts(id, assignment.roomId);
     this.assignmentsGateway.notifyAssignmentDeleted(assignment.roomId, assignment.channelId, id);
+    this.appGateway.server.emit("calendar_event_deleted", { eventId: `assignment_${id}` });
     return { success: true };
   }
 

@@ -56,6 +56,10 @@ export class CreateAssignmentDto {
 
   @IsDateString()
   @IsOptional()
+  startDate?: string;
+
+  @IsDateString()
+  @IsOptional()
   deadline?: string;
 
   @IsEnum(["allow_late", "lock_after_deadline"])

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   MoreVertical,
   ThumbsUp,
@@ -17,6 +17,7 @@ import {
   Laugh,
   CheckCircle,
   CalendarDays,
+  ClipboardList,
 } from "lucide-react";
 import {
   PostDto,
@@ -52,6 +53,184 @@ const REACTION_LABELS: Record<string, string> = {
   "👏": "Vỗ tay",
   "🎉": "Chúc mừng",
 };
+
+interface CommentNode extends CommentDto {
+  children: CommentNode[];
+  replyToAuthor?: { displayName?: string };
+}
+
+interface ThreadedCommentItemProps {
+  comment: CommentNode;
+  level: number;
+  userId: string;
+  isTeacher: boolean;
+  replyToId: string | null;
+  replyText: string;
+  onSetReplyTo: (id: string | null) => void;
+  onSetReplyText: (text: string) => void;
+  onSubmitReply: (e: React.FormEvent, parentId: string) => void;
+  onDeleteComment: (id: string) => void;
+  getRoleLabel: (role?: string) => React.ReactNode;
+  formatTimeAgo: (dateStr: string) => string;
+  t: (key: string, options?: any) => string;
+}
+
+function ThreadedCommentItem({
+  comment,
+  level,
+  userId,
+  isTeacher,
+  replyToId,
+  replyText,
+  onSetReplyTo,
+  onSetReplyText,
+  onSubmitReply,
+  onDeleteComment,
+  getRoleLabel,
+  formatTimeAgo,
+  t,
+}: ThreadedCommentItemProps) {
+  const isCommentAuthor = comment.authorId === userId;
+  const isReplying = replyToId === comment._id;
+  // Giới hạn thụt lề tối đa ở level 4 để không làm co hẹp khung chat
+  const clampedIndent =
+    level > 0
+      ? level <= 4
+        ? "pl-6 sm:pl-7 border-l-2 border-slate-100"
+        : "pl-3 border-l-2 border-slate-100"
+      : "";
+
+  return (
+    <div className={`text-left ${clampedIndent} space-y-2 mt-2.5`}>
+      <div className="flex gap-2.5 items-start group/comment">
+        {level > 0 && (
+          <CornerDownRight size={13} className="text-slate-300 shrink-0 mt-2" />
+        )}
+        {comment.author?.avatarUrl ? (
+          <img
+            src={comment.author.avatarUrl}
+            alt=""
+            className={`${level > 0 ? "w-7 h-7" : "w-8 h-8"} rounded-full object-cover shrink-0`}
+          />
+        ) : (
+          <div
+            className={`${
+              level > 0 ? "w-7 h-7 text-[10px]" : "w-8 h-8 text-xs"
+            } rounded-full bg-slate-100 flex items-center justify-center font-bold uppercase shrink-0 text-slate-500 border border-slate-200`}
+          >
+            {comment.author?.displayName?.charAt(0)}
+          </div>
+        )}
+
+        <div className="flex-1 min-w-0">
+          <div className="bg-slate-50/80 hover:bg-slate-50 rounded-2xl px-3.5 py-2 inline-block max-w-full">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-slate-800">
+                {comment.author?.displayName}
+              </span>
+              {getRoleLabel(comment.author?.role)}
+              <span className="text-[10px] text-slate-400">
+                {formatTimeAgo(comment.createdAt)}
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 mt-1 whitespace-pre-wrap leading-relaxed">
+              {comment.replyToAuthor?.displayName && (
+                <span className="text-brand-600 font-bold mr-1 select-none">
+                  @{comment.replyToAuthor.displayName}
+                </span>
+              )}
+              {comment.content}
+            </p>
+          </div>
+
+          {/* Comment Action Links: Trả lời & Xóa cho MỌI CẤP */}
+          <div className="flex items-center gap-3 mt-1 pl-2 text-[10px] text-slate-400 font-semibold">
+            <button
+              onClick={() => {
+                if (isReplying) {
+                  onSetReplyTo(null);
+                } else {
+                  onSetReplyTo(comment._id);
+                  onSetReplyText("");
+                }
+              }}
+              className="hover:text-brand-600 transition-colors cursor-pointer"
+            >
+              {t("reply")}
+            </button>
+            {(isCommentAuthor || isTeacher) && (
+              <button
+                onClick={() => onDeleteComment(comment._id)}
+                className="hover:text-red-500 transition-colors cursor-pointer"
+              >
+                {t("delete")}
+              </button>
+            )}
+          </div>
+
+          {/* Form trả lời ngay bên dưới bình luận */}
+          {isReplying && (
+            <form
+              onSubmit={(e) => onSubmitReply(e, comment._id)}
+              className="mt-2 flex items-center gap-2 animate-fade-in"
+            >
+              <div className="flex-1 flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 bg-white focus-within:border-brand-500 shadow-2xs">
+                <span className="text-[11px] font-bold text-brand-600 shrink-0 select-none">
+                  @{comment.author?.displayName || "User"}
+                </span>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder={t("write_reply")}
+                  value={replyText}
+                  onChange={(e) => onSetReplyText(e.target.value)}
+                  className="flex-1 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-xl transition-colors shadow-sm shrink-0 cursor-pointer"
+              >
+                <Send size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetReplyTo(null)}
+                className="border border-slate-200 hover:bg-slate-50 text-slate-500 px-2.5 py-1.5 rounded-xl text-[10px] font-bold cursor-pointer"
+              >
+                {t("cancel")}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* Đệ quy hiển thị các phản hồi con cháu (Threaded Children) */}
+      {comment.children && comment.children.length > 0 && (
+        <div className="space-y-1">
+          {comment.children.map((child) => (
+            <ThreadedCommentItem
+              key={child._id}
+              comment={child}
+              level={level + 1}
+              userId={userId}
+              isTeacher={isTeacher}
+              replyToId={replyToId}
+              replyText={replyText}
+              onSetReplyTo={onSetReplyTo}
+              onSetReplyText={onSetReplyText}
+              onSubmitReply={onSubmitReply}
+              onDeleteComment={onDeleteComment}
+              getRoleLabel={getRoleLabel}
+              formatTimeAgo={formatTimeAgo}
+              t={t}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PostCard({ post, userId, userRole, onEdit }: PostCardProps) {
   const t = useTranslations("news_feed");
@@ -136,7 +315,7 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
         setCommentText("");
       }
     } catch (err: any) {
-      toast.error(err?.data?.message || t("failed_create_comment"));
+      toast.error(err?.data?.message || t("failed_create_comment", { fallback: "Bình luận thất bại." }));
     }
   };
 
@@ -147,9 +326,9 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
       onConfirm: async () => {
         try {
           await deleteComment(commentId).unwrap();
-          toast.success(t("success_delete_comment"));
+          toast.success(t("success_delete_comment", { fallback: "Đã xóa bình luận thành công." }));
         } catch (err: any) {
-          toast.error(err?.data?.message || "Error deleting comment.");
+          toast.error(err?.data?.message || t("failed_delete_comment", { fallback: "Xóa bình luận thất bại." }));
           throw err;
         }
       },
@@ -283,17 +462,28 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
   const totalReactionsCount = post.reactionStats?.reduce((sum, curr) => sum + curr.count, 0) || 0;
   const userReaction = post.userReaction;
 
-  // Root Comments (parentId === null)
-  const rootComments = comments.filter((c) => !c.parentId);
+  // Xây dựng cây bình luận đa cấp (Threaded Comment Tree)
+  const commentTree = useMemo(() => {
+    const map = new Map<string, CommentNode>();
+    const roots: CommentNode[] = [];
 
-  // Replies map
-  const repliesMap = comments.reduce((acc, curr) => {
-    if (curr.parentId) {
-      acc[curr.parentId] = acc[curr.parentId] || [];
-      acc[curr.parentId].push(curr);
-    }
-    return acc;
-  }, {} as Record<string, CommentDto[]>);
+    comments.forEach((c) => {
+      map.set(c._id, { ...c, children: [] });
+    });
+
+    comments.forEach((c) => {
+      const node = map.get(c._id)!;
+      if (c.parentId && map.has(c.parentId)) {
+        const parent = map.get(c.parentId)!;
+        node.replyToAuthor = parent.author;
+        parent.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  }, [comments]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
@@ -343,7 +533,7 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 mt-1 z-20 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1">
-                {!post.isMeeting && (isAuthor || isTeacher) && (
+                {!post.isMeeting && !post.isAssignment && (isAuthor || isTeacher) && (
                   <>
                     {isAuthor && (
                       <button
@@ -380,7 +570,7 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
         </div>
       </div>
 
-      {/* Content Text hoặc Meeting Card */}
+      {/* Content Text hoặc Meeting Card hoặc Assignment Card */}
       {post.isMeeting ? (
         <div className="space-y-4">
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4.5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-100/40">
@@ -429,6 +619,60 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
           
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left pl-1 select-none">
             {locale === "vi" ? "Đã lên lịch cuộc họp" : "Scheduled a meeting"}
+          </div>
+        </div>
+      ) : post.isAssignment ? (
+        <div className="space-y-4">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4.5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-100/40">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 bg-blue-50 border border-blue-100 flex items-center justify-center rounded-xl text-blue-600 shrink-0">
+                <ClipboardList className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-slate-800 tracking-tight truncate">
+                  {post.assignmentTitle}
+                </h4>
+                <p className="text-xs text-slate-400 font-semibold mt-1">
+                  {(() => {
+                    if (!post.assignmentDeadline) return locale === "vi" ? "Không có hạn chót" : "No deadline";
+                    const date = new Date(post.assignmentDeadline);
+                    const daysVi = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+                    const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                    const isVi = locale === "vi";
+                    const dayName = isVi ? daysVi[date.getDay()] : daysEn[date.getDay()];
+                    
+                    const hours = date.getHours().toString().padStart(2, "0");
+                    const minutes = date.getMinutes().toString().padStart(2, "0");
+                    
+                    if (isVi) {
+                      return `${dayName}, ${date.getDate()} tháng ${date.getMonth() + 1}, ${date.getFullYear()} ${hours}:${minutes}`;
+                    } else {
+                      const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                      return `${dayName}, ${monthsEn[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} ${hours}:${minutes}`;
+                    }
+                  })()}
+                </p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("navigate-to-assignment", {
+                    detail: { assignmentId: post.assignmentId },
+                  })
+                );
+                const newUrl = `/${locale}/room/${post.roomId}?channel=__assignments__&assignmentId=${post.assignmentId}`;
+                window.history.pushState({}, "", newUrl);
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors shadow-xs shrink-0 self-start sm:self-center cursor-pointer"
+            >
+              {locale === "vi" ? "Nhiệm vụ" : "Task"}
+            </button>
+          </div>
+          
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left pl-1 select-none">
+            {locale === "vi" ? "Đã giao nhiệm vụ" : "Assigned a task"}
           </div>
         </div>
       ) : (
@@ -579,146 +823,28 @@ export default function PostCard({ post, userId, userRole, onEdit }: PostCardPro
               <Loader2 className="animate-spin" size={14} />
               <span>{t("loading_comments")}</span>
             </div>
-          ) : rootComments.length === 0 ? (
+          ) : commentTree.length === 0 ? (
             <p className="text-center text-slate-400 text-xs py-4">{t("no_comments")}</p>
           ) : (
-            <div className="space-y-4 pr-1">
-              {rootComments.map((comment) => {
-                const commentReplies = repliesMap[comment._id] || [];
-                const isCommentAuthor = comment.authorId === userId;
-
-                return (
-                  <div key={comment._id} className="space-y-3">
-                    {/* Parent Comment */}
-                    <div className="flex gap-2.5 text-left items-start group/comment">
-                      {comment.author?.avatarUrl ? (
-                        <img
-                          src={comment.author.avatarUrl}
-                          alt=""
-                          className="w-8 h-8 rounded-full object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs uppercase shrink-0 text-slate-500 border border-slate-200">
-                          {comment.author?.displayName?.charAt(0)}
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="bg-slate-50/80 hover:bg-slate-50 rounded-2xl px-3.5 py-2 inline-block max-w-full">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-800">
-                              {comment.author?.displayName}
-                            </span>
-                            {getRoleLabel(comment.author?.role)}
-                            <span className="text-[10px] text-slate-400">
-                              {formatTimeAgo(comment.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-700 mt-1 whitespace-pre-wrap">
-                            {comment.content}
-                          </p>
-                        </div>
-
-                        {/* Comment Action Links */}
-                        <div className="flex items-center gap-3 mt-1 pl-2 text-[10px] text-slate-400 font-semibold">
-                          <button
-                            onClick={() => {
-                              setReplyToId(comment._id);
-                              setReplyText("");
-                            }}
-                            className="hover:text-brand-600 transition-colors"
-                          >
-                            {t("reply")}
-                          </button>
-                          {(isCommentAuthor || isTeacher) && (
-                            <button
-                              onClick={() => handleDeleteComment(comment._id)}
-                              className="hover:text-red-500 transition-colors"
-                            >
-                              {t("delete")}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Nested Replies List */}
-                    {commentReplies.map((reply) => {
-                      const isReplyAuthor = reply.authorId === userId;
-                      return (
-                        <div key={reply._id} className="flex gap-2.5 text-left items-start pl-8">
-                          <CornerDownRight size={14} className="text-slate-300 shrink-0 mt-1.5" />
-                          {reply.author?.avatarUrl ? (
-                            <img
-                              src={reply.author.avatarUrl}
-                              alt=""
-                              className="w-7 h-7 rounded-full object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-[10px] uppercase shrink-0 text-slate-500 border border-slate-200">
-                              {reply.author?.displayName?.charAt(0)}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="bg-slate-50/50 hover:bg-slate-50 rounded-2xl px-3 py-1.5 inline-block max-w-full">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-bold text-slate-800">
-                                  {reply.author?.displayName}
-                                </span>
-                                {getRoleLabel(reply.author?.role)}
-                                <span className="text-[10px] text-slate-400">
-                                  {formatTimeAgo(reply.createdAt)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-700 mt-0.5 whitespace-pre-wrap">
-                                {reply.content}
-                              </p>
-                            </div>
-                            {(isReplyAuthor || isTeacher) && (
-                              <div className="flex items-center gap-3 mt-0.5 pl-2 text-[10px] text-slate-400 font-semibold">
-                                <button
-                                  onClick={() => handleDeleteComment(reply._id)}
-                                  className="hover:text-red-500 transition-colors"
-                                >
-                                  {t("delete")}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Inline Reply Input Box */}
-                    {replyToId === comment._id && (
-                      <form
-                        onSubmit={(e) => handleCreateComment(e, comment._id)}
-                        className="pl-8 flex gap-2"
-                      >
-                        <input
-                          type="text"
-                          placeholder={t("write_reply")}
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          className="flex-1 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
-                        />
-                        <button
-                          type="submit"
-                          className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-xl transition-colors shadow-sm shrink-0"
-                        >
-                          <Send size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReplyToId(null)}
-                          className="border border-slate-200 hover:bg-slate-50 text-slate-500 px-2 py-1.5 rounded-xl text-[10px] font-bold"
-                        >
-                          {t("cancel")}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="space-y-3 pr-1">
+              {commentTree.map((comment) => (
+                <ThreadedCommentItem
+                  key={comment._id}
+                  comment={comment}
+                  level={0}
+                  userId={userId}
+                  isTeacher={isTeacher}
+                  replyToId={replyToId}
+                  replyText={replyText}
+                  onSetReplyTo={setReplyToId}
+                  onSetReplyText={setReplyText}
+                  onSubmitReply={handleCreateComment}
+                  onDeleteComment={handleDeleteComment}
+                  getRoleLabel={getRoleLabel}
+                  formatTimeAgo={formatTimeAgo}
+                  t={t}
+                />
+              ))}
             </div>
           )}
 

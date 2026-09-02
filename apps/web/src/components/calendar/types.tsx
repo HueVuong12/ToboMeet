@@ -5,6 +5,7 @@ import {
   Tv,
   Lock,
   Users2,
+  ClipboardList,
 } from "lucide-react";
 
 export type CalendarViewType = "day" | "week" | "workweek" | "month" | "agenda";
@@ -15,7 +16,7 @@ export interface CalendarEvent {
   description?: string;
   startDate: string;
   endDate: string;
-  meetingCode: string;
+  meetingCode?: string;
   hostId: string;
   roomType: "meeting" | "classroom" | "livestream" | "private" | "channel_meeting";
   status?: "active" | "cancelled" | "completed";
@@ -28,6 +29,13 @@ export interface CalendarEvent {
   hostAvatarUrl?: string;
   roomId?: string;
   channelId?: string;
+  channelIds?: string[];
+  // Assignment specific fields:
+  eventType?: "meeting" | "assignment";
+  assignmentId?: string;
+  assignmentStartDate?: string;
+  assignmentDueDate?: string;
+  assignmentStatus?: "in_progress" | "submitted" | "graded" | "overdue" | "closed";
 }
 
 export interface InviteeItem {
@@ -47,7 +55,21 @@ export interface RsvpMember {
   status: "ACCEPTED" | "DECLINED" | "TENTATIVE" | "PENDING";
 }
 
-export const getEventBgColor = (type: string, status?: string) => {
+export const getEventBgColor = (type: string, status?: string, eventType?: string, assignmentStatus?: string) => {
+  if (eventType === "assignment") {
+    switch (assignmentStatus) {
+      case "submitted":
+      case "graded":
+        return "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-sm";
+      case "overdue":
+        return "bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100 shadow-sm";
+      case "closed":
+        return "bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200 shadow-sm";
+      default: // in_progress
+        return "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100 shadow-sm";
+    }
+  }
+
   if (status === "cancelled") {
     return "bg-gray-100 border-gray-300 text-gray-500 line-through";
   }
@@ -65,7 +87,11 @@ export const getEventBgColor = (type: string, status?: string) => {
   }
 };
 
-export const getEventIcon = (type: string) => {
+export const getEventIcon = (type: string, eventType?: string) => {
+  if (eventType === "assignment") {
+    return <ClipboardList className="w-3.5 h-3.5" />;
+  }
+
   switch (type) {
     case "classroom":
       return <GraduationCap className="w-3.5 h-3.5" />;

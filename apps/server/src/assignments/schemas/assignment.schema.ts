@@ -21,6 +21,9 @@ export class Assignment {
   channelIds: string[];
 
   @Prop({ required: false })
+  startDate?: Date;
+
+  @Prop({ required: false })
   deadline?: Date;
 
   @Prop({

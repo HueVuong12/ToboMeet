@@ -4,6 +4,7 @@ import { AppDispatch } from "@/lib/redux/store";
 import {
   assignmentsApi,
   useGetRoomAssignmentsQuery,
+  useGetAssignmentDetailQuery,
   useCreateAssignmentMutation,
   useUpdateAssignmentMutation,
   useDeleteAssignmentMutation,
@@ -34,6 +35,7 @@ interface AssignmentModuleProps {
   channels: any[];
   roomMembers: any[];
   onViewChange?: (view: string) => void;
+  initialAssignmentId?: string | null;
 }
 
 export default function AssignmentModule({
@@ -42,11 +44,15 @@ export default function AssignmentModule({
   channels,
   roomMembers,
   onViewChange,
+  initialAssignmentId,
 }: AssignmentModuleProps) {
   const t = useTranslations("room.assignments_i18n");
   const deletingAssignmentIdRef = useRef<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
-  const [view, setView] = useState<"list" | "create" | "create_quiz" | "edit" | "detail" | "grade">("list");
+  const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(initialAssignmentId || null);
+  const [view, setView] = useState<"list" | "create" | "create_quiz" | "edit" | "detail" | "grade">(
+    initialAssignmentId ? "detail" : "list"
+  );
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "grading" | "overdue" | "returned" | "draft">("upcoming");
 
@@ -54,6 +60,47 @@ export default function AssignmentModule({
     roomId,
     status: activeTab === "draft" ? "draft" : undefined,
   });
+
+  // Truy vấn trực tiếp chi tiết nhiệm vụ theo activeAssignmentId
+  const { data: directAssignmentData } = useGetAssignmentDetailQuery(
+    activeAssignmentId || "",
+    { skip: !activeAssignmentId }
+  );
+
+  // Khi có dữ liệu chi tiết, lập tức mở xem chi tiết (Hình 2)
+  useEffect(() => {
+    if (directAssignmentData && activeAssignmentId) {
+      setSelectedAssignment(directAssignmentData);
+      if (directAssignmentData.status === "draft") {
+        setView("edit");
+      } else {
+        setView("detail");
+      }
+    }
+  }, [directAssignmentData, activeAssignmentId]);
+
+  // Cập nhật khi prop initialAssignmentId thay đổi
+  useEffect(() => {
+    if (initialAssignmentId) {
+      setActiveAssignmentId(initialAssignmentId);
+      setView("detail");
+    }
+  }, [initialAssignmentId]);
+
+  // Lắng nghe trực tiếp sự kiện điều hướng từ Bảng tin
+  useEffect(() => {
+    const handleNavigate = (e: any) => {
+      const assignId = e.detail?.assignmentId;
+      if (assignId) {
+        setActiveAssignmentId(assignId);
+        setView("detail");
+      }
+    };
+    window.addEventListener("navigate-to-assignment", handleNavigate);
+    return () => {
+      window.removeEventListener("navigate-to-assignment", handleNavigate);
+    };
+  }, []);
 
   useEffect(() => {
     if (onViewChange) {
@@ -480,35 +527,42 @@ export default function AssignmentModule({
         />
       )}
 
-      {view === "detail" && selectedAssignment && (
-        <AssignmentDetail
-          assignment={selectedAssignment}
-          submission={mySubmission}
-          submissions={submissions}
-          isTeacher={isTeacher}
-          roomMembers={roomMembers}
-          comments={comments}
-          userId={userId}
-          onBack={() => {
-            setView("list");
-            setSelectedAssignment(null);
-          }}
-          onSubmit={handleSubmitAssignment}
-          isSubmitting={isSubmitting}
-          onGradeClick={() => setView("grade")}
-          onGrade={handleGradeSubmission}
-          isGrading={isGrading}
-          onEditAssignment={() => setView("edit")}
-          refetchSubmission={() => {
-            if (!isTeacher) {
-              try { refetchMySubmission(); } catch (e) {}
-            }
-          }}
-          onDeleteSubmission={handleDeleteSubmission}
-          onDeleteAssignment={handleDeleteAssignment}
-          onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
-        />
+      {view === "detail" && (
+        selectedAssignment ? (
+          <AssignmentDetail
+            assignment={selectedAssignment}
+            submission={mySubmission}
+            submissions={submissions}
+            isTeacher={isTeacher}
+            roomMembers={roomMembers}
+            comments={comments}
+            userId={userId}
+            onBack={() => {
+              setView("list");
+              setSelectedAssignment(null);
+              setActiveAssignmentId(null);
+            }}
+            onSubmit={handleSubmitAssignment}
+            isSubmitting={isSubmitting}
+            onGradeClick={() => setView("grade")}
+            onGrade={handleGradeSubmission}
+            isGrading={isGrading}
+            onEditAssignment={() => setView("edit")}
+            refetchSubmission={() => {
+              if (!isTeacher) {
+                try { refetchMySubmission(); } catch (e) {}
+              }
+            }}
+            onDeleteSubmission={handleDeleteSubmission}
+            onDeleteAssignment={handleDeleteAssignment}
+            onAddComment={handleAddComment}
+            onDeleteComment={handleDeleteComment}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-slate-50">
+            <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
+          </div>
+        )
       )}
 
       {view === "grade" && selectedAssignment && (

@@ -12,6 +12,8 @@ import { CoreModule } from "../core/core.module";
 import { SupabaseModule } from "../supabase/supabase.module";
 
 import { UsersModule } from "../users/users.module";
+import { User, UserSchema } from "../users/schemas/user.schema";
+import { Post, PostSchema } from "../news-feed/schemas/post.schema";
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { UsersModule } from "../users/users.module";
       { name: AssignmentSubmission.name, schema: AssignmentSubmissionSchema },
       { name: AssignmentComment.name, schema: AssignmentCommentSchema },
       { name: Room.name, schema: RoomSchema },
+      { name: Post.name, schema: PostSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     RoomsModule,
     UsersModule,

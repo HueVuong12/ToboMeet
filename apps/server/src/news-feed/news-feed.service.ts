@@ -189,15 +189,39 @@ export class NewsFeedService {
     channelId: string,
     userId: string,
   ): Promise<unknown[]> {
-    await this.checkChannelAccess(roomId, channelId, userId);
+    const { room, member } = await this.checkChannelAccess(roomId, channelId, userId);
+    const isOwnerOrAdmin =
+      room.ownerId === userId ||
+      (member && ["owner", "admin", "teacher", "leader"].includes(member.role?.toLowerCase()));
 
     const posts = await this.postModel
       .find({ roomId, channelId, isDeleted: { $ne: true } })
       .sort({ createdAt: -1 })
       .exec();
 
+    // Lọc bài đăng nhiệm vụ theo quyền của user
+    const accessiblePosts = posts.filter((post) => {
+      if (!post.isAssignment) return true;
+
+      // Người tạo nhiệm vụ và Chủ phòng/Admin luôn thấy bài đăng
+      if (post.authorId === userId || isOwnerOrAdmin) {
+        return true;
+      }
+
+      // Nếu giao cho thành viên cụ thể: Chỉ người được giao mới thấy
+      if (
+        post.recipientType === "specific_members" ||
+        post.recipientType === "current_members"
+      ) {
+        return post.recipientMemberIds?.includes(userId) ?? false;
+      }
+
+      // Nếu giao cho kênh: Thành viên trong kênh được thấy
+      return true;
+    });
+
     // Lấy số lượng comment cho từng bài viết
-    const populated = await this.populateAuthors(posts, roomId);
+    const populated = await this.populateAuthors(accessiblePosts, roomId);
 
     const postsWithCommentCount = await Promise.all(
       populated.map(async (post) => {
@@ -518,16 +542,31 @@ export class NewsFeedService {
       throw new ForbiddenException("Bạn không có quyền xóa bình luận này");
     }
 
-    await this.commentModel.findByIdAndDelete(commentId);
-    // Xóa luôn các phản hồi trực thuộc nếu đây là comment cha
+    // Tìm tất cả ID của các bình luận con cháu nhiều cấp bên dưới
+    const getAllDescendantIds = async (parentIdStr: string): Promise<Types.ObjectId[]> => {
+      const children = await this.commentModel
+        .find({ parentId: new Types.ObjectId(parentIdStr) }, { _id: 1 })
+        .exec();
+      let allIds = children.map((c) => c._id as Types.ObjectId);
+      for (const child of children) {
+        const subIds = await getAllDescendantIds(child._id.toString());
+        allIds = allIds.concat(subIds);
+      }
+      return allIds;
+    };
+
+    const descendantIds = await getAllDescendantIds(commentId);
+    const allIdsToDelete = [new Types.ObjectId(commentId), ...descendantIds];
+
     await this.commentModel.deleteMany({
-      parentId: new Types.ObjectId(commentId),
+      _id: { $in: allIdsToDelete },
     });
 
     this.meetingsGateway.server
       .to(`room_${post!.roomId}`)
       .emit("comment_deleted", {
         commentId,
+        deletedCommentIds: allIdsToDelete.map((id) => id.toString()),
         postId: comment.postId.toString(),
         parentId: comment.parentId ? comment.parentId.toString() : null,
       });

@@ -47,6 +47,17 @@ export default function TimeGridView({
     let startHour = start.getHours() + start.getMinutes() / 60;
     let endHour = end.getHours() + end.getMinutes() / 60;
 
+    // Đối với Assignment: Hiển thị marker nhỏ gọn cắm tại đúng mốc giờ deadline, không kéo dài
+    if (event.eventType === "assignment") {
+      const displayStart = Math.max(1, Math.min(23, startHour));
+      const top = (displayStart - 1) * 64;
+      const finalHeight = 36;
+      return {
+        top: `${top}px`,
+        height: `${finalHeight}px`,
+      };
+    }
+
     if (end.toDateString() !== start.toDateString()) {
       endHour = 23;
     }
@@ -254,9 +265,11 @@ export default function TimeGridView({
                       left: layout.left,
                       width: layout.width,
                     }}
-                    className={`absolute h-auto px-3 py-2 rounded-xl border border-l-4 ${getEventBgColor(
+                    className={`absolute h-auto px-3 py-1.5 rounded-xl border border-l-4 ${getEventBgColor(
                       event.roomType,
-                      event.status
+                      event.status,
+                      event.eventType,
+                      event.assignmentStatus
                     )} transition-all cursor-pointer overflow-hidden flex flex-col ${
                       parseFloat(height) > 48
                         ? "justify-between"
@@ -268,13 +281,26 @@ export default function TimeGridView({
                     }`}
                   >
                     <div>
-                      <div className="flex items-start gap-1.5">
-                        <div className="mt-0.5 shrink-0">
-                          {getEventIcon(event.roomType)}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="shrink-0">
+                          {getEventIcon(event.roomType, event.eventType)}
                         </div>
-                        <h4 className="font-bold text-xs leading-tight whitespace-normal break-words text-left">
-                          {event.title}
+                        <h4 className="font-bold text-xs leading-tight truncate text-left flex-1 min-w-0">
+                          {event.eventType === "assignment" ? `[Nhiệm vụ] ${event.title}` : event.title}
                         </h4>
+                        {event.eventType === "assignment" && event.assignmentStatus && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/80 shrink-0">
+                            {event.assignmentStatus === "submitted"
+                              ? "Đã nộp"
+                              : event.assignmentStatus === "graded"
+                              ? "Đã chấm"
+                              : event.assignmentStatus === "overdue"
+                              ? "Quá hạn"
+                              : event.assignmentStatus === "closed"
+                              ? "Đã đóng"
+                              : "Đang làm"}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -146,7 +146,7 @@ export default function PostItem({
           </View>
         </View>
 
-        {isAuthor && (
+        {isAuthor && !post.isMeeting && !post.isAssignment && (
           <TouchableOpacity
             onPress={() => setShowMenuModal(true)}
             className="p-1"
@@ -156,7 +156,7 @@ export default function PostItem({
         )}
       </View>
 
-      {/* Content hoặc Meeting Card */}
+      {/* Content hoặc Meeting Card hoặc Assignment Card */}
       {post.isMeeting ? (
         <View className="mb-3">
           {/* Meeting card */}
@@ -190,6 +190,41 @@ export default function PostItem({
           {/* Label */}
           <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
             {i18n.language === "vi" ? "Đã lên lịch cuộc họp" : "Scheduled a meeting"}
+          </Text>
+        </View>
+      ) : post.isAssignment ? (
+        <View className="mb-3">
+          {/* Assignment card */}
+          <View className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-row items-center justify-between gap-3 mb-2">
+            <View className="flex-row items-center gap-3 flex-1 min-w-0">
+              {/* Clipboard icon */}
+              <View className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-xl items-center justify-center shrink-0">
+                <Feather name="clipboard" size={20} color="#2563EB" />
+              </View>
+              {/* Info */}
+              <View className="flex-1 min-w-0">
+                <Text className="text-sm font-bold text-slate-800" numberOfLines={1}>
+                  {post.assignmentTitle || ""}
+                </Text>
+                <Text className="text-xs text-slate-400 font-semibold mt-0.5" numberOfLines={1}>
+                  {formatMeetingDate(post.assignmentDeadline || "") || (i18n.language === "vi" ? "Không có hạn chót" : "No deadline")}
+                </Text>
+              </View>
+            </View>
+            {/* Nhiệm vụ button */}
+            <TouchableOpacity
+              onPress={() => router.push(`/assignment/${post.assignmentId}?roomId=${post.roomId}`)}
+              className="bg-indigo-600 px-4 py-2 rounded-xl shrink-0"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-xs font-bold">
+                {i18n.language === "vi" ? "Nhiệm vụ" : "Task"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {/* Label */}
+          <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+            {i18n.language === "vi" ? "Đã giao nhiệm vụ" : "Assigned a task"}
           </Text>
         </View>
       ) : (
