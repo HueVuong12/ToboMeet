@@ -28,6 +28,8 @@ import { BreakoutRoomsService } from "./breakout-rooms.service";
 import { MeetingProcessor } from "./processors/meeting.processor";
 import { Attendance, AttendanceSchema } from "./schemas/attendance.schema";
 import { AttendanceService } from "./attendance.service";
+import { RecordingsController } from "./recordings.controller";
+import { RecordingsService } from "./recordings.service";
 
 @Module({
   imports: [
@@ -50,12 +52,14 @@ import { AttendanceService } from "./attendance.service";
     BreakoutRoomsController,
     MeetingsController,
     ChannelMeetingsController,
+    RecordingsController,
   ],
   providers: [
     BreakoutRoomsService,
     MeetingsService,
     MeetingInviteService,
     AttendanceService,
+    RecordingsService,
     MeetingsGateway,
     MeetingProcessor,
   ],
@@ -63,6 +67,7 @@ import { AttendanceService } from "./attendance.service";
     AttendanceService,
     BreakoutRoomsService,
     MeetingsService,
+    RecordingsService,
     MeetingInviteService,
     MeetingsGateway,
   ],

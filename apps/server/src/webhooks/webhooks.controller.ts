@@ -6,9 +6,10 @@ import {
   RawBodyRequest,
   Headers,
 } from "@nestjs/common";
-import { WebhookReceiver } from "livekit-server-sdk";
+import { TrackSource, WebhookReceiver } from "livekit-server-sdk";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
+import { RecordingsService } from "../meetings/recordings.service";
 
 @Controller("webhooks")
 export class WebhooksController {
@@ -16,6 +17,7 @@ export class WebhooksController {
 
   constructor(
     @InjectQueue("meeting") private readonly meetingQueue: Queue,
+    private readonly recordingsService: RecordingsService,
   ) {
     this.receiver = new WebhookReceiver(
       process.env.LIVEKIT_API_KEY!,
@@ -79,6 +81,15 @@ export class WebhooksController {
           );
         }
         break;
+
+      case "track_published":
+        if (event.track.source === TrackSource.SCREEN_SHARE) {
+          await this.recordingsService.handleNewScreenShareTrack(
+            event.room.name, // meetingCode
+            event.track.sid  // trackId
+          );
+
+        }
     }
 
     return { received: true };

@@ -30,6 +30,7 @@ import InviteMemberModal from "./InviteMemberModal";
 import { useTranslations } from "next-intl";
 import { useIsElectron } from "@/hooks/useIsElectron";
 import { useScreenRecorder } from "@/hooks/useScreenRecorder";
+import { useCloudRecorder } from "@/hooks/useCloudRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
 import CreateBreakoutModal from "./CreateBreakoutModal";
 import JoinBreakoutModal from "./JoinBreakoutModal";
@@ -81,15 +82,26 @@ export default function CustomToolbar({
     handleLeaveBreakout,
   } = useToolbarActions();
 
+  // Cloud Recorder (LiveKit Egress)
   const {
-    isRecording,
-    isPaused,
+    isRecording: isCloudRecording,
+    isLoading: isCloudRecordingLoading,
+    startRecording: startCloudRecording,
+    stopRecording: stopCloudRecording,
+  } = useCloudRecorder({
+    meetingCode,
+  });
+
+  // Local Recorder (Electron MediaRecorder)
+  const {
+    isRecording: isLocalRecording,
+    isPaused: isLocalPaused,
 
     // Actions
-    pauseRecording,
-    resumeRecording,
-    startRecording,
-    stopRecording,
+    pauseRecording: pauseLocalRecording,
+    resumeRecording: resumeLocalRecording,
+    startRecording: startLocalRecording,
+    stopRecording: stopLocalRecording,
   } = useScreenRecorder({
     isMicrophoneEnabled, // Chỉ thu mic khi người dùng mở
   });
@@ -233,26 +245,71 @@ export default function CustomToolbar({
           </span>
         </button>
 
-        {/* NÚT QUAY MÀN HÌNH - CHỈ HIỂN THỊ KHI CHẠY BẰNG ELECTRON */}
+        {/* NÚT GHI HÌNH TRÊN CLOUD (LiveKit Egress) */}
+        {!isCloudRecording ? (
+          <button
+            onClick={startCloudRecording}
+            disabled={isCloudRecordingLoading}
+            title={t("record_cloud")}
+            className={`hidden md:flex ${getBtnStyle(false)}`}
+          >
+            {isCloudRecordingLoading ? (
+              <Loader2 size={20} className="animate-spin text-red-500" />
+            ) : (
+              <CircleDot size={20} className="text-red-500" />
+            )}
+            <span className="text-[10px] mt-1 hidden sm:block font-medium">
+              {t("record")}
+            </span>
+          </button>
+        ) : (
+          <button
+            onClick={stopCloudRecording}
+            disabled={isCloudRecordingLoading}
+            title={t("stop_cloud_recording")}
+            className={`hidden md:flex ${getBtnStyle(true, "bg-[#222] text-red-500")}`}
+          >
+            {isCloudRecordingLoading ? (
+              <Loader2 size={20} className="animate-spin text-red-500" />
+            ) : (
+              <div className="relative flex items-center justify-center">
+                <CircleDot size={20} className="text-red-500 animate-pulse" />
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              </div>
+            )}
+            <span className="text-[10px] mt-1 hidden sm:block font-medium text-red-500">
+              {t("stop_recording")}
+            </span>
+          </button>
+        )}
+
+        {/* NÚT QUAY MÀN HÌNH CỤC BỘ - CHỈ HIỂN THỊ KHI CHẠY BẰNG ELECTRON */}
         {isElectron &&
-          (!isRecording ? (
+          (!isLocalRecording ? (
             <button
-              onClick={startRecording}
+              onClick={startLocalRecording}
+              title={t("record_local")}
               className={`hidden md:flex ${getBtnStyle(false)}`}
             >
-              <CircleDot size={20} className="text-red-500" />
+              <CircleDot size={20} className="text-amber-500" />
               <span className="text-[10px] mt-1 hidden sm:block font-medium">
-                {t("record")}
+                {t("record_local")}
               </span>
             </button>
           ) : (
-            <div className="hidden md:flex items-center h-full min-w-13.75 sm:min-w-16.25 bg-[#222] rounded-none overflow-hidden">
+            <div
+              className="hidden md:flex items-center h-full min-w-13.75 sm:min-w-16.25 bg-[#222] rounded-none overflow-hidden"
+              title={t("record_local")}
+            >
               <button
-                onClick={isPaused ? resumeRecording : pauseRecording}
+                onClick={isLocalPaused ? resumeLocalRecording : pauseLocalRecording}
                 className="flex-1 h-full flex items-center justify-center hover:bg-white/10 transition-colors border-r border-[#111]"
-                title={isPaused ? t("resume") : t("pause")}
+                title={isLocalPaused ? t("resume") : t("pause")}
               >
-                {isPaused ? (
+                {isLocalPaused ? (
                   <Play
                     size={16}
                     fill="currentColor"
@@ -267,7 +324,7 @@ export default function CustomToolbar({
                 )}
               </button>
               <button
-                onClick={stopRecording}
+                onClick={stopLocalRecording}
                 className="flex-1 h-full flex items-center justify-center hover:bg-red-600/30 transition-colors"
                 title={t("stop_recording")}
               >

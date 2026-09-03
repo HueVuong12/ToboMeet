@@ -380,6 +380,22 @@ export const meetingsApi = baseApi.injectEndpoints({
         params: sessionId ? { sessionId } : undefined,
       }),
     }),
+
+    // Bắt đầu ghi hình cuộc họp trên Cloud (LiveKit Egress)
+    startCloudRecording: builder.mutation<void, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/record/start`,
+        method: "POST",
+      }),
+    }),
+
+    // Dừng ghi hình cuộc họp trên Cloud (LiveKit Egress)
+    stopCloudRecording: builder.mutation<void, { meetingCode: string }>({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/record/stop`,
+        method: "POST",
+      }),
+    }),
   }),
   overrideExisting: true,
 });
@@ -423,6 +439,10 @@ export const {
   useLazyGetMeetingSessionsQuery,
   useGetSessionAttendanceQuery,
   useLazyGetSessionAttendanceQuery,
+
+  // Cloud Recording APIs
+  useStartCloudRecordingMutation,
+  useStopCloudRecordingMutation,
 } = meetingsApi;
 
 
