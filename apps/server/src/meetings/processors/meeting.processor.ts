@@ -4,6 +4,7 @@ import { Job } from "bullmq";
 import { BreakoutRoomsService } from "../breakout-rooms.service";
 import { AttendanceService } from "../attendance.service";
 import { MeetingsService } from "../meetings.service";
+import { RecordingsService } from "../recordings.service";
 
 export interface AutoEndBreakoutJobData {
   mainMeetingCode: string;
@@ -16,6 +17,10 @@ export interface AttendanceJobData {
   displayName?: string;
 }
 
+export interface ProcessRecordingJobData {
+  meetingCode: string;
+}
+
 @Processor("meeting", { concurrency: 10 })
 export class MeetingProcessor extends WorkerHost {
   private readonly logger = new Logger(MeetingProcessor.name);
@@ -23,7 +28,8 @@ export class MeetingProcessor extends WorkerHost {
   constructor(
     private readonly breakoutRoomsService: BreakoutRoomsService,
     private readonly attendanceService: AttendanceService,
-    private readonly meetingsService: MeetingsService,) {
+    private readonly meetingsService: MeetingsService,
+    private readonly recordingService: RecordingsService) {
     super();
   }
 
@@ -62,6 +68,12 @@ export class MeetingProcessor extends WorkerHost {
       case "attendance-close-all": {
         const { meetingCode } = job.data as { meetingCode: string };
         await this.attendanceService.closeAllOpenVisits(meetingCode);
+        break;
+      }
+
+      case "process-recording": {
+        const { meetingCode } = job.data as ProcessRecordingJobData;
+        await this.recordingService.handlePostProcessing(meetingCode);
         break;
       }
 

@@ -40,6 +40,8 @@ export class WebhooksController {
     switch (event.event) {
       case "participant_joined":
         if (meetingCode && userId) {
+          // Bỏ qua egress client
+          if (userId.startsWith("EG_")) break;
           await this.meetingQueue.add(
             "attendance-joined",
             { meetingCode, userId, displayName },

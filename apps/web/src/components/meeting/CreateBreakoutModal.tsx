@@ -498,7 +498,7 @@ export default function CreateBreakoutModal({
                     <button
                       type="button"
                       onClick={() => setRoomCount((c) => Math.max(1, c - 1))}
-                      className="w-8 h-8 rounded-lg bg-[#333] hover:bg-[#444] border border-[#444] text-white flex items-center justify-center font-bold text-base transition-colors"
+                      className="w-6 h-6 pb-1 rounded-lg bg-[#333] hover:bg-[#444] border border-[#444] text-white flex items-center justify-center font-bold text-base transition-colors"
                     >
                       -
                     </button>
@@ -513,7 +513,7 @@ export default function CreateBreakoutModal({
                     <button
                       type="button"
                       onClick={() => setRoomCount((c) => c + 1)}
-                      className="w-8 h-8 rounded-lg bg-[#333] hover:bg-[#444] border border-[#444] text-white flex items-center justify-center font-bold text-base transition-colors"
+                      className="w-6 h-6 pb-1 rounded-lg bg-[#333] hover:bg-[#444] border border-[#444] text-white flex items-center justify-center font-bold text-base transition-colors"
                     >
                       +
                     </button>
