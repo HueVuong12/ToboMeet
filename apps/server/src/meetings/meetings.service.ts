@@ -1207,6 +1207,8 @@ export class MeetingsService {
         _id: doc._id.toString(),
         meetingCode: doc.meetingCode,
         status: doc.status as "ongoing" | "ended",
+        sessionFolder: doc.sessionFolder,
+        recordings: doc.recordings || [],
         startedAt: doc.startedAt || doc.createdAt,
         endedAt: doc.endedAt,
         createdAt: doc.createdAt,

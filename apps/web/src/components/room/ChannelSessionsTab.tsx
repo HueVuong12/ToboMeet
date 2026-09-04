@@ -8,7 +8,7 @@ import {
   useGetSessionAttendanceQuery,
 } from "@/lib/redux/api/meetingsApi";
 import { useFetchMeetingSession } from "@/hooks/useFetchMeetingSession";
-import { MeetingSessionResponse, SessionAttendanceItem } from "@tobomeet/shared/types";
+import { MeetingSessionResponse, SessionAttendanceItem, SessionRecording } from "@tobomeet/shared/types";
 import {
   Video,
   Clock,
@@ -25,10 +25,13 @@ import {
   UserCheck,
   UserX,
   FileSpreadsheet,
+  HardDrive,
+  Film,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import ExportAttendanceModal, { ExportMode } from "./ExportAttendanceModal";
+import HlsRecordingPlayer from "./HlsRecordingPlayer";
 
 interface ChannelSessionsTabProps {
   roomId: string;
@@ -358,6 +361,18 @@ export default function ChannelSessionsTab({
                             </span>
                           </div>
                         )}
+
+                        {/* Recordings Count */}
+                        {session.recordings && session.recordings.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Video size={13} className="text-rose-500 shrink-0" />
+                            <span className="font-medium text-slate-700">
+                              <span className="font-bold text-rose-700">
+                                {t("session_recordings_count", { count: session.recordings.length })}
+                              </span>
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -447,6 +462,38 @@ function SessionDetailView({
   const locale = useLocale();
   const [isExporting, setIsExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [activeRecording, setActiveRecording] = useState<SessionRecording | null>(null);
+
+  const recordings = session.recordings || [];
+
+  const resolveRecordingUrl = (recording: SessionRecording) => {
+    if (
+      recording.playlistUrl &&
+      (recording.playlistUrl.startsWith("http://") ||
+        recording.playlistUrl.startsWith("https://"))
+    ) {
+      return recording.playlistUrl;
+    }
+    const publicBaseUrl =
+      process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+      "https://pub-313a77fbb1de4d04a7cf5e485af3cbc2.r2.dev";
+    const cleanBase = publicBaseUrl.replace(/\/$/, "");
+    const path = recording.storagePath || recording.playlistUrl || "";
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    return `${cleanBase}/${cleanPath}`;
+  };
+
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return "0 MB";
+    const mb = bytes / (1024 * 1024);
+    if (mb < 0.1) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    if (mb >= 1024) {
+      return `${(mb / 1024).toFixed(2)} GB`;
+    }
+    return `${mb.toFixed(1)} MB`;
+  };
 
   const handleExportExcel = async ({
     lang,
@@ -603,6 +650,121 @@ function SessionDetailView({
                   ? t("session_users_count", { count: session.totalParticipants })
                   : "0"}
             </div>
+          </div>
+        </div>
+
+        {/* Phần Bản ghi cuộc họp (Recordings Section) - Nằm giữa Thống kê và Danh sách điểm danh */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Video size={18} className="text-rose-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                {t("session_recordings_title")}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 font-semibold">
+                {t("session_recordings_count", { count: recordings.length })}
+              </span>
+            </div>
+          </div>
+
+          {/* Active Video Player */}
+          {activeRecording && (
+            <div className="p-4 sm:p-6 bg-slate-950 border-b border-slate-800">
+              <HlsRecordingPlayer
+                src={resolveRecordingUrl(activeRecording)}
+                title={`${t("session_recording_item", {
+                  index:
+                    recordings.findIndex(
+                      (r: SessionRecording) => r.recordingId === activeRecording.recordingId,
+                    ) + 1,
+                })} • ${formatDateTime(activeRecording.createdAt)}`}
+                durationSeconds={activeRecording.durationSeconds}
+                onClose={() => setActiveRecording(null)}
+                autoPlay={true}
+              />
+            </div>
+          )}
+
+          {/* Recording Items Grid */}
+          <div className="p-6">
+            {recordings.length === 0 ? (
+              <div className="py-8 text-center text-slate-400">
+                <Film size={32} className="mx-auto mb-2 text-slate-300" />
+                <p className="text-xs font-medium">
+                  {t("session_recordings_empty")}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recordings.map((rec: SessionRecording, idx: number) => {
+                  const isSelected =
+                    activeRecording?.recordingId === rec.recordingId;
+                  return (
+                    <div
+                      key={rec.recordingId || idx}
+                      className={`relative p-4 rounded-xl border transition-all flex flex-col justify-between gap-3 ${isSelected
+                          ? "bg-rose-50/50 border-rose-300 shadow-xs"
+                          : "bg-slate-50/70 hover:bg-slate-50 border-slate-200 hover:border-slate-300"
+                        }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`p-2 rounded-lg ${isSelected
+                                ? "bg-rose-500 text-white shadow-xs"
+                                : "bg-white text-rose-600 border border-slate-200"
+                              }`}
+                          >
+                            <Video size={16} />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900">
+                              {t("session_recording_item", { index: idx + 1 })}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 font-mono">
+                              {formatDateTime(rec.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-200 text-slate-700 rounded-full font-mono">
+                          HLS
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-200/60 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={13} className="text-slate-400" />
+                          <span>{formatDuration(rec.durationSeconds)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <HardDrive size={13} className="text-slate-400" />
+                          <span>{formatBytes(rec.sizeBytes)}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          setActiveRecording(isSelected ? null : rec)
+                        }
+                        className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${isSelected
+                            ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                            : "bg-white hover:bg-rose-600 hover:text-white text-slate-800 border border-slate-200 hover:border-rose-600 shadow-2xs"
+                          }`}
+                      >
+                        <PlayCircle size={15} />
+                        <span>
+                          {isSelected
+                            ? t("session_recording_playing")
+                            : t("session_recording_play")}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

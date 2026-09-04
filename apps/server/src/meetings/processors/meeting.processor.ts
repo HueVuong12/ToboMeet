@@ -19,6 +19,7 @@ export interface AttendanceJobData {
 
 export interface ProcessRecordingJobData {
   meetingCode: string;
+  sessionId?: string;
 }
 
 @Processor("meeting", { concurrency: 10 })
@@ -72,8 +73,8 @@ export class MeetingProcessor extends WorkerHost {
       }
 
       case "process-recording": {
-        const { meetingCode } = job.data as ProcessRecordingJobData;
-        await this.recordingService.handlePostProcessing(meetingCode);
+        const { meetingCode, sessionId } = job.data as ProcessRecordingJobData;
+        await this.recordingService.handlePostProcessing(meetingCode, sessionId);
         break;
       }
 

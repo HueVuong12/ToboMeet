@@ -473,10 +473,22 @@ export interface NotificationResponse {
   updatedAt: Date;
 }
 
+export interface SessionRecording {
+  recordingId: string;
+  folderName: string;
+  storagePath: string;
+  playlistUrl?: string;
+  durationSeconds?: number;
+  sizeBytes?: number;
+  createdAt: Date | string;
+}
+
 export interface MeetingSessionResponse {
   _id: string;
   meetingCode: string;
   status: "ongoing" | "ended";
+  sessionFolder?: string;
+  recordings?: SessionRecording[];
   startedAt: string | Date;
   endedAt?: string | Date;
   createdAt?: string | Date;
