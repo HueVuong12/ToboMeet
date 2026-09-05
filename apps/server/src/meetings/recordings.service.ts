@@ -31,7 +31,7 @@ export class RecordingsService {
     private livekitRoomService: RoomServiceClient;
     private egressClient: EgressClient;
     private readonly logger = new Logger(RecordingsService.name);
-    private readonly CALIBRATION_OFFSET = -0.3;
+    // private readonly CALIBRATION_OFFSET = -0.3;
 
     constructor(
         @InjectQueue("meeting") private meetingQueue: Queue,
@@ -49,6 +49,23 @@ export class RecordingsService {
     }
 
     /**
+     * Trích xuất sessionId trực tiếp từ LiveKit room metadata (tránh query database)
+     */
+    private async extractSessionId(meetingCode: string): Promise<string> {
+        if (!this.livekitRoomService) return "";
+        try {
+            const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+            if (rooms && rooms.length > 0 && rooms[0].metadata) {
+                const meta = JSON.parse(rooms[0].metadata);
+                return meta.sessionId || "";
+            }
+        } catch (error) {
+            this.logger.error(`Lỗi khi trích xuất sessionId từ LiveKit room ${meetingCode}:`, error);
+        }
+        return "";
+    }
+
+    /**
      * Bắt đầu ghi hình phân tách: Âm thanh tổng (MP4) + Màn hình chia sẻ (WebM Raw)
      */
     async startRecording(meetingCode: string): Promise<void> {
@@ -56,12 +73,14 @@ export class RecordingsService {
             throw new AppException(ErrorCode.SERVER_ERROR);
         }
 
+        const sessionId = await this.extractSessionId(meetingCode);
+        const folderName = sessionId || meetingCode;
         const timestamp = Date.now();
         const egressJobs: string[] = [];
 
         const audioOutput = new EncodedFileOutput({
             fileType: EncodedFileType.MP4,
-            filepath: `/out/${meetingCode}/${meetingCode}-${timestamp}-audio.mp4`,
+            filepath: `/out/${folderName}/${meetingCode}-${timestamp}-audio.mp4`,
         });
 
         try {
@@ -85,7 +104,7 @@ export class RecordingsService {
 
             if (screenShareTrackId) {
                 const screenOutput = new DirectFileOutput({
-                    filepath: `/out/${meetingCode}/${meetingCode}-${timestamp}-screen.webm`,
+                    filepath: `/out/${folderName}/${meetingCode}-${timestamp}-screen.webm`,
                 });
 
                 const screenJob = await this.egressClient.startTrackEgress(
@@ -122,17 +141,8 @@ export class RecordingsService {
                 return;
             }
 
-            // Tìm session hiện tại để truyền sessionId vào worker
-            let session = await this.sessionModel.findOne({
-                meetingCode,
-                status: "ongoing",
-            });
-            if (!session) {
-                session = await this.sessionModel
-                    .findOne({ meetingCode })
-                    .sort({ createdAt: -1 });
-            }
-            const sessionId = session?._id?.toString();
+            // Trích xuất sessionId trực tiếp từ LiveKit room metadata để truyền vào worker mà không cần fetch DB
+            const sessionId = await this.extractSessionId(meetingCode);
 
             // Tắt đồng loạt
             const stopPromises = activeEgresses.map((egress) =>
@@ -177,8 +187,11 @@ export class RecordingsService {
 
             if (activeEgresses.length === 0) return;
 
+            const sessionId = await this.extractSessionId(meetingCode);
+            const folderName = sessionId || meetingCode;
+
             const screenOutput = new DirectFileOutput({
-                filepath: `/out/${meetingCode}/${meetingCode}-${Date.now()}-screen.webm`,
+                filepath: `/out/${folderName}/${meetingCode}-${Date.now()}-screen.webm`,
             });
 
             await this.egressClient.startTrackEgress(
@@ -197,12 +210,20 @@ export class RecordingsService {
     async handlePostProcessing(meetingCode: string, sessionId?: string) {
         try {
             const basePath = process.env.RECORDING_STORAGE_PATH || path.join(process.cwd(), "recordings");
-            const recordingsDir = path.join(basePath, meetingCode);
+            const folderName = sessionId || meetingCode;
+            let recordingsDir = path.join(basePath, folderName);
 
-            const stats = await fs.stat(recordingsDir).catch(() => null);
+            let stats = await fs.stat(recordingsDir).catch(() => null);
             if (!stats || !stats.isDirectory()) {
-                this.logger.warn(`Thư mục recordings không tồn tại cho ${meetingCode}`);
-                return;
+                // Fallback kiểm tra nếu lưu bằng meetingCode
+                const fallbackDir = path.join(basePath, meetingCode);
+                const fallbackStats = await fs.stat(fallbackDir).catch(() => null);
+                if (fallbackStats && fallbackStats.isDirectory()) {
+                    recordingsDir = fallbackDir;
+                } else {
+                    this.logger.warn(`Thư mục recordings không tồn tại cho ${folderName} (hoặc ${meetingCode})`);
+                    return;
+                }
             }
 
             const files = await fs.readdir(recordingsDir);
@@ -222,7 +243,7 @@ export class RecordingsService {
 
                 if (!manifest.files || manifest.files.length === 0) continue;
 
-                const internalFilename = manifest.files[0].filename; // vd: /out/meet-123/meet-123-audio.mp4
+                const internalFilename = manifest.files[0].filename; // vd: /out/<folder>/...-audio.mp4
                 const actualFileName = path.basename(internalFilename);
                 const actualFilePath = path.join(recordingsDir, actualFileName);
 
@@ -242,31 +263,12 @@ export class RecordingsService {
             }
 
             if (!audioManifest) {
-                this.logger.warn(`Không tìm thấy file audio cho ${meetingCode}. Hủy ghép video.`);
+                this.logger.warn(`Không tìm thấy file audio cho ${meetingCode} (folder: ${folderName}). Hủy ghép video.`);
                 return;
             }
 
-            // Lấy thông tin session tương ứng
-            let session = null;
-            if (sessionId) {
-                session = await this.sessionModel.findById(sessionId);
-            }
-            if (!session) {
-                session = await this.sessionModel.findOne({ meetingCode, status: "ongoing" });
-            }
-            if (!session) {
-                session = await this.sessionModel.findOne({ meetingCode }).sort({ createdAt: -1 });
-            }
-
-            // Đảm bảo session có sessionFolder ngẫu nhiên
-            let sessionFolder = session?.sessionFolder;
-            if (!sessionFolder) {
-                sessionFolder = `session_${crypto.randomUUID()}`;
-                if (session) {
-                    session.sessionFolder = sessionFolder;
-                    await session.save();
-                }
-            }
+            // Dùng trực tiếp folderName (sessionId) làm sessionFolder trên local và R2
+            const sessionFolder = folderName;
 
             // Tạo tên thư mục ngẫu nhiên cho lần recording này (hậu kỳ cục bộ và R2)
             const recordingFolderName = `rec_${crypto.randomUUID()}`;
@@ -281,8 +283,8 @@ export class RecordingsService {
                     let startOffset = (seg.manifest.started_at - audioStartTime) / 1e9;
                     let endOffset = (seg.manifest.ended_at - audioStartTime) / 1e9;
 
-                    startOffset += this.CALIBRATION_OFFSET;
-                    endOffset += this.CALIBRATION_OFFSET;
+                    // startOffset += this.CALIBRATION_OFFSET;
+                    // endOffset += this.CALIBRATION_OFFSET;
 
                     // Không cho giá trị âm
                     startOffset = Math.max(0, startOffset);
@@ -403,9 +405,9 @@ export class RecordingsService {
                 createdAt: new Date(),
             };
 
-            if (session) {
+            if (sessionId) {
                 await this.sessionModel.findByIdAndUpdate(
-                    session._id,
+                    sessionId,
                     {
                         $set: { sessionFolder },
                         $push: { recordings: recordingItem },
@@ -413,10 +415,20 @@ export class RecordingsService {
                     { new: true }
                 );
                 this.logger.log(
-                    `Đã chèn recording ${recordingItem.recordingId} vào session ${session._id} thành công (R2 path: ${storagePath}).`
+                    `Đã chèn recording ${recordingItem.recordingId} vào session ${sessionId} thành công (R2 path: ${storagePath}).`
                 );
             } else {
-                this.logger.warn(`Không tìm thấy session tương ứng cho meeting ${meetingCode} để chèn recording.`);
+                await this.sessionModel.findOneAndUpdate(
+                    { meetingCode, status: "ongoing" },
+                    {
+                        $set: { sessionFolder },
+                        $push: { recordings: recordingItem },
+                    },
+                    { new: true, sort: { createdAt: -1 } }
+                );
+                this.logger.log(
+                    `Đã chèn recording ${recordingItem.recordingId} vào session của meeting ${meetingCode} (R2 path: ${storagePath}).`
+                );
             }
         } catch (error) {
             this.logger.error(`Lỗi xử lý hậu kỳ cho ${meetingCode}:`, error);
@@ -475,4 +487,4 @@ export class RecordingsService {
 
         return { totalSizeBytes, fileCount };
     }
-}
+}

@@ -36,6 +36,7 @@ export function useToolbarActions() {
   // Local states cho UI loading và trạng thái copy
   const [isMicLoading, setIsMicLoading] = useState(false);
   const [isCamLoading, setIsCamLoading] = useState(false);
+  const [isScreenShareLoading, setIsScreenShareLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
   const handleLeaveBreakout = async () => {
@@ -74,6 +75,7 @@ export function useToolbarActions() {
     }
 
     try {
+      setIsScreenShareLoading(true);
       if (!isScreenShareEnabled) {
         await startScreenShare({ meetingCode: code }).unwrap();
         await localParticipant.setScreenShareEnabled(true);
@@ -88,6 +90,8 @@ export function useToolbarActions() {
         t("error_occurred") ||
         "Không thể thực hiện thao tác này.";
       toast.error(errorMessage);
+    } finally {
+      setIsScreenShareLoading(false);
     }
   };
 
@@ -124,6 +128,7 @@ export function useToolbarActions() {
     isSomeoneElseSharing,
     isMicLoading,
     isCamLoading,
+    isScreenShareLoading,
     isCopied,
     isLeavingBreakout,
 

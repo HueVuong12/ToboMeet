@@ -19,13 +19,18 @@ import {
   UserCog,
   ChevronRight,
   UserPlus,
-  CircleDot,
   Play,
   Pause,
   Square,
   Network,
+  Cloud,
+  Laptop,
+  Info,
+  Disc,
+  ChevronUp,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import InviteMemberModal from "./InviteMemberModal";
 import { useTranslations } from "next-intl";
 import { useIsElectron } from "@/hooks/useIsElectron";
@@ -58,6 +63,7 @@ export default function CustomToolbar({
   const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
   const [isJoinBreakoutModalOpen, setIsJoinBreakoutModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isRecordMenuOpen, setIsRecordMenuOpen] = useState(false);
   const [isLeaveMenuOpen, setIsLeaveMenuOpen] = useState(false);
 
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
@@ -70,6 +76,7 @@ export default function CustomToolbar({
     isSomeoneElseSharing,
     isMicLoading,
     isCamLoading,
+    isScreenShareLoading,
     isCopied,
     isLeavingBreakout,
 
@@ -124,6 +131,44 @@ export default function CustomToolbar({
   } = useRoomSettings({
     meetingCode,
   });
+
+  // Xác nhận trước khi quay màn hình bằng toast
+  const handleConfirmStartCloudRecording = () => {
+    setIsRecordMenuOpen(false);
+    toast(t("confirm_record_cloud_title"), {
+      description: t("confirm_record_cloud_desc"),
+      action: {
+        label: t("confirm_record_action"),
+        onClick: () => {
+          startCloudRecording();
+        },
+      },
+      cancel: {
+        label: t("cancel"),
+        onClick: () => {},
+      },
+      duration: 8000,
+    });
+  };
+
+  const handleConfirmStartLocalRecording = () => {
+    if (!isElectron) return;
+    setIsRecordMenuOpen(false);
+    toast(t("confirm_record_local_title"), {
+      description: t("confirm_record_local_desc"),
+      action: {
+        label: t("confirm_record_action"),
+        onClick: () => {
+          startLocalRecording();
+        },
+      },
+      cancel: {
+        label: t("cancel"),
+        onClick: () => {},
+      },
+      duration: 8000,
+    });
+  };
 
   const isInBreakoutRoom = roomType === "breakout";
 
@@ -194,7 +239,7 @@ export default function CustomToolbar({
               size={20}
               className={activeTab === "people" ? "text-brand-400" : ""}
             />
-            <span className="absolute -top-1 -right-3.5 inline-flex items-center justify-center px-1 min-w-4 h-4 text-[9px] font-bold text-white bg-slate-600 rounded-full border-[1.5px] border-[#111]">
+            <span className="absolute -top-1 -right-2.5 text-[10px] font-semibold text-slate-300">
               {displayParticipants.length}
             </span>
           </div>
@@ -226,116 +271,262 @@ export default function CustomToolbar({
 
         <button
           onClick={toggleScreenShare}
-          disabled={isSomeoneElseSharing}
+          disabled={isSomeoneElseSharing || isScreenShareLoading}
           className={`hidden md:flex ${getBtnStyle(
             isScreenShareEnabled,
             "bg-green-600 text-white hover:bg-green-700",
-          )} ${isSomeoneElseSharing ? "opacity-30 cursor-not-allowed hover:bg-[#222]" : ""}`}
+          )} ${isSomeoneElseSharing || isScreenShareLoading ? "opacity-40 cursor-not-allowed hover:bg-[#222]" : ""}`}
         >
-          <MonitorUp
-            size={20}
-            className={
-              !isScreenShareEnabled && !isSomeoneElseSharing
-                ? "text-green-500"
-                : ""
-            }
-          />
+          {isScreenShareLoading ? (
+            <Loader2 size={20} className="animate-spin text-green-500" />
+          ) : (
+            <MonitorUp
+              size={20}
+              className={
+                !isScreenShareEnabled && !isSomeoneElseSharing
+                  ? "text-green-500"
+                  : ""
+              }
+            />
+          )}
           <span className="text-[10px] mt-1 hidden sm:block font-medium">
             {t("share_screen")}
           </span>
         </button>
 
-        {/* NÚT GHI HÌNH TRÊN CLOUD (LiveKit Egress) */}
-        {!isCloudRecording ? (
+        {/* ================= NÚT GHI HÌNH VỚI TOOLTIP / POPOVER MENU ================= */}
+        <div className="relative h-full hidden md:flex">
           <button
-            onClick={startCloudRecording}
+            onClick={() => setIsRecordMenuOpen(!isRecordMenuOpen)}
             disabled={isCloudRecordingLoading}
-            title={t("record_cloud")}
-            className={`hidden md:flex ${getBtnStyle(false)}`}
-          >
-            {isCloudRecordingLoading ? (
-              <Loader2 size={20} className="animate-spin text-red-500" />
-            ) : (
-              <CircleDot size={20} className="text-red-500" />
+            className={getBtnStyle(
+              isRecordMenuOpen || isCloudRecording || isLocalRecording,
+              isCloudRecording
+                ? "bg-[#222] text-red-500 hover:bg-[#222]"
+                : isLocalRecording
+                ? "bg-[#222] text-amber-500 hover:bg-[#222]"
+                : "bg-[#222] text-white",
             )}
-            <span className="text-[10px] mt-1 hidden sm:block font-medium">
+            title={t("record")}
+          >
+            <div className="relative flex items-center justify-center">
+              {isCloudRecordingLoading ? (
+                <Loader2 size={20} className="animate-spin text-red-500" />
+              ) : isCloudRecording ? (
+                <div className="relative flex items-center justify-center">
+                  <Disc size={20} className="text-red-500 animate-spin" />
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                </div>
+              ) : isLocalRecording ? (
+                <div className="relative flex items-center justify-center">
+                  <Disc size={20} className="text-amber-500 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                </div>
+              ) : (
+                <Disc size={20} className="text-slate-300" />
+              )}
+              <ChevronUp
+                size={11}
+                className={`absolute -top-1.5 -right-3 text-slate-400 transition-transform duration-200 ${
+                  isRecordMenuOpen ? "rotate-180 text-white" : ""
+                }`}
+              />
+            </div>
+            <span
+              className={`text-[10px] mt-1 hidden sm:block font-medium ${
+                isCloudRecording
+                  ? "text-red-500 font-semibold"
+                  : isLocalRecording
+                  ? "text-amber-500 font-semibold"
+                  : ""
+              }`}
+            >
               {t("record")}
             </span>
           </button>
-        ) : (
-          <button
-            onClick={stopCloudRecording}
-            disabled={isCloudRecordingLoading}
-            title={t("stop_cloud_recording")}
-            className={`hidden md:flex ${getBtnStyle(true, "bg-[#222] text-red-500")}`}
-          >
-            {isCloudRecordingLoading ? (
-              <Loader2 size={20} className="animate-spin text-red-500" />
-            ) : (
-              <div className="relative flex items-center justify-center">
-                <CircleDot size={20} className="text-red-500 animate-pulse" />
-                <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </span>
-              </div>
-            )}
-            <span className="text-[10px] mt-1 hidden sm:block font-medium text-red-500">
-              {t("stop_recording")}
-            </span>
-          </button>
-        )}
 
-        {/* NÚT QUAY MÀN HÌNH CỤC BỘ - CHỈ HIỂN THỊ KHI CHẠY BẰNG ELECTRON */}
-        {isElectron &&
-          (!isLocalRecording ? (
-            <button
-              onClick={startLocalRecording}
-              title={t("record_local")}
-              className={`hidden md:flex ${getBtnStyle(false)}`}
-            >
-              <CircleDot size={20} className="text-amber-500" />
-              <span className="text-[10px] mt-1 hidden sm:block font-medium">
-                {t("record_local")}
-              </span>
-            </button>
-          ) : (
-            <div
-              className="hidden md:flex items-center h-full min-w-13.75 sm:min-w-16.25 bg-[#222] rounded-none overflow-hidden"
-              title={t("record_local")}
-            >
-              <button
-                onClick={isLocalPaused ? resumeLocalRecording : pauseLocalRecording}
-                className="flex-1 h-full flex items-center justify-center hover:bg-white/10 transition-colors border-r border-[#111]"
-                title={isLocalPaused ? t("resume") : t("pause")}
-              >
-                {isLocalPaused ? (
-                  <Play
-                    size={16}
-                    fill="currentColor"
-                    className="text-amber-400"
-                  />
-                ) : (
-                  <Pause
-                    size={16}
-                    fill="currentColor"
-                    className="text-amber-400"
-                  />
-                )}
-              </button>
-              <button
-                onClick={stopLocalRecording}
-                className="flex-1 h-full flex items-center justify-center hover:bg-red-600/30 transition-colors"
-                title={t("stop_recording")}
-              >
-                <Square
-                  size={14}
-                  fill="currentColor"
-                  className="text-red-500"
-                />
-              </button>
-            </div>
-          ))}
+          {/* MENU TOOLTIP / POPOVER TÙY CHỌN GHI HÌNH */}
+          {isRecordMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsRecordMenuOpen(false)}
+              ></div>
+              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-72 bg-[#222] border border-[#333] rounded-lg shadow-2xl py-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#333] mb-1 flex items-center justify-between">
+                  <span>{t("record_options")}</span>
+                  {(isCloudRecording || isLocalRecording) && (
+                    <span className="flex items-center gap-1 text-[9px] text-red-400 font-semibold lowercase bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                      {t("recording_in_progress")}
+                    </span>
+                  )}
+                </div>
+
+                {/* OPTION 1: GHI HÌNH TRÊN ĐÁM MÂY (CLOUD RECORDING) */}
+                <div className="px-1.5 py-1">
+                  {!isCloudRecording ? (
+                    <button
+                      type="button"
+                      disabled={isCloudRecordingLoading}
+                      onClick={handleConfirmStartCloudRecording}
+                      className="w-full text-left p-2 rounded-md hover:bg-[#333] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                    >
+                      <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 transition-colors shrink-0 mt-0.5">
+                        {isCloudRecordingLoading ? (
+                          <Loader2 size={16} className="animate-spin text-red-500" />
+                        ) : (
+                          <Cloud size={16} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-slate-200 group-hover:text-white flex items-center justify-between">
+                          <span>{t("record_cloud")}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
+                            Cloud
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                          {t("record_cloud_desc")}
+                        </p>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="p-2 rounded-md bg-red-950/20 border border-red-900/30 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative flex items-center justify-center shrink-0">
+                          <Cloud size={16} className="text-red-400 animate-pulse" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-red-400 truncate">
+                            {t("record_cloud")}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {t("recording_in_progress")}...
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isCloudRecordingLoading}
+                        onClick={() => {
+                          setIsRecordMenuOpen(false);
+                          stopCloudRecording();
+                        }}
+                        className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-1 shrink-0"
+                      >
+                        {isCloudRecordingLoading ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Square size={11} fill="currentColor" />
+                        )}
+                        <span>{t("stop_recording")}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* OPTION 2: GHI HÌNH CỤC BỘ (LOCAL RECORDING) */}
+                <div className="px-1.5 pb-1">
+                  {!isElectron ? (
+                    <div
+                      className="w-full text-left p-2 rounded-md bg-[#181818] border border-[#282828] opacity-40 cursor-not-allowed flex items-start gap-2.5 select-none"
+                      title={t("electron_only_badge")}
+                    >
+                      <div className="p-2 rounded-lg bg-slate-800 text-slate-500 shrink-0 mt-0.5">
+                        <Laptop size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                          <span>{t("record_local")}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 bg-slate-800 text-slate-400 rounded border border-slate-700">
+                            Local
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                          {t("record_local_desc")}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-500/80 font-medium">
+                          <Info size={11} />
+                          <span>{t("electron_only_badge")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : !isLocalRecording ? (
+                    <button
+                      type="button"
+                      onClick={handleConfirmStartLocalRecording}
+                      className="w-full text-left p-2 rounded-md hover:bg-[#333] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                    >
+                      <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 transition-colors shrink-0 mt-0.5">
+                        <Laptop size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-slate-200 group-hover:text-white flex items-center justify-between">
+                          <span>{t("record_local")}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">
+                            Desktop
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                          {t("record_local_desc")}
+                        </p>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="p-2 rounded-md bg-amber-950/20 border border-amber-900/30 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative flex items-center justify-center shrink-0">
+                          <Laptop size={16} className="text-amber-400 animate-pulse" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-amber-400 truncate">
+                            {t("record_local")}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {isLocalPaused ? t("pause") : `${t("recording_in_progress")}...`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={isLocalPaused ? resumeLocalRecording : pauseLocalRecording}
+                          className="p-1.5 text-xs text-amber-400 hover:bg-white/10 rounded transition-colors"
+                          title={isLocalPaused ? t("resume") : t("pause")}
+                        >
+                          {isLocalPaused ? (
+                            <Play size={13} fill="currentColor" />
+                          ) : (
+                            <Pause size={13} fill="currentColor" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsRecordMenuOpen(false);
+                            stopLocalRecording();
+                          }}
+                          className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-1"
+                          title={t("stop_recording")}
+                        >
+                          <Square size={11} fill="currentColor" />
+                          <span>{t("stop_recording")}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         <button
           onClick={toggleHandRaise}
