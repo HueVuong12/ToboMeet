@@ -16,8 +16,13 @@ import {
   useGetSessionAttendanceQuery,
 } from "../../lib/redux/features/meetings/meetingsApi";
 import { useFetchMeetingSession } from "../../hooks/useFetchMeetingSession";
-import { MeetingSessionResponse, SessionAttendanceItem } from "@tobomeet/shared/types";
+import {
+  MeetingSessionResponse,
+  SessionAttendanceItem,
+  SessionRecording,
+} from "@tobomeet/shared/types";
 import { toast } from "../../lib/toast";
+import HlsRecordingPlayer from "./HlsRecordingPlayer";
 
 interface ChannelSessionsTabProps {
   roomId: string;
@@ -306,7 +311,7 @@ export default function ChannelSessionsTab({
                   </View>
                 ) : null}
 
-                {/* Duration & Participants */}
+                {/* Duration & Badges */}
                 <View className="flex-row items-center justify-between pt-1">
                   <View className="flex-row items-center gap-1.5">
                     <Feather name="watch" size={12} color="#94A3B8" />
@@ -318,14 +323,25 @@ export default function ChannelSessionsTab({
                     </Text>
                   </View>
 
-                  {item.totalParticipants !== undefined && item.totalParticipants > 0 ? (
-                    <View className="flex-row items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md">
-                      <Feather name="users" size={11} color="#64748B" />
-                      <Text className="text-[11px] font-bold text-slate-700">
-                        {item.totalParticipants}
-                      </Text>
-                    </View>
-                  ) : null}
+                  <View className="flex-row items-center gap-1.5">
+                    {item.recordings && item.recordings.length > 0 && (
+                      <View className="flex-row items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                        <Feather name="video" size={11} color="#E11D48" />
+                        <Text className="text-[11px] font-bold text-rose-700">
+                          {t("room.session_recordings_count", { count: item.recordings.length })}
+                        </Text>
+                      </View>
+                    )}
+
+                    {item.totalParticipants !== undefined && item.totalParticipants > 0 ? (
+                      <View className="flex-row items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <Feather name="users" size={11} color="#64748B" />
+                        <Text className="text-[11px] font-bold text-slate-700">
+                          {item.totalParticipants}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </View>
 
@@ -333,10 +349,10 @@ export default function ChannelSessionsTab({
               {isOngoing && (
                 <TouchableOpacity
                   onPress={() => handleJoinMeeting(item.meetingCode)}
-                  className="mt-3 w-full bg-emerald-600 active:bg-emerald-700 py-2.5 rounded-xl flex-row items-center justify-center gap-2 shadow-xs"
+                  className="mt-3 w-full bg-emerald-600 active:bg-emerald-700 py-3 rounded-full flex-row items-center justify-center gap-2 shadow-sm shadow-emerald-600/30 active:scale-98"
                 >
                   <Feather name="play-circle" size={16} color="#ffffff" />
-                  <Text className="text-white font-bold text-xs">
+                  <Text className="text-white font-bold text-[13px]">
                     {t("room.session_join_meeting_now")}
                   </Text>
                 </TouchableOpacity>
@@ -388,6 +404,38 @@ function SessionDetailView({
   t,
 }: SessionDetailViewProps) {
   const isOngoing = session.status === "ongoing";
+  const [activeRecording, setActiveRecording] = useState<SessionRecording | null>(null);
+
+  const recordings = session.recordings || [];
+
+  const resolveRecordingUrl = (recording: SessionRecording) => {
+    if (
+      recording.playlistUrl &&
+      (recording.playlistUrl.startsWith("http://") ||
+        recording.playlistUrl.startsWith("https://"))
+    ) {
+      return recording.playlistUrl;
+    }
+    const publicBaseUrl =
+      process.env.EXPO_PUBLIC_R2_PUBLIC_URL ||
+      "https://pub-313a77fbb1de4d04a7cf5e485af3cbc2.r2.dev";
+    const cleanBase = publicBaseUrl.replace(/\/$/, "");
+    const path = recording.storagePath || recording.playlistUrl || "";
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    return `${cleanBase}/${cleanPath}`;
+  };
+
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return "0 MB";
+    const mb = bytes / (1024 * 1024);
+    if (mb < 0.1) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    if (mb >= 1024) {
+      return `${(mb / 1024).toFixed(2)} GB`;
+    }
+    return `${mb.toFixed(1)} MB`;
+  };
 
   const {
     data: attendanceList = [],
@@ -439,10 +487,10 @@ function SessionDetailView({
         {isOngoing && (
           <TouchableOpacity
             onPress={() => onJoinMeeting(session.meetingCode)}
-            className="px-3 py-2 bg-emerald-600 active:bg-emerald-700 rounded-xl flex-row items-center gap-1.5"
+            className="px-4.5 py-2.5 bg-emerald-600 active:bg-emerald-700 rounded-full flex-row items-center gap-2 shadow-sm shadow-emerald-600/30 active:scale-95"
           >
-            <Feather name="play-circle" size={14} color="#ffffff" />
-            <Text className="text-white font-bold text-xs">
+            <Feather name="play-circle" size={15} color="#ffffff" />
+            <Text className="text-white font-bold text-[13px]">
               {t("room.session_join_now")}
             </Text>
           </TouchableOpacity>
@@ -504,6 +552,139 @@ function SessionDetailView({
                 ? t("room.session_users_count", { count: session.totalParticipants })
                 : "0"}
             </Text>
+          </View>
+        </View>
+
+        {/* Bản ghi cuộc họp (Recordings Section) */}
+        <View className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden mb-4">
+          <View className="px-4 py-3 border-b border-slate-100 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Feather name="video" size={16} color="#E11D48" />
+              <Text className="text-xs font-bold text-slate-900">
+                {t("room.session_recordings_title")}
+              </Text>
+            </View>
+            <Text className="text-[11px] text-slate-500 font-semibold">
+              {t("room.session_recordings_count", { count: recordings.length })}
+            </Text>
+          </View>
+
+          {/* Active Video Player */}
+          {activeRecording && (
+            <View className="p-3 bg-slate-950 border-b border-slate-800">
+              <HlsRecordingPlayer
+                src={resolveRecordingUrl(activeRecording)}
+                title={`${t("room.session_recording_item", {
+                  index:
+                    recordings.findIndex(
+                      (r: SessionRecording) => r.recordingId === activeRecording.recordingId
+                    ) + 1,
+                })} • ${formatDateTime(activeRecording.createdAt)}`}
+                durationSeconds={activeRecording.durationSeconds}
+                onClose={() => setActiveRecording(null)}
+                autoPlay={true}
+              />
+            </View>
+          )}
+
+          {/* Recording Items List */}
+          <View className="p-3">
+            {recordings.length === 0 ? (
+              <View className="py-6 items-center justify-center">
+                <Feather name="film" size={28} color="#CBD5E1" />
+                <Text className="text-xs font-medium text-slate-400 mt-2 text-center">
+                  {t("room.session_recordings_empty")}
+                </Text>
+              </View>
+            ) : (
+              <View className="space-y-2.5">
+                {recordings.map((rec: SessionRecording, idx: number) => {
+                  const isSelected = activeRecording?.recordingId === rec.recordingId;
+                  return (
+                    <View
+                      key={rec.recordingId || idx}
+                      className={`p-3 rounded-xl border ${
+                        isSelected
+                          ? "bg-rose-50/60 border-rose-300 shadow-xs"
+                          : "bg-slate-50/80 border-slate-200"
+                      }`}
+                    >
+                      <View className="flex-row items-center justify-between mb-2">
+                        <View className="flex-row items-center gap-2 flex-1 mr-2">
+                          <View
+                            className={`w-7 h-7 rounded-lg justify-center items-center ${
+                              isSelected ? "bg-rose-500" : "bg-white border border-slate-200"
+                            }`}
+                          >
+                            <Feather
+                              name="video"
+                              size={13}
+                              color={isSelected ? "#ffffff" : "#E11D48"}
+                            />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-xs font-bold text-slate-900" numberOfLines={1}>
+                              {t("room.session_recording_item", { index: idx + 1 })}
+                            </Text>
+                            <Text className="text-[10px] text-slate-500 font-mono">
+                              {formatDateTime(rec.createdAt)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View className="px-1.5 py-0.5 bg-slate-200 rounded-md">
+                          <Text className="text-[9px] font-bold text-slate-700 font-mono">
+                            HLS
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Meta Row: Duration & Size */}
+                      <View className="flex-row items-center justify-between pt-1.5 border-t border-slate-200/60 mb-2">
+                        <View className="flex-row items-center gap-1">
+                          <Feather name="clock" size={11} color="#94A3B8" />
+                          <Text className="text-[11px] text-slate-600 font-medium">
+                            {formatDuration(rec.durationSeconds)}
+                          </Text>
+                        </View>
+
+                        <View className="flex-row items-center gap-1">
+                          <Feather name="hard-drive" size={11} color="#94A3B8" />
+                          <Text className="text-[11px] text-slate-600 font-medium">
+                            {formatBytes(rec.sizeBytes)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Play Button */}
+                      <TouchableOpacity
+                        onPress={() => setActiveRecording(isSelected ? null : rec)}
+                        className={`w-full py-2 rounded-lg flex-row items-center justify-center gap-1.5 shadow-2xs ${
+                          isSelected
+                            ? "bg-rose-600 active:bg-rose-700"
+                            : "bg-white border border-slate-200 active:bg-rose-50"
+                        }`}
+                      >
+                        <Feather
+                          name="play-circle"
+                          size={14}
+                          color={isSelected ? "#ffffff" : "#E11D48"}
+                        />
+                        <Text
+                          className={`text-xs font-bold ${
+                            isSelected ? "text-white" : "text-slate-800"
+                          }`}
+                        >
+                          {isSelected
+                            ? t("room.session_recording_playing")
+                            : t("room.session_recording_play")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </View>
 

@@ -80,7 +80,7 @@ export default function ParticipantList({
         </div>
       )}
 
-      <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar pb-64 px-1">
+      <div className="flex-1 min-h-0 flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar pb-4 px-0.5">
         {/* ================= KHU VỰC PHÒNG CHỜ ================= */}
         {canApprove && activeListTab === "waiting" && (
           <div className="animate-fade-in">

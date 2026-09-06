@@ -58,7 +58,8 @@
           "cameraPermission": "Cho phép ToboMeet truy cập camera.",
           "microphonePermission": "Cho phép ToboMeet truy cập micro."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "router": {},

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Plus,
@@ -420,11 +421,14 @@ export default function CreateBreakoutModal({
     (p.name || p.identity).toLowerCase().includes(searchQuery.toLowerCase().trim()),
   );
 
-  return (
+  if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <>
-      {/* Backdrop */}
+      {/* Backdrop làm mờ toàn bộ phần dưới */}
       <div
-        className="fixed inset-0 z-100 bg-black/70 backdrop-blur-sm animate-fade-in transition-opacity"
+        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md animate-fade-in transition-opacity"
         onClick={() => {
           if (activeMenuUserId) {
             setActiveMenuUserId(null);
@@ -439,7 +443,7 @@ export default function CreateBreakoutModal({
 
       {/* Main Modal Container (Clean, compact width suitable for Zoom-like style) */}
       <div
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[92vw] bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-out ${step === 1
+        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[92vw] bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-out ${step === 1
           ? "max-w-[480px] h-auto max-h-[82vh]"
           : "max-w-[560px] h-[82vh] max-h-[660px]"
           }`}
@@ -1314,6 +1318,7 @@ export default function CreateBreakoutModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

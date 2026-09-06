@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Users,
@@ -157,13 +158,15 @@ export default function JoinBreakoutModal({
     }
   };
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <>
       <div
-        className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm animate-fade-in transition-opacity"
+        className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md animate-fade-in transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-101 w-[94vw] max-w-lg bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[94vw] max-w-lg bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-[#333] flex items-center justify-between bg-[#111]">
           <div className="flex items-center gap-3">
@@ -479,7 +482,8 @@ export default function JoinBreakoutModal({
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 

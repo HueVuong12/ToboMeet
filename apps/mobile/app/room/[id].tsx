@@ -501,41 +501,32 @@ export default function RoomDetailScreen() {
         <View className="flex-row items-center gap-2">
           {/* Cuộc họp Button */}
           {activeMeeting?.isOngoing ? (
-            isJoinedOnThisDevice ? (
-              <View className="bg-emerald-100 border border-emerald-300 px-4 py-2.5 rounded-xl flex-row items-center gap-2">
-                <Feather name="video" size={16} color="#059669" />
-                <Text className="text-emerald-700 font-bold text-sm">
-                  {t("room.ongoing")}
-                </Text>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={handleStartOrJoinMeeting}
-                disabled={isJoining}
-                className="bg-amber-500 px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
-              >
-                {isJoining ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Feather name="video" size={16} color="#ffffff" />
-                )}
-                <Text className="text-white font-bold text-sm">
-                  {t("room.join")}
-                </Text>
-              </TouchableOpacity>
-            )
-          ) : (
             <TouchableOpacity
               onPress={handleStartOrJoinMeeting}
               disabled={isJoining}
-              className="bg-[#0052FF] px-5 py-2.5 rounded-xl flex-row items-center gap-2 active:opacity-90"
+              className="bg-emerald-600 px-4 py-2.5 rounded-full flex-row items-center gap-1.5 shadow-md shadow-emerald-600/30 active:scale-95 active:bg-emerald-700"
             >
               {isJoining ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Feather name="video" size={16} color="#ffffff" />
+                <Feather name="video" size={14} color="#ffffff" />
               )}
-              <Text className="text-white font-bold text-sm">
+              <Text className="text-white font-bold text-xs tracking-wide">
+                {t("room.join")}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleStartOrJoinMeeting}
+              disabled={isJoining}
+              className="bg-[#0052FF] px-4 py-2.5 rounded-full flex-row items-center gap-1.5 shadow-md shadow-blue-600/30 active:scale-95 active:bg-blue-700"
+            >
+              {isJoining ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Feather name="video" size={14} color="#ffffff" />
+              )}
+              <Text className="text-white font-bold text-xs tracking-wide">
                 {t("room.start_meeting")}
               </Text>
             </TouchableOpacity>

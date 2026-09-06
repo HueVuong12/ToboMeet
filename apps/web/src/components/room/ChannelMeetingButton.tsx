@@ -72,15 +72,18 @@ export default function ChannelMeetingButton({
           <button
             disabled={!!ensuringTarget}
             onClick={() => setIsJoinTooltipOpen(!isJoinTooltipOpen)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm shadow-amber-500/20 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-600 hover:via-teal-600 hover:to-emerald-700 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed group"
           >
             {ensuringTarget ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
-              <Video size={16} />
+              <div className="relative flex items-center justify-center">
+                <span className="absolute w-2.5 h-2.5 rounded-full bg-white/40 animate-ping" />
+                <Video size={16} className="relative transition-transform group-hover:scale-110" />
+              </div>
             )}
             <span>{t("btn_join")}</span>
-            <ChevronDown size={14} />
+            <ChevronDown size={14} className={`transition-transform duration-200 ${isJoinTooltipOpen ? "rotate-180" : ""}`} />
           </button>
 
           {isJoinTooltipOpen && (
@@ -89,17 +92,19 @@ export default function ChannelMeetingButton({
                 className="fixed inset-0 z-40"
                 onClick={() => setIsJoinTooltipOpen(false)}
               />
-              <div className="absolute right-0 top-12 z-50 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 top-12 z-50 w-64 bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl shadow-xl p-1.5 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5">
                 <div className="px-3.5 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   {t("join_tooltip_title")}
                 </div>
                 <button
                   disabled={!!ensuringTarget}
                   onClick={() => handleStartOrJoinMeeting("current")}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Video size={16} className="text-amber-500 shrink-0" />
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                      <Video size={16} />
+                    </div>
                     <span className="font-medium text-slate-800">
                       {t("join_current_tab")}
                     </span>
@@ -107,20 +112,19 @@ export default function ChannelMeetingButton({
                   {ensuringTarget === "current" && (
                     <Loader2
                       size={14}
-                      className="animate-spin text-amber-500 shrink-0"
+                      className="animate-spin text-emerald-600 shrink-0"
                     />
                   )}
                 </button>
                 <button
                   disabled={!!ensuringTarget}
                   onClick={() => handleStartOrJoinMeeting("new")}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <ExternalLink
-                      size={16}
-                      className="text-amber-500 shrink-0"
-                    />
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                      <ExternalLink size={16} />
+                    </div>
                     <span className="font-medium text-slate-800">
                       {t("join_new_tab")}
                     </span>
@@ -128,7 +132,7 @@ export default function ChannelMeetingButton({
                   {ensuringTarget === "new" && (
                     <Loader2
                       size={14}
-                      className="animate-spin text-amber-500 shrink-0"
+                      className="animate-spin text-emerald-600 shrink-0"
                     />
                   )}
                 </button>
@@ -142,15 +146,15 @@ export default function ChannelMeetingButton({
           <button
             disabled={!!ensuringTarget}
             onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/30 active:scale-95 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed group"
           >
             {ensuringTarget ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
-              <Video size={16} />
+              <Video size={16} className="transition-transform group-hover:scale-110" />
             )}
             <span>{t("btn_meeting")}</span>
-            <ChevronDown size={14} />
+            <ChevronDown size={14} className={`transition-transform duration-200 ${isMeetingMenuOpen ? "rotate-180" : ""}`} />
           </button>
 
           {isMeetingMenuOpen && (
@@ -159,20 +163,19 @@ export default function ChannelMeetingButton({
                 className="fixed inset-0 z-40"
                 onClick={() => setIsMeetingMenuOpen(false)}
               />
-              <div className="absolute right-0 top-12 z-50 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 top-12 z-50 w-64 bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl shadow-xl p-1.5 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5">
                 <div className="px-3.5 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   {t("start_tooltip_title")}
                 </div>
                 <button
                   disabled={!!ensuringTarget}
                   onClick={() => handleStartOrJoinMeeting("current")}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Video
-                      size={16}
-                      className="text-brand-600 shrink-0"
-                    />
+                    <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
+                      <Video size={16} />
+                    </div>
                     <span className="font-medium text-slate-800">
                       {t("start_current_tab")}
                     </span>
@@ -187,13 +190,12 @@ export default function ChannelMeetingButton({
                 <button
                   disabled={!!ensuringTarget}
                   onClick={() => handleStartOrJoinMeeting("new")}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <ExternalLink
-                      size={16}
-                      className="text-brand-600 shrink-0"
-                    />
+                    <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
+                      <ExternalLink size={16} />
+                    </div>
                     <span className="font-medium text-slate-800">
                       {t("start_new_tab")}
                     </span>
@@ -211,12 +213,11 @@ export default function ChannelMeetingButton({
                     setIsMeetingMenuOpen(false);
                     onScheduleMeeting();
                   }}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-xl flex items-center gap-2.5 cursor-pointer transition-colors"
                 >
-                  <Calendar
-                    size={16}
-                    className="text-slate-500 shrink-0"
-                  />
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 border border-slate-200">
+                    <Calendar size={16} />
+                  </div>
                   <span className="font-medium text-slate-800">
                     {t("schedule_meeting")}
                   </span>

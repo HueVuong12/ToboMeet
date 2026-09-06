@@ -382,7 +382,7 @@ export default function ChannelSessionsTab({
                     {isOngoing && (
                       <button
                         onClick={(e) => handleJoinMeeting(e, session.meetingCode)}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 cursor-pointer active:scale-95"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full text-xs font-bold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/25 cursor-pointer active:scale-95"
                       >
                         <PlayCircle size={15} />
                         <span>{t("session_join_now")}</span>
@@ -594,7 +594,7 @@ function SessionDetailView({
         {isOngoing && (
           <button
             onClick={() => onJoinMeeting(session.meetingCode)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full text-xs font-bold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/25 cursor-pointer active:scale-95"
           >
             <PlayCircle size={16} />
             <span>{t("session_join_now")}</span>
