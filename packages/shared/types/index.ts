@@ -517,4 +517,49 @@ export interface SessionAttendanceItem {
   lastLeftAt?: Date | string;
 }
 
+// Recording service
+
+export interface R2FolderDetails {
+  bucket_name: string;
+  folder_prefix: string;
+  endpoint_url: string;
+  public_base_url?: string;
+  timeline_key: string;
+}
+
+export interface TimelineSegmentAudio {
+  participant: string;
+  start: number;
+  end: number;
+  duration?: number;
+  file: string;
+}
+
+export interface TimelineSegmentScreen {
+  participant: string;
+  start: number;
+  end: number;
+  frames?: number;
+  real_duration_sec?: number;
+  file: string;
+}
+
+export interface TimelineData {
+  room: string;
+  session_id: string;
+  start_time?: number;
+  duration_sec?: number;
+  audio_segments?: TimelineSegmentAudio[];
+  screen_segments?: TimelineSegmentScreen[];
+  output_dir?: string;
+}
+
+export interface RecordingWebhookDto {
+  event: string; // "RECORDING_UPLOADED"
+  room_name: string;
+  session_id: string;
+  folder: string; // e.g. "recordings/meet-6a80-ii70qip/string2"
+  duration_sec: number;
+  r2: R2FolderDetails;
+}
 

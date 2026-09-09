@@ -5,6 +5,7 @@ import { BreakoutRoomsService } from "../breakout-rooms.service";
 import { AttendanceService } from "../attendance.service";
 import { MeetingsService } from "../meetings.service";
 import { RecordingsService } from "../recordings.service";
+import { RecordingWebhookDto } from "@tobomeet/shared/types";
 
 export interface AutoEndBreakoutJobData {
   mainMeetingCode: string;
@@ -75,6 +76,12 @@ export class MeetingProcessor extends WorkerHost {
       case "process-recording": {
         const { meetingCode, sessionId } = job.data as ProcessRecordingJobData;
         await this.recordingService.handlePostProcessing(meetingCode, sessionId);
+        break;
+      }
+
+      case "process-recording-webhook": {
+        const payload = job.data as RecordingWebhookDto;
+        await this.recordingService.handleWebhookPostProcessing(payload);
         break;
       }
 
