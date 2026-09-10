@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
+import { ScreenSharePresets } from "livekit-client";
 import localforage from "localforage";
 import { toast } from "sonner";
 import { useSelectiveSubscription } from "@/hooks/useSelectiveSubscription";
@@ -78,7 +79,13 @@ export function useToolbarActions() {
       setIsScreenShareLoading(true);
       if (!isScreenShareEnabled) {
         await startScreenShare({ meetingCode: code }).unwrap();
-        await localParticipant.setScreenShareEnabled(true);
+        await localParticipant.setScreenShareEnabled(true, {
+          resolution: ScreenSharePresets.h1080fps30.resolution,
+          selfBrowserSurface: "include",
+          contentHint: "detail",
+        }, {
+          screenShareEncoding: ScreenSharePresets.h1080fps30.encoding,
+        });
       } else {
         await localParticipant.setScreenShareEnabled(false);
         await stopScreenShare({ meetingCode: code }).unwrap();
@@ -104,7 +111,7 @@ export function useToolbarActions() {
     toast(t("confirm_leave_title"), {
       description: t("confirm_leave_description"),
       action: { label: t("confirm_leave_action"), onClick: leaveMeeting },
-      cancel: { label: t("cancel"), onClick: () => {} },
+      cancel: { label: t("cancel"), onClick: () => { } },
       duration: 5000,
     });
   };

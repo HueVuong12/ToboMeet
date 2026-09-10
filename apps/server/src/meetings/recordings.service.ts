@@ -358,13 +358,20 @@ export class RecordingsService {
 
             if (filterParts.length > 0) {
                 ffmpegArgs.push("-filter_complex", filterParts.join(";"));
-                ffmpegArgs.push("-map", `[${lastVideoOut}]`);
+                // Nếu video chưa đi qua filter nào (lastVideoOut vẫn là stream ref "0:v"),
+                // phải map trực tiếp không có ngoặc vuông.
+                // Nếu đã qua overlay filter, lastVideoOut là label như "vout2" → cần ngoặc.
+                const videoMapArg = lastVideoOut === "0:v" ? "0:v" : `[${lastVideoOut}]`;
+                ffmpegArgs.push("-map", videoMapArg);
             } else {
                 ffmpegArgs.push("-map", "0:v");
             }
 
             if (audioMap) {
-                ffmpegArgs.push("-map", audioMap);
+                // Chuẩn hóa: label từ filter (adelayed*, aout) phải có ngoặc;
+                // stream trực tiếp như "1:a" thì không có ngoặc.
+                const audioMapArg = audioMap.startsWith("[") ? audioMap : audioMap;
+                ffmpegArgs.push("-map", audioMapArg);
             }
 
             const tempOutputMp4Path = path.join(sessionDir, "temp_output.mp4");

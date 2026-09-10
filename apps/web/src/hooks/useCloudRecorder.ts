@@ -25,6 +25,22 @@ export function useCloudRecorder({
   const [stopCloudRecordingApi, { isLoading: isStopping }] =
     useStopCloudRecordingMutation();
 
+  const getErrorMessage = useCallback(
+    (error: any) => {
+      const errorCode = error?.data?.code || error?.code;
+      if (errorCode) {
+        try {
+          const translated = tServer(String(errorCode));
+          if (translated) return translated;
+        } catch {
+          // Bỏ qua nếu mã lỗi chưa được định nghĩa trong translation
+        }
+      }
+      return error?.data?.message || error?.message || t("cloud_recording_error");
+    },
+    [t, tServer]
+  );
+
   const startRecording = useCallback(async () => {
     if (!targetCode) return;
     try {
@@ -32,14 +48,9 @@ export function useCloudRecorder({
       toast.success(t("cloud_recording_started"));
     } catch (error: any) {
       console.error("Lỗi khi bắt đầu ghi hình trên cloud:", error);
-      const errorCode = error?.data?.code || error?.code;
-      if (errorCode) {
-        toast.error(tServer(errorCode));
-      } else {
-        toast.error(t("cloud_recording_error"));
-      }
+      toast.error(getErrorMessage(error));
     }
-  }, [targetCode, startCloudRecordingApi, t, tServer]);
+  }, [targetCode, startCloudRecordingApi, t, getErrorMessage]);
 
   const stopRecording = useCallback(async () => {
     if (!targetCode) return;
@@ -48,14 +59,9 @@ export function useCloudRecorder({
       toast.success(t("cloud_recording_stopped"));
     } catch (error: any) {
       console.error("Lỗi khi dừng ghi hình trên cloud:", error);
-      const errorCode = error?.data?.code || error?.code;
-      if (errorCode) {
-        toast.error(tServer(errorCode));
-      } else {
-        toast.error(t("cloud_recording_error"));
-      }
+      toast.error(getErrorMessage(error));
     }
-  }, [targetCode, stopCloudRecordingApi, t, tServer]);
+  }, [targetCode, stopCloudRecordingApi, t, getErrorMessage]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {
