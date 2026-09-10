@@ -1,24 +1,22 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-    RoomServiceClient,
-    TrackSource,
-    EgressClient,
-    EncodedFileOutput,
-    DirectFileOutput,
-    EncodedFileType,
-} from "livekit-server-sdk";
+import { RoomServiceClient } from "livekit-server-sdk";
 import { AppException } from "../core/exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
-import { exec, execFile } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as crypto from "crypto";
-import { InjectQueue } from "@nestjs/bullmq";
-import { Queue } from "bullmq";
 import { InjectModel } from "@nestjs/mongoose";
 import mongoose, { Model } from "mongoose";
-import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+    PutObjectCommand,
+    GetObjectCommand,
+    ListObjectsV2Command,
+    DeleteObjectsCommand,
+    DeleteObjectCommand,
+    S3Client,
+} from "@aws-sdk/client-s3";
 import {
     MeetingSession,
     MeetingSessionDocument,
@@ -28,19 +26,16 @@ import {
     TimelineData,
     TimelineSegmentAudio,
     TimelineSegmentScreen,
-} from "@tobomeet/shared/types"
+} from "@tobomeet/shared/types";
 
-const execPromise = promisify(exec);
 const execFilePromise = promisify(execFile);
 
 @Injectable()
 export class RecordingsService {
-    private livekitRoomService: RoomServiceClient;
-    private egressClient: EgressClient;
+    private livekitRoomService?: RoomServiceClient;
     private readonly logger = new Logger(RecordingsService.name);
 
     constructor(
-        @InjectQueue("meeting") private meetingQueue: Queue,
         @InjectModel(MeetingSession.name)
         private sessionModel: Model<MeetingSessionDocument>,
     ) {
@@ -50,396 +45,126 @@ export class RecordingsService {
 
         if (livekitHost && apiKey && apiSecret) {
             this.livekitRoomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
-            this.egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
         }
     }
 
     /**
-     * Trích xuất sessionId trực tiếp từ LiveKit room metadata (tránh query database)
+     * Trích xuất sessionId từ LiveKit room metadata hoặc query MongoDB
      */
     private async extractSessionId(meetingCode: string): Promise<string> {
-        if (!this.livekitRoomService) return "";
+        if (this.livekitRoomService) {
+            try {
+                const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+                if (rooms && rooms.length > 0 && rooms[0].metadata) {
+                    const meta = JSON.parse(rooms[0].metadata);
+                    if (meta.sessionId) return meta.sessionId;
+                }
+            } catch (error) {
+                this.logger.warn(`Không thể đọc metadata từ LiveKit room ${meetingCode}:`, error);
+            }
+        }
+
         try {
-            const rooms = await this.livekitRoomService.listRooms([meetingCode]);
-            if (rooms && rooms.length > 0 && rooms[0].metadata) {
-                const meta = JSON.parse(rooms[0].metadata);
-                return meta.sessionId || "";
+            const ongoingSession = await this.sessionModel
+                .findOne({ meetingCode, status: "ongoing" })
+                .sort({ createdAt: -1 });
+            if (ongoingSession) {
+                return ongoingSession._id.toString();
+            }
+
+            const latestSession = await this.sessionModel
+                .findOne({ meetingCode })
+                .sort({ createdAt: -1 });
+            if (latestSession) {
+                return latestSession._id.toString();
             }
         } catch (error) {
-            this.logger.error(`Lỗi khi trích xuất sessionId từ LiveKit room ${meetingCode}:`, error);
+            this.logger.error(`Lỗi query session cho meetingCode ${meetingCode}:`, error);
         }
+
         return "";
     }
 
     /**
-     * Bắt đầu ghi hình phân tách: Âm thanh tổng (MP4) + Màn hình chia sẻ (WebM Raw)
+     * Bắt đầu ghi hình cuộc họp bằng cách gọi Python Recorder Bot Service
      */
     async startRecording(meetingCode: string): Promise<void> {
-        if (!this.egressClient || !this.livekitRoomService) {
-            throw new AppException(ErrorCode.SERVER_ERROR);
-        }
-
         const sessionId = await this.extractSessionId(meetingCode);
-        const folderName = sessionId || meetingCode;
-        const timestamp = Date.now();
-        const egressJobs: string[] = [];
+        const botUrl = process.env.RECORDER_BOT_URL || "http://localhost:8000";
 
-        const audioOutput = new EncodedFileOutput({
-            fileType: EncodedFileType.MP4,
-            filepath: `/out/${folderName}/${meetingCode}-${timestamp}-audio.mp4`,
-        });
+        this.logger.log(
+            `[startRecording] Gửi yêu cầu bắt đầu ghi hình tới Recorder Bot cho room: ${meetingCode}, sessionId: ${sessionId}`,
+        );
 
         try {
-            const audioJob = await this.egressClient.startRoomCompositeEgress(
-                meetingCode,
-                audioOutput,
-                { audioOnly: true, videoOnly: false }
-            );
-            egressJobs.push(audioJob.egressId);
-
-            const participants = await this.livekitRoomService.listParticipants(meetingCode);
-            let screenShareTrackId = null;
-
-            for (const p of participants) {
-                const track = p.tracks.find((t) => t.source === TrackSource.SCREEN_SHARE);
-                if (track) {
-                    screenShareTrackId = track.sid;
-                    break; // Lấy luồng màn hình đầu tiên tìm thấy
-                }
-            }
-
-            if (screenShareTrackId) {
-                const screenOutput = new DirectFileOutput({
-                    filepath: `/out/${folderName}/${meetingCode}-${timestamp}-screen.webm`,
-                });
-
-                const screenJob = await this.egressClient.startTrackEgress(
-                    meetingCode,
-                    screenOutput,
-                    screenShareTrackId
-                );
-                egressJobs.push(screenJob.egressId);
-            }
-
-            return;
-        } catch (error) {
-            console.error("Lỗi khi khởi động Egress:", error);
-            throw new AppException(ErrorCode.SERVER_ERROR);
-        }
-    }
-
-    /**
-     * Dừng toàn bộ các tiến trình ghi hình của phòng
-     */
-    async stopRecording(meetingCode: string): Promise<void> {
-        if (!this.egressClient) {
-            throw new AppException(ErrorCode.SERVER_ERROR);
-        }
-
-        try {
-            // Bắt toàn bộ các Egress đang chạy của phòng
-            const activeEgresses = await this.egressClient.listEgress({
-                roomName: meetingCode,
-                active: true,
+            const response = await fetch(`${botUrl.replace(/\/$/, "")}/recordings/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    room_name: meetingCode,
+                    session_id: sessionId || undefined,
+                }),
             });
 
-            if (activeEgresses.length === 0) {
-                return;
-            }
-
-            // Trích xuất sessionId trực tiếp từ LiveKit room metadata để truyền vào worker mà không cần fetch DB
-            const sessionId = await this.extractSessionId(meetingCode);
-
-            // Tắt đồng loạt
-            const stopPromises = activeEgresses.map((egress) =>
-                this.egressClient.stopEgress(egress.egressId)
-            );
-
-            await Promise.all(stopPromises);
-
-            await this.meetingQueue.add(
-                "process-recording",
-                { meetingCode, sessionId },
-                {
-                    delay: 10000,      // Đợi 10 giây để Egress chép xong file JSON/Video ra ổ cứng
-                    removeOnComplete: true, // Chạy xong tự xóa khỏi Redis cho nhẹ máy
-                    attempts: 3,       // Tự động thử lại tối đa 3 lần nếu FFmpeg lỗi
-                    backoff: {
-                        type: 'exponential',
-                        delay: 5000      // Nếu lỗi, lần 1 đợi 5s, lần 2 đợi 10s...
-                    }
-                }
-            );
-
-            return;
-        } catch (error) {
-            console.error("Lỗi khi dừng Egress:", error);
-            throw new AppException(ErrorCode.SERVER_ERROR);
-        }
-    }
-
-    /**
-     * (Webhook) Tự động bắt luồng màn hình mới nếu phòng đang trong trạng thái ghi hình
-     */
-    async handleNewScreenShareTrack(meetingCode: string, trackId: string) {
-        if (!this.egressClient) return;
-
-        try {
-            // Kiểm tra xem phòng này có đang được ghi hình (quay audio) không
-            const activeEgresses = await this.egressClient.listEgress({
-                roomName: meetingCode,
-                active: true,
-            });
-
-            if (activeEgresses.length === 0) return;
-
-            const sessionId = await this.extractSessionId(meetingCode);
-            const folderName = sessionId || meetingCode;
-
-            const screenOutput = new DirectFileOutput({
-                filepath: `/out/${folderName}/${meetingCode}-${Date.now()}-screen.webm`,
-            });
-
-            await this.egressClient.startTrackEgress(
-                meetingCode,
-                screenOutput,
-                trackId
-            );
-        } catch (error) {
-            console.error("Lỗi khi tự động quay màn hình từ Webhook:", error);
-        }
-    }
-
-    /**
-    * (Worker) Xử lý hậu kì (ghép audio và screenshare) khi kết thúc quay cuộc họp
-    */
-    async handlePostProcessing(meetingCode: string, sessionId?: string) {
-        try {
-            const basePath = process.env.RECORDING_STORAGE_PATH || path.join(process.cwd(), "recordings");
-            const folderName = sessionId || meetingCode;
-            let recordingsDir = path.join(basePath, folderName);
-
-            let stats = await fs.stat(recordingsDir).catch(() => null);
-            if (!stats || !stats.isDirectory()) {
-                // Fallback kiểm tra nếu lưu bằng meetingCode
-                const fallbackDir = path.join(basePath, meetingCode);
-                const fallbackStats = await fs.stat(fallbackDir).catch(() => null);
-                if (fallbackStats && fallbackStats.isDirectory()) {
-                    recordingsDir = fallbackDir;
-                } else {
-                    this.logger.warn(`Thư mục recordings không tồn tại cho ${folderName} (hoặc ${meetingCode})`);
+            if (!response.ok) {
+                if (response.status === 409) {
+                    this.logger.warn(`[startRecording] Phòng ${meetingCode} hiện đang được ghi hình.`);
                     return;
                 }
-            }
-
-            const files = await fs.readdir(recordingsDir);
-            const jsonFiles = files.filter(f => f.endsWith(".json"));
-
-            let audioManifest: any = null;
-            let audioFileLocalPath = "";
-            const screenSegments: { file: string; startOffset: number; endOffset: number }[] = [];
-            const processedJsonFiles: string[] = [];
-            const processedMediaFiles: string[] = [];
-
-            // Phân tích các file JSON để tìm Audio gốc và các đoạn Video
-            for (const jsonFile of jsonFiles) {
-                const jsonFilePath = path.join(recordingsDir, jsonFile);
-                const jsonContent = await fs.readFile(jsonFilePath, "utf8");
-                const manifest = JSON.parse(jsonContent);
-
-                if (!manifest.files || manifest.files.length === 0) continue;
-
-                const internalFilename = manifest.files[0].filename; // vd: /out/<folder>/...-audio.mp4
-                const actualFileName = path.basename(internalFilename);
-                const actualFilePath = path.join(recordingsDir, actualFileName);
-
-                if (internalFilename.includes("audio")) {
-                    audioManifest = manifest;
-                    audioFileLocalPath = actualFilePath;
-                    processedJsonFiles.push(jsonFilePath);
-                    processedMediaFiles.push(actualFilePath);
-                } else if (internalFilename.includes("screen")) {
-                    screenSegments.push({
-                        manifest,
-                        actualFilePath
-                    } as any);
-                    processedJsonFiles.push(jsonFilePath);
-                    processedMediaFiles.push(actualFilePath);
-                }
-            }
-
-            if (!audioManifest) {
-                this.logger.warn(`Không tìm thấy file audio cho ${meetingCode} (folder: ${folderName}). Hủy ghép video.`);
-                return;
-            }
-
-            // Dùng trực tiếp folderName (sessionId) làm sessionFolder trên local và R2
-            const sessionFolder = folderName;
-
-            // Tạo tên thư mục ngẫu nhiên cho lần recording này (hậu kỳ cục bộ và R2)
-            const recordingFolderName = `rec_${crypto.randomUUID()}`;
-
-            // Thời gian bắt đầu tuyệt đối (Nanoseconds -> Seconds)
-            const audioStartTime = audioManifest.started_at;
-
-            // Tính toán Timeline cho từng đoạn Screen Share (có Calibration)
-            const segmentsToRender = await Promise.all(
-                screenSegments.map(async (seg: any) => {
-                    // Tính offset gốc từ manifest
-                    let startOffset = (seg.manifest.started_at - audioStartTime) / 1e9;
-                    let endOffset = (seg.manifest.ended_at - audioStartTime) / 1e9;
-
-                    // startOffset += this.CALIBRATION_OFFSET;
-                    // endOffset += this.CALIBRATION_OFFSET;
-
-                    // Không cho giá trị âm
-                    startOffset = Math.max(0, startOffset);
-                    endOffset = Math.max(startOffset, endOffset);
-
-                    // Lấy duration thực từ file để chính xác hơn
-                    try {
-                        const { stdout } = await execPromise(
-                            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${seg.actualFilePath}"`
-                        );
-                        const realDuration = parseFloat(stdout.trim());
-                        if (!isNaN(realDuration) && realDuration > 0) {
-                            endOffset = startOffset + realDuration;
-                        }
-                    } catch (err) {
-                        this.logger.warn(`Không lấy được duration thực của ${seg.actualFilePath}, dùng ended_at`);
-                    }
-
-                    return {
-                        file: seg.actualFilePath,
-                        startOffset,
-                        endOffset,
-                    };
-                })
-            );
-
-            segmentsToRender.sort((a, b) => a.startOffset - b.startOffset);
-
-            // Tạo một thư mục con riêng biệt với tên random để chứa playlist (.m3u8) và các phân đoạn (.ts)
-            const hlsOutputDir = path.join(recordingsDir, recordingFolderName);
-            await fs.mkdir(hlsOutputDir, { recursive: true });
-
-            const finalOutputPath = path.join(hlsOutputDir, `index.m3u8`);
-
-            let ffmpegCmd = `ffmpeg -y -f lavfi -i color=c=black:s=1920x1080:r=30 `;
-            ffmpegCmd += `-i "${audioFileLocalPath}" `;
-
-            // Input các đoạn screen
-            segmentsToRender.forEach((seg) => {
-                ffmpegCmd += `-i "${seg.file}" `;
-            });
-
-            let filterComplex = ``;
-            let lastOutput = `0:v`;
-
-            segmentsToRender.forEach((seg, index) => {
-                const inputIndex = index + 2;
-                const shifted = `shifted${index}`;
-                const overlayOut = `out${index}`;
-
-                filterComplex += `[${inputIndex}:v]scale=1920:1080:force_original_aspect_ratio=decrease,` +
-                    `pad=1920:1080:(ow-iw)/2:(oh-ih)/2,` +
-                    `setpts=PTS-STARTPTS+${seg.startOffset}/TB[${shifted}];`;
-
-                filterComplex += `[${lastOutput}][${shifted}]overlay=x=0:y=0:` +
-                    `enable='between(t,${seg.startOffset},${seg.endOffset})'[${overlayOut}];`;
-
-                lastOutput = overlayOut;
-            });
-
-            // Định nghĩa cấu hình HLS (Cắt nhỏ file)
-            const baseEncoding = `-c:v libx264 -preset veryfast -r 30 -crf 23 -c:a copy`;
-            // -hls_time 10: Độ dài mỗi chunk video là 10 giây.
-            // -hls_list_size 0: Lưu lại toàn bộ các chunk vào playlist
-            const hlsConfig = `-f hls -hls_time 10 -hls_list_size 0 -hls_segment_filename "${path.join(hlsOutputDir, 'segment_%03d.ts')}"`;
-
-            if (filterComplex.length > 0) {
-                ffmpegCmd += `-filter_complex "${filterComplex}" ` +
-                    `-map "[${lastOutput}]" -map 1:a ` +
-                    `${baseEncoding} -shortest ${hlsConfig} "${finalOutputPath}"`;
-            } else {
-                ffmpegCmd += `-map 0:v -map 1:a ${baseEncoding} -shortest ${hlsConfig} "${finalOutputPath}"`;
-            }
-
-            this.logger.log(`Bắt đầu chạy FFmpeg (HLS) cho ${meetingCode} vào thư mục ${recordingFolderName}`);
-
-            await execPromise(ffmpegCmd);
-            this.logger.log(`Hậu kỳ HLS thành công cho ${meetingCode}. Bắt đầu đẩy lên Cloudflare R2...`);
-
-            // Tính thời lượng thực tế của video HLS
-            let durationSeconds = 0;
-            try {
-                const { stdout } = await execPromise(
-                    `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${finalOutputPath}"`
+                const errorData = await response.json().catch(() => ({}));
+                this.logger.error(
+                    `[startRecording] Recorder Bot trả về lỗi (${response.status}):`,
+                    errorData,
                 );
-                const parsed = parseFloat(stdout.trim());
-                if (!isNaN(parsed) && parsed > 0) {
-                    durationSeconds = Math.round(parsed);
-                }
-            } catch (e) {
-                if (audioManifest.ended_at && audioManifest.started_at) {
-                    durationSeconds = Math.round((audioManifest.ended_at - audioManifest.started_at) / 1e9);
-                }
+                throw new AppException(ErrorCode.SERVER_ERROR);
             }
 
-            // Bắn thư mục HLS vừa tạo lên R2 Object Storage
-            const uploadResult = await this.uploadHlsToR2(sessionFolder, recordingFolderName, hlsOutputDir);
-
-            // Xoá các file raw và JSON đã xử lý để tránh xung đột cho lần quay sau
-            for (const p of [...processedJsonFiles, ...processedMediaFiles]) {
-                await fs.unlink(p).catch(() => null);
-            }
-
-            // Chèn recording metadata vào MeetingSession
-            const storagePath = `recordings/${sessionFolder}/${recordingFolderName}/index.m3u8`;
-            const r2PublicUrl = process.env.R2_PUBLIC_URL || "";
-            const playlistUrl = r2PublicUrl
-                ? `${r2PublicUrl.replace(/\/$/, "")}/${storagePath}`
-                : storagePath;
-
-            const recordingItem = {
-                recordingId: crypto.randomUUID(),
-                folderName: recordingFolderName,
-                storagePath,
-                playlistUrl,
-                durationSeconds,
-                sizeBytes: uploadResult?.totalSizeBytes || 0,
-                createdAt: new Date(),
-            };
-
-            if (sessionId) {
-                await this.sessionModel.findByIdAndUpdate(
-                    sessionId,
-                    {
-                        $set: { sessionFolder },
-                        $push: { recordings: recordingItem },
-                    },
-                    { new: true }
-                );
-                this.logger.log(
-                    `Đã chèn recording ${recordingItem.recordingId} vào session ${sessionId} thành công (R2 path: ${storagePath}).`
-                );
-            } else {
-                await this.sessionModel.findOneAndUpdate(
-                    { meetingCode, status: "ongoing" },
-                    {
-                        $set: { sessionFolder },
-                        $push: { recordings: recordingItem },
-                    },
-                    { new: true, sort: { createdAt: -1 } }
-                );
-                this.logger.log(
-                    `Đã chèn recording ${recordingItem.recordingId} vào session của meeting ${meetingCode} (R2 path: ${storagePath}).`
-                );
-            }
+            this.logger.log(`[startRecording] Đã kích hoạt Recorder Bot thành công cho phòng ${meetingCode}`);
         } catch (error) {
-            this.logger.error(`Lỗi xử lý hậu kỳ cho ${meetingCode}:`, error);
+            if (error instanceof AppException) throw error;
+            this.logger.error(`[startRecording] Lỗi kết nối tới Recorder Bot:`, error);
+            throw new AppException(ErrorCode.SERVER_ERROR);
         }
     }
+
+    /**
+     * Dừng ghi hình cuộc họp bằng cách gọi Python Recorder Bot Service
+     */
+    async stopRecording(meetingCode: string): Promise<void> {
+        const botUrl = process.env.RECORDER_BOT_URL || "http://localhost:8000";
+
+        this.logger.log(`[stopRecording] Gửi yêu cầu dừng ghi hình tới Recorder Bot cho room: ${meetingCode}`);
+
+        try {
+            const response = await fetch(`${botUrl.replace(/\/$/, "")}/recordings/stop`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    room_name: meetingCode,
+                }),
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    this.logger.warn(`[stopRecording] Không có phiên ghi hình nào đang hoạt động cho phòng ${meetingCode}.`);
+                    return;
+                }
+                const errorData = await response.json().catch(() => ({}));
+                this.logger.error(
+                    `[stopRecording] Recorder Bot trả về lỗi (${response.status}):`,
+                    errorData,
+                );
+                throw new AppException(ErrorCode.SERVER_ERROR);
+            }
+
+            this.logger.log(`[stopRecording] Đã yêu cầu dừng Recorder Bot thành công cho phòng ${meetingCode}`);
+        } catch (error) {
+            if (error instanceof AppException) throw error;
+            this.logger.error(`[stopRecording] Lỗi kết nối tới Recorder Bot:`, error);
+            throw new AppException(ErrorCode.SERVER_ERROR);
+        }
+    }
+
 
     /**
      * (Worker) Xử lý hậu kì bản ghi cuộc họp nhận từ Webhook của Recorder Bot Python
@@ -448,6 +173,11 @@ export class RecordingsService {
         const { room_name, session_id, folder, r2 } = payload;
 
         const sessionFolder = session_id || room_name;
+        // Chuẩn hoá folder prefix từ webhook (ưu tiên r2.folder_prefix, sau đó đến folder)
+        const folderPrefix = (r2?.folder_prefix || folder || `recordings/${room_name}/${sessionFolder}`)
+            .replace(/\\/g, "/")
+            .replace(/^\/+|\/+$/g, "");
+
         // Tạo thư mục tạm cô lập để xử lý job này
         const tempId = crypto.randomUUID();
         const sessionDir = path.resolve(
@@ -464,7 +194,7 @@ export class RecordingsService {
             const timelinePath = path.join(sessionDir, "timeline.json");
             const bucketName = r2?.bucket_name || process.env.R2_BUCKET_NAME || "";
             const s3 = this.getR2Client(r2?.endpoint_url);
-            const timelineKey = r2?.timeline_key || `${(r2?.folder_prefix || folder).replace(/\\/g, "/").replace(/^\/+|\/+$/g, "")}/timeline.json`;
+            const timelineKey = r2?.timeline_key || `${folderPrefix}/timeline.json`;
 
             const downloadedTimeline = await this.downloadFromR2(s3, bucketName, timelineKey, timelinePath);
             if (!downloadedTimeline) {
@@ -493,10 +223,6 @@ export class RecordingsService {
             }
 
             // Tải toàn bộ các file media thô (audio/screen) được liệt kê trong timeline từ R2 về thư mục tạm
-            const folderPrefix = (r2?.folder_prefix || folder || `recordings/${room_name}/${session_id}`)
-                .replace(/\\/g, "/")
-                .replace(/^\/+|\/+$/g, "");
-
             const allFilesToCheck = [
                 ...audioSegments.map((s) => s.file),
                 ...screenSegments.filter((s) => !!s.file).map((s) => s.file),
@@ -657,8 +383,7 @@ export class RecordingsService {
             this.logger.log(`[Webhook Post-Processing] Ghép video FFmpeg thành công: ${tempOutputMp4Path}`);
 
             // Đóng gói sang playlist HLS (index.m3u8 + segments)
-            const recordingFolderName = `rec_${crypto.randomUUID()}`;
-            const hlsOutputDir = path.join(sessionDir, recordingFolderName);
+            const hlsOutputDir = path.join(sessionDir, "hls");
             await fs.mkdir(hlsOutputDir, { recursive: true });
 
             const hlsPlaylistPath = path.join(hlsOutputDir, "index.m3u8");
@@ -682,10 +407,14 @@ export class RecordingsService {
                 durationSeconds = Math.round(realDuration);
             }
 
-            // Đẩy toàn bộ thư mục HLS (chỉ gồm index.m3u8 và các file .ts) lên Cloudflare R2
-            const uploadResult = await this.uploadHlsToR2(
-                sessionFolder,
-                recordingFolderName,
+            // Xoá toàn bộ file trong thư mục prefix trên R2 trước khi upload file HLS cuối cùng
+            this.logger.log(`[Webhook Post-Processing] Xoá toàn bộ file thô tại prefix R2: "${folderPrefix}" trước khi upload HLS...`);
+            await this.deleteFolderFromR2(s3, bucketName, folderPrefix);
+
+            // Đẩy thẳng toàn bộ thư mục HLS lên Cloudflare R2 theo đúng folder prefix nhận được từ webhook
+            this.logger.log(`[Webhook Post-Processing] Upload toàn bộ file HLS trực tiếp lên R2 prefix: "${folderPrefix}"...`);
+            const uploadResult = await this.uploadFolderToR2(
+                folderPrefix,
                 hlsOutputDir,
                 r2?.endpoint_url,
                 r2?.bucket_name
@@ -695,15 +424,17 @@ export class RecordingsService {
             await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => null);
 
             // Cập nhật metadata bản ghi vào MongoDB MeetingSession
-            const storagePath = `recordings/${sessionFolder}/${recordingFolderName}/index.m3u8`;
+            const storagePath = `${folderPrefix}/index.m3u8`;
             const r2PublicUrl = r2?.public_base_url || process.env.R2_PUBLIC_URL || "";
             const playlistUrl = r2PublicUrl
                 ? `${r2PublicUrl.replace(/\/$/, "")}/${storagePath}`
                 : storagePath;
 
+            const folderName = folderPrefix.split("/").pop() || sessionFolder;
+
             const recordingItem = {
                 recordingId: crypto.randomUUID(),
-                folderName: recordingFolderName,
+                folderName,
                 storagePath,
                 playlistUrl,
                 durationSeconds,
@@ -806,10 +537,91 @@ export class RecordingsService {
         }
     }
 
-    private async uploadHlsToR2(
-        sessionFolder: string,
-        recordingFolderName: string,
-        hlsDirPath: string,
+    private async deleteFolderFromR2(
+        s3: S3Client,
+        bucketName: string,
+        folderPrefix: string,
+    ): Promise<number> {
+        const cleanPrefix = folderPrefix.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+        if (!cleanPrefix) {
+            this.logger.warn("[deleteFolderFromR2] Prefix rỗng, bỏ qua để tránh xoá toàn bộ bucket!");
+            return 0;
+        }
+
+        const prefixWithSlash = `${cleanPrefix}/`;
+        let deletedCount = 0;
+        let continuationToken: string | undefined = undefined;
+
+        this.logger.log(`[R2] Bắt đầu xoá toàn bộ file trong prefix: ${prefixWithSlash}`);
+
+        try {
+            do {
+                const listRes = await s3.send(
+                    new ListObjectsV2Command({
+                        Bucket: bucketName,
+                        Prefix: cleanPrefix,
+                        ContinuationToken: continuationToken,
+                    }),
+                );
+
+                const objectsToDelete = (listRes.Contents || [])
+                    .filter(
+                        (item) =>
+                            item.Key &&
+                            (item.Key === cleanPrefix || item.Key.startsWith(prefixWithSlash)),
+                    )
+                    .map((item) => ({ Key: item.Key! }));
+
+                if (objectsToDelete.length > 0) {
+                    try {
+                        await s3.send(
+                            new DeleteObjectsCommand({
+                                Bucket: bucketName,
+                                Delete: {
+                                    Objects: objectsToDelete,
+                                    Quiet: true,
+                                },
+                            }),
+                        );
+                    } catch (batchErr: any) {
+                        this.logger.warn(
+                            `[R2] DeleteObjectsCommand thất bại, xoá từng file bằng DeleteObjectCommand: ${batchErr?.message || batchErr}`,
+                        );
+                        for (const obj of objectsToDelete) {
+                            await s3
+                                .send(
+                                    new DeleteObjectCommand({
+                                        Bucket: bucketName,
+                                        Key: obj.Key,
+                                    }),
+                                )
+                                .catch((err) =>
+                                    this.logger.warn(
+                                        `[R2] Không thể xoá key ${obj.Key}: ${err?.message || err}`,
+                                    ),
+                                );
+                        }
+                    }
+                    deletedCount += objectsToDelete.length;
+                    this.logger.log(`[R2] Đã xoá ${objectsToDelete.length} files trong ${cleanPrefix}`);
+                }
+
+                continuationToken = listRes.IsTruncated ? listRes.NextContinuationToken : undefined;
+            } while (continuationToken);
+
+            this.logger.log(
+                `[R2] Hoàn tất xoá tổng cộng ${deletedCount} files trong prefix: ${cleanPrefix}`,
+            );
+        } catch (error) {
+            this.logger.error(`[R2] Lỗi khi xoá files trong prefix ${cleanPrefix}:`, error);
+        }
+
+        return deletedCount;
+    }
+
+    private async uploadFolderToR2(
+        targetFolderPrefix: string,
+        localDirPath: string,
         customEndpoint?: string,
         customBucket?: string,
     ): Promise<{ totalSizeBytes: number; fileCount: number }> {
@@ -818,42 +630,48 @@ export class RecordingsService {
         let totalSizeBytes = 0;
         let fileCount = 0;
 
+        const cleanPrefix = targetFolderPrefix.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+
         try {
             const bucketName = customBucket || process.env.R2_BUCKET_NAME;
-            const files = await fs.readdir(hlsDirPath);
+            const files = await fs.readdir(localDirPath);
 
             for (const file of files) {
-                const filePath = path.join(hlsDirPath, file);
+                const filePath = path.join(localDirPath, file);
+                const fileStat = await fs.stat(filePath);
+                if (fileStat.isDirectory()) continue;
+
                 const fileContent = await fs.readFile(filePath);
                 totalSizeBytes += fileContent.length;
                 fileCount++;
 
-                // Cấu trúc thư mục trên R2: recordings/sessionFolder/recordingFolder/file
-                const s3Key = `recordings/${sessionFolder}/${recordingFolderName}/${file}`;
+                const s3Key = `${cleanPrefix}/${file}`;
 
-                let contentType = 'application/octet-stream';
-                if (file.endsWith('.m3u8')) contentType = 'application/x-mpegURL';
-                else if (file.endsWith('.ts')) contentType = 'video/MP2T';
-                else if (file.endsWith('.mp4')) contentType = 'video/mp4';
-                else if (file.endsWith('.webm')) contentType = 'video/webm';
-                else if (file.endsWith('.json')) contentType = 'application/json';
+                let contentType = "application/octet-stream";
+                if (file.endsWith(".m3u8")) contentType = "application/x-mpegURL";
+                else if (file.endsWith(".ts")) contentType = "video/MP2T";
+                else if (file.endsWith(".mp4")) contentType = "video/mp4";
+                else if (file.endsWith(".webm")) contentType = "video/webm";
+                else if (file.endsWith(".json")) contentType = "application/json";
 
-                await s3.send(new PutObjectCommand({
-                    Bucket: bucketName,
-                    Key: s3Key,
-                    Body: fileContent,
-                    ContentType: contentType,
-                }));
+                await s3.send(
+                    new PutObjectCommand({
+                        Bucket: bucketName,
+                        Key: s3Key,
+                        Body: fileContent,
+                        ContentType: contentType,
+                    }),
+                );
             }
 
             this.logger.log(
-                `Đã upload toàn bộ file HLS của recording ${recordingFolderName} (session: ${sessionFolder}) lên R2 (${fileCount} files, ${totalSizeBytes} bytes).`
+                `Đã upload toàn bộ file vào R2 prefix "${cleanPrefix}" (${fileCount} files, ${totalSizeBytes} bytes).`
             );
 
-            // Dọn dẹp ổ cứng sau khi upload thành công
-            await fs.rm(hlsDirPath, { recursive: true, force: true });
+            // Dọn dẹp thư mục local sau khi upload thành công
+            await fs.rm(localDirPath, { recursive: true, force: true });
         } catch (error) {
-            this.logger.error("Lỗi khi upload lên R2:", error);
+            this.logger.error(`Lỗi khi upload lên R2 prefix "${cleanPrefix}":`, error);
         }
 
         return { totalSizeBytes, fileCount };

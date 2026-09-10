@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { useIsRecording, useRoomContext } from "@livekit/components-react";
+import { useRoomContext } from "@livekit/components-react";
+import { useIsBotRecording } from "@/hooks/useIsBotRecording";
 import { toast } from "sonner";
 import {
   useStartCloudRecordingMutation,
@@ -17,7 +18,7 @@ export function useCloudRecorder({
   const room = useRoomContext();
   const targetCode = meetingCode || room?.name;
 
-  const isRecording = useIsRecording();
+  const isRecording = useIsBotRecording();
 
   const [startCloudRecordingApi, { isLoading: isStarting }] =
     useStartCloudRecordingMutation();

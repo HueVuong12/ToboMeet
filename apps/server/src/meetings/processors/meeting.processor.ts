@@ -36,8 +36,6 @@ export class MeetingProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<any> {
-    this.logger.log(`Processing job ${job.name} (ID: ${job.id})`);
-
     switch (job.name) {
       case "auto-end-breakout": {
         const { mainMeetingCode, sessionStartedAt } = job.data;
@@ -70,12 +68,6 @@ export class MeetingProcessor extends WorkerHost {
       case "attendance-close-all": {
         const { meetingCode } = job.data as { meetingCode: string };
         await this.attendanceService.closeAllOpenVisits(meetingCode);
-        break;
-      }
-
-      case "process-recording": {
-        const { meetingCode, sessionId } = job.data as ProcessRecordingJobData;
-        await this.recordingService.handlePostProcessing(meetingCode, sessionId);
         break;
       }
 

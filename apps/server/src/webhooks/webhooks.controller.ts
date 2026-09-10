@@ -10,10 +10,9 @@ import {
   Body,
   Logger,
 } from "@nestjs/common";
-import { TrackSource, WebhookReceiver } from "livekit-server-sdk";
+import { WebhookReceiver } from "livekit-server-sdk";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { RecordingsService } from "../meetings/recordings.service";
 import { RecordingWebhookDto } from "@tobomeet/shared/types";
 
 @Controller("webhooks")
@@ -23,7 +22,6 @@ export class WebhooksController {
 
   constructor(
     @InjectQueue("meeting") private readonly meetingQueue: Queue,
-    private readonly recordingsService: RecordingsService,
   ) {
     this.receiver = new WebhookReceiver(
       process.env.LIVEKIT_API_KEY!,
@@ -68,8 +66,8 @@ export class WebhooksController {
     switch (event.event) {
       case "participant_joined":
         if (meetingCode && userId) {
-          // Bỏ qua egress client
-          if (userId.startsWith("EG_")) break;
+          // Bỏ qua egress client hoặc recorder bot
+          if (userId.startsWith("EG_") || userId.startsWith("recorder-bot")) break;
           await this.meetingQueue.add(
             "attendance-joined",
             { meetingCode, userId, displayName },
@@ -111,15 +109,6 @@ export class WebhooksController {
           );
         }
         break;
-
-      case "track_published":
-        if (event.track.source === TrackSource.SCREEN_SHARE) {
-          await this.recordingsService.handleNewScreenShareTrack(
-            event.room.name, // meetingCode
-            event.track.sid  // trackId
-          );
-
-        }
     }
 
     return { received: true };
