@@ -90,7 +90,7 @@ export default function AssignmentSubmission({
             )}
           </div>
           <span className="text-slate-400">
-            {new Date(submission.submittedAt).toLocaleString("vi-VN")}
+            {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString("vi-VN") : "—"}
           </span>
         </div>
       )}

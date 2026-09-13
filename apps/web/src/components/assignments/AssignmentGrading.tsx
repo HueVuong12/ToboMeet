@@ -122,7 +122,7 @@ export default function AssignmentGrading({
                     </div>
 
                     <div className="flex justify-between items-center text-[10px] text-slate-400">
-                      <span>Nộp: {new Date(sub.submittedAt).toLocaleDateString("vi-VN")}</span>
+                      <span>Nộp: {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString("vi-VN") : "—"}</span>
                       {sub.submissionStatus === "late" && (
                         <span className="text-amber-600 font-medium">Trễ {sub.lateMinutes} phút</span>
                       )}
@@ -145,7 +145,7 @@ export default function AssignmentGrading({
                     Bài nộp của {studentInfo?.displayName || activeSubmission.studentId}
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Nộp lúc {new Date(activeSubmission.submittedAt).toLocaleString("vi-VN")}
+                    Nộp lúc {activeSubmission.submittedAt ? new Date(activeSubmission.submittedAt).toLocaleString("vi-VN") : "—"}
                   </p>
                 </div>
 

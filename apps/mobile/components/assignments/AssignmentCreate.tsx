@@ -391,9 +391,11 @@ export default function AssignmentCreate({
           </Text>
           <TextInput
             placeholder={t("assignments.field_title_placeholder")}
+            placeholderTextColor="#000000"
             value={title}
             onChangeText={setTitle}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold mb-4"
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 mb-4"
+            style={{ fontWeight: title ? "bold" : "normal" }}
           />
 
           {/* 2. Mô tả nhiệm vụ */}
@@ -402,6 +404,7 @@ export default function AssignmentCreate({
           </Text>
           <TextInput
             placeholder={t("assignments.field_desc_placeholder")}
+            placeholderTextColor="#000000"
             value={description}
             onChangeText={setDescription}
             multiline

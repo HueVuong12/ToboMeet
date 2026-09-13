@@ -192,6 +192,12 @@ export default function AssignmentDetail({
     }
   }, [submission]);
 
+  const hasActiveSubmission = !!(
+    submission &&
+    submission.submissionStatus !== "not_submitted" &&
+    submission.submittedAt
+  );
+
   const assignmentId = String(assignment?._id || (assignment as any)?.id || "");
   const assignmentRoomId = assignment?.roomId;
 
@@ -667,10 +673,10 @@ export default function AssignmentDetail({
               <Lock size={14} />
               <span>Đã hết hạn nộp bài — Nhiệm vụ đã bị khóa</span>
             </div>
-          ) : !submission ? (
+          ) : !hasActiveSubmission ? (
             <button
-              onClick={() => setIsFormOpen(!isFormOpen)}
-              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-1.5"
+              onClick={() => setIsFormOpen(true)}
+              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-98"
             >
               <span>{t("detail.add_submission")}</span>
             </button>
@@ -703,7 +709,7 @@ export default function AssignmentDetail({
               >
                 <div className="flex items-center gap-2">
                   <ChevronDown size={20} />
-                  <span>{t("detail.add_submission")}</span>
+                  <span>{hasActiveSubmission ? t("detail.edit_submission") : t("detail.add_submission")}</span>
                 </div>
               </button>
 
@@ -852,7 +858,7 @@ export default function AssignmentDetail({
                   {t("detail.submit_status")}
                 </td>
                 <td className="p-4">
-                  {submission ? (
+                  {hasActiveSubmission ? (
                     <span className="inline-block px-3 py-1 bg-brand-50 text-brand-700 border border-brand-100 font-semibold rounded-md">
                       {t("detail.submit_status_submitted")}
                     </span>
@@ -884,14 +890,14 @@ export default function AssignmentDetail({
                   {t("detail.time_remaining")}
                 </td>
                 <td className="p-4">
-                  {submission
-                    ? getRemainingOrOverdueText(assignment.deadline, submission.submittedAt)
+                  {hasActiveSubmission
+                    ? getRemainingOrOverdueText(assignment.deadline, submission?.submittedAt)
                     : getRemainingOrOverdueText(assignment.deadline)}
                 </td>
               </tr>
 
               {/* Chỉnh sửa lần cuối */}
-              {submission && (
+              {hasActiveSubmission && submission?.submittedAt && (
                 <tr className="border-b border-slate-100">
                   <td className="w-1/3 p-4 bg-slate-50/50 font-bold text-slate-700 border-r border-slate-100">
                     {t("detail.last_modified")}
@@ -903,7 +909,7 @@ export default function AssignmentDetail({
               )}
 
               {/* Nộp tập tin */}
-              {submission && submission.attachments.length > 0 && (
+              {hasActiveSubmission && submission?.attachments && submission.attachments.length > 0 && (
                 <tr className="border-b border-slate-100">
                   <td className="w-1/3 p-4 bg-slate-50/50 font-bold text-slate-700 border-r border-slate-100">
                     {t("detail.submitted_files")}
@@ -1019,7 +1025,7 @@ export default function AssignmentDetail({
         </div>
 
         {/* Khối Nhận xét (Feedback) */}
-        {submission && (submission.score !== undefined || submission.gradedAt) && (
+        {submission && (submission.score !== undefined || submission.gradedAt || submission.feedback) && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col">
             <div className="px-6 py-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 text-base">{t("detail.feedback_title")}</h3>

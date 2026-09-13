@@ -630,7 +630,7 @@
         "opened": "Opened",
         "due": "Due",
         "overdue_label": "Assignment is overdue by: {time}",
-        "add_submission": "Add submission",
+        "add_submission": "Add task",
         "edit_submission": "Edit submission",
         "remove_submission": "Remove submission",
         "drop_zone_hint": "Drag and drop files here to submit",

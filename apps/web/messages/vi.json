@@ -617,7 +617,7 @@
         "opened": "Thời gian bắt đầu",
         "due": "Thời gian kết thúc",
         "overdue_label": "Nhiệm vụ quá hạn nộp: {time}",
-        "add_submission": "Thêm bài nộp",
+        "add_submission": "Thêm nhiệm vụ",
         "edit_submission": "Cập nhật nội dung nộp",
         "remove_submission": "Hủy nộp nhiệm vụ",
         "drop_zone_hint": "Kéo và thả tệp tin vào đây để nộp",
