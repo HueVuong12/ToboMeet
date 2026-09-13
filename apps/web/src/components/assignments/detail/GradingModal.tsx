@@ -336,7 +336,7 @@ export default function GradingModal({
           {/* Feedback section */}
           <div className="p-5 border-b border-slate-100 flex-1 flex flex-col">
             <label className="text-xs font-bold text-slate-800 block mb-2">
-              {t("feedback_title")}
+              {t("feedback_title", { defaultValue: "Nhận xét" })}
             </label>
             <textarea
               rows={4}

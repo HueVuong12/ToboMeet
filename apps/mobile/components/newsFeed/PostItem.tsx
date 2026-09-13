@@ -342,12 +342,14 @@ export default function PostItem({
       />
 
       {/* Inline Comments Section */}
-      <CommentSectionModal
-        visible={showCommentsModal}
-        postId={post._id}
-        currentUserId={currentUserId}
-        onClose={() => setShowCommentsModal(false)}
-      />
+      {showCommentsModal && (
+        <CommentSectionModal
+          visible={showCommentsModal}
+          postId={post._id}
+          currentUserId={currentUserId}
+          onClose={() => setShowCommentsModal(false)}
+        />
+      )}
 
       {/* Author Options Modal */}
       <Modal

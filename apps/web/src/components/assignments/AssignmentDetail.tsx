@@ -18,6 +18,8 @@ import {
   List,
   FolderPlus,
   Loader2,
+  FileText,
+  Paperclip,
 } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";
@@ -27,6 +29,7 @@ import AssignmentDetailHeader from "./detail/AssignmentDetailHeader";
 import SubmissionTabs from "./detail/SubmissionTabs";
 import SubmissionMembersTable, { MemberWithSubmission } from "./detail/SubmissionMembersTable";
 import GradingModal from "./detail/GradingModal";
+import MemberCommentsModal from "./detail/MemberCommentsModal";
 import { calculateSubmissionTiming } from "./utils/submissionTimeHelper";
 import { downloadFileDirectly } from "./utils/downloadHelper";
 import { useMemo } from "react";
@@ -54,7 +57,7 @@ interface AssignmentDetailProps {
   refetchSubmission?: () => void;
   onDeleteSubmission: () => Promise<void>;
   onDeleteAssignment?: () => Promise<void>;
-  onAddComment: (assignmentId: string, content: string) => Promise<void>;
+  onAddComment: (assignmentId: string, content: string, memberId?: string) => Promise<void>;
   onDeleteComment?: (commentId: string) => Promise<void>;
 }
 
@@ -111,6 +114,7 @@ export default function AssignmentDetail({
   const [activeTeacherTab, setActiveTeacherTab] = useState<"need_return" | "returned">("need_return");
   const [searchQuery, setSearchQuery] = useState("");
   const [gradingModalIndex, setGradingModalIndex] = useState<number | null>(null);
+  const [activeCommentMember, setActiveCommentMember] = useState<MemberWithSubmission | null>(null);
 
   // Danh sách học viên mục tiêu (loại trừ người tạo)
   const targetMembers = useMemo(() => {
@@ -507,12 +511,35 @@ export default function AssignmentDetail({
           assignment={assignment}
           members={filteredMembers}
           activeTab={activeTeacherTab}
+          comments={comments}
+          onOpenComments={(member) => setActiveCommentMember(member)}
           onSelectMember={(item) => {
             const idx = filteredMembers.findIndex((m) => m.userId === item.userId);
             if (idx !== -1) {
               setGradingModalIndex(idx);
             }
           }}
+        />
+
+        {/* Modal bình luận theo từng thành viên */}
+        <MemberCommentsModal
+          isOpen={!!activeCommentMember}
+          onClose={() => setActiveCommentMember(null)}
+          assignment={assignment}
+          member={activeCommentMember}
+          comments={comments.filter((c: any) => {
+            const mId = activeCommentMember?.userId;
+            return (c.memberId || c.userId) === mId;
+          })}
+          currentUserId={userId}
+          onAddComment={(content) =>
+            onAddComment(
+              assignment._id,
+              content,
+              activeCommentMember?.userId
+            )
+          }
+          onDeleteComment={onDeleteComment}
         />
 
         {/* Modal chấm bài chia đôi màn hình khi click học viên */}
@@ -569,16 +596,27 @@ export default function AssignmentDetail({
 
         {/* Instructions and Teacher Attachments */}
         {(assignment.description || (assignment.attachments && assignment.attachments.length > 0)) && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-5">
+            {/* 1. Phần Mô tả nhiệm vụ */}
             {assignment.description && (
-              <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
-                {assignment.description}
+              <div className="flex flex-col gap-2">
+                <div className="text-slate-800 font-bold text-sm">
+                  {t("detail.description_title", { defaultValue: "Mô tả nhiệm vụ" })}
+                </div>
+                <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50/60 p-3.5 rounded-xl border border-slate-100">
+                  {assignment.description}
+                </div>
               </div>
             )}
 
+            {/* 2. Phần Tệp đính kèm nhiệm vụ */}
             {assignment.attachments && assignment.attachments.length > 0 && (
-              <div className={`flex flex-col gap-2 ${assignment.description ? 'border-t border-slate-100 pt-4' : ''}`}>
-                <div className="grid gap-2 sm:grid-cols-2">
+              <div className={`flex flex-col gap-2.5 ${assignment.description ? 'border-t border-slate-100 pt-5' : ''}`}>
+                <div className="text-slate-800 font-bold text-sm">
+                  {t("detail.attachments_title", { defaultValue: "Tệp đính kèm" })}
+                </div>
+
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   {assignment.attachments.map((file, idx) => {
                     const fileMeta = getFileIconAndStyle(file.name);
                     const isDownloading = downloadingAttName === file.name;
@@ -596,18 +634,18 @@ export default function AssignmentDetail({
                           }
                         }}
                         disabled={isDownloading}
-                        className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 hover:border-brand-500 rounded-xl text-xs transition-colors hover:text-brand-600 cursor-pointer active:bg-slate-100 disabled:opacity-75 text-left"
+                        className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 hover:border-brand-500 hover:bg-slate-100/70 rounded-xl text-xs transition-all hover:text-brand-600 cursor-pointer active:bg-slate-200 disabled:opacity-75 text-left group shadow-2xs"
                         title={`Tải xuống ${file.name}`}
                       >
-                        <div className="flex items-center gap-2 truncate min-w-0">
+                        <div className="flex items-center gap-2.5 truncate min-w-0 flex-1 mr-2">
                           {isDownloading ? (
                             <Loader2 size={16} className="text-brand-600 animate-spin shrink-0" />
                           ) : (
-                            <File size={16} className="text-slate-400 shrink-0" />
+                            <File size={16} className="text-slate-400 group-hover:text-brand-600 shrink-0 transition-colors" />
                           )}
-                          <span className="font-medium text-slate-700 truncate">{file.name}</span>
+                          <span className="font-medium text-slate-700 group-hover:text-slate-900 truncate">{file.name}</span>
                         </div>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${fileMeta.style}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${fileMeta.style}`}>
                           {fileMeta.label}
                         </span>
                       </button>
@@ -641,13 +679,13 @@ export default function AssignmentDetail({
               {/* Chỉ cho sửa/xóa khi chưa bị khóa */}
               <button
                 onClick={() => setIsFormOpen(true)}
-                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200"
+                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-98"
               >
                 {t("detail.edit_submission")}
               </button>
               <button
                 onClick={() => setShowConfirmDelete(true)}
-                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200"
+                className="px-5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 hover:border-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-98"
               >
                 {t("detail.remove_submission")}
               </button>

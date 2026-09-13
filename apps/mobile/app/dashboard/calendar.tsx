@@ -544,6 +544,7 @@ export default function CalendarScreen() {
     const isChannelMeeting = item.roomType === "channel_meeting" && item.roomId && item.channelId;
     const isAssignment = item.eventType === "assignment";
     const colors = getEventColors(item);
+    const isVi = i18n.language === "vi";
 
     return (
       <TouchableOpacity
@@ -562,7 +563,7 @@ export default function CalendarScreen() {
               <Feather name="clipboard" size={13} color={colors.border} />
             )}
             <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>
-              {isAssignment ? `[Nhiệm vụ] ${item.title}` : item.title}
+              {isAssignment ? `[${isVi ? "Nhiệm vụ" : "Assignment"}] ${item.title}` : item.title}
             </Text>
           </View>
           {item.description ? (
@@ -583,14 +584,14 @@ export default function CalendarScreen() {
             }}>
               <Text style={{ fontSize: 11, fontWeight: "700", color: colors.text }}>
                 {item.assignmentStatus === "submitted"
-                  ? "Đã nộp"
+                  ? (isVi ? "Đã nộp" : "Submitted")
                   : item.assignmentStatus === "graded"
-                  ? "Đã chấm"
+                  ? (isVi ? "Đã chấm" : "Graded")
                   : item.assignmentStatus === "overdue"
-                  ? "Quá hạn"
+                  ? (isVi ? "Quá hạn" : "Overdue")
                   : item.assignmentStatus === "closed"
-                  ? "Đã khóa"
-                  : "Đang làm"}
+                  ? (isVi ? "Đã khóa" : "Closed")
+                  : (isVi ? "Đang làm" : "In Progress")}
               </Text>
             </View>
           ) : (
@@ -623,6 +624,7 @@ export default function CalendarScreen() {
   const renderDayView = () => {
     const hours = Array.from({ length: 23 }, (_, i) => i + 1);
     const colWidth = screenWidth - TIME_AXIS_WIDTH - 24;
+    const isVi = i18n.language === "vi";
 
     const dayEvents = events.filter(e => {
       const eDate = new Date(e.startDate);
@@ -691,7 +693,7 @@ export default function CalendarScreen() {
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                       {isAssignment && <Feather name="clipboard" size={11} color={colors.border} />}
                       <Text style={[styles.eventTitleText, { flex: 1, color: colors.text }]} numberOfLines={height > 36 ? 2 : 1}>
-                        {isAssignment ? `[Nhiệm vụ] ${event.title}` : event.title}
+                        {isAssignment ? `[${isVi ? "Nhiệm vụ" : "Assignment"}] ${event.title}` : event.title}
                       </Text>
                     </View>
                     {height > 40 && event.description && (
@@ -815,7 +817,7 @@ export default function CalendarScreen() {
                           ]}
                         >
                           <Text style={[styles.eventTitleText, { color: colors.text }, isAssignment && { fontSize: 10 }]} numberOfLines={1}>
-                            {isAssignment ? `[NV] ${event.title}` : event.title}
+                            {isAssignment ? `[${i18n.language === "vi" ? "NV" : "Asg"}] ${event.title}` : event.title}
                           </Text>
                         </TouchableOpacity>
                       );

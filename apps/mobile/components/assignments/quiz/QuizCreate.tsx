@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface QuizOption {
   id: string;
@@ -34,6 +33,8 @@ interface QuizCreateProps {
   onBack: () => void;
   onSubmit?: (payload: any) => Promise<void> | void;
   isSubmitting?: boolean;
+  onOpenLeftDrawer?: () => void;
+  onOpenRightDrawer?: () => void;
 }
 
 export default function QuizCreate({
@@ -44,9 +45,10 @@ export default function QuizCreate({
   onBack,
   onSubmit,
   isSubmitting = false,
+  onOpenLeftDrawer,
+  onOpenRightDrawer,
 }: QuizCreateProps) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -185,51 +187,83 @@ export default function QuizCreate({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-slate-50"
     >
-      {/* Header */}
-      <View
-        style={{ paddingTop: insets.top + 8 }}
-        className="bg-white border-b border-slate-200 px-4 pb-3"
-      >
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <TouchableOpacity
-              onPress={onBack}
-              className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center mr-1"
-            >
-              <Feather name="arrow-left" size={20} color="#1E293B" />
+      {/* Header Bar: Nhiệm vụ */}
+      <View className="bg-white px-4 py-3 border-b border-slate-100 flex-row items-center justify-between min-h-[56px]">
+        <View className="flex-row items-center flex-1">
+          {onOpenLeftDrawer ? (
+            <TouchableOpacity onPress={onOpenLeftDrawer} className="p-1 mr-2">
+              <Feather name="menu" size={24} color="#1E293B" />
             </TouchableOpacity>
-            <View>
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
-                  {t("assignments.type_quiz")}
-                </Text>
-              </View>
-              <Text className="text-base font-bold text-slate-900 mt-0.5">
-                {t("assignments.quiz_create_title")}
+          ) : (
+            <View className="p-1 mr-2">
+              <Feather name="menu" size={24} color="#1E293B" />
+            </View>
+          )}
+          <View className="w-8 h-8 rounded-lg bg-blue-100 items-center justify-center mr-2.5">
+            <Text className="font-bold text-[#0052FF] text-sm">T</Text>
+          </View>
+          <Text className="font-bold text-slate-900 text-lg">
+            {t("assignments.title", { defaultValue: "Nhiệm vụ" })}
+          </Text>
+        </View>
+
+        <View className="flex-row items-center gap-2">
+          {onOpenRightDrawer ? (
+            <TouchableOpacity
+              onPress={onOpenRightDrawer}
+              className="w-8 h-8 rounded-full bg-slate-50 items-center justify-center border border-slate-100"
+            >
+              <Feather name="info" size={16} color="#64748B" />
+            </TouchableOpacity>
+          ) : (
+            <View className="w-8 h-8 rounded-full bg-slate-50 items-center justify-center border border-slate-100">
+              <Feather name="info" size={16} color="#64748B" />
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Sub Header: Tạo bài trắc nghiệm */}
+      <View className="bg-white px-4 py-3 border-b border-slate-100 flex-row items-center justify-between">
+        <View className="flex-row items-center flex-1 mr-2">
+          <TouchableOpacity
+            onPress={onBack}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            className="p-1 mr-2.5"
+          >
+            <Feather name="arrow-left" size={22} color="#475569" />
+          </TouchableOpacity>
+          <View className="flex-1">
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                {t("assignments.type_quiz")}
               </Text>
             </View>
+            <Text className="text-base font-bold text-slate-900" numberOfLines={1}>
+              {t("assignments.quiz_create_title")}
+            </Text>
           </View>
+        </View>
 
-          <View className="flex-row items-center gap-1.5">
-            <TouchableOpacity
-              onPress={() => handleSave("draft")}
-              disabled={isSubmitting}
-              className="px-3 py-1.5 bg-slate-100 rounded-lg active:bg-slate-200"
-            >
-              <Text className="text-xs font-bold text-slate-700">
-                {t("assignments.quiz_save_draft")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleSave("published")}
-              disabled={isSubmitting}
-              className="px-3 py-1.5 bg-purple-600 rounded-lg active:bg-purple-700 shadow-xs"
-            >
-              <Text className="text-xs font-bold text-white">
-                {t("assignments.quiz_publish")}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        <View className="flex-row items-center gap-1.5">
+          <TouchableOpacity
+            onPress={() => handleSave("draft")}
+            disabled={isSubmitting}
+            className="px-3 py-1.5 bg-slate-100 rounded-lg active:bg-slate-200"
+          >
+            <Text className="text-xs font-bold text-slate-700">
+              {t("assignments.quiz_save_draft")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleSave("published")}
+            disabled={isSubmitting}
+            className="px-3 py-1.5 bg-purple-600 rounded-lg active:bg-purple-700 shadow-xs"
+          >
+            <Text className="text-xs font-bold text-white">
+              {t("assignments.quiz_publish")}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 

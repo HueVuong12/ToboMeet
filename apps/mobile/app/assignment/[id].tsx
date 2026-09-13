@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -77,6 +77,18 @@ export default function AssignmentDetailScreen() {
 
   const targetRoomId = assignment?.roomId || paramRoomId;
 
+  const refetchDetailRef = useRef(refetchDetail);
+  const refetchMySubmissionRef = useRef(refetchMySubmission);
+  const refetchSubmissionsRef = useRef(refetchSubmissions);
+  const refetchCommentsRef = useRef(refetchComments);
+  const isTeacherRef = useRef(isTeacher);
+
+  useEffect(() => { refetchDetailRef.current = refetchDetail; }, [refetchDetail]);
+  useEffect(() => { refetchMySubmissionRef.current = refetchMySubmission; }, [refetchMySubmission]);
+  useEffect(() => { refetchSubmissionsRef.current = refetchSubmissions; }, [refetchSubmissions]);
+  useEffect(() => { refetchCommentsRef.current = refetchComments; }, [refetchComments]);
+  useEffect(() => { isTeacherRef.current = isTeacher; }, [isTeacher]);
+
   // Realtime Socket.IO Listeners
   useEffect(() => {
     const joinRoomSocket = () => {
@@ -88,7 +100,7 @@ export default function AssignmentDetailScreen() {
 
     const handleConnect = () => {
       joinRoomSocket();
-      refetchDetail();
+      refetchDetailRef.current();
     };
 
     socket.on("connect", handleConnect);
@@ -102,13 +114,25 @@ export default function AssignmentDetailScreen() {
     const handleAssignmentUpdated = (data: any) => {
       const eventAssignId = String(data?.assignmentId || data?._id || data?.assignment?._id || "");
       if (eventAssignId && eventAssignId === String(assignmentId)) {
-        refetchDetail();
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Assignments", id: "LIST" },
+            { type: "Assignments", id: eventAssignId },
+          ])
+        );
+        refetchDetailRef.current();
       }
     };
 
     const handleAssignmentDeleted = (data: any) => {
       const eventAssignId = String(data?.assignmentId || data?._id || "");
       if (eventAssignId && eventAssignId === String(assignmentId)) {
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Assignments", id: "LIST" },
+            { type: "Assignments", id: eventAssignId },
+          ])
+        );
         Alert.alert(t("room.notice"), t("assignments.deleted_notice"), [
           {
             text: "OK",
@@ -127,10 +151,18 @@ export default function AssignmentDetailScreen() {
     const handleAssignmentSubmitted = (data: any) => {
       const eventAssignId = String(data?.submission?.assignmentId || data?.assignmentId || "");
       if (eventAssignId && eventAssignId === String(assignmentId)) {
-        if (isTeacher) {
-          refetchSubmissions();
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Submissions", id: "LIST" },
+            { type: "Submissions", id: `MY_${eventAssignId}` },
+            { type: "Assignments", id: "LIST" },
+            { type: "Assignments", id: eventAssignId },
+          ])
+        );
+        if (isTeacherRef.current) {
+          refetchSubmissionsRef.current();
         } else {
-          refetchMySubmission();
+          refetchMySubmissionRef.current();
         }
       }
     };
@@ -141,7 +173,18 @@ export default function AssignmentDetailScreen() {
       if (eventAssignId && eventAssignId === String(assignmentId)) {
         console.log("[MOBILE-SCREEN] [CACHE] Updating getMySubmission cache to null for assignment:", eventAssignId);
         dispatch(
-          assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, () => null)
+          assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, (old: any) => {
+            if (!old) return null;
+            if (old.score !== undefined || old.feedback) {
+              return {
+                ...old,
+                attachments: [],
+                submittedAt: undefined,
+                submissionStatus: "not_submitted",
+              };
+            }
+            return null;
+          })
         );
         dispatch(
           assignmentsApi.util.invalidateTags([
@@ -151,10 +194,10 @@ export default function AssignmentDetailScreen() {
             { type: "Assignments", id: eventAssignId },
           ])
         );
-        if (isTeacher) {
-          refetchSubmissions();
+        if (isTeacherRef.current) {
+          refetchSubmissionsRef.current();
         } else {
-          refetchMySubmission();
+          refetchMySubmissionRef.current();
         }
       }
     };
@@ -162,10 +205,18 @@ export default function AssignmentDetailScreen() {
     const handleAssignmentGraded = (data: any) => {
       const eventAssignId = String(data?.submission?.assignmentId || data?.assignmentId || "");
       if (eventAssignId && eventAssignId === String(assignmentId)) {
-        if (isTeacher) {
-          refetchSubmissions();
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Submissions", id: "LIST" },
+            { type: "Submissions", id: `MY_${eventAssignId}` },
+            { type: "Assignments", id: "LIST" },
+            { type: "Assignments", id: eventAssignId },
+          ])
+        );
+        if (isTeacherRef.current) {
+          refetchSubmissionsRef.current();
         } else {
-          refetchMySubmission();
+          refetchMySubmissionRef.current();
         }
       }
     };
@@ -173,7 +224,7 @@ export default function AssignmentDetailScreen() {
     const handleCommentAdded = (data: any) => {
       const eventAssignId = String(data?.assignmentId || "");
       if (eventAssignId && eventAssignId === String(assignmentId)) {
-        refetchComments();
+        refetchCommentsRef.current();
       }
     };
 
@@ -190,7 +241,7 @@ export default function AssignmentDetailScreen() {
             })
           );
         }
-        refetchComments();
+        refetchCommentsRef.current();
       }
     };
 
@@ -215,7 +266,7 @@ export default function AssignmentDetailScreen() {
       socket.off("assignment_comment_added", handleCommentAdded);
       socket.off("assignment_comment_deleted", handleCommentDeleted);
     };
-  }, [assignmentId, targetRoomId, refetchDetail, isTeacher, refetchMySubmission, refetchSubmissions, refetchComments, t]);
+  }, [assignmentId, targetRoomId, t]);
 
   const handleSubmitAssignment = async (attachments: any[]) => {
     if (!assignmentId) return;
@@ -233,7 +284,26 @@ export default function AssignmentDetailScreen() {
     try {
       await deleteSubmission(assignmentId).unwrap();
       dispatch(
-        assignmentsApi.util.updateQueryData("getMySubmission", String(assignmentId), () => null)
+        assignmentsApi.util.updateQueryData("getMySubmission", String(assignmentId), (old: any) => {
+          if (!old) return null;
+          if (old.score !== undefined || old.feedback) {
+            return {
+              ...old,
+              attachments: [],
+              submittedAt: undefined,
+              submissionStatus: "not_submitted",
+            };
+          }
+          return null;
+        })
+      );
+      dispatch(
+        assignmentsApi.util.invalidateTags([
+          { type: "Submissions", id: "LIST" },
+          { type: "Submissions", id: `MY_${assignmentId}` },
+          { type: "Assignments", id: "LIST" },
+          { type: "Assignments", id: String(assignmentId) },
+        ])
       );
       Alert.alert(t("room.success"), t("assignments.remove_submission"));
       refetchMySubmission();
@@ -242,11 +312,12 @@ export default function AssignmentDetailScreen() {
     }
   };
 
-  const handleAddComment = async (targetAssignmentId: string, content: string) => {
+  const handleAddComment = async (targetAssignmentId: string, content: string, memberId?: string) => {
     try {
       await addAssignmentComment({
         assignmentId: targetAssignmentId,
         content,
+        memberId,
       }).unwrap();
       refetchComments();
     } catch (err: any) {
@@ -315,6 +386,7 @@ export default function AssignmentDetailScreen() {
         <AssignmentDetail
           assignment={assignment}
           submission={mySubmission}
+          submissions={submissions}
           isTeacher={isTeacher}
           roomMembers={[]}
           comments={comments}
@@ -323,10 +395,12 @@ export default function AssignmentDetailScreen() {
           onSubmit={handleSubmitAssignment}
           isSubmitting={isSubmitting}
           onGradeClick={() => setView("grade")}
+          onGradeSubmission={handleGradeSubmission}
           refetchSubmission={refetchMySubmission}
           onDeleteSubmission={handleDeleteSubmission}
           onAddComment={handleAddComment}
           onDeleteComment={handleDeleteComment}
+          onOpenLeftDrawer={() => (router.canGoBack() ? router.back() : router.replace("/dashboard"))}
         />
       )}
 

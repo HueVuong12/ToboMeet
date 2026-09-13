@@ -100,19 +100,25 @@ export const assignmentsApi = baseApi.injectEndpoints({
         { type: "Submissions", id: `MY_${assignmentId}` },
       ],
     }),
-    getAssignmentComments: builder.query<any[], string>({
-      query: (assignmentId) => ({
-        url: `/assignments/${assignmentId}/comments`,
-      }),
-      providesTags: (result, error, assignmentId) => [
-        { type: "Assignments", id: `COMMENTS_${assignmentId}` },
-      ],
+    getAssignmentComments: builder.query<any[], string | { assignmentId: string; memberId?: string }>({
+      query: (arg) => {
+        const assignmentId = typeof arg === "string" ? arg : arg.assignmentId;
+        const memberId = typeof arg === "object" ? arg.memberId : undefined;
+        return {
+          url: `/assignments/${assignmentId}/comments`,
+          params: memberId ? { memberId } : undefined,
+        };
+      },
+      providesTags: (result, error, arg) => {
+        const assignmentId = typeof arg === "string" ? arg : arg.assignmentId;
+        return [{ type: "Assignments", id: `COMMENTS_${assignmentId}` }];
+      },
     }),
-    addAssignmentComment: builder.mutation<any, { assignmentId: string; content: string }>({
-      query: ({ assignmentId, content }) => ({
+    addAssignmentComment: builder.mutation<any, { assignmentId: string; content: string; memberId?: string }>({
+      query: ({ assignmentId, content, memberId }) => ({
         url: `/assignments/${assignmentId}/comments`,
         method: "POST",
-        data: { content },
+        data: { content, memberId },
       }),
       invalidatesTags: (result, error, { assignmentId }) => [
         { type: "Assignments", id: `COMMENTS_${assignmentId}` },

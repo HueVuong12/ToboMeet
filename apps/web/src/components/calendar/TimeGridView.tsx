@@ -286,19 +286,21 @@ export default function TimeGridView({
                           {getEventIcon(event.roomType, event.eventType)}
                         </div>
                         <h4 className="font-bold text-xs leading-tight truncate text-left flex-1 min-w-0">
-                          {event.eventType === "assignment" ? `[Nhiệm vụ] ${event.title}` : event.title}
+                          {event.eventType === "assignment"
+                            ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${event.title}`
+                            : event.title}
                         </h4>
                         {event.eventType === "assignment" && event.assignmentStatus && (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/80 shrink-0">
                             {event.assignmentStatus === "submitted"
-                              ? "Đã nộp"
+                              ? (locale === "vi" ? "Đã nộp" : "Submitted")
                               : event.assignmentStatus === "graded"
-                              ? "Đã chấm"
+                              ? (locale === "vi" ? "Đã chấm" : "Graded")
                               : event.assignmentStatus === "overdue"
-                              ? "Quá hạn"
+                              ? (locale === "vi" ? "Quá hạn" : "Overdue")
                               : event.assignmentStatus === "closed"
-                              ? "Đã đóng"
-                              : "Đang làm"}
+                              ? (locale === "vi" ? "Đã đóng" : "Closed")
+                              : (locale === "vi" ? "Đang làm" : "In Progress")}
                           </span>
                         )}
                       </div>

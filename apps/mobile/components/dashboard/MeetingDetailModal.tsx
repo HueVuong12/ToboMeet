@@ -48,12 +48,38 @@ export default function MeetingDetailModal({
 
   // Render chuyên biệt cho Nhiệm vụ (Assignment)
   if (event.eventType === "assignment") {
+    const isVi = i18n.language === "vi";
     const statusMap: Record<string, { label: string; bg: string; text: string; border: string }> = {
-      submitted: { label: "Đã nộp", bg: "#ECFDF5", text: "#065F46", border: "#A7F3D0" },
-      graded: { label: "Đã chấm điểm", bg: "#ECFDF5", text: "#065F46", border: "#A7F3D0" },
-      overdue: { label: "Đã quá hạn", bg: "#FFF1F2", text: "#9F1239", border: "#FECDD3" },
-      closed: { label: "Đã khóa/đóng", bg: "#F8FAFC", text: "#475569", border: "#E2E8F0" },
-      in_progress: { label: "Đang thực hiện", bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE" },
+      submitted: {
+        label: isVi ? "Đã nộp" : "Submitted",
+        bg: "#ECFDF5",
+        text: "#065F46",
+        border: "#A7F3D0",
+      },
+      graded: {
+        label: isVi ? "Đã chấm điểm" : "Graded",
+        bg: "#ECFDF5",
+        text: "#065F46",
+        border: "#A7F3D0",
+      },
+      overdue: {
+        label: isVi ? "Đã quá hạn" : "Overdue",
+        bg: "#FFF1F2",
+        text: "#9F1239",
+        border: "#FECDD3",
+      },
+      closed: {
+        label: isVi ? "Đã khóa/đóng" : "Closed",
+        bg: "#F8FAFC",
+        text: "#475569",
+        border: "#E2E8F0",
+      },
+      in_progress: {
+        label: isVi ? "Đang thực hiện" : "In Progress",
+        bg: "#EFF6FF",
+        text: "#1D4ED8",
+        border: "#BFDBFE",
+      },
     };
     const currentStatus = statusMap[event.assignmentStatus || "in_progress"] || statusMap.in_progress;
 

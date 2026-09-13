@@ -68,7 +68,7 @@ export default function AssignmentModule({
     (m: any) => (m.userId || m.supabaseId) === userId
   )?.role;
   const isTeacher =
-    ["owner", "admin", "teacher", "leader"].includes(currentUserRole?.toLowerCase() || "") ||
+    ["owner", "admin"].includes(currentUserRole?.toLowerCase() || "") ||
     roomMembers[0]?.userId === userId;
 
   // Queries for student submission - phải khai báo TRƯỚC useEffect
@@ -127,17 +127,29 @@ export default function AssignmentModule({
     }
 
     const handleAssignmentCreated = (data: any) => {
-      if (data.roomId === roomId) refetch();
+      if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
+        dispatch(assignmentsApi.util.invalidateTags([{ type: "Assignments", id: "LIST" }]));
+        refetch();
+      }
     };
 
     const handleAssignmentPublished = (data: any) => {
-      if (data.roomId === roomId) refetch();
+      if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
+        dispatch(assignmentsApi.util.invalidateTags([{ type: "Assignments", id: "LIST" }]));
+        refetch();
+      }
     };
 
     const handleAssignmentUpdated = (data: any) => {
-      if (data.roomId === roomId) {
-        refetch();
+      if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
         const eventAssignId = String(data.assignmentId || data.assignment?._id || data._id || "");
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
+        refetch();
         const cur = selectedAssignmentRef.current;
         if (cur && eventAssignId && eventAssignId === String(cur._id)) {
           setSelectedAssignment((prev) => prev ? { ...prev, ...(data.assignment || {}) } : null);
@@ -146,11 +158,17 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentDeleted = (data: any) => {
-      if (data.roomId === roomId || data.assignmentId) {
+      const eventAssignId = String(data.assignmentId || data._id || "");
+      if (String(data.roomId || "") === String(roomId) || eventAssignId) {
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
         refetch();
-        const deletedId = String(data.assignmentId || data._id || "");
         const cur = selectedAssignmentRef.current;
-        if (cur && deletedId && String(cur._id) === deletedId) {
+        if (cur && eventAssignId && String(cur._id) === eventAssignId) {
           Alert.alert(t("room.notice"), t("assignments.deleted_notice"));
           setSelectedAssignment(null);
           setView("list");
@@ -159,9 +177,17 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentSubmitted = (data: any) => {
-      if (data.roomId === roomId) {
-        refetch?.();
+      if (String(data.roomId || data.submission?.roomId || "") === String(roomId)) {
         const eventAssignId = String(data.submission?.assignmentId || data.assignmentId || "");
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Submissions", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
+        refetch?.();
         const cur = selectedAssignmentRef.current;
         if (cur && eventAssignId && eventAssignId === String(cur._id)) {
           if (isTeacherRef.current) {
@@ -179,7 +205,18 @@ export default function AssignmentModule({
       if (eventAssignId) {
         console.log("[MOBILE] [CACHE] Updating getMySubmission cache to null for assignment:", eventAssignId);
         dispatch(
-          assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, () => null)
+          assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, (old: any) => {
+            if (!old) return null;
+            if (old.score !== undefined || old.feedback) {
+              return {
+                ...old,
+                attachments: [],
+                submittedAt: undefined,
+                submissionStatus: "not_submitted",
+              };
+            }
+            return null;
+          })
         );
         dispatch(
           assignmentsApi.util.invalidateTags([
@@ -202,9 +239,17 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentGraded = (data: any) => {
-      if (data.roomId === roomId) {
-        refetch?.();
+      if (String(data.roomId || data.submission?.roomId || "") === String(roomId)) {
         const eventAssignId = String(data.submission?.assignmentId || data.assignmentId || "");
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Submissions", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
+        refetch?.();
         const cur = selectedAssignmentRef.current;
         if (cur && eventAssignId && eventAssignId === String(cur._id)) {
           if (isTeacherRef.current) {
@@ -220,6 +265,18 @@ export default function AssignmentModule({
       const eventAssignId = String(data.assignmentId || "");
       const cur = selectedAssignmentRef.current;
       if (cur && eventAssignId && eventAssignId === String(cur._id)) {
+        if (data.comment) {
+          dispatch(
+            assignmentsApi.util.updateQueryData("getAssignmentComments", eventAssignId, (draft) => {
+              if (Array.isArray(draft)) {
+                const exists = draft.some((c: any) => c._id === data.comment._id);
+                if (!exists) {
+                  draft.push(data.comment);
+                }
+              }
+            })
+          );
+        }
         try { refetchCommentsRef.current?.(); } catch (e) {}
       }
     };
@@ -283,10 +340,7 @@ export default function AssignmentModule({
     if (assignment.status === "draft") {
       setView("edit");
     } else {
-      router.push({
-        pathname: "/assignment/[id]",
-        params: { id: assignment._id, roomId },
-      });
+      setView("detail"); // inline view, Back giữ đúng activeTab
     }
   };
 
@@ -296,7 +350,12 @@ export default function AssignmentModule({
         const updated = await updateAssignment({ id: selectedAssignment._id, body: payload }).unwrap();
         Alert.alert(t("room.success"), t("assignments.toast_update_success", { defaultValue: "Cập nhật nhiệm vụ thành công!" }));
         setSelectedAssignment((prev) => (prev ? { ...prev, ...payload, ...(updated || {}) } : null));
-        setView("detail");
+        if (selectedAssignment.status === "draft" && payload.status !== "published") {
+          setView("list");
+          setSelectedAssignment(null);
+        } else {
+          setView("detail");
+        }
       } else {
         await createAssignment(payload).unwrap();
         Alert.alert(
@@ -328,8 +387,30 @@ export default function AssignmentModule({
     try {
       await deleteSubmission(selectedAssignment._id).unwrap();
       dispatch(
-        assignmentsApi.util.updateQueryData("getMySubmission", selectedAssignment._id, () => null)
+        assignmentsApi.util.updateQueryData("getMySubmission", selectedAssignment._id, (old: any) => {
+          if (!old) return null;
+          if (old.score !== undefined || old.feedback) {
+            return {
+              ...old,
+              attachments: [],
+              submittedAt: undefined,
+              submissionStatus: "not_submitted",
+            };
+          }
+          return null;
+        })
       );
+      dispatch(
+        assignmentsApi.util.invalidateTags([
+          { type: "Submissions", id: "LIST" },
+          { type: "Submissions", id: `MY_${selectedAssignment._id}` },
+          { type: "Assignments", id: "LIST" },
+          { type: "Assignments", id: selectedAssignment._id },
+        ])
+      );
+      try {
+        refetchMySubmission();
+      } catch (e) {}
       Alert.alert(t("room.success"), t("assignments.remove_submission"));
     } catch (err: any) {
       Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
@@ -348,14 +429,32 @@ export default function AssignmentModule({
     }
   };
 
-  const handleAddComment = async (targetAssignmentId: string, content: string) => {
+  const handleAddComment = async (
+    targetAssignmentId: string,
+    content: string,
+    memberId?: string
+  ) => {
     try {
-      await addAssignmentComment({
+      const newComment = await addAssignmentComment({
         assignmentId: targetAssignmentId,
         content,
+        memberId,
       }).unwrap();
+      if (newComment) {
+        dispatch(
+          assignmentsApi.util.updateQueryData("getAssignmentComments", targetAssignmentId, (draft) => {
+            if (Array.isArray(draft)) {
+              const exists = draft.some((c: any) => c._id === newComment._id);
+              if (!exists) {
+                draft.push(newComment);
+              }
+            }
+          })
+        );
+      }
     } catch (err: any) {
       Alert.alert(t("room.error"), err?.data?.message || t("assignments.toast_error_generic"));
+      throw err;
     }
   };
 
@@ -423,7 +522,7 @@ export default function AssignmentModule({
           userId={userId}
           assignmentToEdit={view === "edit" ? selectedAssignment || undefined : undefined}
           onBack={() => {
-            if (view === "edit" && selectedAssignment) {
+            if (view === "edit" && selectedAssignment && selectedAssignment.status !== "draft") {
               setView("detail");
             } else {
               setView("list");
@@ -432,6 +531,8 @@ export default function AssignmentModule({
           }}
           onSubmit={handleCreateAssignment}
           isSubmitting={isCreating || isUpdating}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
         />
       )}
 
@@ -444,6 +545,8 @@ export default function AssignmentModule({
           onBack={() => {
             setView("list");
           }}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
         />
       )}
 
@@ -451,6 +554,7 @@ export default function AssignmentModule({
         <AssignmentDetail
           assignment={selectedAssignment}
           submission={mySubmission}
+          submissions={submissions}
           isTeacher={isTeacher}
           roomMembers={roomMembers}
           comments={comments}
@@ -462,12 +566,17 @@ export default function AssignmentModule({
           onSubmit={handleSubmitAssignment}
           isSubmitting={isSubmitting}
           onGradeClick={() => setView("grade")}
+          onGradeSubmission={handleGradeSubmission}
           onEditAssignment={() => setView("edit")}
-          refetchSubmission={refetchMySubmission}
+          refetchSubmission={isTeacher ? refetchSubmissions : refetchMySubmission}
           onDeleteSubmission={handleDeleteSubmission}
           onDeleteAssignment={handleDeleteAssignment}
           onAddComment={handleAddComment}
           onDeleteComment={handleDeleteComment}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
+          onCreateClick={() => setView("create")}
+          onCreateQuizClick={() => setView("create_quiz")}
         />
       )}
 

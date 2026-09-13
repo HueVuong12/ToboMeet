@@ -308,10 +308,9 @@ export default function CommentSectionModal({
     }
   };
 
-  if (!visible) return null;
-
   // Xây dựng cây bình luận đa cấp (Threaded Comment Tree)
   const commentTree = useMemo(() => {
+    if (!visible || !comments || comments.length === 0) return [];
     const map = new Map<string, CommentNode>();
     const roots: CommentNode[] = [];
 
@@ -320,18 +319,25 @@ export default function CommentSectionModal({
     });
 
     comments.forEach((c) => {
-      const node = map.get(c._id)!;
+      const node = map.get(c._id);
+      if (!node) return;
       if (c.parentId && map.has(c.parentId)) {
-        const parent = map.get(c.parentId)!;
-        node.replyToAuthor = parent.author;
-        parent.children.push(node);
+        const parent = map.get(c.parentId);
+        if (parent) {
+          node.replyToAuthor = parent.author;
+          parent.children.push(node);
+        } else {
+          roots.push(node);
+        }
       } else {
         roots.push(node);
       }
     });
 
     return roots;
-  }, [comments]);
+  }, [comments, visible]);
+
+  if (!visible) return null;
 
   return (
     <View className="pt-3 border-t border-slate-100 bg-white">

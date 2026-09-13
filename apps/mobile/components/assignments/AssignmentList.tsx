@@ -46,13 +46,15 @@ export default function AssignmentList({
 
   const now = new Date().getTime();
 
-  const tabs = [
-    { id: "upcoming", label: t("assignments.tab_upcoming") },
-    ...(isTeacher ? [{ id: "grading", label: t("assignments.tab_grading") }] : []),
-    { id: "overdue", label: t("assignments.tab_overdue") },
-    { id: "returned", label: t("assignments.tab_returned") },
-    ...(isTeacher ? [{ id: "draft", label: t("assignments.tab_draft") }] : []),
-  ];
+  const tabs = isTeacher
+    ? [
+        { id: "upcoming", label: t("assignments.tab_upcoming") },
+        { id: "grading", label: t("assignments.tab_grading") },
+        { id: "overdue", label: t("assignments.tab_overdue") },
+        { id: "returned", label: t("assignments.tab_returned") },
+        { id: "draft", label: t("assignments.tab_draft") },
+      ]
+    : [];
 
   const filteredAssignments = assignments.filter((a) => {
     if (searchQuery.trim() !== "") {
@@ -60,6 +62,7 @@ export default function AssignmentList({
       if (!matchTitle) return false;
     }
 
+    // Student view: Member sees all published assignments
     if (!isTeacher) {
       return a.status === "published";
     }
@@ -67,6 +70,7 @@ export default function AssignmentList({
     const deadlineTime = a.deadline ? new Date(a.deadline).getTime() : 0;
     const isPastDeadline = deadlineTime ? deadlineTime <= now : false;
 
+    // Teacher view
     if (activeTab === "draft") {
       return a.status === "draft";
     }
@@ -106,13 +110,16 @@ export default function AssignmentList({
     const date = pad(d.getDate());
     const month = pad(d.getMonth() + 1);
     const year = d.getFullYear();
-    return `${date}/${month}/${year}`;
+    const hour = pad(d.getHours());
+    const minute = pad(d.getMinutes());
+    const timeFormatted = `${hour}:${minute} ${date}/${month}/${year}`;
+    return t("assignments.ends_at", { time: timeFormatted, defaultValue: `Kết thúc ${timeFormatted}` });
   };
 
   return (
     <View className="flex-1 bg-slate-50">
       {/* Header Bar */}
-      <View className="bg-white px-4 py-3 border-b border-slate-100 flex-row items-center justify-between">
+      <View className="bg-white px-4 py-3 border-b border-slate-100 flex-row items-center justify-between min-h-[56px]">
         <View className="flex-row items-center flex-1">
           {onOpenLeftDrawer && (
             <TouchableOpacity onPress={onOpenLeftDrawer} className="p-1 mr-2">
@@ -162,7 +169,7 @@ export default function AssignmentList({
         </View>
       </View>
 
-      {/* Tabs Navigation (Teachers only) */}
+      {/* Tabs Navigation (chỉ hiển thị cho giáo viên / isTeacher) */}
       {isTeacher && (
         <View className="bg-white border-b border-slate-200 px-2">
           <ScrollView
@@ -237,7 +244,7 @@ export default function AssignmentList({
                     <View className="flex-row items-center gap-1">
                       <Feather name="calendar" size={13} color="#94A3B8" />
                       <Text className="text-xs text-slate-500 font-medium" numberOfLines={1}>
-                        Hạn nộp: {formatDeadlineText(item.deadline)}
+                        {formatDeadlineText(item.deadline)}
                       </Text>
                     </View>
                   )}

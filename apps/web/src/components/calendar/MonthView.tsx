@@ -105,7 +105,9 @@ export default function MonthView({
                       ev.assignmentStatus,
                     )}`}
                   >
-                    {ev.eventType === "assignment" ? `[Nhiệm vụ] ${ev.title}` : ev.title}
+                    {ev.eventType === "assignment"
+                      ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${ev.title}`
+                      : ev.title}
                   </div>
                 ))}
                 {dayEvents.length > 3 && (

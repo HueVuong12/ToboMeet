@@ -191,17 +191,29 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentCreated = (data: any) => {
-      if (data.roomId === roomId) refetch();
+      if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
+        dispatch(assignmentsApi.util.invalidateTags([{ type: "Assignments", id: "LIST" }]));
+        refetch();
+      }
     };
 
     const handleAssignmentPublished = (data: any) => {
-      if (data.roomId === roomId) refetch();
+      if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
+        dispatch(assignmentsApi.util.invalidateTags([{ type: "Assignments", id: "LIST" }]));
+        refetch();
+      }
     };
 
     const handleAssignmentUpdated = (data: any) => {
-      if (data.roomId === roomId) {
-        refetch();
+      if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
         const eventAssignId = String(data.assignmentId || data.assignment?._id || data._id || "");
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
+        refetch();
         const currentSelected = selectedAssignmentRef.current;
         if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
           setSelectedAssignment((prev) =>
@@ -212,9 +224,15 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentDeleted = (data: any) => {
-      if (data.roomId === roomId || data.assignmentId) {
+      const deletedId = String(data.assignmentId || data._id || "");
+      if (String(data.roomId || "") === String(roomId) || deletedId) {
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Assignments", id: "LIST" },
+            ...(deletedId ? [{ type: "Assignments" as const, id: deletedId }] : []),
+          ])
+        );
         refetch();
-        const deletedId = String(data.assignmentId || data._id || "");
         // Nếu chính client này vừa thực hiện thao tác xóa nhiệm vụ này, bỏ qua hoàn toàn toast đỏ
         if (deletingAssignmentIdRef.current && deletingAssignmentIdRef.current === deletedId) {
           return;
@@ -229,9 +247,17 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentSubmitted = (data: any) => {
-      if (data.roomId === roomId) {
-        refetch();
+      if (String(data.roomId || data.submission?.roomId || "") === String(roomId)) {
         const eventAssignId = String(data.submission?.assignmentId || data.assignmentId || "");
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Submissions", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
+        refetch();
         const currentSelected = selectedAssignmentRef.current;
         if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
           if (isTeacherRef.current) {
@@ -282,9 +308,17 @@ export default function AssignmentModule({
     };
 
     const handleAssignmentGraded = (data: any) => {
-      if (data.roomId === roomId) {
-        refetch();
+      if (String(data.roomId || data.submission?.roomId || "") === String(roomId)) {
         const eventAssignId = String(data.submission?.assignmentId || data.assignmentId || "");
+        dispatch(
+          assignmentsApi.util.invalidateTags([
+            { type: "Submissions", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+            { type: "Assignments", id: "LIST" },
+            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+          ])
+        );
+        refetch();
         const currentSelected = selectedAssignmentRef.current;
         if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
           if (isTeacherRef.current) {
@@ -428,11 +462,12 @@ export default function AssignmentModule({
     }
   };
 
-  const handleAddComment = async (assignmentId: string, content: string) => {
+  const handleAddComment = async (assignmentId: string, content: string, memberId?: string) => {
     try {
       await addAssignmentComment({
         assignmentId,
         content,
+        memberId,
       }).unwrap();
       toast.success(t("toast_comment_add_success"));
       refetchComments();

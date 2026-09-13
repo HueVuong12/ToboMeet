@@ -29,35 +29,64 @@ export class AssignmentsGateway {
   }
 
   notifyAssignmentCreated(roomId: string, channelId: string, assignment: AssignmentDocument) {
-    const payload = { roomId, channelId, assignment };
+    const payload = {
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      assignment,
+      assignmentId: String(assignment._id),
+      _id: String(assignment._id),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_created", payload);
     if (roomId) this.server.to(roomId).emit("assignment_created", payload);
     this.server.emit("assignment_created", payload);
   }
 
   notifyAssignmentPublished(roomId: string, channelId: string, assignment: AssignmentDocument) {
-    const payload = { roomId, channelId, assignment };
+    const payload = {
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      assignment,
+      assignmentId: String(assignment._id),
+      _id: String(assignment._id),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_published", payload);
     if (roomId) this.server.to(roomId).emit("assignment_published", payload);
     this.server.emit("assignment_published", payload);
   }
 
   notifyAssignmentUpdated(roomId: string, channelId: string, assignment: AssignmentDocument) {
-    const payload = { roomId, channelId, assignment, assignmentId: assignment._id };
+    const payload = {
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      assignment,
+      assignmentId: String(assignment._id),
+      _id: String(assignment._id),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_updated", payload);
     if (roomId) this.server.to(roomId).emit("assignment_updated", payload);
     this.server.emit("assignment_updated", payload);
   }
 
   notifyAssignmentDeleted(roomId: string, channelId: string, assignmentId: string) {
-    const payload = { roomId, channelId, assignmentId, _id: assignmentId };
+    const payload = {
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      assignmentId: String(assignmentId),
+      _id: String(assignmentId),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_deleted", payload);
     if (roomId) this.server.to(roomId).emit("assignment_deleted", payload);
     this.server.emit("assignment_deleted", payload);
   }
 
   notifyAssignmentSubmitted(roomId: string, channelId: string, submission: AssignmentSubmissionDocument) {
-    const payload = { roomId, channelId, submission };
+    const payload = {
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      submission,
+      assignmentId: String(submission.assignmentId),
+      studentId: String(submission.studentId),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_submitted", payload);
     if (roomId) this.server.to(roomId).emit("assignment_submitted", payload);
     this.server.emit("assignment_submitted", payload);
@@ -71,11 +100,11 @@ export class AssignmentsGateway {
     studentId: string
   ) {
     const payload = {
-      roomId,
-      channelId,
-      assignmentId,
-      submissionId,
-      studentId,
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      assignmentId: String(assignmentId),
+      submissionId: String(submissionId),
+      studentId: String(studentId),
     };
     console.log("[BACKEND] emit assignment_submission_deleted:", payload);
     this.server.to(`room_${roomId}`).emit("assignment_submission_deleted", payload);
@@ -84,21 +113,35 @@ export class AssignmentsGateway {
   }
 
   notifyAssignmentGradingUpdated(roomId: string, channelId: string, studentId: string, submission: AssignmentSubmissionDocument) {
-    const payload = { roomId, channelId, studentId, submission };
+    const payload = {
+      roomId: String(roomId),
+      channelId: String(channelId || ""),
+      studentId: String(studentId),
+      submission,
+      assignmentId: String(submission.assignmentId),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_graded", payload);
     if (roomId) this.server.to(roomId).emit("assignment_graded", payload);
     this.server.emit("assignment_graded", payload);
   }
 
   notifyCommentAdded(roomId: string, assignmentId: string, comment: AssignmentCommentDocument) {
-    const payload = { roomId, assignmentId, comment };
+    const payload = {
+      roomId: String(roomId),
+      assignmentId: String(assignmentId),
+      comment,
+    };
     this.server.to(`room_${roomId}`).emit("assignment_comment_added", payload);
     if (roomId) this.server.to(roomId).emit("assignment_comment_added", payload);
     this.server.emit("assignment_comment_added", payload);
   }
 
   notifyCommentDeleted(roomId: string, assignmentId: string, commentId: string) {
-    const payload = { roomId, assignmentId, commentId };
+    const payload = {
+      roomId: String(roomId),
+      assignmentId: String(assignmentId),
+      commentId: String(commentId),
+    };
     this.server.to(`room_${roomId}`).emit("assignment_comment_deleted", payload);
     if (roomId) this.server.to(roomId).emit("assignment_comment_deleted", payload);
     this.server.emit("assignment_comment_deleted", payload);

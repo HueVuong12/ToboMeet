@@ -38,12 +38,28 @@ export default function EventDetailModal({
 
   // Trường hợp là Nhiệm vụ (Assignment)
   if (event.eventType === "assignment") {
+    const isVi = locale === "vi";
     const statusMap: Record<string, { label: string; color: string }> = {
-      submitted: { label: "Đã nộp", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-      graded: { label: "Đã chấm điểm", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-      overdue: { label: "Đã quá hạn", color: "bg-rose-100 text-rose-700 border-rose-200" },
-      closed: { label: "Đã khóa/đóng", color: "bg-slate-100 text-slate-700 border-slate-200" },
-      in_progress: { label: "Đang thực hiện", color: "bg-blue-100 text-blue-700 border-blue-200" },
+      submitted: {
+        label: isVi ? "Đã nộp" : "Submitted",
+        color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      },
+      graded: {
+        label: isVi ? "Đã chấm điểm" : "Graded",
+        color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      },
+      overdue: {
+        label: isVi ? "Đã quá hạn" : "Overdue",
+        color: "bg-rose-100 text-rose-700 border-rose-200",
+      },
+      closed: {
+        label: isVi ? "Đã khóa/đóng" : "Closed",
+        color: "bg-slate-100 text-slate-700 border-slate-200",
+      },
+      in_progress: {
+        label: isVi ? "Đang thực hiện" : "In Progress",
+        color: "bg-blue-100 text-blue-700 border-blue-200",
+      },
     };
     const currentStatus = statusMap[event.assignmentStatus || "in_progress"] || statusMap.in_progress;
 

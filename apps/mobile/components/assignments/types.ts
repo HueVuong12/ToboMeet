@@ -35,8 +35,8 @@ export interface Submission {
   roomId: string;
   channelId: string;
   attachments: Attachment[];
-  submittedAt: string;
-  submissionStatus: "on_time" | "late";
+  submittedAt?: string;
+  submissionStatus?: "on_time" | "late" | "not_submitted" | string;
   lateMinutes: number;
   score?: number;
   feedback?: string;
@@ -54,4 +54,7 @@ export interface AssignmentCommentItem {
   role?: string;
   content: string;
   createdAt: string;
+  memberId?: string;
+  submissionId?: string;
+  avatarUrl?: string;
 }

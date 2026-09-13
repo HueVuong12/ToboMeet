@@ -28,6 +28,8 @@ interface AssignmentCreateProps {
   onBack: () => void;
   onSubmit: (payload: any) => Promise<void>;
   isSubmitting?: boolean;
+  onOpenLeftDrawer?: () => void;
+  onOpenRightDrawer?: () => void;
 }
 
 export default function AssignmentCreate({
@@ -39,9 +41,12 @@ export default function AssignmentCreate({
   onBack,
   onSubmit,
   isSubmitting = false,
+  onOpenLeftDrawer,
+  onOpenRightDrawer,
 }: AssignmentCreateProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const isEditMode = Boolean(assignmentToEdit);
 
   const [title, setTitle] = useState(assignmentToEdit?.title || "");
   const [description, setDescription] = useState(assignmentToEdit?.description || "");
@@ -261,10 +266,19 @@ export default function AssignmentCreate({
   });
 
   // Calendar Helpers
-  const monthNames = [
-    "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-    "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
-  ];
+  const isVietnamese = i18n.language === "vi";
+  const monthNames = isVietnamese
+    ? [
+        "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+        "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+      ]
+    : [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+  const dayHeaders = isVietnamese
+    ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]
+    : ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay(); // 0 = Sun, 1 = Mon...
   const todayStr = new Date().toISOString().split("T")[0];
@@ -312,14 +326,56 @@ export default function AssignmentCreate({
       style={{ flex: 1 }}
     >
       <View className="flex-1 bg-slate-50">
-        {/* Top Header */}
-        <View className="flex-row items-center justify-between px-4 py-3.5 bg-white border-b border-slate-100">
-          <TouchableOpacity onPress={onBack} className="flex-row items-center gap-2">
-            <Feather name="arrow-left" size={20} color="#475569" />
-            <Text className="font-bold text-slate-800 text-base">
+        {/* Header Bar: Nhiệm vụ */}
+        <View className="bg-white px-4 py-3 border-b border-slate-100 flex-row items-center justify-between min-h-[56px]">
+          <View className="flex-row items-center flex-1">
+            {onOpenLeftDrawer ? (
+              <TouchableOpacity onPress={onOpenLeftDrawer} className="p-1 mr-2">
+                <Feather name="menu" size={24} color="#1E293B" />
+              </TouchableOpacity>
+            ) : (
+              <View className="p-1 mr-2">
+                <Feather name="menu" size={24} color="#1E293B" />
+              </View>
+            )}
+            <View className="w-8 h-8 rounded-lg bg-blue-100 items-center justify-center mr-2.5">
+              <Text className="font-bold text-[#0052FF] text-sm">T</Text>
+            </View>
+            <Text className="font-bold text-slate-900 text-lg">
+              {t("assignments.title", { defaultValue: "Nhiệm vụ" })}
+            </Text>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            {onOpenRightDrawer ? (
+              <TouchableOpacity
+                onPress={onOpenRightDrawer}
+                className="w-8 h-8 rounded-full bg-slate-50 items-center justify-center border border-slate-100"
+              >
+                <Feather name="info" size={16} color="#64748B" />
+              </TouchableOpacity>
+            ) : (
+              <View className="w-8 h-8 rounded-full bg-slate-50 items-center justify-center border border-slate-100">
+                <Feather name="info" size={16} color="#64748B" />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Sub Header: Tạo nhiệm vụ mới */}
+        <View className="bg-white border-b border-slate-100 px-4 py-3 flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1">
+            <TouchableOpacity
+              onPress={onBack}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="p-1 mr-2.5"
+            >
+              <Feather name="arrow-left" size={22} color="#475569" />
+            </TouchableOpacity>
+            <Text className="font-bold text-slate-900 text-base flex-1" numberOfLines={1}>
               {assignmentToEdit ? t("assignments.edit_title") : t("assignments.create_title")}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -726,7 +782,7 @@ export default function AssignmentCreate({
 
             {/* Days of Week Header */}
             <View className="flex-row justify-around mb-2">
-              {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d, i) => (
+              {dayHeaders.map((d, i) => (
                 <Text key={i} className="text-xs font-bold text-slate-400 w-9 text-center">
                   {d}
                 </Text>
@@ -871,28 +927,43 @@ export default function AssignmentCreate({
         style={{ paddingBottom: Math.max(insets.bottom, 12) }}
         className="bg-white border-t border-slate-200 px-4 pt-3 shadow-lg"
       >
-        <View className="flex-row items-center gap-3">
+        {isEditMode ? (
           <TouchableOpacity
-            onPress={() => handleSave("draft")}
+            onPress={() => handleSave(assignmentToEdit?.status || "published")}
             disabled={isSubmitting || isUploading}
-            className="flex-1 h-12 rounded-xl bg-slate-100 active:bg-slate-200 items-center justify-center border border-slate-200"
+            className="w-full h-12 rounded-xl bg-[#0052FF] active:bg-blue-700 items-center justify-center flex-row gap-2 shadow-xs"
           >
-            <Text className="font-bold text-slate-800 text-sm text-center">{t("assignments.save_draft_btn")}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => handleSave("published")}
-            disabled={isSubmitting || isUploading}
-            className="flex-1 h-12 rounded-xl bg-[#0052FF] active:bg-blue-700 items-center justify-center flex-row gap-1.5 shadow-xs"
-          >
-            {isSubmitting ? (
+            {isSubmitting && (
               <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Feather name="send" size={16} color="#ffffff" />
             )}
-            <Text className="font-bold text-white text-sm text-center">{t("assignments.publish_btn")}</Text>
+            <Text className="font-bold text-white text-sm text-center">
+              {t("assignments.update_btn", { defaultValue: "Cập nhật nhiệm vụ" })}
+            </Text>
           </TouchableOpacity>
-        </View>
+        ) : (
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity
+              onPress={() => handleSave("draft")}
+              disabled={isSubmitting || isUploading}
+              className="flex-1 h-12 rounded-xl bg-slate-100 active:bg-slate-200 items-center justify-center border border-slate-200"
+            >
+              <Text className="font-bold text-slate-800 text-sm text-center">{t("assignments.save_draft_btn")}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleSave("published")}
+              disabled={isSubmitting || isUploading}
+              className="flex-1 h-12 rounded-xl bg-[#0052FF] active:bg-blue-700 items-center justify-center flex-row gap-1.5 shadow-xs"
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Feather name="send" size={16} color="#ffffff" />
+              )}
+              <Text className="font-bold text-white text-sm text-center">{t("assignments.publish_btn")}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   </KeyboardAvoidingView>

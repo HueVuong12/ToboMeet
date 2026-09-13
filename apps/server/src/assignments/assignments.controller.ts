@@ -103,17 +103,19 @@ export class AssignmentsController {
   addAssignmentComment(
     @Param("assignmentId") assignmentId: string,
     @Body("content") content: string,
+    @Body("memberId") memberId: string | undefined,
     @Req() req: AuthenticatedRequest
   ) {
-    return this.assignmentsService.addAssignmentComment(assignmentId, content, req.user.id);
+    return this.assignmentsService.addAssignmentComment(assignmentId, content, req.user.id, memberId);
   }
 
   @Get(":assignmentId/comments")
   getAssignmentComments(
     @Param("assignmentId") assignmentId: string,
+    @Query("memberId") memberId: string | undefined,
     @Req() req: AuthenticatedRequest
   ) {
-    return this.assignmentsService.getAssignmentComments(assignmentId, req.user.id);
+    return this.assignmentsService.getAssignmentComments(assignmentId, req.user.id, memberId);
   }
 
   @Delete(":assignmentId/comments/:commentId")

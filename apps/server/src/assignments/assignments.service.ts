@@ -37,16 +37,26 @@ export class AssignmentsService {
     private readonly appGateway: AppGateway,
   ) {}
 
-  private async verifyUserRole(roomId: string, userId: string): Promise<{ isOwnerOrAdmin: boolean; isMember: boolean }> {
-    const room = await this.roomModel.findOne({ _id: roomId, isDeleted: { $ne: true } });
+  private async verifyUserRole(roomId: string, userId: string): Promise<{ isOwner: boolean; isOwnerOrAdmin: boolean; isMember: boolean }> {
+    const room = await this.roomModel
+      .findOne({ _id: roomId, isDeleted: { $ne: true } })
+      .select("ownerId members")
+      .lean()
+      .exec();
     if (!room) {
       throw new NotFoundException("Room not found");
     }
-    const isOwner = room.ownerId === userId;
-    const member = room.members?.find((m: RoomMember) => m.userId === userId && m.status === "active");
+    const isOwner = room.ownerId?.toString() === userId?.toString();
+    const member = room.members?.find(
+      (m: RoomMember) =>
+        m.userId?.toString() === userId?.toString() &&
+        m.status !== "removed" &&
+        m.status !== "left",
+    );
     const isMember = !!member || isOwner;
-    const isOwnerOrAdmin = isOwner || (member && ["owner", "admin"].includes(member.role.toLowerCase()));
-    return { isOwnerOrAdmin: !!isOwnerOrAdmin, isMember };
+    const memberRole = member?.role?.toLowerCase();
+    const isOwnerOrAdmin = isOwner || memberRole === "owner" || memberRole === "admin";
+    return { isOwner: !!isOwner, isOwnerOrAdmin: !!isOwnerOrAdmin, isMember };
   }
 
   /**
@@ -656,19 +666,38 @@ export class AssignmentsService {
   }
 
   async deleteSubmission(assignmentId: string, userId: string) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) {
+      throw new NotFoundException("Assignment not found");
+    }
+
+    const now = new Date();
+    const deadline = new Date(assignment.deadline);
+    const isPastDeadline = now.getTime() > deadline.getTime();
+    if (isPastDeadline && assignment.submissionPolicy === "lock_after_deadline") {
+      throw new BadRequestException("Đã hết hạn nộp bài và nhiệm vụ đã bị khóa");
+    }
+
     const submission = await this.submissionModel.findOne({ assignmentId, studentId: userId });
     if (!submission) {
       throw new NotFoundException("Submission not found");
     }
 
-    if (submission.score !== undefined) {
-      throw new BadRequestException("Cannot delete a graded submission");
+    if (submission.score !== undefined || submission.feedback) {
+      submission.attachments = [];
+      submission.submittedAt = undefined as any;
+      submission.submissionStatus = "not_submitted";
+      await submission.save();
+      console.log(
+        `[BACKEND] Submission ${submission._id} reset to not_submitted (preserved score/feedback) for assignment ${assignmentId} student ${userId}`
+      );
+    } else {
+      await this.submissionModel.deleteOne({ _id: submission._id });
+      console.log(
+        `[BACKEND] DB deleted submission ${submission._id} for assignment ${assignmentId} student ${userId}`
+      );
     }
 
-    await this.submissionModel.deleteOne({ _id: submission._id });
-    console.log(
-      `[BACKEND] DB deleted submission ${submission._id} for assignment ${assignmentId} student ${userId}`
-    );
     this.assignmentsGateway.notifySubmissionDeleted(
       submission.roomId,
       submission.channelId,
@@ -702,34 +731,52 @@ export class AssignmentsService {
     return submission.save();
   }
 
-  async addAssignmentComment(assignmentId: string, content: string, userId: string) {
-    const assignment = await this.assignmentModel.findById(assignmentId);
+  async addAssignmentComment(
+    assignmentId: string,
+    content: string,
+    userId: string,
+    targetMemberId?: string
+  ) {
+    const assignment = await this.assignmentModel.findById(assignmentId).select("roomId").lean().exec();
     if (!assignment) {
       throw new NotFoundException("Assignment not found");
     }
 
-    const room = await this.roomModel.findOne({ _id: assignment.roomId, isDeleted: { $ne: true } });
-    if (!room) {
-      throw new NotFoundException("Room not found");
+    const { isOwner, isOwnerOrAdmin, isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isMember) {
+      throw new ForbiddenException("You are not a member of this room");
     }
 
     const user = await this.usersService.findBySupabaseId(userId);
     const userName = user?.displayName || "Thành viên";
+    const avatarUrl = user?.avatarUrl;
 
-    // Tìm role của user trong room
-    const isOwner = room.ownerId === userId;
-    const member = room.members?.find((m: RoomMember) => m.userId === userId && m.status === "active");
-    if (!isOwner && !member) {
-      throw new ForbiddenException("You are not a member of this room");
+    let role = "member";
+    if (isOwnerOrAdmin) {
+      role = isOwner ? "owner" : "admin";
     }
 
-    const role = isOwner ? "owner" : (member?.role || "member");
+    // Xử lý memberId đại diện cho luồng hội thoại bài nộp của thành viên
+    let memberId = userId;
+    if (isOwnerOrAdmin) {
+      // Nếu là Trưởng nhóm hoặc Phó nhóm, ưu tiên gửi vào luồng của targetMemberId
+      memberId = targetMemberId || userId;
+    } else {
+      // Nếu là thành viên, luôn là luồng của chính mình (chống giả mạo)
+      memberId = userId;
+    }
+
+    // Tìm bài nộp nếu có để liên kết submissionId
+    const submission = await this.submissionModel.findOne({ assignmentId, studentId: memberId }).select("_id").lean().exec();
 
     const comment = new this.commentModel({
       assignmentId,
       roomId: assignment.roomId,
+      memberId,
+      submissionId: submission ? submission._id.toString() : undefined,
       userId,
       userName,
+      avatarUrl,
       role,
       content,
     });
@@ -742,18 +789,48 @@ export class AssignmentsService {
     return saved;
   }
 
-  async getAssignmentComments(assignmentId: string, userId: string) {
+  async getAssignmentComments(assignmentId: string, userId: string, memberId?: string) {
     const assignment = await this.assignmentModel.findById(assignmentId);
     if (!assignment) {
       throw new NotFoundException("Assignment not found");
     }
 
-    const { isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    const { isOwnerOrAdmin, isMember } = await this.verifyUserRole(assignment.roomId, userId);
     if (!isMember) {
       throw new ForbiddenException("You are not a member of this room");
     }
 
-    return this.commentModel.find({ assignmentId }).sort({ createdAt: 1 }).exec();
+    // Phân quyền bảo mật:
+    if (!isOwnerOrAdmin) {
+      // Thành viên chỉ được xem bình luận trong luồng của chính mình
+      if (memberId && memberId !== userId) {
+        throw new ForbiddenException("You can only view comments for your own submission");
+      }
+      return this.commentModel
+        .find({
+          assignmentId,
+          $or: [{ memberId: userId }, { memberId: { $exists: false }, userId }],
+        })
+        .sort({ createdAt: 1 })
+        .lean()
+        .exec();
+    }
+
+    // Trưởng nhóm / Phó nhóm:
+    if (memberId) {
+      // Lấy toàn bộ bình luận của 1 thành viên cụ thể
+      return this.commentModel
+        .find({
+          assignmentId,
+          $or: [{ memberId }, { memberId: { $exists: false }, userId: memberId }],
+        })
+        .sort({ createdAt: 1 })
+        .lean()
+        .exec();
+    }
+
+    // Lấy tất cả bình luận của nhiệm vụ (để Trưởng nhóm tính comment counts theo member trong bảng)
+    return this.commentModel.find({ assignmentId }).sort({ createdAt: 1 }).lean().exec();
   }
 
   async deleteAssignmentComment(assignmentId: string, commentId: string, userId: string) {
@@ -766,8 +843,13 @@ export class AssignmentsService {
       throw new BadRequestException("Comment does not belong to this assignment");
     }
 
-    // Người dùng chỉ được xóa phản hồi do chính mình tạo
-    if (comment.userId !== userId) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    const { isOwnerOrAdmin } = assignment
+      ? await this.verifyUserRole(assignment.roomId, userId)
+      : { isOwnerOrAdmin: false };
+
+    // Người dùng được xóa comment do chính mình tạo, hoặc Giáo viên quản lý phòng
+    if (comment.userId !== userId && !isOwnerOrAdmin) {
       throw new ForbiddenException("You can only delete your own comments");
     }
 

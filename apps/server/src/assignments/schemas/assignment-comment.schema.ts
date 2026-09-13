@@ -11,11 +11,20 @@ export class AssignmentComment {
   @Prop({ required: true, index: true })
   roomId: string;
 
+  @Prop({ required: false, index: true })
+  memberId?: string;
+
+  @Prop({ required: false })
+  submissionId?: string;
+
   @Prop({ required: true })
   userId: string;
 
   @Prop({ required: true })
   userName: string;
+
+  @Prop({ required: false })
+  avatarUrl?: string;
 
   @Prop({ required: true, default: "member" })
   role: string;

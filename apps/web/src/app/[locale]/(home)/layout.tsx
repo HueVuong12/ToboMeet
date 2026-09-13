@@ -3,7 +3,6 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { logout } from "@/app/[locale]/auth/actions";
 import { Video, Settings, Calendar, Bell } from "lucide-react";
 import NotificationDrawer from "@/components/notification/NotificationDrawer";
 import JoinDialog from "@/components/dashboard/JoinDialog";
@@ -11,6 +10,7 @@ import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import CreateRoomDialog from "@/components/dashboard/CreateRoomDialog";
 import { useNotificationCacheManager } from "@/hooks/useNotificationCacheManager";
 import { useGetMeQuery } from "@/lib/redux/api/usersApi";
+import StoreProvider from "@/lib/redux/StoreProvider";
 
 // Context để các trang con (children) gọi lệnh mở Modal dùng chung
 interface HomeContextType {
@@ -21,7 +21,8 @@ interface HomeContextType {
 const HomeContext = createContext<HomeContextType>({} as HomeContextType);
 export const useHomeContext = () => useContext(HomeContext);
 
-export default function HomeLayout({
+// ─── Inner Layout (cần Redux context) ────────────────────────────────────────
+function HomeLayoutInner({
   children,
 }: {
   children: React.ReactNode;
@@ -49,8 +50,8 @@ export default function HomeLayout({
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    window.location.href = `/api/auth/logout?locale=${locale}`;
   };
 
   const navItems = [
@@ -188,5 +189,18 @@ export default function HomeLayout({
         )}
       </div>
     </HomeContext.Provider>
+  );
+}
+
+// ─── Root Layout (bọc StoreProvider để tất cả hooks có Redux context) ─────────
+export default function HomeLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <StoreProvider>
+      <HomeLayoutInner>{children}</HomeLayoutInner>
+    </StoreProvider>
   );
 }

@@ -205,8 +205,32 @@ export function useRoomUpdateListener(
       );
     };
 
+    const handleAssignmentEventGlobal = (data: any) => {
+      const eventAssignId = String(
+        data?.assignmentId ||
+        data?.submission?.assignmentId ||
+        data?.assignment?._id ||
+        data?._id ||
+        ""
+      );
+      dispatchRef.current(
+        assignmentsApi.util.invalidateTags([
+          { type: "Submissions", id: "LIST" },
+          { type: "Assignments", id: "LIST" },
+          ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+          ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+        ])
+      );
+    };
+
     socket.on("room_updated", handleRoomUpdated);
     socket.on("assignment_submission_deleted", handleSubmissionDeletedGlobal);
+    socket.on("assignment_created", handleAssignmentEventGlobal);
+    socket.on("assignment_published", handleAssignmentEventGlobal);
+    socket.on("assignment_updated", handleAssignmentEventGlobal);
+    socket.on("assignment_deleted", handleAssignmentEventGlobal);
+    socket.on("assignment_submitted", handleAssignmentEventGlobal);
+    socket.on("assignment_graded", handleAssignmentEventGlobal);
 
     return () => {
       // Chỉ leave room khi thực sự rời (unmount hoặc roomId thay đổi)
@@ -214,6 +238,12 @@ export function useRoomUpdateListener(
       socket.off("connect", joinRoomSocket);
       socket.off("room_updated", handleRoomUpdated);
       socket.off("assignment_submission_deleted", handleSubmissionDeletedGlobal);
+      socket.off("assignment_created", handleAssignmentEventGlobal);
+      socket.off("assignment_published", handleAssignmentEventGlobal);
+      socket.off("assignment_updated", handleAssignmentEventGlobal);
+      socket.off("assignment_deleted", handleAssignmentEventGlobal);
+      socket.off("assignment_submitted", handleAssignmentEventGlobal);
+      socket.off("assignment_graded", handleAssignmentEventGlobal);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);

@@ -7,4 +7,12 @@ console.log("[socket] Connecting to Socket.io at:", SOCKET_URL);
 
 export const socket = io(SOCKET_URL, {
   autoConnect: false,
+  transports: ["websocket", "polling"],
+  extraHeaders: {
+    "ngrok-skip-browser-warning": "true",
+  },
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  timeout: 10000,
 });

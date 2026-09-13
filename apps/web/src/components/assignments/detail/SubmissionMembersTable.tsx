@@ -29,6 +29,8 @@ interface SubmissionMembersTableProps {
   members: MemberWithSubmission[];
   activeTab: "need_return" | "returned";
   onSelectMember: (member: MemberWithSubmission) => void;
+  comments?: any[];
+  onOpenComments?: (member: MemberWithSubmission) => void;
 }
 
 export default function SubmissionMembersTable({
@@ -36,6 +38,8 @@ export default function SubmissionMembersTable({
   members,
   activeTab,
   onSelectMember,
+  comments = [],
+  onOpenComments,
 }: SubmissionMembersTableProps) {
   const t = useTranslations("room.assignments_i18n.lms");
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -195,6 +199,42 @@ export default function SubmissionMembersTable({
           </span>
         </td>
 
+        {/* Comments column (Sau Thời gian nộp, trước Phản hồi) */}
+        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          {(() => {
+            const memberCommentsCount = (comments || []).filter(
+              (c: any) => (c.memberId || c.userId) === item.userId
+            ).length;
+
+            return (
+              <button
+                type="button"
+                onClick={() => onOpenComments && onOpenComments(item)}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors group/btn cursor-pointer"
+                title={
+                  memberCommentsCount > 0
+                    ? `${memberCommentsCount} bình luận`
+                    : "Chưa có bình luận"
+                }
+              >
+                <MessageSquare
+                  size={16}
+                  className={
+                    memberCommentsCount > 0
+                      ? "text-[#0052FF] fill-blue-50"
+                      : "text-slate-300 group-hover/btn:text-slate-500"
+                  }
+                />
+                {memberCommentsCount > 0 && (
+                  <span className="font-bold text-xs text-[#0052FF]">
+                    {memberCommentsCount}
+                  </span>
+                )}
+              </button>
+            );
+          })()}
+        </td>
+
         {/* Feedback icon & preview */}
         <td className="px-4 py-3">
           {sub?.feedback ? (
@@ -266,7 +306,11 @@ export default function SubmissionMembersTable({
             </th>
 
             <th className="px-4 py-3">
-              <span>{t("col_feedback")}</span>
+              <span>{t("col_comments", { defaultValue: "Bình luận" })}</span>
+            </th>
+
+            <th className="px-4 py-3">
+              <span>{t("col_feedback", { defaultValue: "Nhận xét" })}</span>
             </th>
 
             <th

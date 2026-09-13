@@ -46,3 +46,17 @@ export interface Submission {
   updatedAt: string;
   comments?: any[];
 }
+
+export interface AssignmentComment {
+  _id: string;
+  assignmentId: string;
+  roomId: string;
+  memberId?: string;
+  submissionId?: string;
+  userId: string;
+  userName: string;
+  avatarUrl?: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}

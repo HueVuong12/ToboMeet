@@ -258,7 +258,7 @@ export default function AssignmentGrading({
                 </View>
 
                 {/* Submission Info & Attachments */}
-                {submission && (
+                {submission && submission.submittedAt && (
                   <View className="mt-2 pt-2 border-t border-slate-100">
                     <Text className="text-xs text-slate-500 mb-2">
                       {t("assignments.submitted_at", { time: formatDate(submission.submittedAt) })}
