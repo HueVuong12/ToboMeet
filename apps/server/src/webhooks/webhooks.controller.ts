@@ -85,6 +85,9 @@ export class WebhooksController {
 
       case "participant_left":
         if (meetingCode && userId) {
+          // Tự động dừng ghi hình nếu người thoát chính là người đang quay cuộc họp
+          await this.recordingsService.handleParticipantLeft(meetingCode, userId);
+
           await this.meetingQueue.add(
             "attendance-left",
             { meetingCode, userId },

@@ -122,6 +122,10 @@ export default function CustomToolbar({
     breakoutRoomsList,
     roomType,
     isEndingBreakout,
+    recordingInfo,
+    isCloudRecordingActive,
+    isRecordingByMe,
+    isRecordingByOther,
 
     // Actions
     handleToggleChat,
@@ -132,9 +136,20 @@ export default function CustomToolbar({
     meetingCode,
   });
 
+  const isEffectiveCloudRecording =
+    isCloudRecording || isCloudRecordingActive || !!recordingInfo?.isRecording;
+
   // Xác nhận trước khi quay màn hình bằng toast
   const handleConfirmStartCloudRecording = () => {
     setIsRecordMenuOpen(false);
+    if (isInBreakoutRoom) {
+      toast.error(t("cannot_record_breakout"));
+      return;
+    }
+    if (isRecordingByOther) {
+      toast.error(t("recording_by_other"));
+      return;
+    }
     toast(t("confirm_record_cloud_title"), {
       description: t("confirm_record_cloud_desc"),
       action: {
@@ -178,13 +193,14 @@ export default function CustomToolbar({
 
   const getBtnStyle = (
     isActive: boolean,
-    customActiveColor = "bg-[#222] text-white",
+    customActiveColor = "bg-[#232328] text-white",
   ) =>
-    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${isActive ? customActiveColor : "text-gray-300 hover:bg-[#222]"
+    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${
+      isActive ? customActiveColor : "text-gray-300 hover:bg-[#1a1a1e]"
     }`;
 
   return (
-    <footer className="flex flex-row items-center justify-center lg:justify-between h-14 bg-[#111] border-t border-[#333] z-30 w-full shrink-0 select-none">
+    <footer className="flex flex-row items-center justify-center lg:justify-between h-14 bg-[#111113] border-t border-[#232328] z-30 w-full shrink-0 select-none">
       {/* ================= PHẦN BÊN TRÁI ================= */}
       <div className="flex items-center space-x-1 mr-1 h-full lg:flex-1 justify-center lg:justify-start lg:pl-2 shrink-0">
         <button
@@ -192,7 +208,7 @@ export default function CustomToolbar({
           disabled={isCamLoading}
           className={getBtnStyle(
             !isCameraEnabled,
-            "text-red-500 hover:bg-[#222]",
+            "text-red-500 hover:bg-[#1a1a1e]",
           )}
         >
           {isCamLoading ? (
@@ -212,7 +228,7 @@ export default function CustomToolbar({
           disabled={isMicLoading}
           className={getBtnStyle(
             !isMicrophoneEnabled,
-            "text-red-500 hover:bg-[#222]",
+            "text-red-500 hover:bg-[#1a1a1e]",
           )}
         >
           {isMicLoading ? (
@@ -275,7 +291,7 @@ export default function CustomToolbar({
           className={`hidden md:flex ${getBtnStyle(
             isScreenShareEnabled,
             "bg-green-600 text-white hover:bg-green-700",
-          )} ${isSomeoneElseSharing || isScreenShareLoading ? "opacity-40 cursor-not-allowed hover:bg-[#222]" : ""}`}
+          )} ${isSomeoneElseSharing || isScreenShareLoading ? "opacity-40 cursor-not-allowed hover:bg-[#1a1a1e]" : ""}`}
         >
           {isScreenShareLoading ? (
             <Loader2 size={20} className="animate-spin text-green-500" />
@@ -300,19 +316,19 @@ export default function CustomToolbar({
             onClick={() => setIsRecordMenuOpen(!isRecordMenuOpen)}
             disabled={isCloudRecordingLoading}
             className={getBtnStyle(
-              isRecordMenuOpen || isCloudRecording || isLocalRecording,
-              isCloudRecording
-                ? "bg-[#222] text-red-500 hover:bg-[#222]"
+              isRecordMenuOpen || isEffectiveCloudRecording || isLocalRecording,
+              isEffectiveCloudRecording
+                ? "bg-[#232328] text-red-500 hover:bg-[#1a1a1e]"
                 : isLocalRecording
-                ? "bg-[#222] text-amber-500 hover:bg-[#222]"
-                : "bg-[#222] text-white",
+                ? "bg-[#232328] text-amber-500 hover:bg-[#1a1a1e]"
+                : "bg-[#232328] text-white",
             )}
             title={t("record")}
           >
             <div className="relative flex items-center justify-center">
               {isCloudRecordingLoading ? (
                 <Loader2 size={20} className="animate-spin text-red-500" />
-              ) : isCloudRecording ? (
+              ) : isEffectiveCloudRecording ? (
                 <div className="relative flex items-center justify-center">
                   <Disc size={20} className="text-red-500 animate-spin" />
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
@@ -333,14 +349,14 @@ export default function CustomToolbar({
               )}
               <ChevronUp
                 size={11}
-                className={`absolute -top-1.5 -right-3 text-slate-400 transition-transform duration-200 ${
+                className={`absolute -top-1.5 -right-4.5 text-slate-400 transition-transform duration-200 ${
                   isRecordMenuOpen ? "rotate-180 text-white" : ""
                 }`}
               />
             </div>
             <span
               className={`text-[10px] mt-1 hidden sm:block font-medium ${
-                isCloudRecording
+                isEffectiveCloudRecording
                   ? "text-red-500 font-semibold"
                   : isLocalRecording
                   ? "text-amber-500 font-semibold"
@@ -358,10 +374,10 @@ export default function CustomToolbar({
                 className="fixed inset-0 z-40"
                 onClick={() => setIsRecordMenuOpen(false)}
               ></div>
-              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-72 bg-[#222] border border-[#333] rounded-lg shadow-2xl py-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#333] mb-1 flex items-center justify-between">
+              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-72 bg-[#161619] border border-[#232328] rounded-lg shadow-2xl py-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#232328] mb-1 flex items-center justify-between">
                   <span>{t("record_options")}</span>
-                  {(isCloudRecording || isLocalRecording) && (
+                  {(isEffectiveCloudRecording || isLocalRecording) && (
                     <span className="flex items-center gap-1 text-[9px] text-red-400 font-semibold lowercase bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
                       <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
                       {t("recording_in_progress")}
@@ -371,12 +387,29 @@ export default function CustomToolbar({
 
                 {/* OPTION 1: GHI HÌNH TRÊN ĐÁM MÂY (CLOUD RECORDING) */}
                 <div className="px-1.5 py-1">
-                  {!isCloudRecording ? (
+                  {isInBreakoutRoom ? (
+                    <div className="w-full text-left p-2 rounded-md bg-[#131315] border border-[#232328] opacity-50 cursor-not-allowed flex items-start gap-2.5 select-none">
+                      <div className="p-2 rounded-lg bg-slate-800 text-slate-500 shrink-0 mt-0.5">
+                        <Cloud size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                          <span>{t("record_cloud")}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
+                            Cloud
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                          {t("cannot_record_breakout")}
+                        </p>
+                      </div>
+                    </div>
+                  ) : !isEffectiveCloudRecording ? (
                     <button
                       type="button"
-                      disabled={isCloudRecordingLoading}
+                      disabled={isCloudRecordingLoading || isRecordingByOther}
                       onClick={handleConfirmStartCloudRecording}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#333] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                      className="w-full text-left p-2 rounded-md hover:bg-[#232328] flex items-start gap-2.5 transition-colors group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 transition-colors shrink-0 mt-0.5">
                         {isCloudRecordingLoading ? (
@@ -393,7 +426,9 @@ export default function CustomToolbar({
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                          {t("record_cloud_desc")}
+                          {isRecordingByOther
+                            ? t("recording_by_other")
+                            : t("record_cloud_desc")}
                         </p>
                       </div>
                     </button>
@@ -408,26 +443,37 @@ export default function CustomToolbar({
                             {t("record_cloud")}
                           </div>
                           <div className="text-[10px] text-slate-400">
-                            {t("recording_in_progress")}...
+                            {isRecordingByOther
+                              ? t("recording_by_other")
+                              : `${t("recording_in_progress")}...`}
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        disabled={isCloudRecordingLoading}
-                        onClick={() => {
-                          setIsRecordMenuOpen(false);
-                          stopCloudRecording();
-                        }}
-                        className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-1 shrink-0"
-                      >
-                        {isCloudRecordingLoading ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Square size={11} fill="currentColor" />
-                        )}
-                        <span>{t("stop_recording")}</span>
-                      </button>
+                      {isRecordingByMe ? (
+                        <button
+                          type="button"
+                          disabled={isCloudRecordingLoading}
+                          onClick={() => {
+                            setIsRecordMenuOpen(false);
+                            stopCloudRecording();
+                          }}
+                          className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          {isCloudRecordingLoading ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Square size={11} fill="currentColor" />
+                          )}
+                          <span>{t("stop_recording")}</span>
+                        </button>
+                      ) : (
+                        <span
+                          className="text-[10px] text-slate-400 italic shrink-0"
+                          title={t("only_recorder_can_stop")}
+                        >
+                          {t("only_recorder_can_stop")}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -436,7 +482,7 @@ export default function CustomToolbar({
                 <div className="px-1.5 pb-1">
                   {!isElectron ? (
                     <div
-                      className="w-full text-left p-2 rounded-md bg-[#181818] border border-[#282828] opacity-40 cursor-not-allowed flex items-start gap-2.5 select-none"
+                      className="w-full text-left p-2 rounded-md bg-[#131315] border border-[#232328] opacity-40 cursor-not-allowed flex items-start gap-2.5 select-none"
                       title={t("electron_only_badge")}
                     >
                       <div className="p-2 rounded-lg bg-slate-800 text-slate-500 shrink-0 mt-0.5">
@@ -462,7 +508,7 @@ export default function CustomToolbar({
                     <button
                       type="button"
                       onClick={handleConfirmStartLocalRecording}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#333] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                      className="w-full text-left p-2 rounded-md hover:bg-[#232328] flex items-start gap-2.5 transition-colors group cursor-pointer"
                     >
                       <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 transition-colors shrink-0 mt-0.5">
                         <Laptop size={16} />
@@ -498,7 +544,7 @@ export default function CustomToolbar({
                         <button
                           type="button"
                           onClick={isLocalPaused ? resumeLocalRecording : pauseLocalRecording}
-                          className="p-1.5 text-xs text-amber-400 hover:bg-white/10 rounded transition-colors"
+                          className="p-1.5 text-xs text-amber-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
                           title={isLocalPaused ? t("resume") : t("pause")}
                         >
                           {isLocalPaused ? (
@@ -513,7 +559,7 @@ export default function CustomToolbar({
                             setIsRecordMenuOpen(false);
                             stopLocalRecording();
                           }}
-                          className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-1"
+                          className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-1 cursor-pointer"
                           title={t("stop_recording")}
                         >
                           <Square size={11} fill="currentColor" />
@@ -530,7 +576,7 @@ export default function CustomToolbar({
 
         <button
           onClick={toggleHandRaise}
-          className={getBtnStyle(isLocalHandRaised, "bg-[#222] text-amber-500")}
+          className={getBtnStyle(isLocalHandRaised, "bg-[#232328] text-amber-500")}
         >
           <Hand
             size={20}
@@ -545,7 +591,7 @@ export default function CustomToolbar({
         {isBreakoutActive && (
           <button
             onClick={() => setIsJoinBreakoutModalOpen(true)}
-            className={getBtnStyle(false, "bg-[#222] text-white")}
+            className={getBtnStyle(false, "bg-[#232328] text-white")}
           >
             <Network
               size={20}
@@ -575,13 +621,13 @@ export default function CustomToolbar({
                 className="fixed inset-0 z-40"
                 onClick={() => setIsMoreMenuOpen(false)}
               ></div>
-              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-56 bg-[#222] border border-[#333] rounded shadow-2xl py-1.5 backdrop-blur-xl">
-                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#333] mb-1">
+              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-50 w-56 bg-[#161619] border border-[#232328] rounded shadow-2xl py-1.5 backdrop-blur-xl">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#232328] mb-1">
                   {t("general_options")}
                 </div>
                 <button
                   onClick={handleCopyLink}
-                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
                   {isCopied ? (
                     <Check size={16} className="text-emerald-400" />
@@ -595,7 +641,7 @@ export default function CustomToolbar({
                   onClick={() => {
                     setIsInviteModalOpen(true);
                   }}
-                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
                   <UserPlus size={16} />
                   <span>{t("invite_participants")}</span>
@@ -603,7 +649,7 @@ export default function CustomToolbar({
 
                 {isHost && (
                   <>
-                    <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#333] bg-[#333]">
+                    <div className="px-3 py-1.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-y border-[#232328] bg-[#232328]/50">
                       {t("admin_tools")}
                     </div>
 
@@ -615,7 +661,7 @@ export default function CustomToolbar({
                           setIsBreakoutModalOpen(true);
                           setIsMoreMenuOpen(false); // Ẩn dropdown đi
                         }}
-                        className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
+                        className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5">
                           <Network size={16} className="text-blue-400" />
@@ -653,7 +699,7 @@ export default function CustomToolbar({
                         e.stopPropagation();
                         handleToggleChat();
                       }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
                         <MessageSquare
@@ -667,12 +713,14 @@ export default function CustomToolbar({
                         <span>{t("enable_chat")}</span>
                       </div>
                       <div
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
-                          }`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
+                        }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChatEnabled ? "translate-x-4" : "translate-x-0"
-                            }`}
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            isChatEnabled ? "translate-x-4" : "translate-x-0"
+                          }`}
                         />
                       </div>
                     </div>
@@ -682,7 +730,7 @@ export default function CustomToolbar({
                         e.stopPropagation();
                         handleToggleWaitingRoom();
                       }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer"
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
                         <ShieldCheck
@@ -696,16 +744,18 @@ export default function CustomToolbar({
                         <span>{t("waiting_room")}</span>
                       </div>
                       <div
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isWaitingRoomEnabled
-                          ? "bg-emerald-500"
-                          : "bg-slate-600"
-                          }`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          isWaitingRoomEnabled
+                            ? "bg-emerald-500"
+                            : "bg-slate-600"
+                        }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isWaitingRoomEnabled
-                            ? "translate-x-4"
-                            : "translate-x-0"
-                            }`}
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            isWaitingRoomEnabled
+                              ? "translate-x-4"
+                              : "translate-x-0"
+                          }`}
                         />
                       </div>
                     </div>
@@ -716,7 +766,7 @@ export default function CustomToolbar({
                         onMouseEnter={() => setIsApprovalSubmenuOpen(true)}
                         onMouseLeave={() => setIsApprovalSubmenuOpen(false)}
                       >
-                        <div className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#333] flex items-center justify-between transition-colors cursor-pointer">
+                        <div className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer">
                           <div className="flex items-center gap-2.5">
                             <UserCog size={16} className="text-slate-500" />
                             <span>{t("approval_permission")}</span>
@@ -725,13 +775,13 @@ export default function CustomToolbar({
                         </div>
 
                         {isApprovalSubmenuOpen && (
-                          <div className="absolute left-full bottom-0 ml-1 w-48 bg-[#222] border border-[#333] rounded-lg shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
+                          <div className="absolute left-full bottom-0 ml-1 w-48 bg-[#161619] border border-[#232328] rounded-lg shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleUpdateApprovalPermission("admin_only");
                               }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
                             >
                               <Check
                                 size={14}
@@ -751,7 +801,7 @@ export default function CustomToolbar({
                                   "member_and_admin",
                                 );
                               }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
                             >
                               <Check
                                 size={14}
@@ -769,7 +819,7 @@ export default function CustomToolbar({
                                 e.stopPropagation();
                                 handleUpdateApprovalPermission("everyone");
                               }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
                             >
                               <Check
                                 size={14}
@@ -806,7 +856,8 @@ export default function CustomToolbar({
             }
           }}
           disabled={isLeavingBreakout}
-          className="group h-full px-3 sm:px-4 mx-1 lg:mx-0 bg-transparent text-red-500 hover:text-red-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
+          title={isInBreakoutRoom ? t("leave_short") : t("leave_meeting")}
+          className="group h-full px-2.5 sm:px-3 lg:px-4 mx-1 lg:mx-0 bg-transparent text-red-500 hover:text-red-400 font-semibold hover:font-bold hover:drop-shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
         >
           {isLeavingBreakout ? (
             <Loader2 size={18} className="animate-spin text-red-500" />
@@ -816,7 +867,7 @@ export default function CustomToolbar({
               className="transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-110"
             />
           )}
-          <span className="hidden md:inline text-sm transition-all duration-300">
+          <span className="hidden lg:inline text-sm transition-all duration-300">
             {isInBreakoutRoom ? t("leave_short") : t("leave_meeting")}
           </span>
         </button>
@@ -828,14 +879,14 @@ export default function CustomToolbar({
               className="fixed inset-0 z-40"
               onClick={() => setIsLeaveMenuOpen(false)}
             ></div>
-            <div className="absolute bottom-full right-2 lg:right-4 mb-2 z-50 w-52 bg-[#222] border border-[#333] rounded-lg shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in duration-200">
+            <div className="absolute bottom-full right-2 lg:right-4 mb-2 z-50 w-52 bg-[#161619] border border-[#232328] rounded-lg shadow-2xl py-1.5 overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in duration-200">
               <button
                 onClick={() => {
                   setIsLeaveMenuOpen(false);
                   handleLeaveBreakout();
                 }}
                 disabled={isLeavingBreakout}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#333] flex items-center gap-2.5 transition-colors disabled:opacity-50"
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#232328] flex items-center gap-2.5 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <LogOut size={16} className="-scale-x-100" />
                 <span>{t("leave_breakout_room")}</span>
@@ -846,7 +897,7 @@ export default function CustomToolbar({
                   setIsLeaveMenuOpen(false);
                   handleLeaveClick();
                 }}
-                className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-[#333] flex items-center gap-2.5 transition-colors"
+                className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <LogOut size={16} />
                 <span>{t("leave_meeting")}</span>

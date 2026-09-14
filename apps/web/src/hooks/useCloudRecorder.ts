@@ -32,8 +32,15 @@ export function useCloudRecorder({
     } catch (error: any) {
       console.error("Lỗi khi bắt đầu ghi hình trên cloud:", error);
       const errorCode = error?.data?.code || error?.code;
+      const errorMsg = error?.data?.message || error?.message;
       if (errorCode) {
-        toast.error(tServer(errorCode));
+        try {
+          toast.error(tServer(String(errorCode)));
+        } catch {
+          toast.error(errorMsg || t("cloud_recording_error"));
+        }
+      } else if (errorMsg) {
+        toast.error(errorMsg);
       } else {
         toast.error(t("cloud_recording_error"));
       }
@@ -48,8 +55,15 @@ export function useCloudRecorder({
     } catch (error: any) {
       console.error("Lỗi khi dừng ghi hình trên cloud:", error);
       const errorCode = error?.data?.code || error?.code;
+      const errorMsg = error?.data?.message || error?.message;
       if (errorCode) {
-        toast.error(tServer(errorCode));
+        try {
+          toast.error(tServer(String(errorCode)));
+        } catch {
+          toast.error(errorMsg || t("cloud_recording_error"));
+        }
+      } else if (errorMsg) {
+        toast.error(errorMsg);
       } else {
         toast.error(t("cloud_recording_error"));
       }

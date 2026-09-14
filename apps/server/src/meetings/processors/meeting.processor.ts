@@ -61,6 +61,7 @@ export class MeetingProcessor extends WorkerHost {
 
       case "attendance-left": {
         const { meetingCode, userId } = job.data as AttendanceJobData;
+        await this.recordingService.handleParticipantLeft(meetingCode, userId);
         await this.attendanceService.markLeft(meetingCode, userId);
         // Kiểm tra phòng trống sau khi leave
         await this.meetingsService.checkAndCloseEmptyRoom(meetingCode);

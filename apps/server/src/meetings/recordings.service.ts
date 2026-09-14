@@ -73,10 +73,53 @@ export class RecordingsService {
 
     /**
      * Bắt đầu ghi hình phân tách: Âm thanh tổng (MP4) + Màn hình chia sẻ (WebM Raw)
+     * Quy tắc:
+     * - Chỉ cho phép quay phòng chính (không phải breakout)
+     * - Chỉ 1 người quay duy nhất tại 1 thời điểm
      */
-    async startRecording(meetingCode: string): Promise<void> {
+    async startRecording(meetingCode: string, userId?: string): Promise<void> {
         if (!this.egressClient || !this.livekitRoomService) {
             throw new AppException(ErrorCode.SERVER_ERROR);
+        }
+
+        // 1. Chặn phòng breakout theo tên phòng
+        if (meetingCode.includes("_sub_")) {
+            throw new AppException(ErrorCode.CANNOT_RECORD_BREAKOUT_ROOM);
+        }
+
+        // 2. Lấy thông tin phòng và metadata từ LiveKit
+        const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+        if (!rooms || rooms.length === 0) {
+            throw new AppException(ErrorCode.MEETING_NOT_FOUND);
+        }
+
+        const room = rooms[0];
+        let roomMeta: any = {};
+        if (room.metadata) {
+            try {
+                roomMeta = JSON.parse(room.metadata);
+            } catch (e) {
+                this.logger.error(`Lỗi parse metadata phòng ${meetingCode}:`, e);
+            }
+        }
+
+        // Chặn phòng breakout theo metadata
+        if (roomMeta.roomType === "breakout") {
+            throw new AppException(ErrorCode.CANNOT_RECORD_BREAKOUT_ROOM);
+        }
+
+        // 3. Đảm bảo chỉ 1 người quay duy nhất (chặn người khác)
+        if (roomMeta.recording?.isRecording) {
+            throw new AppException(ErrorCode.RECORDING_ALREADY_IN_PROGRESS);
+        }
+
+        const activeEgresses = await this.egressClient.listEgress({
+            roomName: meetingCode,
+            active: true,
+        });
+
+        if (activeEgresses.length > 0) {
+            throw new AppException(ErrorCode.RECORDING_ALREADY_IN_PROGRESS);
         }
 
         const sessionId = await this.extractSessionId(meetingCode);
@@ -121,8 +164,20 @@ export class RecordingsService {
                 egressJobs.push(screenJob.egressId);
             }
 
+            // Cập nhật LiveKit Room Metadata để đồng bộ realtime trạng thái người quay
+            roomMeta.recording = {
+                isRecording: true,
+                recorderId: userId || "",
+                startedAt: timestamp,
+            };
+            await this.livekitRoomService.updateRoomMetadata(
+                meetingCode,
+                JSON.stringify(roomMeta),
+            );
+
             return;
         } catch (error) {
+            if (error instanceof AppException) throw error;
             console.error("Lỗi khi khởi động Egress:", error);
             throw new AppException(ErrorCode.SERVER_ERROR);
         }
@@ -130,13 +185,38 @@ export class RecordingsService {
 
     /**
      * Dừng toàn bộ các tiến trình ghi hình của phòng
+     * Quy tắc: Chỉ người bắt đầu quay mới được phép dừng (trừ trường hợp forceStop)
      */
-    async stopRecording(meetingCode: string): Promise<void> {
+    async stopRecording(
+        meetingCode: string,
+        userId?: string,
+        forceStop: boolean = false,
+    ): Promise<void> {
         if (!this.egressClient) {
             throw new AppException(ErrorCode.SERVER_ERROR);
         }
 
         try {
+            // Lấy metadata để kiểm tra quyền người dừng
+            let roomMeta: any = {};
+            if (this.livekitRoomService) {
+                try {
+                    const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+                    if (rooms && rooms.length > 0 && rooms[0].metadata) {
+                        roomMeta = JSON.parse(rooms[0].metadata);
+                    }
+                } catch (e) {
+                    this.logger.error(`Lỗi đọc metadata khi stopRecording: ${meetingCode}`, e);
+                }
+            }
+
+            // Kiểm tra: Chỉ người bắt đầu quay mới có quyền dừng
+            if (!forceStop && roomMeta.recording?.recorderId && userId) {
+                if (roomMeta.recording.recorderId !== userId) {
+                    throw new AppException(ErrorCode.ONLY_RECORDER_CAN_STOP_RECORDING);
+                }
+            }
+
             // Bắt toàn bộ các Egress đang chạy của phòng
             const activeEgresses = await this.egressClient.listEgress({
                 roomName: meetingCode,
@@ -144,6 +224,14 @@ export class RecordingsService {
             });
 
             if (activeEgresses.length === 0) {
+                // Xoá cờ recording trong metadata nếu còn sót
+                if (this.livekitRoomService && roomMeta.recording) {
+                    delete roomMeta.recording;
+                    await this.livekitRoomService.updateRoomMetadata(
+                        meetingCode,
+                        JSON.stringify(roomMeta),
+                    );
+                }
                 return;
             }
 
@@ -156,6 +244,15 @@ export class RecordingsService {
             );
 
             await Promise.all(stopPromises);
+
+            // Cập nhật metadata xoá thông tin quay
+            if (this.livekitRoomService && roomMeta.recording) {
+                delete roomMeta.recording;
+                await this.livekitRoomService.updateRoomMetadata(
+                    meetingCode,
+                    JSON.stringify(roomMeta),
+                );
+            }
 
             await this.meetingQueue.add(
                 "process-recording",
@@ -173,8 +270,33 @@ export class RecordingsService {
 
             return;
         } catch (error) {
+            if (error instanceof AppException) throw error;
             console.error("Lỗi khi dừng Egress:", error);
             throw new AppException(ErrorCode.SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Tự động dừng ghi hình nếu người đang quay thoát khỏi cuộc họp
+     */
+    async handleParticipantLeft(meetingCode: string, userId: string): Promise<void> {
+        if (!this.livekitRoomService || !this.egressClient) return;
+        try {
+            const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+            if (!rooms || rooms.length === 0 || !rooms[0].metadata) return;
+
+            const meta = JSON.parse(rooms[0].metadata);
+            if (meta.recording?.isRecording && meta.recording?.recorderId === userId) {
+                this.logger.log(
+                    `[RecordingsService] Người quay ${userId} đã thoát phòng ${meetingCode}. Đang tự động kết thúc ghi hình...`
+                );
+                await this.stopRecording(meetingCode, userId, true /* forceStop */);
+            }
+        } catch (error) {
+            this.logger.error(
+                `Lỗi khi xử lý tự động dừng quay cho người dùng ${userId} tại phòng ${meetingCode}:`,
+                error,
+            );
         }
     }
 

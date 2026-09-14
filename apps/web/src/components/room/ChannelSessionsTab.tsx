@@ -148,10 +148,7 @@ export default function ChannelSessionsTab({
     return t("session_duration_seconds", { seconds: s });
   };
 
-  const handleJoinMeeting = (e: React.MouseEvent, code: string) => {
-    e.stopPropagation();
-    router.push(`/meeting/${code}`);
-  };
+
 
   // Render Skeleton khi đang tải mã phòng hoặc danh sách lần đầu
   if (isEnsuringMeeting || (isInitialLoading && sessions.length === 0)) {
@@ -195,7 +192,6 @@ export default function ChannelSessionsTab({
         formatDateTime={formatDateTime}
         formatTimeOnly={formatTimeOnly}
         formatDuration={formatDuration}
-        onJoinMeeting={(code) => router.push(`/meeting/${code}`)}
         t={t}
       />
     );
@@ -379,16 +375,6 @@ export default function ChannelSessionsTab({
 
                   {/* Right Side: Actions & Navigate Arrow */}
                   <div className="flex items-center justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
-                    {isOngoing && (
-                      <button
-                        onClick={(e) => handleJoinMeeting(e, session.meetingCode)}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full text-xs font-bold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/25 cursor-pointer active:scale-95"
-                      >
-                        <PlayCircle size={15} />
-                        <span>{t("session_join_now")}</span>
-                      </button>
-                    )}
-
                     <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 group-hover:text-brand-600 transition-colors">
                       <span className="hidden sm:inline">
                         {t("session_details")}
@@ -434,7 +420,6 @@ interface SessionDetailViewProps {
   formatDateTime: (d?: string | Date) => string;
   formatTimeOnly: (d?: string | Date) => string;
   formatDuration: (s?: number) => string;
-  onJoinMeeting: (code: string) => void;
   t: any;
 }
 
@@ -444,7 +429,6 @@ function SessionDetailView({
   formatDateTime,
   formatTimeOnly,
   formatDuration,
-  onJoinMeeting,
   t,
 }: SessionDetailViewProps) {
   const isOngoing = session.status === "ongoing";
@@ -590,16 +574,6 @@ function SessionDetailView({
             </p>
           </div>
         </div>
-
-        {isOngoing && (
-          <button
-            onClick={() => onJoinMeeting(session.meetingCode)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full text-xs font-bold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/25 cursor-pointer active:scale-95"
-          >
-            <PlayCircle size={16} />
-            <span>{t("session_join_now")}</span>
-          </button>
-        )}
       </div>
 
       {/* Main Content Area */}

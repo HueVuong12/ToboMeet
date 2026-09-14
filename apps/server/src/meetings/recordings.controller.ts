@@ -2,6 +2,7 @@ import {
     Controller,
     Post,
     Param,
+    Req,
     UseGuards,
     HttpCode,
     HttpStatus,
@@ -23,19 +24,27 @@ export class RecordingsController {
     @Roles("owner", "admin")
     @HttpCode(HttpStatus.NO_CONTENT)
     @UseGuards(SupabaseGuard, MeetingRoleGuard)
-    async startRecording(@Param("code") meetingCode: string): Promise<void> {
-        await this.recordingsService.startRecording(meetingCode);
+    async startRecording(
+        @Param("code") meetingCode: string,
+        @Req() req: any,
+    ): Promise<void> {
+        const userId = req.user?.id;
+        await this.recordingsService.startRecording(meetingCode, userId);
     }
 
     /**
      * POST /api/meetings/:code/record/stop
-     * Dừng ghi hình cuộc họp (Chỉ Owner/Admin mới có quyền)
+     * Dừng ghi hình cuộc họp (Chỉ Owner/Admin và là người bắt đầu quay mới có quyền)
      */
     @Post("stop")
     @Roles("owner", "admin")
     @HttpCode(HttpStatus.NO_CONTENT)
     @UseGuards(SupabaseGuard, MeetingRoleGuard)
-    async stopRecording(@Param("code") meetingCode: string): Promise<void> {
-        await this.recordingsService.stopRecording(meetingCode);
+    async stopRecording(
+        @Param("code") meetingCode: string,
+        @Req() req: any,
+    ): Promise<void> {
+        const userId = req.user?.id;
+        await this.recordingsService.stopRecording(meetingCode, userId);
     }
 }

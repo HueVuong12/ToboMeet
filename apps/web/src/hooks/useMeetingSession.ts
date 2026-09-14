@@ -18,7 +18,7 @@ export function useMeetingSession() {
   const tSession = useTranslations("meeting.session");
   const params = useParams();
   const deviceId = useDeviceId();
-  const { clearMeetingDeviceStatus } = useMeetingCacheManager();
+  const { clearMeetingDeviceStatus, syncMeetingEnded } = useMeetingCacheManager();
   const [getMemberStatus] = useLazyGetMemberStatusQuery();
 
   const meetingCode = params.code as string; // parent/main meeting code
@@ -325,6 +325,7 @@ export function useMeetingSession() {
       sessionStorage.removeItem(`device_config_${meetingCode}`);
 
       clearMeetingDeviceStatus(meetingCode);
+      syncMeetingEnded(meetingCode);
 
       if (meetingData?.roomId) {
         const syncChannel = new BroadcastChannel(

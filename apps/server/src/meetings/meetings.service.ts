@@ -1109,7 +1109,7 @@ export class MeetingsService {
       // Cập nhật trạng thái cuộc họp mới cho tất cả người dùng đang ở kênh này
       this.meetingsGateway.notifyMeetingStatus(meeting.channelId, {
         isOngoing: false,
-        meetingCode: null,
+        meetingCode: meeting.meetingCode,
       });
     }
   }

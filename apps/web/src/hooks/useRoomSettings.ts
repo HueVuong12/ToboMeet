@@ -42,6 +42,11 @@ export function useRoomSettings({
   const [breakoutStartedAt, setBreakoutStartedAt] = useState<number>(0);
   const [breakoutDuration, setBreakoutDuration] = useState<number>(0);
   const [roomName, setRoomName] = useState<string>("");
+  const [recordingInfo, setRecordingInfo] = useState<{
+    isRecording: boolean;
+    recorderId: string;
+    startedAt?: number;
+  } | null>(null);
 
   // State quản lý quyền duyệt
   const [approvalPermission, setApprovalPermission] = useState<
@@ -77,6 +82,7 @@ export function useRoomSettings({
         setBreakoutStartedAt(meta.startedAt || 0);
         setBreakoutDuration(meta.durationMinutes || 0);
         setIsWaitingRoomEnabled(false);
+        setRecordingInfo(meta.parentMetadata?.recording || null);
       } else {
         setRoomType("main");
 
@@ -84,6 +90,7 @@ export function useRoomSettings({
         setIsChatEnabled(meta.isChatEnabled);
         setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
         setApprovalPermission(meta.approvalPermission);
+        setRecordingInfo(meta.recording || null);
 
         // Cập nhật trạng thái và danh sách nhóm thảo luận (Breakout)
         setIsBreakoutActive(meta.breakoutSession?.status === "active");
@@ -184,6 +191,16 @@ export function useRoomSettings({
     }
   };
 
+  const isCloudRecordingActive = !!recordingInfo?.isRecording;
+  const isRecordingByMe =
+    isCloudRecordingActive &&
+    !!recordingInfo?.recorderId &&
+    recordingInfo.recorderId === localParticipant?.identity;
+  const isRecordingByOther =
+    isCloudRecordingActive &&
+    !!recordingInfo?.recorderId &&
+    recordingInfo.recorderId !== localParticipant?.identity;
+
   return {
     isChatEnabled,
     canChat,
@@ -197,6 +214,10 @@ export function useRoomSettings({
     roomType,
     roomName,
     isEndingBreakout,
+    recordingInfo,
+    isCloudRecordingActive,
+    isRecordingByMe,
+    isRecordingByOther,
 
     handleToggleChat,
     handleToggleWaitingRoom,

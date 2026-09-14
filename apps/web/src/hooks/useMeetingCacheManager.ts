@@ -23,7 +23,44 @@ export function useMeetingCacheManager() {
     );
   };
 
+  /**
+   * Đồng bộ lại trạng thái phiên họp trong RTK cache khi phiên họp kết thúc
+   */
+  const syncMeetingEnded = (meetingCode: string) => {
+    if (!meetingCode) return;
+
+    dispatch(
+      meetingsApi.util.updateQueryData(
+        "getMeetingSessions",
+        { meetingCode, page: 1, limit: 50 },
+        (draft) => {
+          if (draft?.items) {
+            draft.items.forEach((item) => {
+              if (item.status === "ongoing") {
+                item.status = "ended";
+                item.endedAt = new Date().toISOString();
+              }
+            });
+          }
+        },
+      ),
+    );
+
+    dispatch(
+      meetingsApi.util.invalidateTags([
+        {
+          type: "MeetingSessions",
+          id: meetingCode,
+        },
+        {
+          type: "MeetingSessions",
+        },
+      ]),
+    );
+  };
+
   return {
     clearMeetingDeviceStatus,
+    syncMeetingEnded,
   };
 }

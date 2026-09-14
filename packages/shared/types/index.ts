@@ -252,6 +252,21 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Không thể đổi tên người tham gia",
     statusCode: 400,
   },
+  CANNOT_RECORD_BREAKOUT_ROOM: {
+    code: 4030,
+    message: "Không thể ghi hình trong phòng thảo luận nhóm",
+    statusCode: 400,
+  },
+  RECORDING_ALREADY_IN_PROGRESS: {
+    code: 4033,
+    message: "Cuộc họp đã có người đang ghi hình",
+    statusCode: 400,
+  },
+  ONLY_RECORDER_CAN_STOP_RECORDING: {
+    code: 4034,
+    message: "Chỉ người bắt đầu ghi hình mới có quyền dừng ghi hình",
+    statusCode: 403,
+  },
 };
 
 export interface NavLink {
@@ -401,6 +416,11 @@ export interface MainRoomMetadata extends BaseRoomMetadata {
     status: string;
     rooms: LivekitBreakoutRoom[];
     startedAt: number;
+  };
+  recording?: {
+    isRecording: boolean;
+    recorderId: string;
+    startedAt?: number;
   };
 }
 

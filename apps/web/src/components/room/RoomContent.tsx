@@ -188,6 +188,39 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           },
         ),
       );
+
+      // Đồng bộ lại trạng thái bằng cách cập nhật cache rtk khi phiên họp kết thúc
+      if (!data.isOngoing) {
+        const targetMeetingCode = data.meetingCode;
+        if (targetMeetingCode) {
+          dispatch(
+            meetingsApi.util.updateQueryData(
+              "getMeetingSessions",
+              { meetingCode: targetMeetingCode, page: 1, limit: 50 },
+              (draft) => {
+                if (draft?.items) {
+                  draft.items.forEach((item) => {
+                    if (item.status === "ongoing") {
+                      item.status = "ended";
+                      item.endedAt = new Date().toISOString();
+                    }
+                  });
+                }
+              },
+            ),
+          );
+          dispatch(
+            meetingsApi.util.invalidateTags([
+              { type: "MeetingSessions", id: targetMeetingCode },
+              { type: "MeetingSessions" },
+            ]),
+          );
+        } else {
+          dispatch(
+            meetingsApi.util.invalidateTags([{ type: "MeetingSessions" }]),
+          );
+        }
+      }
     };
 
     socket.on("meeting_status_changed", handleStatusChanged);

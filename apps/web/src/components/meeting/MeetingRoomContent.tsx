@@ -1,7 +1,7 @@
 // src/app/[locale]/room/[id]/page.tsx
 "use client";
 
-import { useRoomContext } from "@livekit/components-react";
+import { useIsRecording, useRoomContext } from "@livekit/components-react";
 import { RoomEvent } from "livekit-client";
 import { Network, X } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -21,9 +21,17 @@ export default function MeetingRoomContent({
 }: any) {
   const t = useTranslations("meeting");
   const room = useRoomContext();
-  const { roomName, roomType, breakoutStartedAt, breakoutDuration } =
-    useRoomSettings({ meetingCode: meetingCode });
+  const isLivekitRecording = useIsRecording();
+  const {
+    roomName,
+    roomType,
+    breakoutStartedAt,
+    breakoutDuration,
+    recordingInfo,
+    isCloudRecordingActive,
+  } = useRoomSettings({ meetingCode: meetingCode });
   const isBreakoutRoom = roomType === "breakout";
+  const isRecording = isLivekitRecording || isCloudRecordingActive || !!recordingInfo?.isRecording;
 
   const timeDisplay = useBreakoutTimer({
     startedAt: breakoutStartedAt,
@@ -163,6 +171,20 @@ export default function MeetingRoomContent({
                 </span>
               )}
             </span>
+
+            {/* Trạng thái ghi hình cạnh tên phòng chính */}
+            {isRecording && !isBreakoutRoom && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold select-none shadow-sm shadow-red-500/10 animate-fade-in"
+                title={t("toolbar.recording_in_progress")}
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span className="tracking-wider">REC</span>
+              </div>
+            )}
           </div>
         </header>
 
