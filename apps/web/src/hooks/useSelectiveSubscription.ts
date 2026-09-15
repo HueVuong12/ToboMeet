@@ -12,8 +12,10 @@ import {
   RoomEvent,
   Track,
 } from "livekit-client";
+import { useSafeMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
 
 function makeKey(identity: string, source: Track.Source) {
+
   return `${identity}|${source}`;
 }
 
@@ -29,6 +31,8 @@ function isWaiting(participant: Participant): boolean {
 
 export function useSelectiveSubscription() {
   const room = useRoomContext();
+  const wbContext = useSafeMeetingWhiteboard();
+  const isWhiteboardActive = !!wbContext?.isWhiteboardActive;
 
   const allTracks = useTracks(
     [
@@ -86,7 +90,7 @@ export function useSelectiveSubscription() {
 
   const pageSize = isMobile ? 4 : 16;
 
-  // Tính pages (có hỗ trợ pinned)
+  // Tính pages (có hỗ trợ whiteboard và pinned)
   const pages = useMemo(() => {
     const screenTracks = validTracks.filter(
       (t) => t.source === Track.Source.ScreenShare,
@@ -117,7 +121,7 @@ export function useSelectiveSubscription() {
     }
 
     const newPages: {
-      type: "screenshare" | "pinned" | "camera";
+      type: "screenshare" | "whiteboard" | "pinned" | "camera";
       tracks: TrackReferenceOrPlaceholder[];
     }[] = [];
 
@@ -126,12 +130,17 @@ export function useSelectiveSubscription() {
       newPages.push({ type: "screenshare", tracks: screenTracks });
     }
 
-    // 2. Trang pinned (nếu có)
+    // 2. Trang Whiteboard (nếu đang bật)
+    if (isWhiteboardActive) {
+      newPages.push({ type: "whiteboard", tracks: [] });
+    }
+
+    // 3. Trang pinned (nếu có)
     if (pinnedTrack) {
       newPages.push({ type: "pinned", tracks: [pinnedTrack] });
     }
 
-    // 3. Các trang camera
+    // 4. Các trang camera
     for (let i = 0; i < cameraTracks.length; i += pageSize) {
       newPages.push({
         type: "camera",
@@ -139,8 +148,14 @@ export function useSelectiveSubscription() {
       });
     }
 
+    // Nếu không có track camera/screenshare nào nhưng có whiteboard
+    if (newPages.length === 0 && isWhiteboardActive) {
+      newPages.push({ type: "whiteboard", tracks: [] });
+    }
+
     return newPages;
-  }, [validTracks, pageSize, pinnedKey]);
+  }, [validTracks, pageSize, pinnedKey, isWhiteboardActive]);
+
 
   const pinTrack = useCallback((trackRef: TrackReferenceOrPlaceholder) => {
     // Chỉ cho phép pin camera
@@ -242,24 +257,33 @@ export function useSelectiveSubscription() {
     [applySubscriptions],
   );
 
-  // Effect chính: subscribe theo trang hiện tại + luôn giữ pinned
+  // Effect chính: subscribe theo trang hiện tại + luôn giữ pinned (trừ khi đang ở trang Whiteboard)
   useEffect(() => {
     if (!pages.length) {
       scheduleApply(new Set());
       return;
     }
 
-    const activeItems = pages[currentPage]?.tracks ?? [];
-    const desired = new Set<string>(
-      activeItems.map((t) => makeKey(t.participant.identity, t.source)),
-    );
+    const currentData = pages[currentPage];
+    const isWhiteboardPage = currentData?.type === "whiteboard";
 
-    // Luôn giữ track đang pin trong desired (phòng trường hợp logic trang lỗi)
-    if (pinnedKey) {
-      desired.add(pinnedKey);
+    let desired: Set<string>;
+
+    if (isWhiteboardPage) {
+      // Khi đang xem whiteboard: KHÔNG subscribe bất kỳ video track nào để tiết kiệm tối đa băng thông!
+      desired = new Set<string>();
+    } else {
+      const activeItems = currentData?.tracks ?? [];
+      desired = new Set<string>(
+        activeItems.map((t) => makeKey(t.participant.identity, t.source)),
+      );
+
+      // Luôn giữ track đang pin trong desired
+      if (pinnedKey) {
+        desired.add(pinnedKey);
+      }
     }
 
-    // Screen share cũng nên luôn được giữ nếu có (tùy chọn, hiện đã nằm trong pages)
     scheduleApply(desired);
 
     return () => {
@@ -325,10 +349,22 @@ export function useSelectiveSubscription() {
     ensureAudioSubscribed();
   }, [ensureAudioSubscribed]);
 
-  // Có screen share → nhảy về trang 0
+  // Khi whiteboard được bật → tự động chuyển sang trang whiteboard
+  const prevWhiteboardActiveRef = useRef(false);
   useEffect(() => {
-    if (hasScreenShare) setCurrentPage(0);
-  }, [hasScreenShare]);
+    if (isWhiteboardActive && !prevWhiteboardActiveRef.current) {
+      const wbIdx = pages.findIndex((p) => p.type === "whiteboard");
+      if (wbIdx >= 0) {
+        setCurrentPage(wbIdx);
+      }
+    }
+    prevWhiteboardActiveRef.current = isWhiteboardActive;
+  }, [isWhiteboardActive, pages]);
+
+  // Có screen share → nhảy về trang 0 (trừ khi đang xem whiteboard)
+  useEffect(() => {
+    if (hasScreenShare && !isWhiteboardActive) setCurrentPage(0);
+  }, [hasScreenShare, isWhiteboardActive]);
 
   // Có pin mới → nhảy về trang pinned (thường là sau screenshare)
   useEffect(() => {
@@ -358,5 +394,7 @@ export function useSelectiveSubscription() {
     unpin,
     isPinned,
     isSomeoneElseSharing,
+    isWhiteboardActive,
   };
 }
+

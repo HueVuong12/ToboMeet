@@ -18,6 +18,13 @@ interface ExchangeSessionResponse {
   channelId?: string;
 }
 
+export interface WhiteboardTokenResponse {
+  token: string;
+  roomId: string;
+  whiteboardUrl: string;
+}
+
+
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
 
@@ -212,6 +219,18 @@ export const meetingsApi = baseApi.injectEndpoints({
         method: "POST",
       }),
     }),
+
+    // Xin cấp token xác thực JWT (RS256) cho Whiteboard của cuộc họp
+    getWhiteboardToken: builder.mutation<
+      WhiteboardTokenResponse,
+      { meetingCode: string }
+    >({
+      query: ({ meetingCode }) => ({
+        url: `/meetings/${meetingCode}/whiteboard-token`,
+        method: "POST",
+      }),
+    }),
+
 
     stopScreenShare: builder.mutation<void, { meetingCode: string }>({
       query: ({ meetingCode }) => ({
@@ -443,6 +462,9 @@ export const {
   // Cloud Recording APIs
   useStartCloudRecordingMutation,
   useStopCloudRecordingMutation,
+
+  // Whiteboard token API
+  useGetWhiteboardTokenMutation,
 } = meetingsApi;
 
 

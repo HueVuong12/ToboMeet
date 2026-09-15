@@ -1,8 +1,19 @@
+import { useParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import CustomTileWrapper from "./CustomTileWrapper";
 import { useSelectiveSubscription } from "@/hooks/useSelectiveSubscription";
+import { useSafeMeetingWhiteboard } from "./contexts/MeetingWhiteboardContext";
+import MeetingWhiteboard from "@/components/whiteboard/MeetingWhiteboard";
 
 export default function CustomVideoGrid() {
+  const params = useParams();
+  const meetingCode = (params?.code as string) || "";
+
+  const wbContext = useSafeMeetingWhiteboard();
+  const isWhiteboardActive = !!wbContext?.isWhiteboardActive;
+  const whiteboardToken = wbContext?.whiteboardToken || null;
+  const whiteboardUrl = wbContext?.whiteboardUrl || null;
+
   const {
     tracks,
     pages,
@@ -13,7 +24,7 @@ export default function CustomVideoGrid() {
     isPinned,
   } = useSelectiveSubscription();
 
-  if (tracks.length === 0) {
+  if (tracks.length === 0 && !isWhiteboardActive) {
     return (
       <div className="absolute inset-0 flex items-center justify-center text-slate-400">
         <div className="text-center space-y-2">
@@ -32,6 +43,68 @@ export default function CustomVideoGrid() {
   const handleNext = () =>
     setCurrentPage((p) => Math.min(p + 1, pages.length - 1));
   const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 0));
+
+  const hasPagination = pages.length > 1;
+
+  // Render Whiteboard toàn màn hình nếu trang hiện tại là whiteboard
+  if (currentData.type === "whiteboard") {
+    return (
+      <div className="relative w-full h-full flex flex-col bg-[#0a0a0a] overflow-hidden">
+        <div className="flex-1 w-full h-full relative">
+          <MeetingWhiteboard
+            meetingCode={meetingCode}
+            token={whiteboardToken}
+            whiteboardUrl={whiteboardUrl}
+          />
+        </div>
+
+        {/* Nút lùi/tiến trang dạng floating bán trong suốt để không chiếm diện tích vẽ */}
+        {hasPagination && (
+          <>
+            {currentPage > 0 && (
+              <button
+                onClick={handlePrev}
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-14 md:w-11 md:h-16 flex items-center justify-center bg-black/60 hover:bg-black/90 backdrop-blur-md text-white/50 hover:text-white rounded-xl border border-white/10 transition-all shadow-2xl cursor-pointer"
+                aria-label="Trang trước"
+                title="Trang trước"
+              >
+                <ChevronLeft size={isMobile ? 24 : 32} />
+              </button>
+            )}
+
+            {currentPage < pages.length - 1 && (
+              <button
+                onClick={handleNext}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-14 md:w-11 md:h-16 flex items-center justify-center bg-black/60 hover:bg-black/90 backdrop-blur-md text-white/50 hover:text-white rounded-xl border border-white/10 transition-all shadow-2xl cursor-pointer"
+                aria-label="Trang sau"
+                title="Trang sau"
+              >
+                <ChevronRight size={isMobile ? 24 : 32} />
+              </button>
+            )}
+
+            {/* Dấu chấm trang */}
+            <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2 z-30 pointer-events-none">
+              <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+                {pages.map((p, idx) => (
+                  <div
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      currentPage === idx
+                        ? p.type === "whiteboard"
+                          ? "w-6 bg-blue-500"
+                          : "w-5 bg-emerald-400"
+                        : "w-1.5 bg-white/30"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   const getOptimalCols = (count: number, isMobile: boolean): number => {
     if (isMobile) {
@@ -57,7 +130,6 @@ export default function CustomVideoGrid() {
   const cols = isSpecialPage ? 1 : getOptimalCols(count, isMobile);
   const rows = Math.ceil(count / cols);
 
-  const hasPagination = pages.length > 1;
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#0a0a0a] overflow-hidden">

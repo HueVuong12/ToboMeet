@@ -21,6 +21,7 @@ import {
 } from "@/components/meeting/contexts/MeetingSessionContext";
 import { LivekitRoomMetadata } from "@tobomeet/shared/types";
 import { useBreakoutSync } from "@/hooks/useBreakoutSync";
+import { MeetingWhiteboardProvider } from "@/components/meeting/contexts/MeetingWhiteboardContext";
 
 function MeetingPageContent() {
   const t = useTranslations("meeting.meeting_page");
@@ -370,7 +371,9 @@ function RoomContentGuard({ meetingData, meetingCode }: any) {
   }
 
   return (
-    <MeetingRoomContent meetingCode={meetingCode} />
+    <MeetingWhiteboardProvider meetingCode={meetingCode}>
+      <MeetingRoomContent meetingCode={meetingCode} />
+    </MeetingWhiteboardProvider>
   );
 }
 

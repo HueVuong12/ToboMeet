@@ -227,6 +227,21 @@ export class MeetingsController {
   }
 
   /**
+   * POST /api/meetings/:code/whiteboard-token
+   * Lấy token JWT RS256 để kết nối vào Whiteboard của cuộc họp
+   */
+  @Post(":code/whiteboard-token")
+  @UseGuards(SupabaseGuard)
+  async getWhiteboardToken(
+    @Param("code") meetingCode: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.meetingsService.generateWhiteboardToken(meetingCode, userId);
+  }
+
+
+  /**
    * PATCH /api/meetings/:code/participants/rename
    * Đổi tên chính mình trong cuộc họp (Cập nhật Attendance DB và LiveKit realtime)
    */

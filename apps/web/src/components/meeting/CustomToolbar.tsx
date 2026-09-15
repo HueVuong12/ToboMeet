@@ -28,6 +28,7 @@ import {
   Info,
   Disc,
   ChevronUp,
+  PenTool,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ import { useCloudRecorder } from "@/hooks/useCloudRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
 import CreateBreakoutModal from "./CreateBreakoutModal";
 import JoinBreakoutModal from "./JoinBreakoutModal";
+import { useSafeMeetingWhiteboard } from "./contexts/MeetingWhiteboardContext";
 
 /**
  * COMPONENT: Thanh điều khiển (Toolbar)
@@ -68,6 +70,11 @@ export default function CustomToolbar({
 
   const { isLocalHandRaised, toggleHandRaise } = useHandRaise();
   const isElectron = useIsElectron();
+
+  const wbContext = useSafeMeetingWhiteboard();
+  const isWhiteboardActive = !!wbContext?.isWhiteboardActive;
+  const isLoadingWhiteboard = !!wbContext?.isLoadingToken;
+  const toggleWhiteboard = wbContext?.toggleWhiteboard || (async () => {});
 
   const {
     isMicrophoneEnabled,
@@ -641,6 +648,38 @@ export default function CustomToolbar({
                   <UserPlus size={16} />
                   <span>{t("invite_participants")}</span>
                 </button>
+
+                {/* THAM GIA HOẶC XEM WHITEBOARD */}
+                <button
+                  onClick={async () => {
+                    setIsMoreMenuOpen(false);
+                    await toggleWhiteboard();
+                  }}
+                  disabled={isLoadingWhiteboard}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {isLoadingWhiteboard ? (
+                      <Loader2 size={16} className="animate-spin text-blue-400" />
+                    ) : (
+                      <PenTool
+                        size={16}
+                        className={isWhiteboardActive ? "text-blue-400" : "text-slate-300"}
+                      />
+                    )}
+                    <span>
+                      {isWhiteboardActive
+                        ? t("view_whiteboard")
+                        : t("join_whiteboard")}
+                    </span>
+                  </div>
+                  {isWhiteboardActive && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">
+                      Active
+                    </span>
+                  )}
+                </button>
+
 
                 {isHost && (
                   <>

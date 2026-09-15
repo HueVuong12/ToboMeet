@@ -2,6 +2,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
+import * as jwt from "jsonwebtoken";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import {
@@ -740,6 +741,74 @@ export class MeetingsService {
       );
     }
   }
+
+  /**
+   * Tạo Whiteboard Token (RS256) cho người dùng đang có mặt trong cuộc họp
+   */
+  async generateWhiteboardToken(
+    meetingCode: string,
+    userId: string,
+  ): Promise<{ token: string; roomId: string; whiteboardUrl: string }> {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    // 1. Kiểm tra cuộc họp có tồn tại không
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+    if (!meeting) {
+      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
+    }
+
+    // 2. Chỉ cấp token nếu người dùng đang thực sự tham gia cuộc họp
+    let participants: any[] = [];
+    try {
+      participants = await this.livekitRoomService.listParticipants(meetingCode);
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách người tham gia LiveKit:", error);
+      throw new AppException(ErrorCode.PARTICIPANT_NOT_IN_MEETING);
+    }
+
+    const participant = participants.find((p) => p.identity === userId);
+    if (!participant) {
+      throw new AppException(ErrorCode.PARTICIPANT_NOT_IN_MEETING);
+    }
+
+    // 3. Lấy thông tin người dùng
+    const user = await this.userModel.findOne({ supabaseId: userId }).exec();
+    const displayName = user?.displayName || participant.name || "Người dùng";
+
+    // 4. Lấy private key RS256 từ .env
+    const rawPrivateKey = process.env.WHITEBOARD_PRIVATE_KEY;
+    if (!rawPrivateKey) {
+      console.error("WHITEBOARD_PRIVATE_KEY chưa được cấu hình trong server .env");
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+    const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
+
+    const payload = {
+      sub: userId,
+      meetingCode,
+      roomId: meetingCode,
+      displayName,
+      iss: "tobomeet-server",
+      aud: "tobomeet-whiteboard",
+    };
+
+    const token = jwt.sign(payload, privateKey, {
+      algorithm: "RS256",
+      expiresIn: "4h",
+    });
+
+    const whiteboardUrl =
+      process.env.WHITEBOARD_SERVER_URL || "ws://localhost:3002/sync";
+
+    return {
+      token,
+      roomId: meetingCode,
+      whiteboardUrl,
+    };
+  }
+
 
   /**
    * Kiểm tra xem một người dùng có phải là thành viên chính thức của phòng hay không

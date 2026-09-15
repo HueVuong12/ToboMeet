@@ -1,9 +1,11 @@
+import "dotenv/config";
 import express from "express";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
+import * as jwt from "jsonwebtoken";
 import { WebSocketServer } from "ws";
 import {
     TLSocketRoom,
@@ -12,7 +14,8 @@ import {
 } from "@tldraw/sync-core";
 
 const app = express();
-const PORT = 3002;
+const PORT = Number(process.env.PORT) || 3002;
+
 
 // Enable CORS for health check and API calls
 app.use((_req, res, next) => {
@@ -103,6 +106,7 @@ app.get("/", (_req, res) => {
         message: "ToboMeet Whiteboard Sync Server",
         status: "ok",
         persistence: "sqlite",
+        auth: "RS256",
         activeRooms: rooms.size,
         dataDirectory: DATA_DIR,
     });
@@ -114,7 +118,6 @@ app.get("/rooms", (_req, res) => {
         const files = fs.readdirSync(DATA_DIR).filter((f) => f.endsWith(".sqlite"));
         const roomList = files.map((file) => {
             const stat = fs.statSync(path.join(DATA_DIR, file));
-            const base = file.replace(/\.sqlite$/, "");
             return {
                 fileName: file,
                 sizeBytes: stat.size,
@@ -144,14 +147,62 @@ wss.on("connection", (socket, request) => {
     );
 
     const roomId = url.searchParams.get("roomId");
+    const token = url.searchParams.get("token");
 
     if (!roomId) {
-        console.log("Missing roomId");
-        socket.close();
+        console.log("❌ Missing roomId parameter");
+        socket.close(1008, "Missing roomId");
         return;
     }
 
-    console.log(`🔌 Client connecting to room: ${roomId}`);
+    // 1. Xác thực JWT (RS256)
+    const isDevDemoAllowed = process.env.ALLOW_DEV_DEMO === "true" && roomId.startsWith("demo-");
+    let userSub = "demo-user";
+    let userDisplayName = "Demo User";
+
+    if (!token) {
+        if (isDevDemoAllowed) {
+            console.log(`⚠️ Demo room ${roomId} allowed without JWT in development`);
+        } else {
+            console.log(`❌ Unauthorized connection to room ${roomId}: missing token`);
+            socket.close(1008, "Missing authentication token");
+            return;
+        }
+    } else {
+        const rawPublicKey = process.env.WHITEBOARD_PUBLIC_KEY;
+        if (!rawPublicKey) {
+            console.error("❌ WHITEBOARD_PUBLIC_KEY is not configured in .env");
+            socket.close(1011, "Server configuration error");
+            return;
+        }
+
+        const publicKey = rawPublicKey.replace(/\\n/g, "\n");
+        let decoded: any;
+
+        try {
+            decoded = jwt.verify(token, publicKey, {
+                algorithms: ["RS256"],
+                issuer: "tobomeet-server",
+                audience: "tobomeet-whiteboard",
+            });
+        } catch (err: any) {
+            console.error(`❌ JWT verification failed for room ${roomId}: ${err.message}`);
+            socket.close(1008, `Authentication failed: ${err.message}`);
+            return;
+        }
+
+        // Kiểm tra token có đúng cho room này không
+        if (decoded.roomId !== roomId && decoded.meetingCode !== roomId) {
+            console.error(`❌ Token roomId mismatch: expected ${roomId}, got ${decoded.roomId}`);
+            socket.close(1008, "Token does not match roomId");
+            return;
+        }
+
+        userSub = decoded.sub || "unknown";
+        userDisplayName = decoded.displayName || "User";
+    }
+
+    console.log(`🔌 Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName})`);
 
     const room = getOrCreateRoom(roomId);
     const sessionId = randomUUID();
@@ -164,6 +215,7 @@ wss.on("connection", (socket, request) => {
         socket,
     });
 });
+
 
 // Graceful shutdown: đóng tất cả kết nối DB và room sạch sẽ khi server dừng
 function handleShutdown(signal: string) {
