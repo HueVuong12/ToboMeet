@@ -207,11 +207,11 @@ export default function CustomTileWrapper({
           {menuOpen && (
             <div
               ref={menuRef}
-              className="absolute right-0 top-full mt-1.5 min-w-[140px] py-1 rounded-xl bg-[#1c1c1e]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-50 overflow-hidden"
+              className="absolute right-0 top-full mt-1.5 min-w-[140px] py-1 rounded-xl bg-[#161619] backdrop-blur-xl border border-[#232328] shadow-2xl z-50 overflow-hidden"
             >
               <button
                 onClick={handlePinClick}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-white/90 hover:bg-white/10 transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-white/90 hover:bg-[#232328] transition-colors cursor-pointer"
               >
                 {isPinned ? (
                   <>

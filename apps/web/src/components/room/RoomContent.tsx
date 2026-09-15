@@ -309,7 +309,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         className={`
           fixed inset-y-0 left-0 z-40 shrink-0 transition-transform duration-300 ease-in-out
           ${isLeftSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          md:relative md:translate-x-0
+          lg:relative lg:translate-x-0
         `}
       >
         <Sidebar
@@ -323,10 +323,10 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
       </div>
 
-      {/* Lớp phủ đen cho Left Sidebar trên Mobile */}
+      {/* Lớp phủ đen cho Left Sidebar trên Mobile & Tablet (sm & md) */}
       {isLeftSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
           onClick={() => setIsLeftSidebarOpen(false)}
         />
       )}
@@ -337,7 +337,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
         <header className="h-14 px-4 border-b border-slate-200 bg-white flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-4">
             <button
-              className="md:hidden p-1.5 -ml-1.5 hover:bg-slate-100 rounded-md text-slate-600"
+              className="lg:hidden p-1.5 -ml-1.5 hover:bg-slate-100 rounded-md text-slate-600"
               onClick={() => setIsLeftSidebarOpen(true)}
             >
               <Menu size={20} />

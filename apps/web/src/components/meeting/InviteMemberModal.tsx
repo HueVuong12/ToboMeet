@@ -47,23 +47,23 @@ export default function InviteMemberModal({
 
   return createPortal(
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4 animate-fade-in backdrop-blur-sm">
-      <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
+      <div className="bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#232328] bg-[#111113]">
           <h3 className="text-[15px] font-bold text-white tracking-wide flex items-center gap-2">
             <UserPlus size={18} className="text-blue-500" />
             {t("title")}
           </h3>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-[#333] rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+            className="p-1.5 hover:bg-[#232328] rounded-lg text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Search Bar */}
-        <div className="px-5 py-4 bg-[#111]">
+        <div className="px-5 py-4 bg-[#111113]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
@@ -71,7 +71,7 @@ export default function InviteMemberModal({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("search_placeholder")}
-              className="w-full pl-9 pr-4 py-2.5 bg-[#222] border border-[#333] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-slate-500"
+              className="w-full pl-9 pr-4 py-2.5 bg-[#161619] border border-[#232328] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-slate-500"
               autoFocus
             />
           </div>
@@ -79,7 +79,7 @@ export default function InviteMemberModal({
 
         {/* Danh sách thành viên */}
         <div
-          className="flex-1 overflow-y-auto custom-scrollbar p-3 relative"
+          className="flex-1 overflow-y-auto custom-scrollbar p-3 relative bg-[#111113]"
           onScroll={handleScroll}
         >
           {isLoading ? (
@@ -93,14 +93,14 @@ export default function InviteMemberModal({
               {availableMembersToInvite.map((member) => (
                 <div
                   key={member.userId}
-                  className="flex items-center gap-3 p-2.5 hover:bg-[#2a2a2a] rounded-xl transition-all border border-transparent hover:border-[#333]"
+                  className="flex items-center gap-3 p-2.5 hover:bg-[#1a1a1e] rounded-xl transition-all border border-transparent hover:border-[#232328]"
                 >
                   <div className="relative shrink-0">
                     {member.avatarUrl ? (
                       <img
                         src={member.avatarUrl}
                         alt={member.displayName}
-                        className="w-10 h-10 rounded-full object-cover border border-[#333] bg-[#222]"
+                        className="w-10 h-10 rounded-full object-cover border border-[#232328] bg-[#1a1a1e]"
                         onError={(e) => {
                           const fallbackName = member.displayName || "?";
                           e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -109,7 +109,7 @@ export default function InviteMemberModal({
                         }}
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm uppercase border border-[#333]">
+                      <div className="w-10 h-10 rounded-full bg-[#1a1a1e] text-slate-400 flex items-center justify-center font-bold text-sm uppercase border border-[#232328]">
                         {member.displayName?.charAt(0) || "?"}
                       </div>
                     )}
@@ -137,7 +137,7 @@ export default function InviteMemberModal({
                       )
                     }
                     disabled={invitingUserId === member.userId}
-                    className="shrink-0 px-4 py-1.5 bg-[#222] border border-[#333] hover:border-brand-500 hover:bg-brand-600/10 text-slate-300 hover:text-brand-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-17.5"
+                    className="shrink-0 px-4 py-1.5 bg-[#1a1a1e] border border-[#232328] hover:border-brand-500 hover:bg-brand-600/10 text-slate-300 hover:text-brand-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-17.5 cursor-pointer"
                   >
                     {invitingUserId === member.userId ? (
                       <Loader2 size={14} className="animate-spin" />

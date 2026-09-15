@@ -406,7 +406,7 @@ export default function Sidebar({
           {onClose && (
             <button
               onClick={onClose}
-              className="md:hidden p-1.5 rounded-md hover:bg-slate-200 text-slate-500"
+              className="lg:hidden p-1.5 rounded-md hover:bg-slate-200 text-slate-500"
             >
               <X className="w-4 h-4" />
             </button>

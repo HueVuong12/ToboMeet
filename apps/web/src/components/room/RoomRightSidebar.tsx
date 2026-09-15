@@ -61,11 +61,10 @@ export default function RoomRightSidebar({
       )}
 
       <aside
-        className={`fixed inset-y-0 right-0 z-40 flex flex-col bg-white border-l border-slate-200 shadow-xl lg:relative lg:translate-x-0 lg:shadow-none transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${
-          isRightSidebarOpen
+        className={`fixed inset-y-0 right-0 z-40 flex flex-col bg-white border-l border-slate-200 shadow-xl lg:relative lg:translate-x-0 lg:shadow-none transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${isRightSidebarOpen
             ? "translate-x-0 w-80 lg:w-80 lg:opacity-100"
             : "translate-x-full w-80 lg:w-0 lg:opacity-0 lg:border-none pointer-events-none lg:pointer-events-auto"
-        }`}
+          }`}
       >
         <div className="h-14 flex items-center justify-between px-5 border-b border-slate-200 w-80 shrink-0">
           <h2 className="text-sm font-bold text-slate-800">

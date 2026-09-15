@@ -443,13 +443,13 @@ export default function CreateBreakoutModal({
 
       {/* Main Modal Container (Clean, compact width suitable for Zoom-like style) */}
       <div
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[92vw] bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-out ${step === 1
+        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[92vw] bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ease-out ${step === 1
           ? "max-w-[480px] h-auto max-h-[82vh]"
           : "max-w-[560px] h-[82vh] max-h-[660px]"
           }`}
       >
         {/* MODAL HEADER */}
-        <div className="px-5 py-3.5 border-b border-[#333] flex items-center justify-between bg-[#111] shrink-0">
+        <div className="px-5 py-3.5 border-b border-[#232328] flex items-center justify-between bg-[#111113] shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-600/10 border border-blue-500/30 rounded-xl text-blue-400">
               <Network size={18} />
@@ -459,7 +459,7 @@ export default function CreateBreakoutModal({
                 <h2 className="text-sm font-bold text-white">
                   {step === 1 ? t("step_1_title") : t("step_2_title")}
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#222] text-slate-400 border border-[#333] rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#232328] text-slate-400 border border-[#232328] rounded-full">
                   {step === 1 ? "1 / 2" : "2 / 2"}
                 </span>
               </div>
@@ -471,21 +471,21 @@ export default function CreateBreakoutModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-[#232328] rounded-lg transition-colors cursor-pointer"
           >
             <X size={17} />
           </button>
         </div>
 
         {/* MODAL BODY */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-[#111] flex flex-col relative">
+        <div className="flex-1 min-h-0 overflow-hidden bg-[#111113] flex flex-col relative">
           {/* ================= STEP 1: SETUP & MODE SELECTION (NO DURATION) ================= */}
           {step === 1 && (
             <div
               className="p-5 overflow-y-auto custom-scrollbar flex flex-col gap-4"
             >
               {/* Room Count Input Box */}
-              <div className="bg-[#222] p-4 rounded-xl border border-[#333]">
+              <div className="bg-[#161619] p-4 rounded-xl border border-[#232328]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
@@ -502,7 +502,7 @@ export default function CreateBreakoutModal({
                     <button
                       type="button"
                       onClick={() => setRoomCount((c) => Math.max(1, c - 1))}
-                      className="w-6 h-6 pb-1 rounded-lg bg-[#333] hover:bg-[#444] border border-[#444] text-white flex items-center justify-center font-bold text-base transition-colors"
+                      className="w-6 h-6 pb-1 rounded-lg bg-[#232328] hover:bg-[#2e2e34] border border-[#232328] text-white flex items-center justify-center font-bold text-base transition-colors cursor-pointer"
                     >
                       -
                     </button>
@@ -512,12 +512,12 @@ export default function CreateBreakoutModal({
                       max={50}
                       value={roomCount}
                       onChange={(e) => setRoomCount(Math.max(1, Number(e.target.value)))}
-                      className="w-14 h-8 bg-[#1a1a1a] border border-[#444] text-white text-center font-mono font-bold text-sm rounded-lg focus:border-blue-500 outline-none transition-colors"
+                      className="w-14 h-8 bg-[#111113] border border-[#232328] text-white text-center font-mono font-bold text-sm rounded-lg focus:border-blue-500 outline-none transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setRoomCount((c) => c + 1)}
-                      className="w-6 h-6 pb-1 rounded-lg bg-[#333] hover:bg-[#444] border border-[#444] text-white flex items-center justify-center font-bold text-base transition-colors"
+                      className="w-6 h-6 pb-1 rounded-lg bg-[#232328] hover:bg-[#2e2e34] border border-[#232328] text-white flex items-center justify-center font-bold text-base transition-colors cursor-pointer"
                     >
                       +
                     </button>
@@ -525,7 +525,7 @@ export default function CreateBreakoutModal({
                 </div>
 
                 {mode === "auto" && assignableParticipants.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[#333] flex items-center justify-between text-[11px]">
+                  <div className="mt-3 pt-3 border-t border-[#232328] flex items-center justify-between text-[11px]">
                     <span className="text-slate-400">{t("expected_distribution")}</span>
                     <span className="text-blue-400 font-semibold">
                       {t("auto_calc_hint", {
@@ -547,13 +547,13 @@ export default function CreateBreakoutModal({
                   onClick={() => setMode("auto")}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "auto"
                     ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
-                    : "border-[#333] bg-[#222] hover:border-[#444] hover:bg-[#2a2a2a]"
+                    : "border-[#232328] bg-[#161619] hover:border-[#333338] hover:bg-[#1a1a1e]"
                     }`}
                 >
                   <div
                     className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "auto"
                       ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
-                      : "bg-[#333] border border-[#444] text-slate-400"
+                      : "bg-[#232328] border border-[#232328] text-slate-400"
                       }`}
                   >
                     <Wand2 size={17} />
@@ -584,13 +584,13 @@ export default function CreateBreakoutModal({
                   onClick={() => setMode("manual")}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "manual"
                     ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
-                    : "border-[#333] bg-[#222] hover:border-[#444] hover:bg-[#2a2a2a]"
+                    : "border-[#232328] bg-[#161619] hover:border-[#333338] hover:bg-[#1a1a1e]"
                     }`}
                 >
                   <div
                     className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "manual"
                       ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
-                      : "bg-[#333] border border-[#444] text-slate-400"
+                      : "bg-[#232328] border border-[#232328] text-slate-400"
                       }`}
                   >
                     <Hand size={17} />
@@ -621,13 +621,13 @@ export default function CreateBreakoutModal({
                   onClick={() => setMode("free_choose")}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${mode === "free_choose"
                     ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/5"
-                    : "border-[#333] bg-[#222] hover:border-[#444] hover:bg-[#2a2a2a]"
+                    : "border-[#232328] bg-[#161619] hover:border-[#333338] hover:bg-[#1a1a1e]"
                     }`}
                 >
                   <div
                     className={`p-2 rounded-lg shrink-0 mt-0.5 ${mode === "free_choose"
                       ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
-                      : "bg-[#333] border border-[#444] text-slate-400"
+                      : "bg-[#232328] border border-[#232328] text-slate-400"
                       }`}
                   >
                     <Sparkles size={17} />
@@ -662,13 +662,13 @@ export default function CreateBreakoutModal({
           {step === 2 && (
             <div className="flex-1 min-h-0 h-0 flex flex-col overflow-hidden">
               {/* Step 2 Top Sub-Bar */}
-              <div className="px-5 py-2.5 border-b border-[#333] bg-[#1a1a1a] flex items-center justify-between gap-2 shrink-0">
+              <div className="px-5 py-2.5 border-b border-[#232328] bg-[#161619] flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
                   {mode !== "free_choose" && (
                     <span
                       className={`text-[11px] font-medium px-2 py-0.5 rounded truncate ${unassignedParticipants.length > 0
                         ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                        : "bg-[#222] text-slate-400 border border-[#333]"
+                        : "bg-[#232328] text-slate-400 border border-[#232328]"
                         }`}
                     >
                       {t("unassigned_count", {
@@ -683,7 +683,7 @@ export default function CreateBreakoutModal({
                   {mode === "auto" && (
                     <button
                       onClick={handleShuffleAgain}
-                      className="px-2.5 py-1 bg-[#222] hover:bg-[#333] text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-[#333] transition-colors"
+                      className="px-2.5 py-1 bg-[#1a1a1e] hover:bg-[#232328] text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-[#232328] transition-colors cursor-pointer"
                       title={t("shuffle_again")}
                     >
                       <RefreshCw size={12} /> {t("shuffle_again")}
@@ -693,7 +693,7 @@ export default function CreateBreakoutModal({
                   {/* Expand / Collapse all toggle */}
                   <button
                     onClick={toggleAllRooms}
-                    className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-[#222] rounded-lg text-xs font-medium transition-colors"
+                    className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-[#232328] rounded-lg text-xs font-medium transition-colors cursor-pointer"
                     title={
                       expandedRoomIds.size === rooms.length
                         ? t("collapse_all")
@@ -710,7 +710,7 @@ export default function CreateBreakoutModal({
                   {/* Add Room button */}
                   <button
                     onClick={handleAddRoom}
-                    className="px-2.5 py-1 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                    className="px-2.5 py-1 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <Plus size={13} /> {t("add_room")}
                   </button>
@@ -719,7 +719,7 @@ export default function CreateBreakoutModal({
 
               {/* Step 2 Rooms Vertical List Content (Zoom-Style Accordion) */}
               <div
-                className="h-0 flex-1 min-h-0 overflow-y-auto bg-[#111] p-4 flex flex-col gap-2.5 custom-scrollbar"
+                className="h-0 flex-1 min-h-0 overflow-y-auto bg-[#111113] p-4 flex flex-col gap-2.5 custom-scrollbar"
               >
                 {mode === "free_choose" && (
                   <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-blue-300 text-xs flex items-center gap-2">
@@ -736,11 +736,11 @@ export default function CreateBreakoutModal({
                   return (
                     <div
                       key={room.id}
-                      className="shrink-0 bg-[#222] border border-[#333] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#444]"
+                      className="shrink-0 bg-[#161619] border border-[#232328] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#333338]"
                     >
                       {/* Room Item Header Row */}
                       <div
-                        className={`px-3.5 py-2.5 flex items-center justify-between gap-2 select-none cursor-pointer transition-colors ${isExpanded ? "bg-[#2a2a2a] border-b border-[#333]" : "bg-[#222] hover:bg-[#2a2a2a]"
+                        className={`px-3.5 py-2.5 flex items-center justify-between gap-2 select-none cursor-pointer transition-colors ${isExpanded ? "bg-[#1a1a1e] border-b border-[#232328]" : "bg-[#161619] hover:bg-[#1a1a1e]"
                           }`}
                         onClick={() => toggleRoomExpand(room.id)}
                       >
@@ -757,7 +757,7 @@ export default function CreateBreakoutModal({
                               e.stopPropagation();
                               toggleRoomExpand(room.id);
                             }}
-                            className="p-1 -ml-1 text-slate-400 hover:text-white rounded transition-colors"
+                            className="p-1 -ml-1 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
                           >
                             {isExpanded ? (
                               <ChevronDown size={16} className="text-slate-300" />
@@ -780,12 +780,12 @@ export default function CreateBreakoutModal({
                                   if (e.key === "Enter") handleSaveRoomName(room.id);
                                   if (e.key === "Escape") setEditingRoomId(null);
                                 }}
-                                className="w-full bg-[#111] border border-blue-500 text-white text-xs font-bold rounded px-2 py-1 outline-none"
+                                className="w-full bg-[#111113] border border-blue-500 text-white text-xs font-bold rounded px-2 py-1 outline-none"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSaveRoomName(room.id)}
-                                className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded"
+                                className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded cursor-pointer"
                               >
                                 <Check size={14} />
                               </button>
@@ -815,7 +815,7 @@ export default function CreateBreakoutModal({
                             <button
                               type="button"
                               onClick={() => handleOpenAddModal(room.id)}
-                              className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors flex items-center gap-1"
+                              className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
                               title={t("add_participants")}
                             >
                               <UserPlus size={13} />
@@ -827,7 +827,7 @@ export default function CreateBreakoutModal({
                           <button
                             type="button"
                             onClick={() => handleStartRenameRoom(room.id, room.name)}
-                            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-[#333] rounded-md transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-[#232328] rounded-md transition-colors cursor-pointer"
                             title={t("rename_room")}
                           >
                             <Edit2 size={13} />
@@ -838,7 +838,7 @@ export default function CreateBreakoutModal({
                             type="button"
                             onClick={() => handleDeleteRoom(room.id)}
                             disabled={rooms.length <= 1}
-                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-transparent rounded-md transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-transparent rounded-md transition-colors cursor-pointer"
                             title={t("delete_room_tooltip")}
                           >
                             <Trash2 size={13} />
@@ -848,7 +848,7 @@ export default function CreateBreakoutModal({
 
                       {/* Room Sub-Rows */}
                       {isExpanded && (
-                        <div className="divide-y divide-[#262626] bg-[#1a1a1a]">
+                        <div className="divide-y divide-[#232328] bg-[#131315]">
                           {mode === "free_choose" ? (
                             <div className="py-3 px-4 text-center text-slate-500 text-xs italic flex items-center justify-center gap-2">
                               <Users size={14} className="text-slate-500" />
@@ -860,7 +860,7 @@ export default function CreateBreakoutModal({
                               <button
                                 type="button"
                                 onClick={() => handleOpenAddModal(room.id)}
-                                className="not-italic text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
+                                className="not-italic text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer"
                               >
                                 <Plus size={12} /> {t("add_participants")}
                               </button>
@@ -874,7 +874,7 @@ export default function CreateBreakoutModal({
                                 <div key={userId} className="flex flex-col">
                                   {/* Participant Main Row */}
                                   <div
-                                    className={`relative flex items-center justify-between pl-8 pr-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-[#222] group ${isMenuOpen ? "bg-[#222]" : ""
+                                    className={`relative flex items-center justify-between pl-8 pr-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-[#1a1a1e] group ${isMenuOpen ? "bg-[#1a1a1e]" : ""
                                       }`}
                                   >
                                     <div className="flex items-center gap-2.5 min-w-0">
@@ -899,8 +899,8 @@ export default function CreateBreakoutModal({
                                           setActiveSubMenu(null);
                                         }
                                       }}
-                                      className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#333] transition-colors ${isMenuOpen
-                                        ? "text-white bg-[#333]"
+                                      className={`p-1 rounded text-slate-400 hover:text-white hover:bg-[#232328] transition-colors cursor-pointer ${isMenuOpen
+                                        ? "text-white bg-[#232328]"
                                         : "opacity-60 group-hover:opacity-100"
                                         }`}
                                       title={t("options_button")}
@@ -913,7 +913,7 @@ export default function CreateBreakoutModal({
                                   {isMenuOpen && (
                                     <div
                                       onClick={(e) => e.stopPropagation()}
-                                      className="mx-3.5 my-2 p-2 bg-[#111] border border-[#333] rounded-xl flex flex-col gap-1.5 shadow-inner animate-in fade-in slide-in-from-top-1 duration-150"
+                                      className="mx-3.5 my-2 p-2 bg-[#111113] border border-[#232328] rounded-xl flex flex-col gap-1.5 shadow-inner animate-in fade-in slide-in-from-top-1 duration-150"
                                     >
                                       {/* Option 1: Remove from room */}
                                       <button
@@ -922,7 +922,7 @@ export default function CreateBreakoutModal({
                                           handleRemoveParticipant(room.id, userId);
                                           setActiveMenuUserId(null);
                                         }}
-                                        className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                                        className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors cursor-pointer"
                                       >
                                         <UserMinus size={13} />
                                         {t("remove_from_room")}
@@ -937,9 +937,9 @@ export default function CreateBreakoutModal({
                                               prev === "move" ? null : "move",
                                             )
                                           }
-                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "move"
-                                            ? "bg-[#222] text-blue-400"
-                                            : "text-slate-300 hover:bg-[#222]"
+                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${activeSubMenu === "move"
+                                            ? "bg-[#1a1a1e] text-blue-400"
+                                            : "text-slate-300 hover:bg-[#1a1a1e]"
                                             }`}
                                         >
                                           <div className="flex items-center gap-2">
@@ -955,7 +955,7 @@ export default function CreateBreakoutModal({
 
                                         {activeSubMenu === "move" && (
                                           <div
-                                            className="mt-1 ml-2 pl-2 border-l border-[#333] flex flex-col gap-1 max-h-48 overflow-y-auto custom-scrollbar py-1"
+                                            className="mt-1 ml-2 pl-2 border-l border-[#232328] flex flex-col gap-1 max-h-48 overflow-y-auto custom-scrollbar py-1"
                                           >
                                             {rooms
                                               .filter((r) => r.id !== room.id)
@@ -971,7 +971,7 @@ export default function CreateBreakoutModal({
                                                     );
                                                     setActiveMenuUserId(null);
                                                   }}
-                                                  className="w-full px-2 py-1 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors flex items-center justify-between gap-2"
+                                                  className="w-full px-2 py-1 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-blue-600/20 rounded truncate transition-colors flex items-center justify-between gap-2 cursor-pointer"
                                                 >
                                                   <span className="truncate">{otherRoom.name}</span>
                                                   <span className="text-[10px] text-slate-500 shrink-0">
@@ -992,9 +992,9 @@ export default function CreateBreakoutModal({
                                               prev === "exchange" ? null : "exchange",
                                             )
                                           }
-                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors ${activeSubMenu === "exchange"
-                                            ? "bg-[#222] text-amber-400"
-                                            : "text-slate-300 hover:bg-[#222]"
+                                          className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${activeSubMenu === "exchange"
+                                            ? "bg-[#1a1a1e] text-amber-400"
+                                            : "text-slate-300 hover:bg-[#1a1a1e]"
                                             }`}
                                         >
                                           <div className="flex items-center gap-2">
@@ -1010,7 +1010,7 @@ export default function CreateBreakoutModal({
 
                                         {activeSubMenu === "exchange" && (
                                           <div
-                                            className="mt-1 ml-2 pl-2 border-l border-[#333] flex flex-col gap-1.5 max-h-52 overflow-y-auto custom-scrollbar py-1"
+                                            className="mt-1 ml-2 pl-2 border-l border-[#232328] flex flex-col gap-1.5 max-h-52 overflow-y-auto custom-scrollbar py-1"
                                           >
                                             {rooms
                                               .filter((r) => r.id !== room.id)
@@ -1034,7 +1034,7 @@ export default function CreateBreakoutModal({
                                                     );
                                                     setActiveMenuUserId(null);
                                                   }}
-                                                  className="w-full px-2 py-1 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors"
+                                                  className="w-full px-2 py-1 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-amber-500/20 rounded flex items-center justify-between gap-2 transition-colors cursor-pointer"
                                                 >
                                                   <span className="truncate">{oInfo.name}</span>
                                                   <span className="text-[10px] text-slate-500 shrink-0">
@@ -1075,10 +1075,10 @@ export default function CreateBreakoutModal({
             <div className="absolute inset-0 z-60 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+                className="w-full max-w-sm bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
               >
                 {/* Header */}
-                <div className="px-4 py-3 border-b border-[#333] flex items-center justify-between bg-[#111]">
+                <div className="px-4 py-3 border-b border-[#232328] flex items-center justify-between bg-[#111113]">
                   <div>
                     <h3 className="text-xs font-bold text-white">
                       {t("select_participants_title", {
@@ -1093,14 +1093,14 @@ export default function CreateBreakoutModal({
                   </div>
                   <button
                     onClick={() => setAddModalTargetRoomId(null)}
-                    className="p-1 text-slate-400 hover:text-white rounded-lg"
+                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-[#232328] transition-colors"
                   >
                     <X size={15} />
                   </button>
                 </div>
 
                 {/* Search & Select All */}
-                <div className="p-2.5 border-b border-[#333] bg-[#111] flex items-center gap-2">
+                <div className="p-2.5 border-b border-[#232328] bg-[#111113] flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search
                       size={13}
@@ -1111,7 +1111,7 @@ export default function CreateBreakoutModal({
                       placeholder={t("search_participant")}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-7 pl-7 pr-2.5 bg-[#222] border border-[#333] text-white text-xs rounded-lg focus:border-blue-500 outline-none"
+                      className="w-full h-7 pl-7 pr-2.5 bg-[#161619] border border-[#232328] text-white text-xs rounded-lg focus:border-blue-500 outline-none"
                     />
                   </div>
 
@@ -1124,7 +1124,7 @@ export default function CreateBreakoutModal({
                           setSelectedUserIdsToAdd(filteredUnassigned.map((p) => p.identity));
                         }
                       }}
-                      className="px-2 py-1 bg-[#222] hover:bg-[#333] text-slate-300 text-[11px] font-semibold rounded-lg shrink-0 border border-[#333] transition-colors"
+                      className="px-2 py-1 bg-[#1a1a1e] hover:bg-[#232328] text-slate-300 text-[11px] font-semibold rounded-lg shrink-0 border border-[#232328] transition-colors"
                     >
                       {selectedUserIdsToAdd.length === filteredUnassigned.length
                         ? t("deselect_all")
@@ -1135,7 +1135,7 @@ export default function CreateBreakoutModal({
 
                 {/* Participant List */}
                 <div
-                  className="p-2.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 bg-[#111]"
+                  className="p-2.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 bg-[#161619]"
                 >
                   {filteredUnassigned.length === 0 ? (
                     <div className="text-center py-6 text-slate-500 text-xs italic">
@@ -1150,7 +1150,7 @@ export default function CreateBreakoutModal({
                           onClick={() => handleToggleUserSelection(p.identity)}
                           className={`p-2 rounded-lg border cursor-pointer flex items-center justify-between gap-2.5 transition-colors ${isSelected
                             ? "bg-blue-600/15 border-blue-500/50 text-white"
-                            : "bg-[#222] border-[#333] hover:border-[#444] text-slate-300"
+                            : "bg-[#111113] border-[#232328] hover:border-[#333338] text-slate-300 hover:bg-[#1a1a1e]"
                             }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
@@ -1176,10 +1176,10 @@ export default function CreateBreakoutModal({
                 </div>
 
                 {/* Footer */}
-                <div className="p-2.5 border-t border-[#333] bg-[#111] flex items-center justify-end gap-2">
+                <div className="p-2.5 border-t border-[#232328] bg-[#111113] flex items-center justify-end gap-2">
                   <button
                     onClick={() => setAddModalTargetRoomId(null)}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-[#222] rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-[#232328] rounded-lg transition-colors"
                   >
                     {t("cancel")}
                   </button>
@@ -1198,14 +1198,14 @@ export default function CreateBreakoutModal({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="px-5 py-3.5 border-t border-[#333] bg-[#111] flex items-center justify-between shrink-0 relative">
+        <div className="px-5 py-3.5 border-t border-[#232328] bg-[#111113] flex items-center justify-between shrink-0 relative">
           <div className="flex items-center gap-2">
             {step === 2 && (
               <>
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#222] rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#232328] rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <ArrowLeft size={14} /> {t("btn_back")}
                 </button>
@@ -1217,7 +1217,7 @@ export default function CreateBreakoutModal({
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all ${isSettingsOpen || isAutoCloseEnabled
                       ? "bg-blue-600/15 border-blue-500/40 text-blue-400"
-                      : "bg-[#222] border-[#333] text-slate-300 hover:text-white hover:bg-[#333]"
+                      : "bg-[#161619] border-[#232328] text-slate-300 hover:text-white hover:bg-[#232328]"
                       }`}
                     title={t("options_button")}
                   >
@@ -1230,8 +1230,8 @@ export default function CreateBreakoutModal({
 
                   {/* Settings Popover / Dropdown Menu */}
                   {isSettingsOpen && (
-                    <div className="absolute left-0 bottom-full mb-2 z-70 w-80 bg-[#1c1c1c] border border-[#333] rounded-xl shadow-2xl p-3.5 flex flex-col gap-3 animate-scale-in">
-                      <div className="flex items-center justify-between border-b border-[#333] pb-2">
+                    <div className="absolute left-0 bottom-full mb-2 z-70 w-80 bg-[#161619] border border-[#232328] rounded-xl shadow-2xl p-3.5 flex flex-col gap-3 animate-scale-in">
+                      <div className="flex items-center justify-between border-b border-[#232328] pb-2">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                           <Settings size={14} className="text-blue-400" />
                           <span>{t("options_title")}</span>
@@ -1239,7 +1239,7 @@ export default function CreateBreakoutModal({
                         <button
                           type="button"
                           onClick={() => setIsSettingsOpen(false)}
-                          className="text-slate-400 hover:text-white p-0.5"
+                          className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-[#232328] transition-colors"
                         >
                           <X size={14} />
                         </button>
@@ -1252,7 +1252,7 @@ export default function CreateBreakoutModal({
                             type="checkbox"
                             checked={isAutoCloseEnabled}
                             onChange={(e) => setIsAutoCloseEnabled(e.target.checked)}
-                            className="mt-0.5 rounded border-slate-600 text-blue-600 focus:ring-0 focus:ring-offset-0 bg-[#111]"
+                            className="mt-0.5 rounded border-[#232328] text-blue-600 focus:ring-0 focus:ring-offset-0 bg-[#111113]"
                           />
                           <div className="text-xs text-slate-200">
                             <span>{t("auto_close_checkbox")}</span>
@@ -1266,7 +1266,7 @@ export default function CreateBreakoutModal({
                                 onChange={(e) =>
                                   setAutoCloseMinutes(Math.max(1, Number(e.target.value)))
                                 }
-                                className="w-14 h-7 bg-[#111] border border-[#333] disabled:opacity-40 text-white text-center font-mono font-bold text-xs rounded focus:border-blue-500 outline-none"
+                                className="w-14 h-7 bg-[#111113] border border-[#232328] disabled:opacity-40 text-white text-center font-mono font-bold text-xs rounded focus:border-blue-500 outline-none"
                               />
                               <span className="text-slate-400 text-xs">{t("minutes_unit")}</span>
                             </div>
@@ -1274,7 +1274,7 @@ export default function CreateBreakoutModal({
                         </label>
                       </div>
 
-                      <div className="pt-2 border-t border-[#333] flex items-center justify-between text-[11px] text-slate-400">
+                      <div className="pt-2 border-t border-[#232328] flex items-center justify-between text-[11px] text-slate-400">
                         <span>{t("status_label")}</span>
                         <span className="font-semibold text-slate-300">
                           {isAutoCloseEnabled
@@ -1292,7 +1292,7 @@ export default function CreateBreakoutModal({
           <div className="flex items-center gap-2.5">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-[#222] rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-[#232328] rounded-lg transition-colors"
             >
               {t("cancel")}
             </button>

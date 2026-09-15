@@ -166,9 +166,9 @@ export default function JoinBreakoutModal({
         className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md animate-fade-in transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[94vw] max-w-lg bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[94vw] max-w-lg bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
         {/* HEADER */}
-        <div className="px-5 py-4 border-b border-[#333] flex items-center justify-between bg-[#111]">
+        <div className="px-5 py-4 border-b border-[#232328] flex items-center justify-between bg-[#111113]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
               <Network size={18} />
@@ -208,7 +208,7 @@ export default function JoinBreakoutModal({
 
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-[#232328] rounded-lg transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -216,7 +216,7 @@ export default function JoinBreakoutModal({
         </div>
 
         {/* BODY */}
-        <div className="p-4 sm:p-5 overflow-y-auto max-h-[60vh] space-y-2.5 custom-scrollbar bg-[#111]">
+        <div className="p-4 sm:p-5 overflow-y-auto max-h-[60vh] space-y-2.5 custom-scrollbar bg-[#111113]">
           {activeRooms && activeRooms.length > 0 ? (
             activeRooms.map((room) => {
               const currentCount = roomCounts[room.id] || 0;
@@ -274,10 +274,10 @@ export default function JoinBreakoutModal({
               return (
                 <div
                   key={room.id}
-                  className={`flex flex-col gap-2.5 p-3.5 bg-[#222] border rounded-xl transition-all duration-200 ${
+                  className={`flex flex-col gap-2.5 p-3.5 bg-[#161619] border rounded-xl transition-all duration-200 ${
                     isExpanded
                       ? "border-blue-500/50 shadow-md shadow-blue-500/5"
-                      : "border-[#333] hover:border-blue-500/30"
+                      : "border-[#232328] hover:border-blue-500/30"
                   }`}
                 >
                   {/* HÀNG CHÍNH: Thông tin phòng + Nút Thao tác */}
@@ -324,7 +324,7 @@ export default function JoinBreakoutModal({
                           className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                             isExpanded
                               ? "bg-blue-600 text-white border-blue-500 shadow-sm"
-                              : "bg-[#2a2a2a] hover:bg-[#333] text-slate-300 hover:text-white border-[#444]"
+                              : "bg-[#1a1a1e] hover:bg-[#232328] text-slate-300 hover:text-white border-[#232328]"
                           }`}
                         >
                           <UserPlus size={14} />
@@ -337,7 +337,7 @@ export default function JoinBreakoutModal({
                           disabled={isDisabled}
                           className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 ${
                             isDisabled
-                              ? "bg-[#333] text-slate-500 border border-[#444] cursor-not-allowed"
+                              ? "bg-[#232328] text-slate-500 border border-[#2e2e34] cursor-not-allowed"
                               : "bg-blue-600 hover:bg-blue-500 text-white shadow-sm hover:shadow-blue-500/20 active:scale-95 border border-blue-500 hover:border-blue-400 cursor-pointer"
                           }`}
                         >
@@ -365,7 +365,7 @@ export default function JoinBreakoutModal({
                           </span>
                         </button>
                       ) : (
-                        <div className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-[#1a1a1a] text-slate-500 border border-[#333]">
+                        <div className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-[#111113] text-slate-500 border border-[#232328]">
                           <Lock size={12} className="text-slate-500" />
                           <span>{t("assigned_only")}</span>
                         </div>
@@ -375,7 +375,7 @@ export default function JoinBreakoutModal({
 
                   {/* SỔ XUỐNG DANH SÁCH THÊM NGƯỜI (INLINE) */}
                   {isHost && isAssignedMode && isExpanded && (
-                    <div className="pt-3 mt-1 border-t border-[#333] flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="pt-3 mt-1 border-t border-[#232328] flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-150">
                       {/* Ô tìm kiếm cục bộ */}
                       <div className="relative">
                         <Search
@@ -387,7 +387,7 @@ export default function JoinBreakoutModal({
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder={t("search_participant")}
-                          className="w-full bg-[#181818] border border-[#3a3a3a] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none transition-colors"
+                          className="w-full bg-[#111113] border border-[#232328] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none transition-colors"
                         />
                         {searchQuery && (
                           <button
@@ -416,7 +416,7 @@ export default function JoinBreakoutModal({
                             return (
                               <div
                                 key={p.identity}
-                                className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-[#181818] hover:bg-[#202020] border border-[#333] rounded-lg transition-colors"
+                                className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-[#111113] hover:bg-[#1a1a1e] border border-[#232328] rounded-lg transition-colors"
                               >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   {avatarUrl ? (
@@ -472,7 +472,7 @@ export default function JoinBreakoutModal({
             })
           ) : (
             <div className="text-center py-10 flex flex-col items-center justify-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center border border-[#333]">
+              <div className="w-12 h-12 rounded-full bg-[#161619] flex items-center justify-center border border-[#232328]">
                 <Network className="text-slate-500" size={22} />
               </div>
               <p className="text-slate-400 text-sm font-medium">

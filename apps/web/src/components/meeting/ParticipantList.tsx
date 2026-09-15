@@ -54,11 +54,11 @@ export default function ParticipantList({
     <div className="flex flex-col h-full">
       {/* ================= THANH ĐIỀU HƯỚNG TABS (CHỈ DÀNH CHO ADMIN) ================= */}
       {canApprove && (
-        <div className="flex p-1 bg-[#1a1a1a] rounded-lg mb-2.5 mx-1 border border-[#333]">
+        <div className="flex p-1 bg-[#161619] rounded-lg mb-2.5 mx-1 border border-[#232328]">
           <button
             onClick={() => setActiveListTab("joined")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${activeListTab === "joined"
-              ? "bg-[#333] text-white shadow-sm"
+              ? "bg-[#232328] text-white shadow-sm"
               : "text-slate-400 hover:text-slate-200"
               }`}
           >
@@ -68,7 +68,7 @@ export default function ParticipantList({
           <button
             onClick={() => setActiveListTab("waiting")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${activeListTab === "waiting"
-              ? "bg-[#333] text-white shadow-sm"
+              ? "bg-[#232328] text-white shadow-sm"
               : "text-slate-400 hover:text-slate-200"
               }`}
           >
@@ -278,7 +278,7 @@ export default function ParticipantList({
                                 openMenuId === p.identity ? null : p.identity,
                               )
                             }
-                            className="p-1 hover:bg-[#333] rounded-md text-slate-400 hover:text-white transition-colors"
+                            className="p-1 hover:bg-[#232328] rounded-md text-slate-400 hover:text-white transition-colors cursor-pointer"
                           >
                             <MoreVertical size={14} />
                           </button>
@@ -290,7 +290,7 @@ export default function ParticipantList({
                               className="fixed inset-0 z-40"
                               onClick={() => setOpenMenuId(null)}
                             ></div>
-                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-48 origin-top-right bg-[#1c1c1c] border border-[#333] rounded-xl py-1 shadow-2xl backdrop-blur-xl animate-scale-in">
+                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-48 origin-top-right bg-[#161619] border border-[#232328] rounded-xl py-1 shadow-2xl backdrop-blur-xl animate-scale-in">
                               {isMe && (
                                 <button
                                   onClick={() => {
@@ -300,7 +300,7 @@ export default function ParticipantList({
                                     });
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                 >
                                   <Edit2 size={14} className="text-blue-400" />{" "}
                                   {t2("rename_display_name")}
@@ -316,7 +316,7 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "member");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <UserCheck size={14} />
                                       {t("revoke_vice_leader", {
@@ -329,7 +329,7 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "admin");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <UserCheck size={14} className="text-blue-400" />
                                       {t("appoint_vice_leader", {
@@ -346,14 +346,14 @@ export default function ParticipantList({
                                       );
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                   >
                                     <ShieldCheck size={14} className="text-amber-400" />
                                     {t("appoint_leader", {
                                       defaultValue: "Bổ nhiệm Trưởng nhóm",
                                     })}
                                   </button>
-                                  <div className="h-px bg-[#333] my-1 mx-2" />
+                                  <div className="h-px bg-[#232328] my-1 mx-2" />
                                 </>
                               )}
 
@@ -370,7 +370,7 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <MicOff size={14} />
                                       {t2("mic_off")}
@@ -387,7 +387,7 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#2a2a2a] flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <VideoOff size={14} /> {t2("cam_off")}
                                     </button>
@@ -398,7 +398,7 @@ export default function ParticipantList({
                                       handleRemove(p.identity);
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                   >
                                     <UserMinus size={14} />{" "}
                                     {t2("remove_from_meeting")}
@@ -422,7 +422,7 @@ export default function ParticipantList({
       {renameState?.isOpen &&
         createPortal(
           <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 animate-fade-in">
-            <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl shadow-2xl w-full max-w-sm p-5 animate-scale-in">
+            <div className="bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl w-full max-w-sm p-5 animate-scale-in">
               <h3 className="text-sm font-bold text-white mb-3">
                 {t2("rename_display_name")}
               </h3>
@@ -435,7 +435,7 @@ export default function ParticipantList({
                 }
                 disabled={isRenaming}
                 placeholder={t("enter_new_name")}
-                className="w-full px-3 py-2 bg-[#222] border border-[#333] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 mb-4 transition-colors disabled:opacity-50"
+                className="w-full px-3 py-2 bg-[#111113] border border-[#232328] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 mb-4 transition-colors disabled:opacity-50"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && !isRenaming && handleRenameSubmit()}
               />
@@ -444,7 +444,7 @@ export default function ParticipantList({
                 <button
                   onClick={() => setRenameState(null)}
                   disabled={isRenaming}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#222] rounded-lg transition-colors disabled:opacity-50"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#232328] rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {t("cancel")}
                 </button>

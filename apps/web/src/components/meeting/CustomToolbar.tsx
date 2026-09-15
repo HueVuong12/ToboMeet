@@ -139,6 +139,10 @@ export default function CustomToolbar({
   const isEffectiveCloudRecording =
     isCloudRecording || isCloudRecordingActive || !!recordingInfo?.isRecording;
 
+  const canShowCloudRecordOption = isEffectiveCloudRecording
+    ? isRecordingByMe
+    : isHost;
+
   // Xác nhận trước khi quay màn hình bằng toast
   const handleConfirmStartCloudRecording = () => {
     setIsRecordMenuOpen(false);
@@ -386,70 +390,68 @@ export default function CustomToolbar({
                 </div>
 
                 {/* OPTION 1: GHI HÌNH TRÊN ĐÁM MÂY (CLOUD RECORDING) */}
-                <div className="px-1.5 py-1">
-                  {isInBreakoutRoom ? (
-                    <div className="w-full text-left p-2 rounded-md bg-[#131315] border border-[#232328] opacity-50 cursor-not-allowed flex items-start gap-2.5 select-none">
-                      <div className="p-2 rounded-lg bg-slate-800 text-slate-500 shrink-0 mt-0.5">
-                        <Cloud size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
-                          <span>{t("record_cloud")}</span>
-                          <span className="text-[9px] px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
-                            Cloud
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                          {t("cannot_record_breakout")}
-                        </p>
-                      </div>
-                    </div>
-                  ) : !isEffectiveCloudRecording ? (
-                    <button
-                      type="button"
-                      disabled={isCloudRecordingLoading || isRecordingByOther}
-                      onClick={handleConfirmStartCloudRecording}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#232328] flex items-start gap-2.5 transition-colors group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 transition-colors shrink-0 mt-0.5">
-                        {isCloudRecordingLoading ? (
-                          <Loader2 size={16} className="animate-spin text-red-500" />
-                        ) : (
+                {canShowCloudRecordOption && (
+                  <div className="px-1.5 py-1">
+                    {isInBreakoutRoom ? (
+                      <div className="w-full text-left p-2 rounded-md bg-[#131315] border border-[#232328] opacity-50 cursor-not-allowed flex items-start gap-2.5 select-none">
+                        <div className="p-2 rounded-lg bg-slate-800 text-slate-500 shrink-0 mt-0.5">
                           <Cloud size={16} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-slate-200 group-hover:text-white flex items-center justify-between">
-                          <span>{t("record_cloud")}</span>
-                          <span className="text-[9px] px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
-                            Cloud
-                          </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                          {isRecordingByOther
-                            ? t("recording_by_other")
-                            : t("record_cloud_desc")}
-                        </p>
-                      </div>
-                    </button>
-                  ) : (
-                    <div className="p-2 rounded-md bg-red-950/20 border border-red-900/30 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative flex items-center justify-center shrink-0">
-                          <Cloud size={16} className="text-red-400 animate-pulse" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-semibold text-red-400 truncate">
-                            {t("record_cloud")}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                            <span>{t("record_cloud")}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
+                              Cloud
+                            </span>
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                            {t("cannot_record_breakout")}
+                          </p>
+                        </div>
+                      </div>
+                    ) : !isEffectiveCloudRecording ? (
+                      <button
+                        type="button"
+                        disabled={isCloudRecordingLoading || isRecordingByOther}
+                        onClick={handleConfirmStartCloudRecording}
+                        className="w-full text-left p-2 rounded-md hover:bg-[#232328] flex items-start gap-2.5 transition-colors group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 transition-colors shrink-0 mt-0.5">
+                          {isCloudRecordingLoading ? (
+                            <Loader2 size={16} className="animate-spin text-red-500" />
+                          ) : (
+                            <Cloud size={16} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-slate-200 group-hover:text-white flex items-center justify-between">
+                            <span>{t("record_cloud")}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
+                              Cloud
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
                             {isRecordingByOther
                               ? t("recording_by_other")
-                              : `${t("recording_in_progress")}...`}
+                              : t("record_cloud_desc")}
+                          </p>
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="p-2 rounded-md bg-red-950/20 border border-red-900/30 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="relative flex items-center justify-center shrink-0">
+                            <Cloud size={16} className="text-red-400 animate-pulse" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-red-400 truncate">
+                              {t("record_cloud")}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {`${t("recording_in_progress")}...`}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      {isRecordingByMe ? (
                         <button
                           type="button"
                           disabled={isCloudRecordingLoading}
@@ -466,17 +468,10 @@ export default function CustomToolbar({
                           )}
                           <span>{t("stop_recording")}</span>
                         </button>
-                      ) : (
-                        <span
-                          className="text-[10px] text-slate-400 italic shrink-0"
-                          title={t("only_recorder_can_stop")}
-                        >
-                          {t("only_recorder_can_stop")}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* OPTION 2: GHI HÌNH CỤC BỘ (LOCAL RECORDING) */}
                 <div className="px-1.5 pb-1">
