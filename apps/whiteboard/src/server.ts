@@ -57,14 +57,6 @@ function getOrCreateRoom(roomId: string): TLSocketRoom {
     }
 
     const dbPath = getRoomDbPath(roomId);
-    const isExistingDb = fs.existsSync(dbPath);
-
-    if (isExistingDb) {
-        console.log(`📂 Restoring room state from SQLite: ${roomId} (${dbPath})`);
-    } else {
-        console.log(`🆕 Creating new room with SQLite storage: ${roomId} (${dbPath})`);
-    }
-
     const db = new DatabaseSync(dbPath);
 
     // Tối ưu hóa hiệu năng và độ an toàn cho SQLite
@@ -77,10 +69,6 @@ function getOrCreateRoom(roomId: string): TLSocketRoom {
     const room = new TLSocketRoom({
         storage,
         onSessionRemoved: (_room, { sessionId, numSessionsRemaining }) => {
-            console.log(
-                `👋 Session ${sessionId} left ${roomId}. Remaining: ${numSessionsRemaining}`
-            );
-
             // Khi không còn ai trong phòng, giải phóng RAM và đóng kết nối DB
             // Toàn bộ hình vẽ và trạng thái đã được lưu an toàn trong SQLite
             if (numSessionsRemaining === 0) {
@@ -146,29 +134,14 @@ wss.on("connection", (socket, request) => {
         `http://${request.headers.host ?? "localhost"}`
     );
 
-    const roomId = url.searchParams.get("roomId");
     const token = url.searchParams.get("token");
+    let roomId = url.searchParams.get("roomId");
 
-    if (!roomId) {
-        console.log("❌ Missing roomId parameter");
-        socket.close(1008, "Missing roomId");
-        return;
-    }
-
-    // 1. Xác thực JWT (RS256)
-    const isDevDemoAllowed = process.env.ALLOW_DEV_DEMO === "true" && roomId.startsWith("demo-");
     let userSub = "demo-user";
     let userDisplayName = "Demo User";
 
-    if (!token) {
-        if (isDevDemoAllowed) {
-            console.log(`⚠️ Demo room ${roomId} allowed without JWT in development`);
-        } else {
-            console.log(`❌ Unauthorized connection to room ${roomId}: missing token`);
-            socket.close(1008, "Missing authentication token");
-            return;
-        }
-    } else {
+    // 1. Xác thực JWT (RS256) và lấy roomId từ token
+    if (token) {
         const rawPublicKey = process.env.WHITEBOARD_PUBLIC_KEY;
         if (!rawPublicKey) {
             console.error("❌ WHITEBOARD_PUBLIC_KEY is not configured in .env");
@@ -186,28 +159,52 @@ wss.on("connection", (socket, request) => {
                 audience: "tobomeet-whiteboard",
             });
         } catch (err: any) {
-            console.error(`❌ JWT verification failed for room ${roomId}: ${err.message}`);
+            console.error(`❌ JWT verification failed: ${err.message}`);
             socket.close(1008, `Authentication failed: ${err.message}`);
             return;
         }
 
-        // Kiểm tra token có đúng cho room này không
-        if (decoded.roomId !== roomId && decoded.meetingCode !== roomId) {
-            console.error(`❌ Token roomId mismatch: expected ${roomId}, got ${decoded.roomId}`);
+        // Lấy roomId từ token (meetingCode hoặc roomId)
+        const tokenRoomId = decoded.roomId || decoded.meetingCode;
+        if (!tokenRoomId) {
+            console.error("❌ Token does not contain roomId or meetingCode");
+            socket.close(1008, "Invalid token payload: missing roomId");
+            return;
+        }
+
+        // Nếu client có truyền roomId thì đảm bảo khớp, nếu không truyền thì dùng luôn tokenRoomId
+        if (roomId && roomId !== tokenRoomId) {
+            console.error(`❌ Token roomId mismatch: expected ${roomId}, got ${tokenRoomId}`);
             socket.close(1008, "Token does not match roomId");
             return;
         }
 
+        roomId = tokenRoomId;
         userSub = decoded.sub || "unknown";
         userDisplayName = decoded.displayName || "User";
+    } else {
+        // Hỗ trợ chế độ demo không cần token ở môi trường dev nếu roomId bắt đầu bằng demo-
+        const isDevDemoAllowed = process.env.ALLOW_DEV_DEMO === "true" && roomId?.startsWith("demo-");
+        if (isDevDemoAllowed && roomId) {
+            console.log(`⚠️ Demo room ${roomId} allowed without JWT in development`);
+        } else {
+            console.log(`❌ Unauthorized connection: missing token`);
+            socket.close(1008, "Missing authentication token");
+            return;
+        }
     }
 
-    console.log(`🔌 Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName})`);
+    console.log(`Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName})`);
+
+    if (!roomId) {
+        socket.close(1008, "Missing roomId");
+        return;
+    }
 
     const room = getOrCreateRoom(roomId);
     const sessionId = randomUUID();
 
-    console.log(`👤 Session ${sessionId} joined ${roomId}`);
+    console.log(`Session ${sessionId} joined ${roomId}`);
 
     // Cho socket tham gia tldraw room
     room.handleSocketConnect({

@@ -50,57 +50,67 @@ export default function CustomVideoGrid() {
   if (currentData.type === "whiteboard") {
     return (
       <div className="relative w-full h-full flex flex-col bg-[#0a0a0a] overflow-hidden">
-        <div className="flex-1 w-full h-full relative">
-          <MeetingWhiteboard
-            meetingCode={meetingCode}
-            token={whiteboardToken}
-            whiteboardUrl={whiteboardUrl}
-          />
+        <div className="flex-1 flex flex-row w-full h-full min-h-0">
+          {/* Nút lùi trang nằm ở cột riêng bên ngoài, không đè lên whiteboard */}
+          {hasPagination && (
+            <div className="w-10 md:w-14 shrink-0 flex items-center justify-center z-10 bg-[#0a0a0a]">
+              {currentPage > 0 && (
+                <button
+                  onClick={handlePrev}
+                  className="w-9 h-16 md:w-11 md:h-20 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer"
+                  aria-label="Trang trước"
+                  title="Trang trước"
+                >
+                  <ChevronLeft size={isMobile ? 28 : 36} strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Khung vẽ Whiteboard độc lập ở giữa */}
+          <div className="flex-1 h-full min-h-0 relative">
+            <MeetingWhiteboard
+              meetingCode={meetingCode}
+              token={whiteboardToken}
+              whiteboardUrl={whiteboardUrl}
+            />
+          </div>
+
+          {/* Nút tiến trang nằm ở cột riêng bên ngoài, không đè lên whiteboard */}
+          {hasPagination && (
+            <div className="w-10 md:w-14 shrink-0 flex items-center justify-center z-10 bg-[#0a0a0a]">
+              {currentPage < pages.length - 1 && (
+                <button
+                  onClick={handleNext}
+                  className="w-9 h-16 md:w-11 md:h-20 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer"
+                  aria-label="Trang sau"
+                  title="Trang sau"
+                >
+                  <ChevronRight size={isMobile ? 28 : 36} strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Nút lùi/tiến trang dạng floating bán trong suốt để không chiếm diện tích vẽ */}
+        {/* Dấu chấm trang nổi ở cạnh dưới */}
         {hasPagination && (
-          <>
-            {currentPage > 0 && (
-              <button
-                onClick={handlePrev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-14 md:w-11 md:h-16 flex items-center justify-center bg-black/60 hover:bg-black/90 backdrop-blur-md text-white/50 hover:text-white rounded-xl border border-white/10 transition-all shadow-2xl cursor-pointer"
-                aria-label="Trang trước"
-                title="Trang trước"
-              >
-                <ChevronLeft size={isMobile ? 24 : 32} />
-              </button>
-            )}
-
-            {currentPage < pages.length - 1 && (
-              <button
-                onClick={handleNext}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-14 md:w-11 md:h-16 flex items-center justify-center bg-black/60 hover:bg-black/90 backdrop-blur-md text-white/50 hover:text-white rounded-xl border border-white/10 transition-all shadow-2xl cursor-pointer"
-                aria-label="Trang sau"
-                title="Trang sau"
-              >
-                <ChevronRight size={isMobile ? 24 : 32} />
-              </button>
-            )}
-
-            {/* Dấu chấm trang */}
-            <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2 z-30 pointer-events-none">
-              <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10">
-                {pages.map((p, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      currentPage === idx
-                        ? p.type === "whiteboard"
-                          ? "w-6 bg-blue-500"
-                          : "w-5 bg-emerald-400"
-                        : "w-1.5 bg-white/30"
-                    }`}
-                  />
-                ))}
-              </div>
+          <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2 z-30 pointer-events-none">
+            <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+              {pages.map((p, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    currentPage === idx
+                      ? p.type === "whiteboard"
+                        ? "w-6 bg-blue-500"
+                        : "w-5 bg-emerald-400"
+                      : "w-1.5 bg-white/30"
+                  }`}
+                />
+              ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     );

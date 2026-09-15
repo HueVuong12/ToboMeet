@@ -49,10 +49,10 @@ export function MeetingWhiteboardProvider({
       setWhiteboardToken(res.token);
       setWhiteboardUrl(res.whiteboardUrl || process.env.NEXT_PUBLIC_WHITEBOARD_URL || "ws://localhost:3002/sync");
       setIsWhiteboardActive(true);
-      toast.success("Đã tham gia Whiteboard!");
+      toast.success("Đã mở Whiteboard!");
     } catch (err: any) {
       console.error("Lỗi xin whiteboard token:", err);
-      const msg = err?.data?.message || err?.message || "Không thể tham gia Whiteboard";
+      const msg = err?.data?.message || err?.message || "Không thể mở Whiteboard";
       setWhiteboardError(msg);
       toast.error(msg);
     }

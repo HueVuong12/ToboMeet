@@ -35,8 +35,9 @@ export default function MeetingWhiteboard({
   const { leaveWhiteboard } = useMeetingWhiteboard();
 
   const effectiveUrl = whiteboardUrl || "ws://localhost:3002/sync";
+  // Khi đã có token xác thực, chỉ cần gửi token, server sẽ tự parse roomId từ token
   const wsUri = token
-    ? `${effectiveUrl}?roomId=${encodeURIComponent(meetingCode)}&token=${encodeURIComponent(token)}`
+    ? `${effectiveUrl}?token=${encodeURIComponent(token)}`
     : `${effectiveUrl}?roomId=${encodeURIComponent(meetingCode)}`;
 
   const store = useSync({
@@ -102,14 +103,15 @@ export default function MeetingWhiteboard({
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-[#111113]">
-      {/* Top Floating Control Bar */}
-      <div className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-[#161619]/90 backdrop-blur-md border border-[#232328] rounded-xl px-3 py-1.5 shadow-xl select-none">
+      {/* Top Floating Control Bar - Canh giữa màn hình để không che khuất các menu của tldraw */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#161619]/90 backdrop-blur-md border border-[#232328] rounded-xl px-3 py-1.5 shadow-xl select-none">
         <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
           <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-white">
             <Layers size={14} />
           </div>
           <span className="font-semibold text-xs">Bảng vẽ cuộc họp</span>
         </div>
+
 
         <div className="h-4 w-px bg-[#232328]" />
 

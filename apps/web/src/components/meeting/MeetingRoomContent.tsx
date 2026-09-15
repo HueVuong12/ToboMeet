@@ -192,7 +192,8 @@ export default function MeetingRoomContent({
           <CustomVideoGrid />
         </main>
 
-        <div className="shrink-0 w-full z-30">
+        <div className="shrink-0 w-full relative z-[500]">
+
           {/* MODAL CHỌN MÀN HÌNH CHIA SẺ (CHỈ HIỂN THỊ KHI CHẠY TRÊN ELECTRON) */}
           {screenSources.length > 0 && (
             <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/80 p-4">
