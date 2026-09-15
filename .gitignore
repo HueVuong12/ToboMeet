@@ -54,3 +54,14 @@ coverage/
 # Local Node portable
 .node20/
 node.zip
+
+# SQLite & Whiteboard storage
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+apps/whiteboard/data/
+**/apps/whiteboard/data/
+
