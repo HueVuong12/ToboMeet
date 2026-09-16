@@ -1239,6 +1239,7 @@
     "post_announcement_btn": "New Announcement"
   },
   "meeting": {
+    "close": "Close",
     "chat_header": "Chat",
     "participant_header": "Participants",
     "meeting_page": {
@@ -1292,6 +1293,7 @@
       "stop_recording": "Stop",
       "recording_saved": "Recording saved to {path}",
       "raise_hand": "Raise hand",
+      "active": "Active",
       "options": "Options",
       "general_options": "General options",
       "copy_link": "Copy link",
@@ -1318,6 +1320,25 @@
       "leave_short": "Leave",
       "leave_breakout_room": "Leave breakout room",
       "end_breakout_error": "Cannot end breakout session at this time."
+    },
+    "whiteboard": {
+      "title": "Meeting Whiteboard",
+      "loading_title": "Syncing Whiteboard",
+      "loading_desc": "Authenticating and loading canvas...",
+      "back_to_meeting": "Back to meeting",
+      "error_title": "Cannot connect to Whiteboard",
+      "error_default_desc": "Invalid security token or Whiteboard Server is not ready.",
+      "fetch_token_error": "Unable to get Whiteboard authentication token from server",
+      "retry": "Retry",
+      "close_whiteboard": "Close whiteboard",
+      "online": "Online",
+      "close_tooltip": "Close whiteboard and return to video",
+      "close": "Close"
+    },
+    "video_grid": {
+      "waiting_others": "Waiting for others to join...",
+      "prev_page": "Previous page",
+      "next_page": "Next page"
     },
     "chat": {
       "you_text": "You",
@@ -1362,12 +1383,19 @@
       "remove_from_meeting": "Remove from meeting",
       "role_leader": "Leader",
       "role_vice_leader": "Vice Leader",
+      "appoint_vice_leader": "Appoint Vice Leader",
+      "revoke_vice_leader": "Revoke Vice Leader",
+      "appoint_leader": "Appoint Leader",
+      "default_member_name": "Member",
+      "default_user_name": "User",
+      "cancel": "Cancel",
+      "cannot_revoke_permission": "Unable to revoke permission",
+      "cannot_transfer_role": "Cannot transfer ownership. Please try again.",
       "toast_appoint_vice_leader_success": "Vice leader appointed successfully",
       "toast_revoke_vice_leader_success": "Vice leader role revoked",
       "toast_max_vice_leaders_reached": "Maximum of 3 {role} reached",
       "transfer_modal_body": "Are you sure you want to transfer {role} role to {name}?",
       "confirm": "Confirm",
-      "cancel": "Cancel",
       "toast_transfer_success": "Ownership transferred successfully!",
       "approve_all_loading": "Approving all...",
       "approve_loading": "Approving {name}...",
@@ -1424,7 +1452,8 @@
       "unpin": "Unpin",
       "sharing_screen": "Sharing",
       "pinned": "Pinned",
-      "guest": "Guest"
+      "guest": "Guest",
+      "options": "Options"
     },
     "create_breakout_modal": {
       "modal_title": "Breakout Rooms",

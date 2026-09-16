@@ -748,7 +748,12 @@ export class MeetingsService {
   async generateWhiteboardToken(
     meetingCode: string,
     userId: string,
-  ): Promise<{ token: string; roomId: string; whiteboardUrl: string }> {
+  ): Promise<{
+    token: string;
+    roomId: string;
+    whiteboardUrl: string;
+    user?: { id: string; name: string; avatarUrl?: string };
+  }> {
     if (!this.livekitRoomService) {
       throw new AppException(ErrorCode.SERVER_ERROR);
     }
@@ -796,7 +801,7 @@ export class MeetingsService {
 
     const token = jwt.sign(payload, privateKey, {
       algorithm: "RS256",
-      expiresIn: "4h",
+      expiresIn: "5m",
     });
 
     const whiteboardUrl =
@@ -806,6 +811,11 @@ export class MeetingsService {
       token,
       roomId: meetingCode,
       whiteboardUrl,
+      user: {
+        id: userId,
+        name: displayName,
+        avatarUrl: user?.avatarUrl || "",
+      },
     };
   }
 

@@ -649,7 +649,7 @@ export default function CustomToolbar({
                   <span>{t("invite_participants")}</span>
                 </button>
 
-                {/* THAM GIA HOẶC XEM WHITEBOARD */}
+                {/* THAM GIA HOẶC ĐÓNG WHITEBOARD */}
                 <button
                   onClick={async () => {
                     setIsMoreMenuOpen(false);
@@ -669,13 +669,13 @@ export default function CustomToolbar({
                     )}
                     <span>
                       {isWhiteboardActive
-                        ? t("view_whiteboard")
+                        ? t("leave_whiteboard")
                         : t("join_whiteboard")}
                     </span>
                   </div>
                   {isWhiteboardActive && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">
-                      Active
+                      {t("active")}
                     </span>
                   )}
                 </button>

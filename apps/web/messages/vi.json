@@ -1225,6 +1225,7 @@
     "post_announcement_btn": "Thông báo mới"
   },
   "meeting": {
+    "close": "Đóng",
     "chat_header": "Trò chuyện",
     "participant_header": "Thành viên",
     "meeting_page": {
@@ -1278,6 +1279,7 @@
       "stop_recording": "Dừng ghi",
       "recording_saved": "Bản ghi đã được lưu tại {path}",
       "raise_hand": "Giơ tay",
+      "active": "Đang mở",
       "options": "Tuỳ chọn",
       "general_options": "Tùy chọn chung",
       "copy_link": "Sao chép liên kết",
@@ -1304,6 +1306,25 @@
       "leave_short": "Rời đi",
       "leave_breakout_room": "Rời nhóm thảo luận",
       "end_breakout_error": "Không thể kết thúc thảo luận lúc này."
+    },
+    "whiteboard": {
+      "title": "Bảng vẽ cuộc họp",
+      "loading_title": "Đang đồng bộ Whiteboard",
+      "loading_desc": "Xác thực và nạp bảng vẽ...",
+      "back_to_meeting": "Quay lại cuộc họp",
+      "error_title": "Không thể kết nối Whiteboard",
+      "error_default_desc": "Token bảo mật không hợp lệ hoặc Whiteboard Server chưa sẵn sàng.",
+      "fetch_token_error": "Không thể lấy token xác thực Whiteboard từ máy chủ",
+      "retry": "Thử lại",
+      "close_whiteboard": "Đóng bảng vẽ",
+      "online": "Trực tuyến",
+      "close_tooltip": "Đóng bảng vẽ và trở về xem video",
+      "close": "Đóng"
+    },
+    "video_grid": {
+      "waiting_others": "Đang đợi người khác tham gia...",
+      "prev_page": "Trang trước",
+      "next_page": "Trang sau"
     },
     "chat": {
       "you_text": "Bạn",
@@ -1348,12 +1369,19 @@
       "remove_from_meeting": "Xoá khỏi cuộc họp",
       "role_leader": "Trưởng nhóm",
       "role_vice_leader": "Phó nhóm",
+      "appoint_vice_leader": "Bổ nhiệm Phó nhóm",
+      "revoke_vice_leader": "Thu hồi Phó nhóm",
+      "appoint_leader": "Bổ nhiệm Trưởng nhóm",
+      "default_member_name": "Thành viên",
+      "default_user_name": "Người dùng",
+      "cancel": "Hủy",
+      "cannot_revoke_permission": "Không thể thu hồi quyền",
+      "cannot_transfer_role": "Không thể chuyển quyền. Vui lòng thử lại.",
       "toast_appoint_vice_leader_success": "Bổ nhiệm Phó nhóm thành công",
       "toast_revoke_vice_leader_success": "Đã thu hồi Phó nhóm",
       "toast_max_vice_leaders_reached": "Đã đạt số lượng tối đa 3 {role}",
       "transfer_modal_body": "Bạn có chắc chắn muốn chuyển quyền {role} cho {name}?",
       "confirm": "Xác nhận",
-      "cancel": "Hủy",
       "toast_transfer_success": "Chuyển quyền thành công!",
       "approve_all_loading": "Đang duyệt tất cả...",
       "approve_loading": "Đang duyệt {name}...",
@@ -1410,7 +1438,8 @@
       "unpin": "Bỏ ghim",
       "sharing_screen": "Đang chia sẻ",
       "pinned": "Đã ghim",
-      "guest": "Khách"
+      "guest": "Khách",
+      "options": "Tùy chọn"
     },
     "create_breakout_modal": {
       "modal_title": "Chia nhóm thảo luận",

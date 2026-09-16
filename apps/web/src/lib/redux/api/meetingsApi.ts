@@ -18,12 +18,18 @@ interface ExchangeSessionResponse {
   channelId?: string;
 }
 
+export interface WhiteboardUserInfo {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
 export interface WhiteboardTokenResponse {
   token: string;
   roomId: string;
   whiteboardUrl: string;
+  user?: WhiteboardUserInfo;
 }
-
 
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({

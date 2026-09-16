@@ -199,7 +199,7 @@ export default function CustomTileWrapper({
               setMenuOpen((v) => !v);
             }}
             className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur-md border border-white/10 transition-colors"
-            aria-label="Tùy chọn"
+            aria-label={t("options")}
           >
             <MoreVertical size={16} />
           </button>

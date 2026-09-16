@@ -185,7 +185,7 @@ export function useParticipantManager({
         },
       },
       cancel: {
-        label: "Hủy",
+        label: t("cancel"),
         onClick: () => { },
       },
       duration: Infinity,
@@ -232,7 +232,7 @@ export function useParticipantManager({
           }),
         );
       } else {
-        toast.error(err?.data?.message || "Không thể thu hồi quyền");
+        toast.error(err?.data?.message || t("cannot_revoke_permission"));
       }
     }
   };
@@ -277,7 +277,7 @@ export function useParticipantManager({
                 (err?.code && tServer(String(err.code))) ||
                 err?.data?.message ||
                 err?.message ||
-                "Không thể chuyển quyền. Vui lòng thử lại.";
+                t("cannot_transfer_role");
 
               toast.error(msg);
             }

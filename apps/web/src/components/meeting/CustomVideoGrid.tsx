@@ -1,17 +1,18 @@
 import { useParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import CustomTileWrapper from "./CustomTileWrapper";
 import { useSelectiveSubscription } from "@/hooks/useSelectiveSubscription";
 import { useSafeMeetingWhiteboard } from "./contexts/MeetingWhiteboardContext";
 import MeetingWhiteboard from "@/components/whiteboard/MeetingWhiteboard";
 
 export default function CustomVideoGrid() {
+  const t = useTranslations("meeting.video_grid");
   const params = useParams();
   const meetingCode = (params?.code as string) || "";
 
   const wbContext = useSafeMeetingWhiteboard();
   const isWhiteboardActive = !!wbContext?.isWhiteboardActive;
-  const whiteboardToken = wbContext?.whiteboardToken || null;
   const whiteboardUrl = wbContext?.whiteboardUrl || null;
 
   const {
@@ -31,7 +32,7 @@ export default function CustomVideoGrid() {
           <div className="w-12 h-12 mx-auto rounded-full bg-white/5 flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-slate-500 animate-pulse" />
           </div>
-          <p className="text-sm">Đang đợi người khác tham gia...</p>
+          <p className="text-sm">{t("waiting_others")}</p>
         </div>
       </div>
     );
@@ -58,8 +59,8 @@ export default function CustomVideoGrid() {
                 <button
                   onClick={handlePrev}
                   className="w-9 h-16 md:w-11 md:h-20 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer"
-                  aria-label="Trang trước"
-                  title="Trang trước"
+                  aria-label={t("prev_page")}
+                  title={t("prev_page")}
                 >
                   <ChevronLeft size={isMobile ? 28 : 36} strokeWidth={1.5} />
                 </button>
@@ -71,7 +72,6 @@ export default function CustomVideoGrid() {
           <div className="flex-1 h-full min-h-0 relative">
             <MeetingWhiteboard
               meetingCode={meetingCode}
-              token={whiteboardToken}
               whiteboardUrl={whiteboardUrl}
             />
           </div>
@@ -83,8 +83,8 @@ export default function CustomVideoGrid() {
                 <button
                   onClick={handleNext}
                   className="w-9 h-16 md:w-11 md:h-20 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer"
-                  aria-label="Trang sau"
-                  title="Trang sau"
+                  aria-label={t("next_page")}
+                  title={t("next_page")}
                 >
                   <ChevronRight size={isMobile ? 28 : 36} strokeWidth={1.5} />
                 </button>
@@ -150,7 +150,7 @@ export default function CustomVideoGrid() {
               <button
                 onClick={handlePrev}
                 className="w-9 h-16 md:w-11 md:h-20 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-                aria-label="Trang trước"
+                aria-label={t("prev_page")}
               >
                 <ChevronLeft size={isMobile ? 28 : 36} strokeWidth={1.5} />
               </button>
@@ -189,7 +189,7 @@ export default function CustomVideoGrid() {
               <button
                 onClick={handleNext}
                 className="w-9 h-16 md:w-11 md:h-20 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-                aria-label="Trang sau"
+                aria-label={t("next_page")}
               >
                 <ChevronRight size={isMobile ? 28 : 36} strokeWidth={1.5} />
               </button>

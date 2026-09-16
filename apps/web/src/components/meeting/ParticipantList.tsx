@@ -21,8 +21,7 @@ export default function ParticipantList({
 }: {
   meetingCode: string;
 }) {
-  const t = useTranslations("room");
-  const t2 = useTranslations("meeting.participant_list");
+  const t = useTranslations("meeting.participant_list");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // State quản lý Tab hiển thị
@@ -62,7 +61,7 @@ export default function ParticipantList({
               : "text-slate-400 hover:text-slate-200"
               }`}
           >
-            {t2("joined_members", { count: displayParticipants.length })}
+            {t("joined_members", { count: displayParticipants.length })}
           </button>
 
           <button
@@ -72,7 +71,7 @@ export default function ParticipantList({
               : "text-slate-400 hover:text-slate-200"
               }`}
           >
-            {t2("waiting_approval")}
+            {t("waiting_approval")}
             {waitingParticipants.length > 0
               ? ` (${waitingParticipants.length})`
               : ""}
@@ -92,19 +91,19 @@ export default function ParticipantList({
                   strokeWidth={1.5}
                 />
                 <p className="text-xs text-slate-400">
-                  {t2("waiting_room_empty")}
+                  {t("waiting_room_empty")}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-1 w-full">
                 {/* NÚT DUYỆT TẤT CẢ */}
                 <div className="flex w-full justify-between items-center px-1 pb-1">
-                  <p className="text-xs text-slate-400">{t2("everyone")}</p>
+                  <p className="text-xs text-slate-400">{t("everyone")}</p>
                   <button
-                    onClick={() => handleApprove("all", "Tất cả")}
+                    onClick={() => handleApprove("all", t("everyone"))}
                     className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-md transition-colors"
                   >
-                    {t2("approve_all")}
+                    {t("approve_all")}
                   </button>
                 </div>
 
@@ -140,7 +139,7 @@ export default function ParticipantList({
                           {p.name}
                         </span>
                         <span className="text-[10px] text-amber-400/90 font-medium">
-                          {t2("requesting_access")}
+                          {t("requesting_access")}
                         </span>
                       </div>
 
@@ -148,17 +147,17 @@ export default function ParticipantList({
                         <button
                           onClick={() => handleRemove(p.identity)}
                           className="p-1 text-slate-400 hover:bg-red-500/15 hover:text-red-400 rounded-md transition-colors"
-                          title={t2("reject")}
+                          title={t("reject")}
                         >
                           <UserMinus size={14} />
                         </button>
                         <button
                           onClick={() =>
-                            handleApprove(p.identity, p.name || "Người dùng")
+                            handleApprove(p.identity, p.name || t("default_user_name"))
                           }
                           className="px-2.5 py-1 bg-amber-500/15 text-amber-400 hover:bg-amber-500 hover:text-white border border-amber-500/30 text-xs font-semibold rounded-md transition-colors"
                         >
-                          {t2("approve")}
+                          {t("approve")}
                         </button>
                       </div>
                     </div>
@@ -176,7 +175,7 @@ export default function ParticipantList({
             {!canApprove && (
               <div className="flex items-center justify-between mb-2 px-1 mt-0.5">
                 <span className="text-xs font-medium text-slate-400">
-                  {t2("in_session")} ({displayParticipants.length})
+                  {t("in_session")} ({displayParticipants.length})
                 </span>
               </div>
             )}
@@ -199,13 +198,11 @@ export default function ParticipantList({
               // Xác định text chức danh hiển thị dựa theo roomType
               let roleText = "";
               if (role === "owner") {
-                roleText = t("role_leader", { defaultValue: "Trưởng nhóm" });
+                roleText = t("role_leader");
               } else if (role === "admin") {
-                roleText = t("role_vice_leader", {
-                  defaultValue: "Phó nhóm",
-                });
+                roleText = t("role_vice_leader");
               } else if (role === "guest") {
-                roleText = t2("guest_user");
+                roleText = t("guest_user");
               }
 
               return (
@@ -233,7 +230,7 @@ export default function ParticipantList({
                       {p.name}
                       {isMe && (
                         <span className="text-slate-500 font-normal ml-1">
-                          {t2("you_label")}
+                          {t("you_label")}
                         </span>
                       )}
                     </span>
@@ -303,7 +300,7 @@ export default function ParticipantList({
                                   className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                 >
                                   <Edit2 size={14} className="text-blue-400" />{" "}
-                                  {t2("rename_display_name")}
+                                  {t("rename_display_name")}
                                 </button>
                               )}
 
@@ -319,9 +316,7 @@ export default function ParticipantList({
                                       className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <UserCheck size={14} />
-                                      {t("revoke_vice_leader", {
-                                        defaultValue: "Thu hồi Phó nhóm",
-                                      })}
+                                      {t("revoke_vice_leader")}
                                     </button>
                                   ) : (
                                     <button
@@ -332,9 +327,7 @@ export default function ParticipantList({
                                       className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <UserCheck size={14} className="text-blue-400" />
-                                      {t("appoint_vice_leader", {
-                                        defaultValue: "Bổ nhiệm Phó nhóm",
-                                      })}
+                                      {t("appoint_vice_leader")}
                                     </button>
                                   )}
 
@@ -342,16 +335,14 @@ export default function ParticipantList({
                                     onClick={() => {
                                       handleTransferOwnership(
                                         p.identity,
-                                        p.name || "Thành viên",
+                                        p.name || t("default_member_name"),
                                       );
                                       setOpenMenuId(null);
                                     }}
                                     className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                   >
                                     <ShieldCheck size={14} className="text-amber-400" />
-                                    {t("appoint_leader", {
-                                      defaultValue: "Bổ nhiệm Trưởng nhóm",
-                                    })}
+                                    {t("appoint_leader")}
                                   </button>
                                   <div className="h-px bg-[#232328] my-1 mx-2" />
                                 </>
@@ -365,7 +356,7 @@ export default function ParticipantList({
                                       onClick={() => {
                                         handleMute(
                                           p.identity,
-                                          p.name || "Thành viên",
+                                          p.name || t("default_member_name"),
                                           "audio",
                                         );
                                         setOpenMenuId(null);
@@ -373,7 +364,7 @@ export default function ParticipantList({
                                       className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
                                       <MicOff size={14} />
-                                      {t2("mic_off")}
+                                      {t("mic_off")}
                                     </button>
                                   )}
 
@@ -382,14 +373,14 @@ export default function ParticipantList({
                                       onClick={() => {
                                         handleMute(
                                           p.identity,
-                                          p.name || "Thành viên",
+                                          p.name || t("default_member_name"),
                                           "video",
                                         );
                                         setOpenMenuId(null);
                                       }}
                                       className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
-                                      <VideoOff size={14} /> {t2("cam_off")}
+                                      <VideoOff size={14} /> {t("cam_off")}
                                     </button>
                                   )}
 
@@ -401,7 +392,7 @@ export default function ParticipantList({
                                     className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                   >
                                     <UserMinus size={14} />{" "}
-                                    {t2("remove_from_meeting")}
+                                    {t("remove_from_meeting")}
                                   </button>
                                 </>
                               )}
@@ -424,7 +415,7 @@ export default function ParticipantList({
           <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 animate-fade-in">
             <div className="bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl w-full max-w-sm p-5 animate-scale-in">
               <h3 className="text-sm font-bold text-white mb-3">
-                {t2("rename_display_name")}
+                {t("rename_display_name")}
               </h3>
 
               <input
@@ -454,7 +445,7 @@ export default function ParticipantList({
                   className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 shadow-md shadow-blue-500/20"
                 >
                   {isRenaming && <Loader2 size={13} className="animate-spin" />}
-                  <span>{t2("save_changes")}</span>
+                  <span>{t("save_changes")}</span>
                 </button>
               </div>
             </div>

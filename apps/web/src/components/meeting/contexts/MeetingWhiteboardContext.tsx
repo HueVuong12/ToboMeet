@@ -1,8 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { useGetWhiteboardTokenMutation } from "@/lib/redux/api/meetingsApi";
-import { toast } from "sonner";
 
 interface MeetingWhiteboardContextType {
   isWhiteboardActive: boolean;
@@ -25,38 +23,16 @@ export function MeetingWhiteboardProvider({
   children: ReactNode;
 }) {
   const [isWhiteboardActive, setIsWhiteboardActive] = useState(false);
-  const [whiteboardToken, setWhiteboardToken] = useState<string | null>(null);
-  const [whiteboardUrl, setWhiteboardUrl] = useState<string | null>(null);
+  const [whiteboardUrl] = useState<string | null>(
+    process.env.NEXT_PUBLIC_WHITEBOARD_URL || "ws://localhost:3002/sync"
+  );
   const [whiteboardError, setWhiteboardError] = useState<string | null>(null);
-
-  const [getTokenApi, { isLoading: isLoadingToken }] = useGetWhiteboardTokenMutation();
 
   const joinWhiteboard = useCallback(async () => {
     if (!meetingCode) return;
-
-    try {
-      setWhiteboardError(null);
-
-      // Nếu đã có token hợp lệ rồi thì chỉ cần bật hiển thị
-      if (whiteboardToken && whiteboardUrl) {
-        setIsWhiteboardActive(true);
-        return;
-      }
-
-      toast.info("Đang xin token bảo mật để vào Whiteboard...");
-      const res = await getTokenApi({ meetingCode }).unwrap();
-
-      setWhiteboardToken(res.token);
-      setWhiteboardUrl(res.whiteboardUrl || process.env.NEXT_PUBLIC_WHITEBOARD_URL || "ws://localhost:3002/sync");
-      setIsWhiteboardActive(true);
-      toast.success("Đã mở Whiteboard!");
-    } catch (err: any) {
-      console.error("Lỗi xin whiteboard token:", err);
-      const msg = err?.data?.message || err?.message || "Không thể mở Whiteboard";
-      setWhiteboardError(msg);
-      toast.error(msg);
-    }
-  }, [meetingCode, whiteboardToken, whiteboardUrl, getTokenApi]);
+    setWhiteboardError(null);
+    setIsWhiteboardActive(true);
+  }, [meetingCode]);
 
   const leaveWhiteboard = useCallback(() => {
     setIsWhiteboardActive(false);
@@ -74,9 +50,9 @@ export function MeetingWhiteboardProvider({
     <MeetingWhiteboardContext.Provider
       value={{
         isWhiteboardActive,
-        whiteboardToken,
+        whiteboardToken: null,
         whiteboardUrl,
-        isLoadingToken,
+        isLoadingToken: false,
         whiteboardError,
         joinWhiteboard,
         leaveWhiteboard,

@@ -272,7 +272,7 @@ export default function MeetingRoomContent({
             <button
               onClick={() => setIsSidebarOpen(false)}
               className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-              title="Đóng"
+              title={t("close")}
             >
               <X size={18} />
             </button>

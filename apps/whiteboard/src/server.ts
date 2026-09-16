@@ -172,13 +172,7 @@ wss.on("connection", (socket, request) => {
             return;
         }
 
-        // Nếu client có truyền roomId thì đảm bảo khớp, nếu không truyền thì dùng luôn tokenRoomId
-        if (roomId && roomId !== tokenRoomId) {
-            console.error(`❌ Token roomId mismatch: expected ${roomId}, got ${tokenRoomId}`);
-            socket.close(1008, "Token does not match roomId");
-            return;
-        }
-
+        // Tự động phân giải roomId từ token (client không cần truyền tham số roomId)
         roomId = tokenRoomId;
         userSub = decoded.sub || "unknown";
         userDisplayName = decoded.displayName || "User";
