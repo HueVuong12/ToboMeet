@@ -24,6 +24,8 @@ import {
   ParticipantMetadata,
   PresignedUploadResponse,
   RoomMemberStatus,
+  WhiteboardAccessRole,
+  WhiteboardSettings,
 } from "@tobomeet/shared/types";
 import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
@@ -144,6 +146,11 @@ export class MeetingsService {
     // Eager create LiveKit room nếu chưa có
     if (!livekitRoom && this.livekitRoomService) {
       try {
+        const defaultWhiteboardSettings: WhiteboardSettings = {
+          allowedRoles: ["admin", "member", "guest"],
+          memberPermission: "edit",
+          guestPermission: "edit",
+        };
         livekitRoom = await this.livekitRoomService.createRoom({
           name: meeting.meetingCode,
           emptyTimeout: 5 * 60,
@@ -155,6 +162,8 @@ export class MeetingsService {
             isWaitingRoomEnabled: false,
             isChatEnabled: true,
             approvalPermission: "admin_only",
+            whiteboardSettings:
+              meeting.whiteboardSettings || defaultWhiteboardSettings,
           } as MainRoomMetadata),
         });
       } catch (e) {
@@ -606,6 +615,65 @@ export class MeetingsService {
   }
 
   /**
+   * Cập nhật cấu hình phân quyền Whiteboard
+   */
+  async updateWhiteboardSettings(
+    meetingCode: string,
+    settings: WhiteboardSettings,
+  ): Promise<WhiteboardSettings> {
+    if (!this.livekitRoomService) {
+      throw new AppException(ErrorCode.SERVER_ERROR);
+    }
+
+    // Đảm bảo admin luôn có trong allowedRoles
+    const sanitizedRoles = Array.from(
+      new Set(["admin", ...(settings.allowedRoles || [])]),
+    ) as WhiteboardAccessRole[];
+
+    const sanitizedSettings: WhiteboardSettings = {
+      allowedRoles: sanitizedRoles,
+      memberPermission: settings.memberPermission === "view" ? "view" : "edit",
+      guestPermission: settings.guestPermission === "view" ? "view" : "edit",
+    };
+
+    // 1. Cập nhật MongoDB meeting
+    await this.meetingModel
+      .updateOne(
+        { meetingCode },
+        { $set: { whiteboardSettings: sanitizedSettings } },
+      )
+      .exec();
+
+    // 2. Cập nhật LiveKit Room Metadata nếu phòng đang chạy
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      let currentMeta = {};
+
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        try {
+          currentMeta = JSON.parse(rooms[0].metadata);
+        } catch (e) {
+          console.error("Lỗi parse metadata phòng", e);
+        }
+      }
+
+      const metadataString = JSON.stringify({
+        ...currentMeta,
+        whiteboardSettings: sanitizedSettings,
+      });
+
+      await this.livekitRoomService.updateRoomMetadata(
+        meetingCode,
+        metadataString,
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật LiveKit metadata cho whiteboard:", error);
+    }
+
+    return sanitizedSettings;
+  }
+
+  /**
    * Kiểm tra xem thiết bị hiện tại có đang nằm trong cuộc họp của kênh này không.
    */
   async getDeviceStatus(
@@ -758,13 +826,7 @@ export class MeetingsService {
       throw new AppException(ErrorCode.SERVER_ERROR);
     }
 
-    // 1. Kiểm tra cuộc họp có tồn tại không
-    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
-    if (!meeting) {
-      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
-    }
-
-    // 2. Chỉ cấp token nếu người dùng đang thực sự tham gia cuộc họp
+    // Chỉ cấp token nếu người dùng đang thực sự tham gia cuộc họp
     let participants: any[] = [];
     try {
       participants = await this.livekitRoomService.listParticipants(meetingCode);
@@ -778,11 +840,60 @@ export class MeetingsService {
       throw new AppException(ErrorCode.PARTICIPANT_NOT_IN_MEETING);
     }
 
-    // 3. Lấy thông tin người dùng
-    const user = await this.userModel.findOne({ supabaseId: userId }).exec();
-    const displayName = user?.displayName || participant.name || "Người dùng";
+    // Tìm meeting & xác định quyền người dùng trong cuộc họp
+    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
+    if (!meeting) {
+      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
+    }
 
-    // 4. Lấy private key RS256 từ .env
+    const { role, hasAdminPowers } = await this.resolveParticipantRole(
+      meeting,
+      userId,
+    );
+
+    // Lấy cấu hình Whiteboard (ưu tiên metadata phòng từ LiveKit, fallback DB)
+    let whiteboardSettings: WhiteboardSettings = meeting.whiteboardSettings || {
+      allowedRoles: ["admin", "member", "guest"],
+      memberPermission: "edit",
+      guestPermission: "edit",
+    };
+
+    try {
+      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
+      if (rooms && rooms.length > 0 && rooms[0].metadata) {
+        const meta: LivekitRoomMetadata = JSON.parse(rooms[0].metadata);
+        if (
+          meta.roomType === "breakout" &&
+          meta.parentMetadata?.whiteboardSettings
+        ) {
+          whiteboardSettings = meta.parentMetadata.whiteboardSettings;
+        } else if (meta.roomType === "main" && meta.whiteboardSettings) {
+          whiteboardSettings = meta.whiteboardSettings;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi khi đọc LiveKit metadata:", e);
+    }
+
+    // Kiểm tra phân quyền truy cập Whiteboard
+    let isReadOnly = false;
+    if (hasAdminPowers || role === "owner" || role === "admin") {
+      isReadOnly = false;
+    } else if (role === "member") {
+      if (!whiteboardSettings.allowedRoles.includes("member")) {
+        throw new AppException(ErrorCode.INVALID_PERMISSION);
+      }
+      isReadOnly = whiteboardSettings.memberPermission === "view";
+    } else {
+      // role === "guest"
+      if (!whiteboardSettings.allowedRoles.includes("guest")) {
+        throw new AppException(ErrorCode.INVALID_PERMISSION);
+      }
+      isReadOnly = whiteboardSettings.guestPermission === "view";
+    }
+
+    const displayName = participant.name || "Người dùng";
+
     const rawPrivateKey = process.env.WHITEBOARD_PRIVATE_KEY;
     if (!rawPrivateKey) {
       console.error("WHITEBOARD_PRIVATE_KEY chưa được cấu hình trong server .env");
@@ -795,6 +906,7 @@ export class MeetingsService {
       meetingCode,
       roomId: meetingCode,
       displayName,
+      isReadOnly,
       iss: "tobomeet-server",
       aud: "tobomeet-whiteboard",
     };
@@ -814,7 +926,7 @@ export class MeetingsService {
       user: {
         id: userId,
         name: displayName,
-        avatarUrl: user?.avatarUrl || "",
+        avatarUrl: "",
       },
     };
   }

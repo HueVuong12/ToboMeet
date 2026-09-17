@@ -24,6 +24,7 @@ import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
 import { AttendanceService } from "./attendance.service";
 import { AppException } from "../core/exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
+import { UpdateWhiteboardSettingsDto } from "./dtos/whiteboard-settings.dto";
 
 // TODO (Gấp): bỏ sự phụ thuộc vào channelId và roomId, chỉ phụ thuộc vào meetingCode
 // Do sau này sẽ có thêm private meeting (meeting thuộc về 1 cá nhân nào đó, không phải 1 kênh của phòng)
@@ -238,6 +239,20 @@ export class MeetingsController {
   ) {
     const userId = req.user.id;
     return this.meetingsService.generateWhiteboardToken(meetingCode, userId);
+  }
+
+  /**
+   * PATCH /api/meetings/:code/whiteboard-settings
+   * Cập nhật phân quyền Whiteboard (Chỉ Owner + Admin)
+   */
+  @Patch(":code/whiteboard-settings")
+  @Roles("owner", "admin")
+  @UseGuards(SupabaseGuard, MeetingRoleGuard)
+  async updateWhiteboardSettings(
+    @Param("code") meetingCode: string,
+    @Body() body: UpdateWhiteboardSettingsDto,
+  ) {
+    return this.meetingsService.updateWhiteboardSettings(meetingCode, body);
   }
 
 

@@ -2,6 +2,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
 
+import { WhiteboardSettings } from "@tobomeet/shared/types";
+
 export type MeetingDocument = Meeting & Document;
 
 export type MeetingType = "channel" | "personal";
@@ -24,6 +26,22 @@ export class Meeting {
   // ===== Personal Meeting =====
   @Prop({ index: true })
   ownerId?: string; // userId của chủ meeting (chỉ dùng khi type = "personal")
+
+  // ===== Whiteboard Permissions =====
+  @Prop({
+    type: {
+      allowedRoles: { type: [String], default: ["admin", "member", "guest"] },
+      memberPermission: { type: String, enum: ["view", "edit"], default: "edit" },
+      guestPermission: { type: String, enum: ["view", "edit"], default: "edit" },
+    },
+    default: () => ({
+      allowedRoles: ["admin", "member", "guest"],
+      memberPermission: "edit",
+      guestPermission: "edit",
+    }),
+    _id: false,
+  })
+  whiteboardSettings?: WhiteboardSettings;
 }
 
 export const MeetingSchema = SchemaFactory.createForClass(Meeting);

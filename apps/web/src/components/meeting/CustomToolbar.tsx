@@ -29,6 +29,7 @@ import {
   Disc,
   ChevronUp,
   PenTool,
+  Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ import { useCloudRecorder } from "@/hooks/useCloudRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
 import CreateBreakoutModal from "./CreateBreakoutModal";
 import JoinBreakoutModal from "./JoinBreakoutModal";
+import WhiteboardSettingsModal from "./WhiteboardSettingsModal";
 import { useSafeMeetingWhiteboard } from "./contexts/MeetingWhiteboardContext";
 
 /**
@@ -64,6 +66,8 @@ export default function CustomToolbar({
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
   const [isJoinBreakoutModalOpen, setIsJoinBreakoutModalOpen] = useState(false);
+  const [isWhiteboardSettingsModalOpen, setIsWhiteboardSettingsModalOpen] =
+    useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isRecordMenuOpen, setIsRecordMenuOpen] = useState(false);
   const [isLeaveMenuOpen, setIsLeaveMenuOpen] = useState(false);
@@ -126,6 +130,8 @@ export default function CustomToolbar({
     isWaitingRoomEnabled,
     isBreakoutActive,
     approvalPermission,
+    whiteboardSettings,
+    canAccessWhiteboard,
     breakoutRoomsList,
     roomType,
     isEndingBreakout,
@@ -139,6 +145,7 @@ export default function CustomToolbar({
     handleEndBreakout,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
+    handleUpdateWhiteboardSettings,
   } = useRoomSettings({
     meetingCode,
   });
@@ -650,15 +657,17 @@ export default function CustomToolbar({
                 </button>
 
                 {/* THAM GIA HOẶC ĐÓNG WHITEBOARD */}
-                <button
-                  onClick={async () => {
-                    setIsMoreMenuOpen(false);
-                    await toggleWhiteboard();
-                  }}
-                  disabled={isLoadingWhiteboard}
-                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <div className="flex items-center gap-2.5">
+                <div className="w-full px-3 py-1.5 flex items-center justify-between text-sm text-slate-200 hover:bg-[#232328] transition-colors rounded">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsMoreMenuOpen(false);
+                      await toggleWhiteboard();
+                    }}
+                    disabled={!canAccessWhiteboard || isLoadingWhiteboard}
+                    title={!canAccessWhiteboard ? t("whiteboard_no_permission") : undefined}
+                    className="flex-1 text-left flex items-center gap-2.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
                     {isLoadingWhiteboard ? (
                       <Loader2 size={16} className="animate-spin text-blue-400" />
                     ) : (
@@ -667,18 +676,28 @@ export default function CustomToolbar({
                         className={isWhiteboardActive ? "text-blue-400" : "text-slate-300"}
                       />
                     )}
-                    <span>
+                    <span className={isWhiteboardActive ? "text-blue-400 font-medium" : ""}>
                       {isWhiteboardActive
                         ? t("leave_whiteboard")
                         : t("join_whiteboard")}
                     </span>
-                  </div>
-                  {isWhiteboardActive && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">
-                      {t("active")}
-                    </span>
+                  </button>
+
+                  {isHost && (
+                    <button
+                      type="button"
+                      title={t("whiteboard_settings")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMoreMenuOpen(false);
+                        setIsWhiteboardSettingsModalOpen(true);
+                      }}
+                      className="p-1 hover:bg-[#2c2c32] text-slate-400 hover:text-blue-400 rounded transition-colors cursor-pointer ml-1"
+                    >
+                      <Settings size={15} />
+                    </button>
                   )}
-                </button>
+                </div>
 
 
                 {isHost && (
@@ -962,6 +981,14 @@ export default function CustomToolbar({
         isOpen={isJoinBreakoutModalOpen}
         onClose={() => setIsJoinBreakoutModalOpen(false)}
         rooms={breakoutRoomsList}
+      />
+
+      {/* ================= MODAL CÀI ĐẶT WHITEBOARD ================= */}
+      <WhiteboardSettingsModal
+        isOpen={isWhiteboardSettingsModalOpen}
+        onClose={() => setIsWhiteboardSettingsModalOpen(false)}
+        currentSettings={whiteboardSettings}
+        onSave={handleUpdateWhiteboardSettings}
       />
     </footer>
   );

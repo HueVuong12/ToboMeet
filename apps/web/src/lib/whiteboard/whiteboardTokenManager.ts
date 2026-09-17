@@ -23,7 +23,13 @@ const inFlightRequests = new Map<string, Promise<string>>();
 /**
  * Giải mã payload từ JWT token trên trình duyệt
  */
-export function parseJwtPayload(token: string): { sub?: string; displayName?: string; exp?: number } | null {
+export function parseJwtPayload(token: string): {
+  sub?: string;
+  displayName?: string;
+  exp?: number;
+  isReadOnly?: boolean;
+  isReadonly?: boolean;
+} | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;

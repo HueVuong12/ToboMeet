@@ -75,6 +75,7 @@ export function useMeetingWhiteboardLogic({
   const t = useTranslations("meeting.whiteboard");
   const { leaveWhiteboard } = useMeetingWhiteboard();
   const [getTokenMutation] = useGetWhiteboardTokenMutation();
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   const [whiteboardUser, setWhiteboardUser] = useState<WhiteboardUserInfo | null>(() => {
     const storedName = getStoredWhiteboardDisplayName();
@@ -192,13 +193,16 @@ export function useMeetingWhiteboardLogic({
     }
 
     const storedName = getStoredWhiteboardDisplayName();
+    const parsed = parseJwtPayload(res.token);
+    if (parsed) {
+      setIsReadOnly(Boolean(parsed.isReadOnly ?? parsed.isReadonly ?? false));
+    }
 
     if (res.user) {
       const finalName = storedName || res.user.name || "";
       const updatedUser = { ...res.user, name: finalName };
       setWhiteboardUser(updatedUser);
     } else {
-      const parsed = parseJwtPayload(res.token);
       if (parsed?.sub) {
         const finalName = storedName || parsed.displayName || "";
         setWhiteboardUser({ id: parsed.sub, name: finalName });
@@ -263,6 +267,7 @@ export function useMeetingWhiteboardLogic({
     store,
     user,
     whiteboardUser,
+    isReadOnly,
     userPreferences,
     updateUserPreferences,
     leaveWhiteboard,

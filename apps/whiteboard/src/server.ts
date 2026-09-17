@@ -139,6 +139,7 @@ wss.on("connection", (socket, request) => {
 
     let userSub = "demo-user";
     let userDisplayName = "Demo User";
+    let isReadOnly = false;
 
     // 1. Xác thực JWT (RS256) và lấy roomId từ token
     if (token) {
@@ -176,6 +177,7 @@ wss.on("connection", (socket, request) => {
         roomId = tokenRoomId;
         userSub = decoded.sub || "unknown";
         userDisplayName = decoded.displayName || "User";
+        isReadOnly = Boolean(decoded.isReadOnly ?? decoded.isReadonly ?? false);
     } else {
         // Hỗ trợ chế độ demo không cần token ở môi trường dev nếu roomId bắt đầu bằng demo-
         const isDevDemoAllowed = process.env.ALLOW_DEV_DEMO === "true" && roomId?.startsWith("demo-");
@@ -188,7 +190,7 @@ wss.on("connection", (socket, request) => {
         }
     }
 
-    console.log(`Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName})`);
+    console.log(`Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName}, ReadOnly: ${isReadOnly})`);
 
     if (!roomId) {
         socket.close(1008, "Missing roomId");
@@ -198,12 +200,13 @@ wss.on("connection", (socket, request) => {
     const room = getOrCreateRoom(roomId);
     const sessionId = randomUUID();
 
-    console.log(`Session ${sessionId} joined ${roomId}`);
+    console.log(`Session ${sessionId} joined ${roomId} (isReadonly: ${isReadOnly})`);
 
     // Cho socket tham gia tldraw room
     room.handleSocketConnect({
         sessionId,
         socket,
+        isReadonly: isReadOnly,
     });
 });
 

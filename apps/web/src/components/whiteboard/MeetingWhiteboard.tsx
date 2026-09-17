@@ -1,10 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
 import { Loader2, WifiOff, X, Layers, RefreshCw } from "lucide-react";
 import { useMeetingWhiteboardLogic } from "@/hooks/useMeetingWhiteboardLogic";
+import { useLocalParticipant, useRoomInfo } from "@livekit/components-react";
+import { useMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
+import { LivekitRoomMetadata, ParticipantMetadata, WhiteboardSettings } from "@tobomeet/shared/types";
+import { invalidateWhiteboardToken } from "@/lib/whiteboard/whiteboardTokenManager";
+import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 interface MeetingWhiteboardProps {
   meetingCode: string;
@@ -12,11 +18,11 @@ interface MeetingWhiteboardProps {
   whiteboardUrl?: string | null;
 }
 
-export default function MeetingWhiteboard({
+function MeetingWhiteboardCanvas({
   meetingCode,
   whiteboardUrl,
 }: MeetingWhiteboardProps) {
-  const { store, user, leaveWhiteboard, handleRetry, t } =
+  const { store, user, isReadOnly, leaveWhiteboard, handleRetry, t } =
     useMeetingWhiteboardLogic({
       meetingCode,
       whiteboardUrl,
@@ -80,7 +86,7 @@ export default function MeetingWhiteboard({
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-[#111113]">
-      {/* Top Floating Control Bar - Canh giữa màn hình để không che khuất các menu của tldraw */}
+      {/* Top Floating Control Bar */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#161619]/90 backdrop-blur-md border border-[#232328] rounded-xl px-3 py-1.5 shadow-xl select-none">
         <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
           <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-white">
@@ -89,12 +95,14 @@ export default function MeetingWhiteboard({
           <span className="font-semibold text-xs">{t("title")}</span>
         </div>
 
-        <div className="h-4 w-px bg-[#232328]" />
-
-        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="hidden sm:inline">{t("online")}</span>
-        </div>
+        {isReadOnly && (
+          <>
+            <div className="h-4 w-px bg-[#232328]" />
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-medium">
+              <span>{t("view_only_mode")}</span>
+            </div>
+          </>
+        )}
 
         <div className="h-4 w-px bg-[#232328]" />
 
@@ -116,3 +124,99 @@ export default function MeetingWhiteboard({
   );
 }
 
+export default function MeetingWhiteboard({
+  meetingCode,
+  whiteboardUrl,
+}: MeetingWhiteboardProps) {
+  const [sessionVersion, setSessionVersion] = useState(0);
+
+  // Lắng nghe thay đổi room metadata và participant metadata từ LiveKit realtime
+  const { metadata: roomMetadata } = useRoomInfo();
+  const { localParticipant } = useLocalParticipant();
+  const { leaveWhiteboard } = useMeetingWhiteboard();
+  const t = useTranslations("meeting.whiteboard");
+
+  const prevPermissionRef = useRef<{
+    allowed: boolean;
+    permLevel: "view" | "edit";
+  } | null>(null);
+
+  useEffect(() => {
+    if (!roomMetadata) return;
+
+    try {
+      const meta: LivekitRoomMetadata = JSON.parse(roomMetadata);
+      let wbSettings: WhiteboardSettings | undefined = undefined;
+
+      if (meta.roomType === "breakout") {
+        wbSettings = meta.parentMetadata?.whiteboardSettings;
+      } else if (meta.roomType === "main") {
+        wbSettings = meta.whiteboardSettings;
+      }
+
+      if (!wbSettings) return;
+
+      let userRole: "owner" | "admin" | "member" | "guest" = "guest";
+      let isHost = false;
+      if (localParticipant?.metadata) {
+        try {
+          const userMeta: ParticipantMetadata = JSON.parse(
+            localParticipant.metadata,
+          );
+          userRole = userMeta.role || "guest";
+          isHost = userMeta.role === "owner" || userMeta.role === "admin";
+        } catch {}
+      }
+
+      const allowed = isHost
+        ? true
+        : userRole === "member"
+        ? (wbSettings.allowedRoles?.includes("member") ?? true)
+        : (wbSettings.allowedRoles?.includes("guest") ?? true);
+
+      const permLevel: "view" | "edit" = isHost
+        ? "edit"
+        : userRole === "member"
+        ? (wbSettings.memberPermission || "edit")
+        : (wbSettings.guestPermission || "edit");
+
+      if (prevPermissionRef.current === null) {
+        prevPermissionRef.current = { allowed, permLevel };
+        return;
+      }
+
+      const prev = prevPermissionRef.current;
+      prevPermissionRef.current = { allowed, permLevel };
+
+      // TH1: Người dùng bị thu hồi quyền hoàn toàn
+      if (prev.allowed && !allowed) {
+        invalidateWhiteboardToken(meetingCode);
+        toast.error(t("access_revoked_by_host"));
+        leaveWhiteboard();
+        return;
+      }
+
+      // TH2: Quyền thay đổi giữa Chỉ xem và Chỉnh sửa
+      if (prev.allowed && allowed && prev.permLevel !== permLevel) {
+        invalidateWhiteboardToken(meetingCode);
+        if (permLevel === "view") {
+          toast.info(t("switched_to_view_only"));
+        } else {
+          toast.success(t("switched_to_edit"));
+        }
+        // Làm mới session để tự động fetch token mới và kết nối lại
+        setSessionVersion((v) => v + 1);
+      }
+    } catch (e) {
+      console.error("Lỗi khi theo dõi thay đổi quyền Whiteboard:", e);
+    }
+  }, [roomMetadata, localParticipant?.metadata, meetingCode, leaveWhiteboard, t]);
+
+  return (
+    <MeetingWhiteboardCanvas
+      key={sessionVersion}
+      meetingCode={meetingCode}
+      whiteboardUrl={whiteboardUrl}
+    />
+  );
+}

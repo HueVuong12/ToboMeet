@@ -9,6 +9,7 @@ import {
   PresignedUploadResponse,
   RoomMemberStatus,
   SessionAttendanceItem,
+  WhiteboardSettings,
 } from "@tobomeet/shared/types";
 import { baseApi } from "./baseApi";
 
@@ -234,6 +235,18 @@ export const meetingsApi = baseApi.injectEndpoints({
       query: ({ meetingCode }) => ({
         url: `/meetings/${meetingCode}/whiteboard-token`,
         method: "POST",
+      }),
+    }),
+
+    // Cập nhật phân quyền Whiteboard
+    updateWhiteboardSettings: builder.mutation<
+      WhiteboardSettings,
+      { code: string; settings: WhiteboardSettings }
+    >({
+      query: ({ code, settings }) => ({
+        url: `/meetings/${code}/whiteboard-settings`,
+        method: "PATCH",
+        data: settings,
       }),
     }),
 
@@ -469,8 +482,9 @@ export const {
   useStartCloudRecordingMutation,
   useStopCloudRecordingMutation,
 
-  // Whiteboard token API
+  // Whiteboard token and settings APIs
   useGetWhiteboardTokenMutation,
+  useUpdateWhiteboardSettingsMutation,
 } = meetingsApi;
 
 

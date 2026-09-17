@@ -399,6 +399,15 @@ export interface ParticipantMetadata {
   status: "joined" | "waiting";
 }
 
+export type WhiteboardAccessRole = "admin" | "member" | "guest";
+export type WhiteboardPermissionLevel = "view" | "edit";
+
+export interface WhiteboardSettings {
+  allowedRoles: WhiteboardAccessRole[];
+  memberPermission: WhiteboardPermissionLevel;
+  guestPermission: WhiteboardPermissionLevel;
+}
+
 // Định nghĩa các trường dùng chung (nếu có)
 export interface BaseRoomMetadata {
   roomName: string;
@@ -412,6 +421,7 @@ export interface MainRoomMetadata extends BaseRoomMetadata {
   isWaitingRoomEnabled: boolean;
   isChatEnabled: boolean;
   approvalPermission: "admin_only" | "member_and_admin" | "everyone";
+  whiteboardSettings?: WhiteboardSettings;
   breakoutSession?: {
     status: string;
     rooms: LivekitBreakoutRoom[];
