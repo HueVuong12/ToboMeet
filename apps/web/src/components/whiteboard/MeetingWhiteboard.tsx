@@ -1,41 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSync } from "@tldraw/sync";
-import {
-  Tldraw,
-  TLAssetStore,
-  computed,
-  createUserId,
-  UserRecordType,
-  TLUserStore,
-} from "tldraw";
+import React from "react";
+import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
 import { Loader2, WifiOff, X, Layers, RefreshCw } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useMeetingWhiteboard } from "../meeting/contexts/MeetingWhiteboardContext";
-import { useGetWhiteboardTokenMutation } from "@/lib/redux/api/meetingsApi";
-import {
-  getOrRefreshWhiteboardToken,
-  invalidateWhiteboardToken,
-  getCachedWhiteboardUser,
-  parseJwtPayload,
-  WhiteboardUserInfo,
-} from "@/lib/whiteboard/whiteboardTokenManager";
-
-const defaultAssetStore: TLAssetStore = {
-  upload: async (_asset, file) => {
-    return {
-      src: await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      }),
-    };
-  },
-  resolve: (asset) => asset.props.src,
-};
+import { useMeetingWhiteboardLogic } from "@/hooks/useMeetingWhiteboardLogic";
 
 interface MeetingWhiteboardProps {
   meetingCode: string;
@@ -47,106 +16,11 @@ export default function MeetingWhiteboard({
   meetingCode,
   whiteboardUrl,
 }: MeetingWhiteboardProps) {
-  const t = useTranslations("meeting.whiteboard");
-  const { leaveWhiteboard } = useMeetingWhiteboard();
-  const [getTokenMutation] = useGetWhiteboardTokenMutation();
-
-  const [whiteboardUser, setWhiteboardUser] = useState<WhiteboardUserInfo | null>(
-    () => getCachedWhiteboardUser(meetingCode)
-  );
-
-  const currentUser = useMemo(() => {
-    if (!whiteboardUser) return null;
-
-    return computed("currentUser", () =>
-      UserRecordType.create({
-        id: createUserId(whiteboardUser.id),
-        name: whiteboardUser.name,
-        color: "#3b82f6",
-      })
-    );
-  }, [whiteboardUser]);
-
-  const userStore = useMemo<TLUserStore | undefined>(() => {
-    if (!currentUser) return undefined;
-    return {
-      currentUser,
-    };
-  }, [currentUser]);
-
-  const getTokenMutationRef = useRef(getTokenMutation);
-  getTokenMutationRef.current = getTokenMutation;
-
-  const meetingCodeRef = useRef(meetingCode);
-  meetingCodeRef.current = meetingCode;
-
-  const whiteboardUrlRef = useRef(whiteboardUrl);
-  whiteboardUrlRef.current = whiteboardUrl;
-
-  const rawFetchToken = useCallback(async (): Promise<string> => {
-    const res = await getTokenMutationRef.current({
-      meetingCode: meetingCodeRef.current,
-    }).unwrap();
-
-    if (!res?.token) {
-      throw new Error(t("fetch_token_error"));
-    }
-
-    if (res.user) {
-      setWhiteboardUser(res.user);
-    } else {
-      const parsed = parseJwtPayload(res.token);
-      if (parsed?.sub && parsed?.displayName) {
-        setWhiteboardUser({ id: parsed.sub, name: parsed.displayName });
-      }
-    }
-
-    return res.token;
-  }, [t]);
-
-  const getWhiteboardToken = useCallback(
-    async (forceRefresh = false): Promise<string> => {
-      const token = await getOrRefreshWhiteboardToken(
-        meetingCodeRef.current,
-        rawFetchToken,
-        forceRefresh
-      );
-
-      if (!whiteboardUser) {
-        const cachedUser = getCachedWhiteboardUser(meetingCodeRef.current);
-        if (cachedUser) {
-          setWhiteboardUser(cachedUser);
-        }
-      }
-
-      return token;
-    },
-    [rawFetchToken, whiteboardUser]
-  );
-
-  const uri = useCallback(async () => {
-    const token = await getWhiteboardToken();
-    const rawUrl =
-      process.env.NEXT_PUBLIC_WHITEBOARD_URL ||
-      whiteboardUrlRef.current ||
-      "ws://localhost:3002/sync";
-    const baseUrl = rawUrl.replace(/\/$/, "");
-
-    return `${baseUrl}?token=${encodeURIComponent(token)}`;
-  }, [getWhiteboardToken]);
-
-  const store = useSync({
-    uri,
-    assets: defaultAssetStore,
-    users: userStore,
-  });
-
-  // Cơ chế Reactive khi gặp lỗi: Nếu kết nối thất bại, hủy bỏ token trong cache để lần kết nối kế tiếp xin token mới
-  useEffect(() => {
-    if (store.status === "error") {
-      invalidateWhiteboardToken(meetingCode);
-    }
-  }, [store.status, meetingCode]);
+  const { store, user, leaveWhiteboard, handleRetry, t } =
+    useMeetingWhiteboardLogic({
+      meetingCode,
+      whiteboardUrl,
+    });
 
   if (store.status === "loading") {
     return (
@@ -186,10 +60,7 @@ export default function MeetingWhiteboard({
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                invalidateWhiteboardToken(meetingCode);
-                window.location.reload();
-              }}
+              onClick={handleRetry}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 cursor-pointer"
             >
               <RefreshCw size={14} />
@@ -239,8 +110,9 @@ export default function MeetingWhiteboard({
 
       {/* Tldraw Canvas */}
       <div className="w-full h-full">
-        <Tldraw store={store.store} autoFocus />
+        <Tldraw store={store.store} user={user} autoFocus />
       </div>
     </div>
   );
 }
+
