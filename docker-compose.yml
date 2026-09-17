@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  # 1. REDIS: Dùng chung cho BullMQ và LiveKit Egress
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # 2. LIVEKIT SERVER
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit-dev
+    ports:
+      - "7880:7880" # HTTP API & WebSocket
+      - "7881:7881" # WebRTC TCP
+      - "7882:7882/udp" # WebRTC UDP
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    depends_on:
+      - redis # Đợi Redis chạy xong mới chạy LiveKit
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 3. LIVEKIT EGRESS
+  egress:
+    image: livekit/egress:latest
+    container_name: egress-dev
+    environment:
+      - EGRESS_CONFIG_FILE=/etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml
+      # Mount thư mục ./recordings để video lưu ra máy thật
+      - ./recordings:/out
+    depends_on:
+      - livekit
+      - redis
+
+  # 4. WHITEBOARD SYNC SERVER (tldraw SQLite sync server)
+  whiteboard:
+    build:
+      context: ./apps/whiteboard
+      dockerfile: Dockerfile
+    container_name: whiteboard-dev
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - NODE_ENV=production
+    env_file:
+      - ./apps/whiteboard/.env
+    volumes:
+      # Mount thư mục data để lưu trữ file SQLite ra máy thật
+      - ./apps/whiteboard/data:/app/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

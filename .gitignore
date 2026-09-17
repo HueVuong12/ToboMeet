@@ -55,13 +55,18 @@ coverage/
 .node20/
 node.zip
 
-# SQLite & Whiteboard storage
+# SQLite & Whiteboard / Storage data
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
 *.db
 *.db-wal
 *.db-shm
+data/
+**/data/
 apps/whiteboard/data/
 **/apps/whiteboard/data/
 
+# Recordings & Media storage
+recordings/
+**/recordings/

@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+data/
+recordings/
+dist/
+.env
+.env.*
+.git
+.DS_Store
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
