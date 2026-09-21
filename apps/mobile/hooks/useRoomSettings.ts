@@ -12,6 +12,7 @@ import {
   LivekitBreakoutRoom,
   LivekitRoomMetadata,
   ParticipantMetadata,
+  WhiteboardSettings,
 } from "@tobomeet/shared/types";
 import { useTranslation } from "react-i18next";
 
@@ -34,6 +35,13 @@ export function useRoomSettings({
     "admin_only" | "member_and_admin" | "everyone"
   >("admin_only");
 
+  const [whiteboardSettings, setWhiteboardSettings] =
+    useState<WhiteboardSettings>({
+      allowedRoles: ["admin", "member", "guest"],
+      memberPermission: "edit",
+      guestPermission: "edit",
+    });
+
   const [roomType, setRoomType] = useState<"main" | "breakout">("main");
   const [breakoutRoomsList, setBreakoutRoomsList] = useState<
     LivekitBreakoutRoom[]
@@ -43,16 +51,24 @@ export function useRoomSettings({
   const [breakoutDuration, setBreakoutDuration] = useState<number>(0);
   const [roomName, setRoomName] = useState<string>("");
 
-  // Kiểm tra quyền Chủ phòng/Admin
+  // Kiểm tra quyền Chủ phòng/Admin & Role của user
   let isHost = false;
+  let userRole: "owner" | "admin" | "member" | "guest" = "guest";
   try {
     if (localParticipant?.metadata) {
       const userMeta: ParticipantMetadata = JSON.parse(
         localParticipant.metadata,
       );
+      userRole = userMeta.role || "guest";
       isHost = userMeta.role === "owner" || userMeta.role === "admin";
     }
-  } catch (e) { }
+  } catch (e) {}
+
+  const canAccessWhiteboard = isHost
+    ? true
+    : userRole === "member"
+      ? (whiteboardSettings.allowedRoles?.includes("member") ?? true)
+      : (whiteboardSettings.allowedRoles?.includes("guest") ?? true);
 
   // Lắng nghe và đồng bộ trạng thái cài đặt chung từ Server (Metadata của LiveKit)
   useEffect(() => {
@@ -67,6 +83,9 @@ export function useRoomSettings({
         if (meta.parentMetadata) {
           setIsChatEnabled(meta.parentMetadata.isChatEnabled);
           setApprovalPermission(meta.parentMetadata.approvalPermission);
+          if (meta.parentMetadata.whiteboardSettings) {
+            setWhiteboardSettings(meta.parentMetadata.whiteboardSettings);
+          }
         }
 
         setBreakoutStartedAt(meta.startedAt || 0);
@@ -78,6 +97,9 @@ export function useRoomSettings({
         setIsChatEnabled(meta.isChatEnabled);
         setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
         setApprovalPermission(meta.approvalPermission);
+        if (meta.whiteboardSettings) {
+          setWhiteboardSettings(meta.whiteboardSettings);
+        }
 
         setIsBreakoutActive(meta.breakoutSession?.status === "active");
         setBreakoutRoomsList(meta.breakoutSession?.rooms || []);
@@ -184,6 +206,8 @@ export function useRoomSettings({
     isHost,
     roomType,
     roomName,
+    whiteboardSettings,
+    canAccessWhiteboard,
 
     handleToggleChat,
     handleToggleWaitingRoom,

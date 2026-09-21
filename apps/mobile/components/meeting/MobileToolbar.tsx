@@ -26,11 +26,13 @@ export default function MobileToolbar({
   meetingCode,
   onOpenMembers,
   onOpenChat,
+  onOpenWhiteboard,
 }: {
   initialFacingMode?: "user" | "environment";
   meetingCode: string;
   onOpenMembers: () => void;
   onOpenChat: () => void;
+  onOpenWhiteboard?: () => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -48,6 +50,7 @@ export default function MobileToolbar({
     isBreakoutActive,
     breakoutRoomsList,
     roomType,
+    canAccessWhiteboard,
     handleToggleChat,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
@@ -273,6 +276,35 @@ export default function MobileToolbar({
             </TouchableOpacity>
           )}
 
+          {/* Nút Bảng trắng (Whiteboard) */}
+          <TouchableOpacity
+            onPress={() => {
+              if (canAccessWhiteboard === false) {
+                toast.error(
+                  t("meeting.toolbar.whiteboard_no_permission", {
+                    defaultValue: "Bạn không có quyền truy cập bảng trắng",
+                  }),
+                );
+                return;
+              }
+              onOpenWhiteboard?.();
+            }}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
+            <Feather
+              name="edit-3"
+              size={20}
+              color={canAccessWhiteboard === false ? "#6b7280" : "#60a5fa"}
+            />
+            <Text
+              className={`text-[10px] mt-1 font-medium ${
+                canAccessWhiteboard === false ? "text-gray-500" : "text-blue-400"
+              }`}
+            >
+              {t("meeting.toolbar.whiteboard", { defaultValue: "Bảng trắng" })}
+            </Text>
+          </TouchableOpacity>
+
           {/* Nút Quản lý/Tùy chọn */}
           <TouchableOpacity
             onPress={() => setShowAdminMenu(true)}
@@ -351,6 +383,35 @@ export default function MobileToolbar({
               <Text className="ml-3 text-sm font-medium text-gray-300">
                 {t("meeting.toolbar.invite_participants")}
               </Text>
+            </TouchableOpacity>
+
+            {/* Tùy chọn Bảng trắng (Whiteboard) */}
+            <TouchableOpacity
+              onPress={() => {
+                if (canAccessWhiteboard === false) {
+                  toast.error(
+                    t("meeting.toolbar.whiteboard_no_permission", {
+                      defaultValue: "Bạn không có quyền truy cập bảng trắng",
+                    }),
+                  );
+                  return;
+                }
+                setShowAdminMenu(false);
+                setTimeout(() => onOpenWhiteboard?.(), 200);
+              }}
+              className={`flex-row items-center justify-between py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2 ${
+                canAccessWhiteboard === false ? "opacity-50" : "opacity-100"
+              }`}
+            >
+              <View className="flex-row items-center">
+                <Feather name="edit-3" size={20} color="#60a5fa" />
+                <Text className="ml-3 text-sm font-medium text-gray-200">
+                  {t("meeting.toolbar.whiteboard", {
+                    defaultValue: "Bảng trắng",
+                  })}
+                </Text>
+              </View>
+              <Feather name="external-link" size={16} color="#64748b" />
             </TouchableOpacity>
 
             {/* CÔNG CỤ QUẢN TRỊ (CHỈ HOST MỚI THẤY) */}

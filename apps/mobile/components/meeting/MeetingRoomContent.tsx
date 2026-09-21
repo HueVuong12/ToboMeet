@@ -18,6 +18,7 @@ import MobileToolbar from "../../components/meeting/MobileToolbar";
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
+import MobileWhiteboardModal from "../../components/meeting/MobileWhiteboardModal";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useTranslation } from "react-i18next";
 import { useBreakoutSync } from "../../hooks/useBreakoutSync";
@@ -50,6 +51,7 @@ export default function MeetingRoomContent({
 
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
+  const [showWhiteboardModal, setShowWhiteboardModal] = useState(false);
 
   const { displayParticipants } = useParticipantManager({
     meetingCode: meetingCode,
@@ -313,6 +315,7 @@ export default function MeetingRoomContent({
         }
         onOpenMembers={() => setShowMembersModal(true)}
         onOpenChat={() => setShowChatModal(true)}
+        onOpenWhiteboard={() => setShowWhiteboardModal(true)}
       />
 
       <MembersModal
@@ -325,6 +328,12 @@ export default function MeetingRoomContent({
         meetingCode={meetingCode}
         visible={showChatModal}
         onClose={() => setShowChatModal(false)}
+      />
+
+      <MobileWhiteboardModal
+        visible={showWhiteboardModal}
+        onClose={() => setShowWhiteboardModal(false)}
+        meetingCode={meetingCode}
       />
     </View>
   );

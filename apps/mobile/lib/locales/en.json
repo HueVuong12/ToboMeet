@@ -600,7 +600,17 @@
       "end_breakout_error": "Cannot end breakout session at this time.",
       "leave_breakout_confirm_title": "Leave breakout room",
       "leave_breakout_confirm_desc": "Do you want to return to the main room or leave the meeting?",
-      "return_to_main_action": "Return to main room"
+      "return_to_main_action": "Return to main room",
+      "whiteboard": "Whiteboard",
+      "whiteboard_no_permission": "You do not have permission to access the whiteboard",
+      "whiteboard_no_session": "No valid session found",
+      "whiteboard_error_generic": "Connection error",
+      "whiteboard_connecting": "Connecting to Whiteboard...",
+      "whiteboard_syncing_auth": "Syncing secure authentication session",
+      "whiteboard_preparing": "Preparing workspace...",
+      "whiteboard_load_error": "Could not open whiteboard",
+      "whiteboard_loading_canvas": "Loading canvas...",
+      "retry": "Retry"
     },
     "create_breakout_modal": {
       "modal_title": "Breakout Rooms",

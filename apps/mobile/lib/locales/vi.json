@@ -602,7 +602,17 @@
       "end_breakout_error": "Không thể kết thúc thảo luận lúc này.",
       "leave_breakout_confirm_title": "Rời phòng thảo luận",
       "leave_breakout_confirm_desc": "Bạn muốn quay về phòng họp chính hay rời hẳn cuộc họp?",
-      "return_to_main_action": "Quay về phòng chính"
+      "return_to_main_action": "Quay về phòng chính",
+      "whiteboard": "Bảng trắng",
+      "whiteboard_no_permission": "Bạn không có quyền truy cập bảng trắng",
+      "whiteboard_no_session": "Không tìm thấy phiên đăng nhập hợp lệ",
+      "whiteboard_error_generic": "Lỗi kết nối",
+      "whiteboard_connecting": "Đang kết nối Bảng trắng...",
+      "whiteboard_syncing_auth": "Đồng bộ phiên xác thực an toàn",
+      "whiteboard_preparing": "Đang chuẩn bị phiên làm việc...",
+      "whiteboard_load_error": "Không thể mở bảng trắng",
+      "whiteboard_loading_canvas": "Đang tải bảng vẽ...",
+      "retry": "Thử lại"
     },
     "create_breakout_modal": {
       "modal_title": "Chia nhóm thảo luận",
