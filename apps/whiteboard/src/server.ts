@@ -20,10 +20,11 @@ const PORT = Number(process.env.PORT) || 3002;
 // Enable CORS for health check and API calls
 app.use((_req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
     res.header("Access-Control-Allow-Headers", "*");
     next();
 });
+app.use(express.json());
 
 // Thư mục lưu trữ database SQLite cho từng room
 const DATA_DIR = path.resolve(process.cwd(), "data", "rooms");
@@ -144,6 +145,65 @@ app.get("/rooms", (_req, res) => {
     }
 });
 
+/**
+ * Cập nhật cấu hình phân quyền Whiteboard vào TLDocument.meta của tldraw room
+ */
+async function updateRoomWhiteboardSettings(roomId: string, settings: any) {
+    const room = getOrCreateRoom(roomId);
+    await room.updateStore(async (store) => {
+        let doc = store.get("document:document") as any;
+        if (doc) {
+            doc.meta = {
+                ...doc.meta,
+                whiteboardSettings: settings,
+            };
+            store.put(doc);
+        } else {
+            store.put({
+                id: "document:document",
+                typeName: "document",
+                gridSize: 10,
+                name: "",
+                meta: {
+                    whiteboardSettings: settings,
+                },
+            } as any);
+        }
+    });
+    console.log(`📋 Updated TLDocument.meta.whiteboardSettings for room ${roomId}:`, settings);
+    return settings;
+}
+
+// Endpoint cập nhật cài đặt Whiteboard cho phòng
+app.patch("/rooms/:roomId/settings", async (req, res) => {
+    try {
+        const { roomId } = req.params;
+        const { settings } = req.body;
+        if (!settings) {
+            return res.status(400).json({ error: "Missing settings in request body" });
+        }
+        await updateRoomWhiteboardSettings(roomId, settings);
+        res.json({ success: true, settings });
+    } catch (err: any) {
+        console.error(`Error updating settings for room ${req.params.roomId}:`, err);
+        res.status(500).json({ error: err?.message || "Internal server error" });
+    }
+});
+
+// Endpoint đọc cài đặt Whiteboard hiện tại của phòng
+app.get("/rooms/:roomId/settings", (req, res) => {
+    try {
+        const { roomId } = req.params;
+        const room = getOrCreateRoom(roomId);
+        const doc = room.getRecord("document:document") as any;
+        const settings = doc?.meta?.whiteboardSettings || null;
+        res.json({ settings });
+    } catch (err: any) {
+        console.error(`Error reading settings for room ${req.params.roomId}:`, err);
+        res.status(500).json({ error: err?.message || "Internal server error" });
+    }
+});
+
 // HTTP server
 const server = createServer(app);
 
@@ -201,13 +261,14 @@ wss.on("connection", (socket, request) => {
         roomId = tokenRoomId;
         userSub = decoded.sub || "unknown";
         userDisplayName = decoded.displayName || "User";
+        const userRole = decoded.role || "guest";
         isReadOnly = Boolean(decoded.isReadOnly ?? decoded.isReadonly ?? false);
+
+        console.log(`Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName}, Role: ${userRole}, ReadOnly: ${isReadOnly})`);
     } else {
         socket.close(1008, "Missing authentication token");
         return;
     }
-
-    console.log(`Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName}, ReadOnly: ${isReadOnly})`);
 
     if (!roomId) {
         socket.close(1008, "Missing roomId");

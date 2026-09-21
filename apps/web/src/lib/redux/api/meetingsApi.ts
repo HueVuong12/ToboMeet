@@ -10,6 +10,8 @@ import {
   RoomMemberStatus,
   SessionAttendanceItem,
   WhiteboardSettings,
+  WhiteboardTokenResponse,
+  WhiteboardUserInfo,
 } from "@tobomeet/shared/types";
 import { baseApi } from "./baseApi";
 
@@ -19,18 +21,7 @@ interface ExchangeSessionResponse {
   channelId?: string;
 }
 
-export interface WhiteboardUserInfo {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-}
-
-export interface WhiteboardTokenResponse {
-  token: string;
-  roomId: string;
-  whiteboardUrl: string;
-  user?: WhiteboardUserInfo;
-}
+export type { WhiteboardUserInfo, WhiteboardTokenResponse };
 
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -238,6 +229,17 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Lấy cấu hình phân quyền Whiteboard
+    getWhiteboardSettings: builder.query<WhiteboardSettings, string>({
+      query: (code) => ({
+        url: `/meetings/${code}/whiteboard-settings`,
+        method: "GET",
+      }),
+      providesTags: (_res, _err, code) => [
+        { type: "Meetings", id: `whiteboard-${code}` },
+      ],
+    }),
+
     // Cập nhật phân quyền Whiteboard
     updateWhiteboardSettings: builder.mutation<
       WhiteboardSettings,
@@ -248,6 +250,9 @@ export const meetingsApi = baseApi.injectEndpoints({
         method: "PATCH",
         data: settings,
       }),
+      invalidatesTags: (_res, _err, { code }) => [
+        { type: "Meetings", id: `whiteboard-${code}` },
+      ],
     }),
 
 
@@ -484,6 +489,7 @@ export const {
 
   // Whiteboard token and settings APIs
   useGetWhiteboardTokenMutation,
+  useGetWhiteboardSettingsQuery,
   useUpdateWhiteboardSettingsMutation,
 } = meetingsApi;
 

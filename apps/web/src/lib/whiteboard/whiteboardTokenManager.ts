@@ -2,11 +2,12 @@
  * Quản lý bộ nhớ tạm (Cache), Proactive Refresh và Reactive Refresh cho Whiteboard Token.
  */
 
-export interface WhiteboardUserInfo {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-}
+import type {
+  WhiteboardJwtPayload,
+  WhiteboardUserInfo,
+} from "@tobomeet/shared/types";
+
+export type { WhiteboardUserInfo, WhiteboardJwtPayload };
 
 interface TokenCacheEntry {
   token: string;
@@ -23,13 +24,7 @@ const inFlightRequests = new Map<string, Promise<string>>();
 /**
  * Giải mã payload từ JWT token trên trình duyệt
  */
-export function parseJwtPayload(token: string): {
-  sub?: string;
-  displayName?: string;
-  exp?: number;
-  isReadOnly?: boolean;
-  isReadonly?: boolean;
-} | null {
+export function parseJwtPayload(token: string): WhiteboardJwtPayload | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;

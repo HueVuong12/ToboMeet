@@ -3,6 +3,7 @@ import { useLocalParticipant, useRoomInfo } from "@livekit/components-react";
 import { toast } from "sonner";
 import {
   useEndBreakoutSessionMutation,
+  useGetWhiteboardSettingsQuery,
   useToggleMeetingChatMutation,
   useToggleWaitingRoomStatusMutation,
   useUpdateApprovalPermissionMutation,
@@ -16,6 +17,7 @@ import {
   WhiteboardSettings,
 } from "@tobomeet/shared/types";
 import { invalidateWhiteboardToken } from "@/lib/whiteboard/whiteboardTokenManager";
+import { socket } from "@/lib/socket";
 
 // Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
 export function useRoomSettings({
@@ -34,6 +36,11 @@ export function useRoomSettings({
   const [updateApprovalPermissionApi] = useUpdateApprovalPermissionMutation(); // Khởi tạo mutation
   const [updateWhiteboardSettingsApi] = useUpdateWhiteboardSettingsMutation();
 
+  const { data: serverWbSettings } = useGetWhiteboardSettingsQuery(
+    meetingCode || "",
+    { skip: !meetingCode },
+  );
+
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
   const [whiteboardSettings, setWhiteboardSettings] = useState<WhiteboardSettings>({
@@ -41,6 +48,27 @@ export function useRoomSettings({
     memberPermission: "edit",
     guestPermission: "edit",
   });
+
+  // Đồng bộ cài đặt Whiteboard từ API khi tải phòng
+  useEffect(() => {
+    if (serverWbSettings) {
+      setWhiteboardSettings(serverWbSettings);
+    }
+  }, [serverWbSettings]);
+
+  // Lắng nghe cập nhật realtime phân quyền Whiteboard từ socket backend
+  useEffect(() => {
+    if (!meetingCode) return;
+    const handleWbSettingsUpdated = (newSettings: WhiteboardSettings) => {
+      setWhiteboardSettings(newSettings);
+      invalidateWhiteboardToken(meetingCode);
+    };
+
+    socket.on("meeting:whiteboard-settings-updated", handleWbSettingsUpdated);
+    return () => {
+      socket.off("meeting:whiteboard-settings-updated", handleWbSettingsUpdated);
+    };
+  }, [meetingCode]);
   const [roomType, setRoomType] = useState<"main" | "breakout">("main");
   const [breakoutRoomsList, setBreakoutRoomsList] = useState<
     LivekitBreakoutRoom[]
@@ -94,10 +122,6 @@ export function useRoomSettings({
         if (meta.parentMetadata) {
           setIsChatEnabled(meta.parentMetadata.isChatEnabled);
           setApprovalPermission(meta.parentMetadata.approvalPermission);
-          if (meta.parentMetadata.whiteboardSettings) {
-            setWhiteboardSettings(meta.parentMetadata.whiteboardSettings);
-            if (meetingCode) invalidateWhiteboardToken(meetingCode);
-          }
         }
 
         setBreakoutStartedAt(meta.startedAt || 0);
@@ -111,10 +135,6 @@ export function useRoomSettings({
         setIsChatEnabled(meta.isChatEnabled);
         setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
         setApprovalPermission(meta.approvalPermission);
-        if (meta.whiteboardSettings) {
-          setWhiteboardSettings(meta.whiteboardSettings);
-          if (meetingCode) invalidateWhiteboardToken(meetingCode);
-        }
         setRecordingInfo(meta.recording || null);
 
         // Cập nhật trạng thái và danh sách nhóm thảo luận (Breakout)

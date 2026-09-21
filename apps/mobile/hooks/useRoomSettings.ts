@@ -15,6 +15,8 @@ import {
   WhiteboardSettings,
 } from "@tobomeet/shared/types";
 import { useTranslation } from "react-i18next";
+import { axiosInstance } from "../lib/axios";
+import { socket } from "../lib/socket";
 
 export function useRoomSettings({
   meetingCode,
@@ -70,6 +72,32 @@ export function useRoomSettings({
       ? (whiteboardSettings.allowedRoles?.includes("member") ?? true)
       : (whiteboardSettings.allowedRoles?.includes("guest") ?? true);
 
+  // Fetch initial whiteboard settings từ API
+  useEffect(() => {
+    if (!meetingCode) return;
+    axiosInstance
+      .get(`/meetings/${meetingCode}/whiteboard-settings`)
+      .then((res: any) => {
+        if (res?.data) {
+          setWhiteboardSettings(res.data);
+        }
+      })
+      .catch(() => {});
+  }, [meetingCode]);
+
+  // Lắng nghe cập nhật realtime phân quyền Whiteboard từ socket backend
+  useEffect(() => {
+    if (!meetingCode) return;
+    const handleWbSettingsUpdated = (newSettings: WhiteboardSettings) => {
+      setWhiteboardSettings(newSettings);
+    };
+
+    socket.on("meeting:whiteboard-settings-updated", handleWbSettingsUpdated);
+    return () => {
+      socket.off("meeting:whiteboard-settings-updated", handleWbSettingsUpdated);
+    };
+  }, [meetingCode]);
+
   // Lắng nghe và đồng bộ trạng thái cài đặt chung từ Server (Metadata của LiveKit)
   useEffect(() => {
     if (!roomMetadata) return;
@@ -83,9 +111,6 @@ export function useRoomSettings({
         if (meta.parentMetadata) {
           setIsChatEnabled(meta.parentMetadata.isChatEnabled);
           setApprovalPermission(meta.parentMetadata.approvalPermission);
-          if (meta.parentMetadata.whiteboardSettings) {
-            setWhiteboardSettings(meta.parentMetadata.whiteboardSettings);
-          }
         }
 
         setBreakoutStartedAt(meta.startedAt || 0);
@@ -97,9 +122,6 @@ export function useRoomSettings({
         setIsChatEnabled(meta.isChatEnabled);
         setIsWaitingRoomEnabled(meta.isWaitingRoomEnabled);
         setApprovalPermission(meta.approvalPermission);
-        if (meta.whiteboardSettings) {
-          setWhiteboardSettings(meta.whiteboardSettings);
-        }
 
         setIsBreakoutActive(meta.breakoutSession?.status === "active");
         setBreakoutRoomsList(meta.breakoutSession?.rooms || []);

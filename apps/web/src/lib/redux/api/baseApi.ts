@@ -7,6 +7,7 @@ export const baseApi = createApi({
   tagTypes: [
     "User",
     "Room",
+    "Meetings",
     "UserSessions",
     "Report",
     "Post",

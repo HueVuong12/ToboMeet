@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
 import { Loader2, WifiOff, X, Layers, RefreshCw, ExternalLink } from "lucide-react";
 import { useMeetingWhiteboardLogic } from "@/hooks/useMeetingWhiteboardLogic";
-import { useLocalParticipant, useRoomInfo, useMaybeRoomContext } from "@livekit/components-react";
 import { useSafeMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
-import { LivekitRoomMetadata, ParticipantMetadata, WhiteboardSettings } from "@tobomeet/shared/types";
-import { invalidateWhiteboardToken } from "@/lib/whiteboard/whiteboardTokenManager";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { WhiteboardPermissionLevel } from "@tobomeet/shared/types";
 
 export interface MeetingWhiteboardProps {
   meetingCode: string;
@@ -22,6 +20,8 @@ export interface MeetingWhiteboardProps {
 
 interface MeetingWhiteboardCanvasProps extends MeetingWhiteboardProps {
   onRetryVersion?: () => void;
+  onPermissionRevoked?: () => void;
+  onPermissionChanged?: (newPermLevel: WhiteboardPermissionLevel) => void;
 }
 
 function MeetingWhiteboardCanvas({
@@ -30,6 +30,8 @@ function MeetingWhiteboardCanvas({
   isStandalone = false,
   onClose,
   onRetryVersion,
+  onPermissionRevoked,
+  onPermissionChanged,
 }: MeetingWhiteboardCanvasProps) {
   const {
     store,
@@ -44,6 +46,8 @@ function MeetingWhiteboardCanvas({
     whiteboardUrl,
     onClose,
     onRetry: onRetryVersion,
+    onPermissionRevoked,
+    onPermissionChanged,
   });
 
   const handleOpenInNewTab = useCallback(() => {
@@ -196,90 +200,6 @@ function MeetingWhiteboardCanvas({
   );
 }
 
-/**
- * Component lắng nghe sự kiện thay đổi quyền LiveKit
- * Được tách riêng để không bao giờ bị gọi khi chạy ở trang standalone ngoài LiveKitRoom
- */
-function MeetingWhiteboardLivekitWatcher({
-  meetingCode,
-  onPermissionRevoked,
-  onPermissionChanged,
-}: {
-  meetingCode: string;
-  onPermissionRevoked: () => void;
-  onPermissionChanged: (newPermLevel: "view" | "edit") => void;
-}) {
-  const { metadata: roomMetadata } = useRoomInfo();
-  const { localParticipant } = useLocalParticipant();
-
-  const prevPermissionRef = useRef<{
-    allowed: boolean;
-    permLevel: "view" | "edit";
-  } | null>(null);
-
-  useEffect(() => {
-    if (!roomMetadata) return;
-
-    try {
-      const meta: LivekitRoomMetadata = JSON.parse(roomMetadata);
-      let wbSettings: WhiteboardSettings | undefined = undefined;
-
-      if (meta.roomType === "breakout") {
-        wbSettings = meta.parentMetadata?.whiteboardSettings;
-      } else if (meta.roomType === "main") {
-        wbSettings = meta.whiteboardSettings;
-      }
-
-      if (!wbSettings) return;
-
-      let userRole: "owner" | "admin" | "member" | "guest" = "guest";
-      let isHost = false;
-      if (localParticipant?.metadata) {
-        try {
-          const userMeta: ParticipantMetadata = JSON.parse(localParticipant.metadata);
-          userRole = userMeta.role || "guest";
-          isHost = userMeta.role === "owner" || userMeta.role === "admin";
-        } catch { }
-      }
-
-      const allowed = isHost
-        ? true
-        : userRole === "member"
-          ? (wbSettings.allowedRoles?.includes("member") ?? true)
-          : (wbSettings.allowedRoles?.includes("guest") ?? true);
-
-      const permLevel: "view" | "edit" = isHost
-        ? "edit"
-        : userRole === "member"
-          ? (wbSettings.memberPermission || "edit")
-          : (wbSettings.guestPermission || "edit");
-
-      if (prevPermissionRef.current === null) {
-        prevPermissionRef.current = { allowed, permLevel };
-        return;
-      }
-
-      const prev = prevPermissionRef.current;
-      prevPermissionRef.current = { allowed, permLevel };
-
-      if (prev.allowed && !allowed) {
-        invalidateWhiteboardToken(meetingCode);
-        onPermissionRevoked();
-        return;
-      }
-
-      if (prev.allowed && allowed && prev.permLevel !== permLevel) {
-        invalidateWhiteboardToken(meetingCode);
-        onPermissionChanged(permLevel);
-      }
-    } catch (e) {
-      console.error("Lỗi khi theo dõi thay đổi quyền Whiteboard:", e);
-    }
-  }, [roomMetadata, localParticipant?.metadata, meetingCode, onPermissionRevoked, onPermissionChanged]);
-
-  return null;
-}
-
 export default function MeetingWhiteboard({
   meetingCode,
   whiteboardUrl,
@@ -287,7 +207,6 @@ export default function MeetingWhiteboard({
   onClose,
 }: MeetingWhiteboardProps) {
   const [sessionVersion, setSessionVersion] = useState(0);
-  const roomContext = useMaybeRoomContext();
   const safeContext = useSafeMeetingWhiteboard();
   const t = useTranslations("meeting.whiteboard");
 
@@ -307,7 +226,7 @@ export default function MeetingWhiteboard({
   }, [t, handleLeaveWhiteboard]);
 
   const handlePermissionChanged = useCallback(
-    (permLevel: "view" | "edit") => {
+    (permLevel: WhiteboardPermissionLevel) => {
       if (permLevel === "view") {
         toast.info(t("switched_to_view_only"));
       } else {
@@ -319,22 +238,15 @@ export default function MeetingWhiteboard({
   );
 
   return (
-    <>
-      {roomContext && !isStandalone && (
-        <MeetingWhiteboardLivekitWatcher
-          meetingCode={meetingCode}
-          onPermissionRevoked={handlePermissionRevoked}
-          onPermissionChanged={handlePermissionChanged}
-        />
-      )}
-      <MeetingWhiteboardCanvas
-        key={sessionVersion}
-        meetingCode={meetingCode}
-        whiteboardUrl={whiteboardUrl}
-        isStandalone={isStandalone}
-        onClose={onClose}
-        onRetryVersion={() => setSessionVersion((v) => v + 1)}
-      />
-    </>
+    <MeetingWhiteboardCanvas
+      key={sessionVersion}
+      meetingCode={meetingCode}
+      whiteboardUrl={whiteboardUrl}
+      isStandalone={isStandalone}
+      onClose={onClose}
+      onRetryVersion={() => setSessionVersion((v) => v + 1)}
+      onPermissionRevoked={handlePermissionRevoked}
+      onPermissionChanged={handlePermissionChanged}
+    />
   );
 }

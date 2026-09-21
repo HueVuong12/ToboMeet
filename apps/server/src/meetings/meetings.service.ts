@@ -146,11 +146,6 @@ export class MeetingsService {
     // Eager create LiveKit room nếu chưa có
     if (!livekitRoom && this.livekitRoomService) {
       try {
-        const defaultWhiteboardSettings: WhiteboardSettings = {
-          allowedRoles: ["admin", "member", "guest"],
-          memberPermission: "edit",
-          guestPermission: "edit",
-        };
         livekitRoom = await this.livekitRoomService.createRoom({
           name: meeting.meetingCode,
           emptyTimeout: 5 * 60,
@@ -162,8 +157,6 @@ export class MeetingsService {
             isWaitingRoomEnabled: false,
             isChatEnabled: true,
             approvalPermission: "admin_only",
-            whiteboardSettings:
-              meeting.whiteboardSettings || defaultWhiteboardSettings,
           } as MainRoomMetadata),
         });
       } catch (e) {
@@ -621,10 +614,6 @@ export class MeetingsService {
     meetingCode: string,
     settings: WhiteboardSettings,
   ): Promise<WhiteboardSettings> {
-    if (!this.livekitRoomService) {
-      throw new AppException(ErrorCode.SERVER_ERROR);
-    }
-
     // Đảm bảo admin luôn có trong allowedRoles
     const sanitizedRoles = Array.from(
       new Set(["admin", ...(settings.allowedRoles || [])]),
@@ -644,33 +633,66 @@ export class MeetingsService {
       )
       .exec();
 
-    // 2. Cập nhật LiveKit Room Metadata nếu phòng đang chạy
+    // 2. Cập nhật TLDocument.meta trên Whiteboard Sync Server
     try {
-      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
-      let currentMeta = {};
+      const whiteboardHttpUrl = (
+        process.env.WHITEBOARD_HTTP_URL ||
+        process.env.WHITEBOARD_SERVER_URL ||
+        "http://localhost:3002"
+      )
+        .replace(/^ws:\/\//, "http://")
+        .replace(/^wss:\/\//, "https://")
+        .replace(/\/sync\/?$/, "")
+        .replace(/\/$/, "");
 
-      if (rooms && rooms.length > 0 && rooms[0].metadata) {
-        try {
-          currentMeta = JSON.parse(rooms[0].metadata);
-        } catch (e) {
-          console.error("Lỗi parse metadata phòng", e);
-        }
-      }
-
-      const metadataString = JSON.stringify({
-        ...currentMeta,
-        whiteboardSettings: sanitizedSettings,
-      });
-
-      await this.livekitRoomService.updateRoomMetadata(
-        meetingCode,
-        metadataString,
+      const response = await fetch(
+        `${whiteboardHttpUrl}/rooms/${encodeURIComponent(meetingCode)}/settings`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ settings: sanitizedSettings }),
+        },
       );
-    } catch (error) {
-      console.error("Lỗi khi cập nhật LiveKit metadata cho whiteboard:", error);
+
+      if (!response.ok) {
+        console.warn(
+          `[Whiteboard Sync] Failed to update settings on whiteboard server: status ${response.status}`,
+        );
+      }
+    } catch (err: any) {
+      console.warn(
+        `[Whiteboard Sync] Cannot reach whiteboard server: ${err?.message}`,
+      );
+    }
+
+    // 3. Gửi event realtime qua MeetingsGateway cho các client trong phòng cập nhật toolbar UI
+    try {
+      this.meetingsGateway?.server
+        ?.to(meetingCode)
+        ?.emit("meeting:whiteboard-settings-updated", sanitizedSettings);
+    } catch (err) {
+      console.warn("Lỗi emit socket whiteboard-settings-updated:", err);
     }
 
     return sanitizedSettings;
+  }
+
+  /**
+   * Lấy cấu hình phân quyền Whiteboard của cuộc họp
+   */
+  async getWhiteboardSettings(meetingCode: string): Promise<WhiteboardSettings> {
+    const meeting = await this.meetingModel
+      .findOne({ meetingCode })
+      .select("whiteboardSettings")
+      .lean();
+
+    return (
+      meeting?.whiteboardSettings || {
+        allowedRoles: ["admin", "member", "guest"],
+        memberPermission: "edit",
+        guestPermission: "edit",
+      }
+    );
   }
 
   /**
@@ -851,29 +873,12 @@ export class MeetingsService {
       userId,
     );
 
-    // Lấy cấu hình Whiteboard (ưu tiên metadata phòng từ LiveKit, fallback DB)
-    let whiteboardSettings: WhiteboardSettings = meeting.whiteboardSettings || {
+    // Lấy cấu hình Whiteboard từ DB meeting (hoặc mặc định)
+    const whiteboardSettings: WhiteboardSettings = meeting.whiteboardSettings || {
       allowedRoles: ["admin", "member", "guest"],
       memberPermission: "edit",
       guestPermission: "edit",
     };
-
-    try {
-      const rooms = await this.livekitRoomService.listRooms([meetingCode]);
-      if (rooms && rooms.length > 0 && rooms[0].metadata) {
-        const meta: LivekitRoomMetadata = JSON.parse(rooms[0].metadata);
-        if (
-          meta.roomType === "breakout" &&
-          meta.parentMetadata?.whiteboardSettings
-        ) {
-          whiteboardSettings = meta.parentMetadata.whiteboardSettings;
-        } else if (meta.roomType === "main" && meta.whiteboardSettings) {
-          whiteboardSettings = meta.whiteboardSettings;
-        }
-      }
-    } catch (e) {
-      console.error("Lỗi khi đọc LiveKit metadata:", e);
-    }
 
     // Kiểm tra phân quyền truy cập Whiteboard
     let isReadOnly = false;
@@ -901,8 +906,10 @@ export class MeetingsService {
     }
     const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
 
+    const userRole = hasAdminPowers ? "admin" : (role || "guest");
     const payload = {
       sub: userId,
+      role: userRole,
       meetingCode,
       roomId: meetingCode,
       displayName,

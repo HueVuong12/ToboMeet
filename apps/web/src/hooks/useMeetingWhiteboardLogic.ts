@@ -13,6 +13,12 @@ import {
   atom,
 } from "tldraw";
 import { useTranslations } from "next-intl";
+import {
+  WhiteboardAccessRole,
+  WhiteboardPermissionLevel,
+  WhiteboardSettings,
+  WhiteboardUserInfo,
+} from "@tobomeet/shared/types";
 import { useSafeMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
 import { useGetWhiteboardTokenMutation } from "@/lib/redux/api/meetingsApi";
 import {
@@ -20,7 +26,6 @@ import {
   invalidateWhiteboardToken,
   getCachedWhiteboardUser,
   parseJwtPayload,
-  WhiteboardUserInfo,
 } from "@/lib/whiteboard/whiteboardTokenManager";
 
 export const WHITEBOARD_DISPLAY_NAME_STORAGE_KEY = "tobomeet_whiteboard_display_name";
@@ -66,6 +71,16 @@ export interface UseMeetingWhiteboardLogicOptions {
   whiteboardUrl?: string | null;
   onClose?: () => void;
   onRetry?: () => void;
+  onPermissionRevoked?: () => void;
+  onPermissionChanged?: (newPermLevel: WhiteboardPermissionLevel) => void;
+}
+
+interface WhiteboardDocRecord {
+  meta?: {
+    whiteboardSettings?: WhiteboardSettings;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
 }
 
 export function useMeetingWhiteboardLogic({
@@ -73,12 +88,25 @@ export function useMeetingWhiteboardLogic({
   whiteboardUrl,
   onClose,
   onRetry,
+  onPermissionRevoked,
+  onPermissionChanged,
 }: UseMeetingWhiteboardLogicOptions) {
   const t = useTranslations("meeting.whiteboard");
   const safeContext = useSafeMeetingWhiteboard();
   const [getTokenMutation] = useGetWhiteboardTokenMutation();
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSessionTransferred, setIsSessionTransferred] = useState(false);
+
+  const onPermissionRevokedRef = useRef(onPermissionRevoked);
+  onPermissionRevokedRef.current = onPermissionRevoked;
+
+  const onPermissionChangedRef = useRef(onPermissionChanged);
+  onPermissionChangedRef.current = onPermissionChanged;
+
+  const userRoleRef = useRef<WhiteboardAccessRole | "owner">("guest");
+  const isHostRef = useRef<boolean>(false);
+  // Counter state: tăng sau khi token được parse xong, dùng để trigger lại settings-check effect
+  const [tokenReadyVersion, setTokenReadyVersion] = useState(0);
 
   const leaveWhiteboard = useCallback(() => {
     if (onClose) {
@@ -209,11 +237,16 @@ export function useMeetingWhiteboardLogic({
     const parsed = parseJwtPayload(res.token);
     if (parsed) {
       setIsReadOnly(Boolean(parsed.isReadOnly ?? parsed.isReadonly ?? false));
+      const role: WhiteboardAccessRole | "owner" = parsed.role || "guest";
+      userRoleRef.current = role;
+      isHostRef.current = role === "owner" || role === "admin";
     }
+    // Sau khi role đã được xác định, tăng counter để trigger settings-check effect
+    setTokenReadyVersion((v) => v + 1);
 
     if (res.user) {
       const finalName = storedName || res.user.name || "";
-      const updatedUser = { ...res.user, name: finalName };
+      const updatedUser: WhiteboardUserInfo = { ...res.user, name: finalName };
       setWhiteboardUser(updatedUser);
     } else {
       if (parsed?.sub) {
@@ -280,6 +313,79 @@ export function useMeetingWhiteboardLogic({
     onCustomMessageReceived,
   });
 
+  // Lắng nghe thay đổi phân quyền Whiteboard từ TLDocument.meta thông qua store.store.listen()
+  // tokenReadyVersion trong dependency đảm bảo effect chạy lại sau khi token được parse xong
+  useEffect(() => {
+    if (store.status !== "synced-remote" || !store.store || tokenReadyVersion === 0) return;
+
+    const checkSettings = (settings: WhiteboardSettings, isInitialCheck = false) => {
+      if (!settings) return;
+
+      const isHost = isHostRef.current;
+      const userRole = userRoleRef.current;
+
+      const allowed = isHost
+        ? true
+        : userRole === "member"
+          ? (settings.allowedRoles?.includes("member") ?? true)
+          : (settings.allowedRoles?.includes("guest") ?? true);
+
+      if (!allowed) {
+        console.warn("[Whiteboard] Access revoked by host settings");
+        invalidateWhiteboardToken(meetingCodeRef.current);
+        if (onPermissionRevokedRef.current) {
+          onPermissionRevokedRef.current();
+        } else {
+          leaveWhiteboard();
+        }
+        return;
+      }
+
+      const targetPermLevel: WhiteboardPermissionLevel = isHost
+        ? "edit"
+        : userRole === "member"
+          ? (settings.memberPermission || "edit")
+          : (settings.guestPermission || "edit");
+
+      const expectedReadOnly = targetPermLevel === "view";
+
+      if (!isInitialCheck && expectedReadOnly !== isReadOnly) {
+        console.log(`[Whiteboard] Permission level changed to ${targetPermLevel}`);
+        invalidateWhiteboardToken(meetingCodeRef.current);
+        setIsReadOnly(expectedReadOnly);
+        if (onPermissionChangedRef.current) {
+          onPermissionChangedRef.current(targetPermLevel);
+        }
+      }
+    };
+
+    // Kiểm tra ban đầu khi vừa sync remote thành công và token đã sẵn sàng
+    const docRecord = store.store.get("document:document" as any) as WhiteboardDocRecord | undefined;
+    if (docRecord?.meta?.whiteboardSettings) {
+      checkSettings(docRecord.meta.whiteboardSettings, true);
+    }
+
+    // Lắng nghe các thay đổi tiếp theo từ TLDocument.meta
+    const unlisten = store.store.listen(
+      (entry) => {
+        const docUpdate = (entry.changes.updated as Record<string, [unknown, unknown]>)["document:document"];
+        if (docUpdate) {
+          const [from, to] = docUpdate as [WhiteboardDocRecord | undefined, WhiteboardDocRecord | undefined];
+          const oldSettings = from?.meta?.whiteboardSettings;
+          const newSettings = to?.meta?.whiteboardSettings;
+          if (newSettings && JSON.stringify(oldSettings) !== JSON.stringify(newSettings)) {
+            checkSettings(newSettings, false);
+          }
+        }
+      },
+      { scope: "document" }
+    );
+
+    return () => {
+      unlisten();
+    };
+  }, [store.status, store.store, tokenReadyVersion, isReadOnly, leaveWhiteboard]);
+
   // Cơ chế Reactive khi gặp lỗi: Nếu kết nối thất bại, hủy bỏ token trong cache để lần kết nối kế tiếp xin token mới.
   // Ngoại lệ: SESSION_TRANSFERRED — không invalidate token vì isTransferredRef đã chặn reconnect rồi,
   // invalidate thêm sẽ gây vòng lặp (invalidate → uri() fetch token mới → reconnect → bị kick lại).
@@ -302,6 +408,7 @@ export function useMeetingWhiteboardLogic({
     // Reset ref trước để uri() được phép gọi lại khi useSync reconnect
     isTransferredRef.current = false;
     setIsSessionTransferred(false);
+    setTokenReadyVersion(0); // Reset để initial check không bị race condition
     invalidateWhiteboardToken(meetingCode);
     if (onRetry) {
       onRetry();

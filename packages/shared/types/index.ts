@@ -408,6 +408,33 @@ export interface WhiteboardSettings {
   guestPermission: WhiteboardPermissionLevel;
 }
 
+export interface WhiteboardUserInfo {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+export interface WhiteboardTokenResponse {
+  token: string;
+  roomId: string;
+  whiteboardUrl: string;
+  user?: WhiteboardUserInfo;
+}
+
+export interface WhiteboardJwtPayload {
+  sub?: string;
+  role?: WhiteboardAccessRole | "owner";
+  meetingCode?: string;
+  roomId?: string;
+  displayName?: string;
+  isReadOnly?: boolean;
+  isReadonly?: boolean;
+  iss?: string;
+  aud?: string;
+  exp?: number;
+  iat?: number;
+}
+
 // Định nghĩa các trường dùng chung (nếu có)
 export interface BaseRoomMetadata {
   roomName: string;
@@ -421,6 +448,7 @@ export interface MainRoomMetadata extends BaseRoomMetadata {
   isWaitingRoomEnabled: boolean;
   isChatEnabled: boolean;
   approvalPermission: "admin_only" | "member_and_admin" | "everyone";
+  /** @deprecated Cấu hình Whiteboard hiện được lưu trực tiếp trong TLDocument.meta trên tldraw sync server */
   whiteboardSettings?: WhiteboardSettings;
   breakoutSession?: {
     status: string;

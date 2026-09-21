@@ -255,6 +255,16 @@ export class MeetingsController {
     return this.meetingsService.updateWhiteboardSettings(meetingCode, body);
   }
 
+  /**
+   * GET /api/meetings/:code/whiteboard-settings
+   * Lấy cấu hình phân quyền Whiteboard hiện tại của cuộc họp
+   */
+  @Get(":code/whiteboard-settings")
+  @UseGuards(SupabaseGuard, MeetingRoleGuard)
+  async getWhiteboardSettings(@Param("code") meetingCode: string) {
+    return this.meetingsService.getWhiteboardSettings(meetingCode);
+  }
+
 
   /**
    * PATCH /api/meetings/:code/participants/rename
