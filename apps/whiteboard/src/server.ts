@@ -47,6 +47,13 @@ interface ActiveRoom {
 // Bộ nhớ đệm các phòng đang có kết nối hoạt động
 const rooms = new Map<string, ActiveRoom>();
 
+// Mapping lưu trữ session đang hoạt động cho từng user trong từng room:
+// Map<roomId, Map<userSub, string>> (roomId -> userSub -> activeSessionId)
+const roomActiveSessions = new Map<string, Map<string, string>>();
+
+// Mapping ngược từ sessionId -> { roomId, userSub } để dọn dẹp khi session kết thúc
+const sessionToUserMap = new Map<string, { roomId: string; userSub: string }>();
+
 /**
  * Lấy phòng hiện tại hoặc mở/khởi tạo cơ sở dữ liệu SQLite cho phòng
  */
@@ -69,17 +76,35 @@ function getOrCreateRoom(roomId: string): TLSocketRoom {
     const room = new TLSocketRoom({
         storage,
         onSessionRemoved: (_room, { sessionId, numSessionsRemaining }) => {
+            console.log(`🔌 Session ${sessionId} removed from room ${roomId}`);
+
+            // Xử lý dọn dẹp mapping khi session ngắt kết nối
+            const sessionInfo = sessionToUserMap.get(sessionId);
+            if (sessionInfo) {
+                sessionToUserMap.delete(sessionId);
+                const userMap = roomActiveSessions.get(sessionInfo.roomId);
+                if (userMap) {
+                    // CHÚ Ý TRƯỜNG HỢP: sessionA bị disconnect trễ mà sessionB đã vào:
+                    // Chỉ xoá khỏi active sessions nếu session đang lưu đúng là session vừa kết thúc!
+                    if (userMap.get(sessionInfo.userSub) === sessionId) {
+                        userMap.delete(sessionInfo.userSub);
+                        console.log(`🧹 Cleaned active session ${sessionId} for user ${sessionInfo.userSub} in room ${sessionInfo.roomId}`);
+                        if (userMap.size === 0) {
+                            roomActiveSessions.delete(sessionInfo.roomId);
+                        }
+                    } else {
+                        console.log(`⚠️ Ignored delayed disconnect for old session ${sessionId} of user ${sessionInfo.userSub} (Active session is ${userMap.get(sessionInfo.userSub)})`);
+                    }
+                }
+            }
+
             // Khi không còn ai trong phòng, giải phóng RAM và đóng kết nối DB
             // Toàn bộ hình vẽ và trạng thái đã được lưu an toàn trong SQLite
             if (numSessionsRemaining === 0) {
                 console.log(`💤 Room ${roomId} idle. Closing SQLite connection and unloading from memory.`);
+                roomActiveSessions.delete(roomId);
                 rooms.delete(roomId);
                 room.close();
-                try {
-                    db.close();
-                } catch (err) {
-                    console.error(`Error closing database for room ${roomId}:`, err);
-                }
             }
         },
     });
@@ -141,7 +166,6 @@ wss.on("connection", (socket, request) => {
     let userDisplayName = "Demo User";
     let isReadOnly = false;
 
-    // 1. Xác thực JWT (RS256) và lấy roomId từ token
     if (token) {
         const rawPublicKey = process.env.WHITEBOARD_PUBLIC_KEY;
         if (!rawPublicKey) {
@@ -179,15 +203,8 @@ wss.on("connection", (socket, request) => {
         userDisplayName = decoded.displayName || "User";
         isReadOnly = Boolean(decoded.isReadOnly ?? decoded.isReadonly ?? false);
     } else {
-        // Hỗ trợ chế độ demo không cần token ở môi trường dev nếu roomId bắt đầu bằng demo-
-        const isDevDemoAllowed = process.env.ALLOW_DEV_DEMO === "true" && roomId?.startsWith("demo-");
-        if (isDevDemoAllowed && roomId) {
-            console.log(`⚠️ Demo room ${roomId} allowed without JWT in development`);
-        } else {
-            console.log(`❌ Unauthorized connection: missing token`);
-            socket.close(1008, "Missing authentication token");
-            return;
-        }
+        socket.close(1008, "Missing authentication token");
+        return;
     }
 
     console.log(`Client connecting to room: ${roomId} (User: ${userSub} - ${userDisplayName}, ReadOnly: ${isReadOnly})`);
@@ -200,20 +217,59 @@ wss.on("connection", (socket, request) => {
     const room = getOrCreateRoom(roomId);
     const sessionId = randomUUID();
 
-    console.log(`Session ${sessionId} joined ${roomId} (isReadonly: ${isReadOnly})`);
+    // Quản lý active sessions: kiểm tra xem user này đã có session nào đang hoạt động trong room chưa
+    let userActiveMap = roomActiveSessions.get(roomId);
+    if (!userActiveMap) {
+        userActiveMap = new Map<string, string>();
+        roomActiveSessions.set(roomId, userActiveMap);
+    }
 
-    // Cho socket tham gia tldraw room
+    const prevSessionId = userActiveMap.get(userSub);
+
+    // Ghi nhận session mới là active TRƯỚC KHI kick session cũ.
+    userActiveMap.set(userSub, sessionId);
+    sessionToUserMap.set(sessionId, { roomId, userSub });
+
+    console.log(`Session ${sessionId} joined ${roomId} (User: ${userSub}, isReadonly: ${isReadOnly})`);
+
     room.handleSocketConnect({
         sessionId,
         socket,
         isReadonly: isReadOnly,
     });
-});
 
+    // Sau khi session mới đã join room (numSessionsRemaining >= 1),
+    // mới an toàn để kick session cũ — room sẽ không bị đóng do còn >= 1 session
+    if (prevSessionId && prevSessionId !== sessionId) {
+        console.log(`⚡ [Session Kick] User ${userSub} already has active session ${prevSessionId}. Kicking previous session for new session ${sessionId}...`);
+
+        // Gửi thông điệp custom message thông báo phiên đã chuyển sang tab / thiết bị mới
+        try {
+            room.sendCustomMessage(prevSessionId, {
+                type: "SESSION_TRANSFERRED",
+                reason: "SESSION_TRANSFERRED",
+                userSub,
+                newSessionId: sessionId,
+                message: "Bảng trắng đã được mở ở một tab hoặc thiết bị khác.",
+            });
+        } catch (err) {
+            console.warn(`Failed to send custom message to previous session ${prevSessionId}:`, err);
+        }
+
+        // Disconnect session trước đó với fatal reason để client cũ không được tự động reconnect
+        try {
+            room.closeSession(prevSessionId, "SESSION_TRANSFERRED");
+        } catch (err) {
+            console.warn(`Failed to close previous session ${prevSessionId}:`, err);
+        }
+    }
+});
 
 // Graceful shutdown: đóng tất cả kết nối DB và room sạch sẽ khi server dừng
 function handleShutdown(signal: string) {
     console.log(`\n🛑 Received ${signal}. Shutting down whiteboard server...`);
+    roomActiveSessions.clear();
+    sessionToUserMap.clear();
     for (const [roomId, { room, db }] of rooms.entries()) {
         console.log(`💾 Persisting and closing room: ${roomId}`);
         try {

@@ -1325,7 +1325,12 @@
       "switched_to_view_only": "Quyền của bạn đã được cập nhật thành: Chỉ xem.",
       "switched_to_edit": "Quyền của bạn đã được cập nhật thành: Được chỉnh sửa.",
       "close_tooltip": "Đóng bảng vẽ và trở về xem video",
-      "close": "Đóng"
+      "close": "Đóng",
+      "open_in_new_tab": "Mở trên tab mới",
+      "open_new_tab": "Tab mới",
+      "session_transferred_title": "Phiên bảng trắng đã chuyển sang tab khác",
+      "session_transferred_desc": "Bảng trắng này đang được sử dụng ở một tab, cửa sổ hoặc thiết bị khác.",
+      "reconnect_here": "Kết nối lại tại đây"
     },
     "whiteboard_settings_modal": {
       "title": "Cài đặt bảng trắng (Whiteboard)",

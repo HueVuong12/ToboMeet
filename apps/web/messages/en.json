@@ -1339,7 +1339,12 @@
       "switched_to_view_only": "Your permission has been updated to: View-only.",
       "switched_to_edit": "Your permission has been updated to: Can edit.",
       "close_tooltip": "Close whiteboard and return to video",
-      "close": "Close"
+      "close": "Close",
+      "open_in_new_tab": "Open in new tab",
+      "open_new_tab": "New tab",
+      "session_transferred_title": "Session moved to another tab",
+      "session_transferred_desc": "This whiteboard is active in another tab, window, or device.",
+      "reconnect_here": "Reconnect here"
     },
     "whiteboard_settings_modal": {
       "title": "Whiteboard Settings",

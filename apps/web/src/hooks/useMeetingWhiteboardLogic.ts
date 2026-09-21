@@ -13,7 +13,7 @@ import {
   atom,
 } from "tldraw";
 import { useTranslations } from "next-intl";
-import { useMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
+import { useSafeMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
 import { useGetWhiteboardTokenMutation } from "@/lib/redux/api/meetingsApi";
 import {
   getOrRefreshWhiteboardToken,
@@ -44,9 +44,7 @@ export const setStoredWhiteboardDisplayName = (name: string): void => {
   if (typeof window === "undefined" || !name?.trim()) return;
   try {
     localStorage.setItem(WHITEBOARD_DISPLAY_NAME_STORAGE_KEY, name.trim());
-  } catch {
-    // Bỏ qua lỗi nếu quota bị đầy hoặc private mode
-  }
+  } catch { }
 };
 
 const defaultAssetStore: TLAssetStore = {
@@ -66,16 +64,31 @@ const defaultAssetStore: TLAssetStore = {
 export interface UseMeetingWhiteboardLogicOptions {
   meetingCode: string;
   whiteboardUrl?: string | null;
+  onClose?: () => void;
+  onRetry?: () => void;
 }
 
 export function useMeetingWhiteboardLogic({
   meetingCode,
   whiteboardUrl,
+  onClose,
+  onRetry,
 }: UseMeetingWhiteboardLogicOptions) {
   const t = useTranslations("meeting.whiteboard");
-  const { leaveWhiteboard } = useMeetingWhiteboard();
+  const safeContext = useSafeMeetingWhiteboard();
   const [getTokenMutation] = useGetWhiteboardTokenMutation();
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isSessionTransferred, setIsSessionTransferred] = useState(false);
+
+  const leaveWhiteboard = useCallback(() => {
+    if (onClose) {
+      onClose();
+    } else if (safeContext?.leaveWhiteboard) {
+      safeContext.leaveWhiteboard();
+    } else if (typeof window !== "undefined") {
+      window.close();
+    }
+  }, [onClose, safeContext]);
 
   const [whiteboardUser, setWhiteboardUser] = useState<WhiteboardUserInfo | null>(() => {
     const storedName = getStoredWhiteboardDisplayName();
@@ -234,7 +247,15 @@ export function useMeetingWhiteboardLogic({
     [rawFetchToken, whiteboardUser]
   );
 
+  // Ref để chặn useSync auto-reconnect sau khi bị kick (SESSION_TRANSFERRED).
+  // Dùng ref thay vì state để tránh re-render và đảm bảo giá trị mới nhất trong closure.
+  const isTransferredRef = useRef(false);
+
   const uri = useCallback(async () => {
+    // Nếu đã bị chuyển session, trả về chuỗi rỗng để useSync không reconnect
+    if (isTransferredRef.current) {
+      return "";
+    }
     const token = await getWhiteboardToken();
     const rawUrl =
       process.env.NEXT_PUBLIC_WHITEBOARD_URL ||
@@ -245,29 +266,56 @@ export function useMeetingWhiteboardLogic({
     return `${baseUrl}?token=${encodeURIComponent(token)}`;
   }, [getWhiteboardToken]);
 
+  const onCustomMessageReceived = useCallback((data: any) => {
+    if (data?.type === "SESSION_TRANSFERRED" || data?.reason === "SESSION_TRANSFERRED") {
+      isTransferredRef.current = true;
+      setIsSessionTransferred(true);
+    }
+  }, []);
+
   const store = useSync({
     uri,
     assets: defaultAssetStore,
     users: userStore,
+    onCustomMessageReceived,
   });
 
-  // Cơ chế Reactive khi gặp lỗi: Nếu kết nối thất bại, hủy bỏ token trong cache để lần kết nối kế tiếp xin token mới
+  // Cơ chế Reactive khi gặp lỗi: Nếu kết nối thất bại, hủy bỏ token trong cache để lần kết nối kế tiếp xin token mới.
+  // Ngoại lệ: SESSION_TRANSFERRED — không invalidate token vì isTransferredRef đã chặn reconnect rồi,
+  // invalidate thêm sẽ gây vòng lặp (invalidate → uri() fetch token mới → reconnect → bị kick lại).
   useEffect(() => {
-    if (store.status === "error") {
+    if (
+      store.status === "error" &&
+      !store.error?.message?.includes("SESSION_TRANSFERRED")
+    ) {
       invalidateWhiteboardToken(meetingCode);
     }
-  }, [store.status, meetingCode]);
+  }, [store.status, store.error, meetingCode]);
+
+  const isTransferred =
+    isSessionTransferred ||
+    (store.status === "error" &&
+      (store.error?.message === "SESSION_TRANSFERRED" ||
+        store.error?.message?.includes("SESSION_TRANSFERRED")));
 
   const handleRetry = useCallback(() => {
+    // Reset ref trước để uri() được phép gọi lại khi useSync reconnect
+    isTransferredRef.current = false;
+    setIsSessionTransferred(false);
     invalidateWhiteboardToken(meetingCode);
-    window.location.reload();
-  }, [meetingCode]);
+    if (onRetry) {
+      onRetry();
+    } else {
+      window.location.reload();
+    }
+  }, [meetingCode, onRetry]);
 
   return {
     store,
     user,
     whiteboardUser,
     isReadOnly,
+    isTransferred,
     userPreferences,
     updateUserPreferences,
     leaveWhiteboard,
