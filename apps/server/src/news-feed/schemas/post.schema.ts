@@ -96,6 +96,10 @@ export class Post {
 
   @Prop({ type: [String], default: [] })
   recipientMemberIds: string[];
+
+  /** Phân biệt loại bài đăng: "assignment" | "quiz" (mặc định "assignment") */
+  @Prop({ type: String, enum: ["assignment", "quiz"], default: "assignment" })
+  assignmentType: string;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);

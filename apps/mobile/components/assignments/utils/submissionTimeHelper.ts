@@ -15,7 +15,7 @@ export interface SubmissionTimingResult {
 export function calculateSubmissionTiming(
   submittedAt?: string | Date | null,
   deadline?: string | Date | null,
-  t?: (key: string, options?: any) => string
+  t?: (key: string, options?: Record<string, unknown>) => string
 ): SubmissionTimingResult {
   const notSubmittedText = t
     ? t("assignments.timing_not_submitted", { defaultValue: "Chưa nộp" })

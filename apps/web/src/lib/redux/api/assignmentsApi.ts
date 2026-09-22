@@ -140,6 +140,48 @@ export const assignmentsApi = baseApi.injectEndpoints({
         { type: "Assignments", id: `COMMENTS_${assignmentId}` },
       ],
     }),
+
+    // ─── Quiz endpoints ────────────────────────────────────────────────────
+    startQuiz: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/assignments/${id}/quiz/start`,
+        method: "POST",
+      }),
+    }),
+    getMyQuizAttempt: builder.query<any, string>({
+      query: (id) => ({ url: `/assignments/${id}/quiz/my-attempt` }),
+      providesTags: (result, error, id) => [{ type: "Submissions", id: `QUIZ_${id}` }],
+    }),
+    submitQuiz: builder.mutation<any, { id: string; answers: unknown[] }>({
+      query: ({ id, answers }) => ({
+        url: `/assignments/${id}/quiz/submit`,
+        method: "POST",
+        data: { answers },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Submissions", id: `QUIZ_${id}` },
+        { type: "Submissions", id: "LIST" },
+        { type: "Assignments", id: "LIST" },
+      ],
+    }),
+    gradeEssayQuestion: builder.mutation<
+      any,
+      { assignmentId: string; studentId: string; essayScores: { questionId: string; score: number }[] }
+    >({
+      query: ({ assignmentId, studentId, essayScores }) => ({
+        url: `/assignments/${assignmentId}/quiz/grade-essay`,
+        method: "POST",
+        data: { studentId, essayScores },
+      }),
+      invalidatesTags: (result, error, { assignmentId }) => [
+        { type: "Submissions", id: "LIST" },
+        { type: "Submissions", id: `QUIZ_${assignmentId}` },
+      ],
+    }),
+    getQuizResults: builder.query<any, string>({
+      query: (id) => ({ url: `/assignments/${id}/quiz/results` }),
+      providesTags: (result, error, id) => [{ type: "Submissions", id: `QUIZ_RESULTS_${id}` }],
+    }),
   }),
 });
 
@@ -158,4 +200,9 @@ export const {
   useGetAssignmentCommentsQuery,
   useAddAssignmentCommentMutation,
   useDeleteAssignmentCommentMutation,
+  useStartQuizMutation,
+  useGetMyQuizAttemptQuery,
+  useSubmitQuizMutation,
+  useGradeEssayQuestionMutation,
+  useGetQuizResultsQuery,
 } = assignmentsApi;

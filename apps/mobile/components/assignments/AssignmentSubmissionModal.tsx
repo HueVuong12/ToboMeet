@@ -98,8 +98,6 @@ const uploadFileWithProgress = async (
 export default function AssignmentSubmissionModal({
   visible,
   onClose,
-  roomId,
-  channelId,
   existingSubmission,
   onSubmit,
   isSubmitting = false,
@@ -205,8 +203,12 @@ export default function AssignmentSubmissionModal({
           }
         })
       );
-    } catch (err: any) {
-      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { data?: { message?: string }; message?: string })?.data?.message ||
+        (err as Error)?.message ||
+        t("assignments.toast_error_generic");
+      Alert.alert(t("room.error"), errorMsg);
     }
   };
 
@@ -287,8 +289,12 @@ export default function AssignmentSubmissionModal({
           }
         })
       );
-    } catch (err: any) {
-      Alert.alert(t("room.error"), err?.data?.message || err?.message || t("assignments.toast_error_generic"));
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { data?: { message?: string }; message?: string })?.data?.message ||
+        (err as Error)?.message ||
+        t("assignments.toast_error_generic");
+      Alert.alert(t("room.error"), errorMsg);
     }
   };
 

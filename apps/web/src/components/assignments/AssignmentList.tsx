@@ -1,6 +1,6 @@
 import React from "react";
 import { Assignment } from "./types";
-import { Plus, Calendar, Lock, FileText, CheckCircle2, FileUp } from "lucide-react";
+import { Plus, Calendar, Lock, FileText, CheckCircle2, FileUp, HelpCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface AssignmentListProps {
@@ -113,16 +113,27 @@ export default function AssignmentList({
               onClick={() => onSelect(assignment)}
               className="bg-white border border-slate-200 hover:border-brand-500 hover:shadow-md p-4 rounded-xl cursor-pointer transition-all flex items-center gap-4"
             >
-              {/* Pink Icon Wrapper */}
-              <div className="w-10 h-10 bg-[#e66a9a] text-white rounded-lg flex items-center justify-center shrink-0">
-                <FileUp size={20} />
+              {/* Icon Wrapper */}
+              <div
+                className={`w-10 h-10 ${
+                  assignment.type === "quiz" ? "bg-[#0052FF]" : "bg-[#e66a9a]"
+                } text-white rounded-lg flex items-center justify-center shrink-0`}
+              >
+                {assignment.type === "quiz" ? <HelpCircle size={20} /> : <FileUp size={20} />}
               </div>
 
               {/* Text Info */}
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
-                  {t("badge_task")}
-                </span>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    {t("badge_task")}
+                  </span>
+                  {assignment.type === "quiz" && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#0052FF] border border-blue-100">
+                      {t("badge_quiz")}
+                    </span>
+                  )}
+                </div>
                 <h4 className="font-bold text-slate-800 text-sm truncate">
                   {assignment.title}
                 </h4>

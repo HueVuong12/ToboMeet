@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { QuizQuestionDto, QuizSettingsDto } from "./create-quiz-question.dto";
 
 export class AttachmentDto {
   @IsString()
@@ -96,4 +97,21 @@ export class CreateAssignmentDto {
 
   @IsEnum(["draft", "published"])
   status: string;
+
+  // ─── Quiz fields ───────────────────────────────────────────────────────────
+
+  @IsEnum(["assignment", "quiz"])
+  @IsOptional()
+  type?: "assignment" | "quiz";
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuizQuestionDto)
+  @IsOptional()
+  questions?: QuizQuestionDto[];
+
+  @ValidateNested()
+  @Type(() => QuizSettingsDto)
+  @IsOptional()
+  quizSettings?: QuizSettingsDto;
 }

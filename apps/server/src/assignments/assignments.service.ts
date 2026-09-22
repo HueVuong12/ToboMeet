@@ -376,18 +376,27 @@ export class AssignmentsService {
     // Owner/Admin thấy toàn bộ (kể cả draft nếu không truyền status lọc cụ thể)
     if (isOwnerOrAdmin) {
       const assignments = await this.assignmentModel.find(query).sort({ createdAt: -1 }).exec();
-      const roomSubmissions = await this.submissionModel.find({ roomId }).exec();
+      const roomSubmissions = await this.submissionModel
+        .find({ roomId })
+        .sort({ submittedAt: -1, updatedAt: -1 })
+        .exec();
 
-      const submissionsMap = new Map<string, AssignmentSubmissionDocument[]>();
+      const submissionsMap = new Map<string, Map<string, AssignmentSubmissionDocument>>();
       for (const sub of roomSubmissions) {
-        const list = submissionsMap.get(sub.assignmentId.toString()) || [];
-        list.push(sub);
-        submissionsMap.set(sub.assignmentId.toString(), list);
+        const aId = sub.assignmentId.toString();
+        const sId = sub.studentId?.toString();
+        if (!submissionsMap.has(aId)) {
+          submissionsMap.set(aId, new Map());
+        }
+        const studentMap = submissionsMap.get(aId)!;
+        if (!studentMap.has(sId)) {
+          studentMap.set(sId, sub);
+        }
       }
 
       return assignments.map(item => ({
         ...item.toObject(),
-        submissions: submissionsMap.get(item._id.toString()) || [],
+        submissions: Array.from(submissionsMap.get(item._id.toString())?.values() || []),
       }));
     }
 
@@ -581,7 +590,20 @@ export class AssignmentsService {
       throw new ForbiddenException("Only owners/teachers can view all submissions");
     }
 
-    return this.submissionModel.find({ assignmentId }).exec();
+    const submissions = await this.submissionModel
+      .find({ assignmentId })
+      .sort({ submittedAt: -1, updatedAt: -1 })
+      .exec();
+
+    // Deduplicate by studentId to guarantee teacher receives exactly 1 authoritative record per student
+    const deduplicatedMap = new Map<string, AssignmentSubmissionDocument>();
+    for (const sub of submissions) {
+      const studentId = sub.studentId?.toString();
+      if (!deduplicatedMap.has(studentId)) {
+        deduplicatedMap.set(studentId, sub);
+      }
+    }
+    return Array.from(deduplicatedMap.values());
   }
 
   async getMySubmission(assignmentId: string, userId: string) {
@@ -974,4 +996,498 @@ export class AssignmentsService {
     await workbook.xlsx.write(res);
     res.end();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // QUIZ METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Bắt đầu làm bài kiểm tra:
+   * - Kiểm tra thời gian (startDate, endDate, closeDate, acceptingResponses)
+   * - Tạo hoặc lấy lại Submission hiện có
+   * - Sinh shuffleSeed nếu chưa có, lưu startedAt
+   * - Trả về câu hỏi ĐÃ strip isCorrect (bảo mật)
+   */
+  async startQuiz(assignmentId: string, userId: string) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) throw new NotFoundException("Assignment not found");
+    if (assignment.type !== "quiz") throw new BadRequestException("This is not a quiz");
+    if (assignment.status !== "published") throw new BadRequestException("Quiz is not published yet");
+
+    const { isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isMember) throw new ForbiddenException("You are not a member of this room");
+
+    const settings = assignment.quizSettings;
+    const now = new Date();
+
+    // Kiểm tra acceptingResponses
+    if (settings && !settings.acceptingResponses) {
+      throw new BadRequestException("This quiz is not accepting responses");
+    }
+
+    // Kiểm tra closeDate — backend authority
+    if (settings?.closeDate && now > new Date(settings.closeDate)) {
+      throw new BadRequestException("This quiz is closed");
+    }
+
+    // Kiểm tra startDate
+    if (settings?.startDate && now < new Date(settings.startDate)) {
+      throw new BadRequestException("This quiz has not started yet");
+    }
+
+    // Kiểm tra endDate (không cho bắt đầu mới sau endDate)
+    if (settings?.endDate && now > new Date(settings.endDate)) {
+      throw new BadRequestException("This quiz has ended");
+    }
+
+    // Lấy attempt đang active (chưa nộp)
+    let submission = await this.submissionModel.findOne({ assignmentId, studentId: userId, submittedAt: null });
+
+    const allowMultipleAttempts = settings?.allowMultipleAttempts ?? false;
+
+    if (!submission) {
+      if (!allowMultipleAttempts) {
+        // Chế độ 1 lần: kiểm tra xem đã có submission (có thể đã nộp) chưa
+        const existingSubmitted = await this.submissionModel.findOne({ assignmentId, studentId: userId });
+        if (existingSubmitted) {
+          // Đã nộp rồi — trả về submission cũ (xử lý xuất hiện kết quả)
+          submission = existingSubmitted;
+        } else {
+          // Chưa có gì: tạo mới
+          const shuffleSeed = `${userId}_${assignmentId}_${Date.now()}`;
+          try {
+            submission = await this.submissionModel.findOneAndUpdate(
+              { assignmentId, studentId: userId },
+              {
+                $setOnInsert: {
+                  assignmentId,
+                  studentId: userId,
+                  roomId: assignment.roomId,
+                  channelId: assignment.channelId || assignment.channelIds?.[0] || "",
+                  attachments: [],
+                  submissionStatus: "not_submitted",
+                  startedAt: now,
+                  shuffleSeed,
+                  quizAnswers: [],
+                  gradingStatus: null,
+                  attemptNumber: 1,
+                },
+              },
+              { upsert: true, new: true }
+            );
+          } catch {
+            submission = await this.submissionModel.findOne({ assignmentId, studentId: userId });
+          }
+        }
+      } else {
+        // Chế độ nhiều lần: luôn tạo submission mới
+        const previousCount = await this.submissionModel.countDocuments({ assignmentId, studentId: userId });
+        const shuffleSeed = `${userId}_${assignmentId}_${Date.now()}`;
+        submission = await this.submissionModel.create({
+          assignmentId,
+          studentId: userId,
+          roomId: assignment.roomId,
+          channelId: assignment.channelId || assignment.channelIds?.[0] || "",
+          attachments: [],
+          submissionStatus: "not_submitted",
+          startedAt: now,
+          shuffleSeed,
+          quizAnswers: [],
+          gradingStatus: null,
+          attemptNumber: previousCount + 1,
+        });
+      }
+    } else if (!submission.startedAt) {
+      // Đã có submission nhưng chưa bắt đầu (edge case)
+      submission.startedAt = now;
+      if (!submission.shuffleSeed) {
+        submission.shuffleSeed = `${userId}_${assignmentId}_${Date.now()}`;
+      }
+      await submission.save();
+    } else {
+      // Kiểm tra hết thời gian cá nhân
+      if (settings && settings.timeLimitMinutes > 0) {
+        const elapsed = (now.getTime() - submission.startedAt.getTime()) / 1000 / 60;
+        if (elapsed >= settings.timeLimitMinutes && !submission.submittedAt) {
+          throw new BadRequestException("Time limit exceeded. Please submit your quiz.");
+        }
+      }
+    }
+
+    // Strip isCorrect khỏi response
+    const safeQuestions = (assignment.questions || []).map((q) => ({
+      _id: q._id,
+      questionType: q.questionType,
+      title: q.title,
+      points: q.points,
+      isRequired: q.isRequired,
+      shuffleOptions: q.shuffleOptions,
+      allowMultiple: q.allowMultiple,
+      options: (q.options || []).map((opt) => ({
+        _id: opt._id,
+        text: opt.text,
+        // isCorrect KHÔNG được trả về
+      })),
+    }));
+
+    return {
+      submission: {
+        _id: submission!._id,
+        startedAt: submission!.startedAt,
+        shuffleSeed: submission!.shuffleSeed,
+        quizAnswers: submission!.quizAnswers,
+        submittedAt: submission!.submittedAt,
+        submissionStatus: submission!.submissionStatus,
+        gradingStatus: submission!.gradingStatus,
+        quizScore: submission!.quizScore,
+        attemptNumber: submission!.attemptNumber ?? 1,
+      },
+      questions: safeQuestions,
+      settings: {
+        timeLimitMinutes: settings?.timeLimitMinutes ?? 0,
+        shuffleQuestions: settings?.shuffleQuestions ?? false,
+        allowMultipleAttempts: settings?.allowMultipleAttempts ?? false,
+      },
+    };
+  }
+
+  /**
+   * Lấy attempt hiện tại (để tiếp tục bài hoặc xem kết quả).
+   * Trả về câu hỏi không có isCorrect nếu chưa nộp.
+   */
+  async getMyQuizAttempt(assignmentId: string, userId: string) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) throw new NotFoundException("Assignment not found");
+    if (assignment.type !== "quiz") throw new BadRequestException("This is not a quiz");
+
+    const { isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isMember) throw new ForbiddenException("You are not a member of this room");
+
+    const submission = await this.submissionModel.findOne({ assignmentId, studentId: userId });
+    if (!submission) return null;
+
+    const settings = assignment.quizSettings;
+    const now = new Date();
+
+    // Xác định có được xem đáp án đúng không
+    const canSeeCorrectAnswers =
+      settings?.showResultsAfterSubmit === true &&
+      !!submission.submittedAt &&
+      (!settings?.closeDate || now > new Date(settings.closeDate));
+
+    const questions = (assignment.questions || []).map((q) => ({
+      _id: q._id,
+      questionType: q.questionType,
+      title: q.title,
+      points: q.points,
+      isRequired: q.isRequired,
+      shuffleOptions: q.shuffleOptions,
+      allowMultiple: q.allowMultiple,
+      options: (q.options || []).map((opt) => ({
+        _id: opt._id,
+        text: opt.text,
+        // Chỉ lộ isCorrect khi đủ điều kiện
+        ...(canSeeCorrectAnswers ? { isCorrect: opt.isCorrect } : {}),
+      })),
+    }));
+
+    return {
+      submission: {
+        _id: submission._id,
+        startedAt: submission.startedAt,
+        shuffleSeed: submission.shuffleSeed,
+        quizAnswers: submission.quizAnswers,
+        submittedAt: submission.submittedAt,
+        submissionStatus: submission.submissionStatus,
+        gradingStatus: submission.gradingStatus,
+        quizScore: submission.quizScore,
+        score: submission.score,
+      },
+      questions,
+      canSeeCorrectAnswers,
+    };
+  }
+
+  /**
+   * Nộp bài trắc nghiệm:
+   * - Validate thời gian (timeLimitMinutes, closeDate)
+   * - Validate câu bắt buộc
+   * - Tự động chấm điểm MCQ
+   * - Set gradingStatus phù hợp
+   */
+  async submitQuiz(
+    assignmentId: string,
+    userId: string,
+    answers: { questionId: string; selectedOptionIds?: string[]; textAnswer?: string }[],
+  ) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) throw new NotFoundException("Assignment not found");
+    if (assignment.type !== "quiz") throw new BadRequestException("This is not a quiz");
+    if (assignment.status !== "published") throw new BadRequestException("Quiz is not published");
+
+    const { isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isMember) throw new ForbiddenException("You are not a member of this room");
+
+    const settings = assignment.quizSettings;
+    const now = new Date();
+
+    // Kiểm tra closeDate — backend authority
+    if (settings?.closeDate && now > new Date(settings.closeDate)) {
+      throw new BadRequestException("This quiz is closed and no longer accepts submissions");
+    }
+
+    const submission = await this.submissionModel.findOne({ assignmentId, studentId: userId, submittedAt: null });
+    if (!submission) throw new BadRequestException("No active quiz attempt found. Please start the quiz first.");
+    // Đượng hướng cũ: không cần kiểm tra submission.submittedAt vì query đã lọc
+
+    // Kiểm tra timeLimitMinutes — backend authority
+    if (settings && settings.timeLimitMinutes > 0 && submission.startedAt) {
+      const elapsed = (now.getTime() - submission.startedAt.getTime()) / 1000 / 60;
+      if (elapsed > settings.timeLimitMinutes + 1) {
+        // +1 phút buffer cho latency
+        throw new BadRequestException("Time limit exceeded");
+      }
+    }
+
+    // Validate câu bắt buộc
+    const answersMap = new Map(answers.map((a) => [a.questionId, a]));
+    for (const q of assignment.questions || []) {
+      if (!q.isRequired) continue;
+      const ans = answersMap.get(q._id);
+      if (!ans) {
+        throw new BadRequestException(`Question "${q.title}" is required`);
+      }
+      if (q.questionType === "choice") {
+        if (!ans.selectedOptionIds || ans.selectedOptionIds.length === 0) {
+          throw new BadRequestException(`Question "${q.title}" is required`);
+        }
+      } else {
+        if (!ans.textAnswer || !ans.textAnswer.trim()) {
+          throw new BadRequestException(`Question "${q.title}" is required`);
+        }
+      }
+    }
+
+    // Chấm điểm MCQ tự động
+    let mcqScore = 0;
+    let hasEssay = false;
+    const scoredQuizAnswers: {
+      questionId: string;
+      selectedOptionIds: string[];
+      textAnswer: string;
+      score: number;
+    }[] = [];
+
+    for (const q of assignment.questions || []) {
+      const ans = answersMap.get(q._id);
+
+      if (q.questionType === "text") {
+        hasEssay = true;
+        scoredQuizAnswers.push({
+          questionId: q._id,
+          selectedOptionIds: [],
+          textAnswer: ans?.textAnswer ?? "",
+          score: 0,
+        });
+        continue;
+      }
+
+      const userSelected = (ans?.selectedOptionIds || []).map(String);
+      const correctOptionIds = (q.options || [])
+        .filter((opt) => opt.isCorrect)
+        .map((opt) => String(opt._id));
+
+      let earnedPoints = 0;
+      const maxPoints = q.points ?? 0;
+
+      if (userSelected.length > 0 && correctOptionIds.length > 0) {
+        if (q.allowMultiple) {
+          const correctCount = correctOptionIds.length;
+          const correctSelected = userSelected.filter((id) =>
+            correctOptionIds.includes(id)
+          ).length;
+          const wrongSelected = userSelected.filter(
+            (id) => !correctOptionIds.includes(id)
+          ).length;
+
+          // Áp dụng công thức Phương án 1 (Chuẩn LMS/Moodle):
+          // Điểm = Max(0, round(((correctSelected - wrongSelected) / correctCount) * maxPoints, 2))
+          const rawPoints = ((correctSelected - wrongSelected) / correctCount) * maxPoints;
+          earnedPoints = Math.max(0, Math.round(rawPoints * 100) / 100);
+        } else {
+          // Single choice: chỉ đúng khi chọn đúng duy nhất 1 đáp án đúng
+          if (
+            userSelected.length === 1 &&
+            correctOptionIds.includes(userSelected[0])
+          ) {
+            earnedPoints = maxPoints;
+          }
+        }
+      }
+
+      mcqScore += earnedPoints;
+      scoredQuizAnswers.push({
+        questionId: q._id,
+        selectedOptionIds: userSelected,
+        textAnswer: "",
+        score: earnedPoints,
+      });
+    }
+
+    mcqScore = Math.round(mcqScore * 100) / 100;
+    const gradingStatus = hasEssay ? "pending_manual" : "auto_graded";
+
+    // Lưu
+    submission.quizAnswers = scoredQuizAnswers as typeof submission.quizAnswers;
+    submission.quizScore = mcqScore;
+    submission.gradingStatus = gradingStatus;
+    submission.submittedAt = now;
+    submission.submissionStatus = "on_time";
+    if (!hasEssay) {
+      submission.score = mcqScore;
+    }
+
+    const saved = await submission.save();
+
+    this.assignmentsGateway.notifyAssignmentSubmitted(
+      assignment.roomId,
+      assignment.channelId || "",
+      saved,
+    );
+
+    return {
+      success: true,
+      quizScore: mcqScore,
+      gradingStatus,
+      submittedAt: saved.submittedAt,
+    };
+  }
+
+  /**
+   * Trưởng nhóm chấm điểm câu tự luận cho một thành viên cụ thể
+   */
+  async gradeEssayQuestion(
+    assignmentId: string,
+    studentId: string,
+    essayScores: { questionId: string; score: number }[],
+    userId: string,
+  ) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) throw new NotFoundException("Assignment not found");
+    if (assignment.type !== "quiz") throw new BadRequestException("This is not a quiz");
+
+    const { isOwnerOrAdmin } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isOwnerOrAdmin) throw new ForbiddenException("Only room owners/teachers can grade essays");
+
+    const submission = await this.submissionModel.findOne({ assignmentId, studentId });
+    if (!submission) throw new NotFoundException("Submission not found");
+
+    // Tính tổng điểm = MCQ + essay
+    let essayTotal = 0;
+    for (const es of essayScores) {
+      const question = (assignment.questions || []).find((q) => q._id === es.questionId);
+      if (!question) continue;
+      const maxPts = question.points ?? 0;
+      if (es.score < 0 || es.score > maxPts) {
+        throw new BadRequestException(
+          `Score for question "${question.title}" must be between 0 and ${maxPts}`,
+        );
+      }
+      essayTotal += es.score;
+      const subAns = (submission.quizAnswers || []).find((a) => a.questionId === es.questionId);
+      if (subAns) {
+        subAns.score = es.score;
+      }
+    }
+
+    submission.score = (submission.quizScore ?? 0) + essayTotal;
+    submission.gradingStatus = "graded";
+    submission.gradedBy = userId;
+    submission.gradedAt = new Date();
+
+    const saved = await submission.save();
+    this.assignmentsGateway.notifyAssignmentGradingUpdated(
+      submission.roomId,
+      submission.channelId,
+      studentId,
+      saved,
+    );
+
+    return saved;
+  }
+
+  /**
+   * Lấy kết quả quiz:
+   * - Trưởng nhóm: luôn thấy đầy đủ (kể cả isCorrect)
+   * - Thành viên: kiểm tra closeDate + showResultsAfterSubmit
+   */
+  async getQuizResults(assignmentId: string, userId: string) {
+    const assignment = await this.assignmentModel.findById(assignmentId);
+    if (!assignment) throw new NotFoundException("Assignment not found");
+    if (assignment.type !== "quiz") throw new BadRequestException("This is not a quiz");
+
+    const { isOwnerOrAdmin, isMember } = await this.verifyUserRole(assignment.roomId, userId);
+    if (!isMember) throw new ForbiddenException("You are not a member of this room");
+
+    const settings = assignment.quizSettings;
+    const now = new Date();
+
+    if (isOwnerOrAdmin) {
+      // Trưởng nhóm thấy tất cả submissions + đáp án đúng
+      const submissions = await this.submissionModel.find({ assignmentId }).exec();
+      return {
+        canSeeCorrectAnswers: true,
+        questions: assignment.questions,
+        submissions,
+      };
+    }
+
+    // Thành viên: lấy submission của mình
+    const submission = await this.submissionModel.findOne({ assignmentId, studentId: userId });
+    if (!submission || !submission.submittedAt) {
+      throw new ForbiddenException("You have not submitted this quiz");
+    }
+
+    // Xác định có được xem điểm chưa
+    const closeDatePassed = settings?.closeDate ? now > new Date(settings.closeDate) : false;
+    const canSeeScore = closeDatePassed || !settings?.closeDate;
+
+    if (!canSeeScore) {
+      return {
+        canSeeScore: false,
+        message: "Results will be available after the quiz closes",
+        submittedAt: submission.submittedAt,
+      };
+    }
+
+    // Xác định có được xem đáp án đúng không
+    const canSeeCorrectAnswers =
+      settings?.showResultsAfterSubmit === true && closeDatePassed;
+
+    const questions = (assignment.questions || []).map((q) => ({
+      _id: q._id,
+      questionType: q.questionType,
+      title: q.title,
+      points: q.points,
+      allowMultiple: q.allowMultiple,
+      options: (q.options || []).map((opt) => ({
+        _id: opt._id,
+        text: opt.text,
+        ...(canSeeCorrectAnswers ? { isCorrect: opt.isCorrect } : {}),
+      })),
+    }));
+
+    return {
+      canSeeScore: true,
+      canSeeCorrectAnswers,
+      quizScore: submission.quizScore,
+      score: submission.score,
+      gradingStatus: submission.gradingStatus,
+      quizAnswers: submission.quizAnswers,
+      questions,
+      passScore: settings?.passScore ?? 0,
+      totalPoints: (assignment.questions || []).reduce((sum, q) => sum + (q.points ?? 0), 0),
+    };
+  }
 }
+

@@ -6,6 +6,51 @@ export interface Attachment {
   uploadedAt?: string;
 }
 
+// ─── Quiz Types ───────────────────────────────────────────────────────────────
+
+export interface QuizOption {
+  _id: string;
+  text: string;
+  /** Chỉ có khi trưởng nhóm xem hoặc sau closeDate + showResultsAfterSubmit */
+  isCorrect?: boolean;
+}
+
+export interface QuizQuestion {
+  _id: string;
+  questionType: "choice" | "text";
+  title: string;
+  points: number;
+  isRequired: boolean;
+  shuffleOptions: boolean;
+  allowMultiple: boolean;
+  options: QuizOption[];
+}
+
+export interface QuizSettings {
+  timeLimitMinutes: number;
+  passScore: number;
+  shuffleQuestions: boolean;
+  showResultsAfterSubmit: boolean;
+  acceptingResponses: boolean;
+  /** Cho phép thành viên làm bài nhiều lần. Mặc định: false */
+  allowMultipleAttempts?: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
+  closeDate?: string | null;
+  accessControl?: "anyone" | "organization" | "specific_members";
+  recipientType?: "all_current_and_future" | "current_and_future_members" | "current_members" | "specific_members";
+  specificMemberIds?: string[];
+}
+
+export interface QuizAnswer {
+  questionId: string;
+  selectedOptionIds: string[];
+  textAnswer: string;
+  score?: number;
+}
+
+// ─── Assignment (extended) ────────────────────────────────────────────────────
+
 export interface Assignment {
   _id: string;
   title: string;
@@ -15,7 +60,7 @@ export interface Assignment {
   channelIds?: string[];
   deadline: string;
   submissionPolicy: "allow_late" | "lock_after_deadline";
-  recipientType: "all_current_and_future" | "specific_members";
+  recipientType: "all_current_and_future" | "current_and_future_members" | "current_members" | "specific_members";
   recipientMemberIds?: string[];
   gradingType: "graded" | "ungraded";
   maxScore?: number;
@@ -26,7 +71,13 @@ export interface Assignment {
   updatedAt: string;
   mySubmission?: Submission | null;
   submissions?: Submission[];
+  /** Loại bài: "assignment" | "quiz" (mặc định "assignment") */
+  type?: "assignment" | "quiz";
+  questions?: QuizQuestion[];
+  quizSettings?: QuizSettings | null;
 }
+
+// ─── Submission (extended) ────────────────────────────────────────────────────
 
 export interface Submission {
   _id: string;
@@ -45,6 +96,14 @@ export interface Submission {
   createdAt: string;
   updatedAt: string;
   comments?: any[];
+  /** Quiz fields */
+  startedAt?: string;
+  shuffleSeed?: string;
+  quizAnswers?: QuizAnswer[];
+  quizScore?: number;
+  gradingStatus?: "auto_graded" | "pending_manual" | "graded" | null;
+  /** Số thứ tự lần làm bài */
+  attemptNumber?: number;
 }
 
 export interface AssignmentComment {
@@ -59,4 +118,47 @@ export interface AssignmentComment {
   role: string;
   content: string;
   createdAt: string;
+}
+
+// ─── Quiz Attempt (response từ startQuiz / getMyQuizAttempt) ─────────────────
+
+export interface QuizAttemptResponse {
+  submission: {
+    _id: string;
+    startedAt?: string;
+    shuffleSeed?: string;
+    quizAnswers: QuizAnswer[];
+    submittedAt?: string;
+    submissionStatus?: string;
+    gradingStatus?: string | null;
+    quizScore?: number;
+    score?: number;
+    /** Số thứ tự lần làm bài */
+    attemptNumber?: number;
+  };
+  questions: QuizQuestion[];
+  canSeeCorrectAnswers?: boolean;
+  settings?: {
+    timeLimitMinutes: number;
+    shuffleQuestions: boolean;
+    allowMultipleAttempts: boolean;
+  };
+}
+
+// ─── Quiz Results (response từ getQuizResults) ────────────────────────────────
+
+export interface QuizResultsResponse {
+  canSeeScore?: boolean;
+  canSeeCorrectAnswers?: boolean;
+  message?: string;
+  quizScore?: number;
+  score?: number;
+  gradingStatus?: string | null;
+  quizAnswers?: QuizAnswer[];
+  questions?: QuizQuestion[];
+  passScore?: number;
+  totalPoints?: number;
+  submittedAt?: string;
+  /** Chỉ có khi trưởng nhóm xem */
+  submissions?: Submission[];
 }

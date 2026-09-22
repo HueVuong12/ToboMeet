@@ -24,6 +24,9 @@ import AssignmentCreate from "./AssignmentCreate";
 import AssignmentDetail from "./AssignmentDetail";
 import AssignmentGrading from "./AssignmentGrading";
 import QuizCreate from "./quiz/QuizCreate";
+import QuizTake from "./quiz/QuizTake";
+import QuizResult from "./quiz/QuizResult";
+import QuizEssayGrading from "./quiz/QuizEssayGrading";
 import { Loader2 } from "lucide-react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
@@ -50,9 +53,17 @@ export default function AssignmentModule({
   const deletingAssignmentIdRef = useRef<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(initialAssignmentId || null);
-  const [view, setView] = useState<"list" | "create" | "create_quiz" | "edit" | "detail" | "grade">(
-    initialAssignmentId ? "detail" : "list"
-  );
+  const [view, setView] = useState<
+    | "list"
+    | "create"
+    | "create_quiz"
+    | "edit"
+    | "detail"
+    | "grade"
+    | "take_quiz"
+    | "quiz_result"
+    | "grade_quiz_essay"
+  >(initialAssignmentId ? "detail" : "list");
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "grading" | "overdue" | "returned" | "draft">("upcoming");
 
@@ -168,12 +179,14 @@ export default function AssignmentModule({
   const refetchSubmissionsRef = React.useRef(refetchSubmissions);
   const refetchCommentsRef = React.useRef(refetchComments);
   const isTeacherRef = React.useRef(isTeacher);
+  const roomMembersRef = React.useRef(roomMembers);
 
   useEffect(() => { selectedAssignmentRef.current = selectedAssignment; }, [selectedAssignment]);
   useEffect(() => { refetchMySubmissionRef.current = refetchMySubmission; }, [refetchMySubmission]);
   useEffect(() => { refetchSubmissionsRef.current = refetchSubmissions; }, [refetchSubmissions]);
   useEffect(() => { refetchCommentsRef.current = refetchComments; }, [refetchComments]);
   useEffect(() => { isTeacherRef.current = isTeacher; }, [isTeacher]);
+  useEffect(() => { roomMembersRef.current = roomMembers; }, [roomMembers]);
 
   // Realtime Socket.IO synchronization for Web
   // Dependency array KHÔNG có selectedAssignment/refetch functions để tránh re-register listeners
@@ -194,6 +207,17 @@ export default function AssignmentModule({
       if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
         dispatch(assignmentsApi.util.invalidateTags([{ type: "Assignments", id: "LIST" }]));
         refetch();
+        const a = data.assignment;
+        if (a && String(a.createdBy) !== String(userId)) {
+          const isTarget = !a.recipientMemberIds?.length || a.recipientMemberIds.includes(userId);
+          if (isTarget) {
+            if (a.type === "quiz") {
+              toast.info(t("toast_new_quiz_assigned", { title: a.title }));
+            } else {
+              toast.info(t("toast_new_task_assigned", { title: a.title }));
+            }
+          }
+        }
       }
     };
 
@@ -201,6 +225,17 @@ export default function AssignmentModule({
       if (String(data.roomId || data.assignment?.roomId || "") === String(roomId)) {
         dispatch(assignmentsApi.util.invalidateTags([{ type: "Assignments", id: "LIST" }]));
         refetch();
+        const a = data.assignment;
+        if (a && String(a.createdBy) !== String(userId)) {
+          const isTarget = !a.recipientMemberIds?.length || a.recipientMemberIds.includes(userId);
+          if (isTarget) {
+            if (a.type === "quiz") {
+              toast.info(t("toast_new_quiz_assigned", { title: a.title }));
+            } else {
+              toast.info(t("toast_new_task_assigned", { title: a.title }));
+            }
+          }
+        }
       }
     };
 
@@ -210,7 +245,13 @@ export default function AssignmentModule({
         dispatch(
           assignmentsApi.util.invalidateTags([
             { type: "Assignments", id: "LIST" },
-            ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+            ...(eventAssignId
+              ? [
+                  { type: "Assignments" as const, id: eventAssignId },
+                  { type: "Submissions" as const, id: `QUIZ_${eventAssignId}` },
+                  { type: "Submissions" as const, id: `QUIZ_RESULTS_${eventAssignId}` },
+                ]
+              : []),
           ])
         );
         refetch();
@@ -229,7 +270,13 @@ export default function AssignmentModule({
         dispatch(
           assignmentsApi.util.invalidateTags([
             { type: "Assignments", id: "LIST" },
-            ...(deletedId ? [{ type: "Assignments" as const, id: deletedId }] : []),
+            ...(deletedId
+              ? [
+                  { type: "Assignments" as const, id: deletedId },
+                  { type: "Submissions" as const, id: `QUIZ_${deletedId}` },
+                  { type: "Submissions" as const, id: `QUIZ_RESULTS_${deletedId}` },
+                ]
+              : []),
           ])
         );
         refetch();
@@ -239,6 +286,9 @@ export default function AssignmentModule({
         }
         const currentSelected = selectedAssignmentRef.current;
         if (currentSelected && deletedId && String(currentSelected._id) === deletedId) {
+          try {
+            localStorage.removeItem(`quiz_autosave_${deletedId}_${userId}`);
+          } catch {}
           toast.error(t("toast_deleted_by_system"));
           setSelectedAssignment(null);
           setView("list");
@@ -252,7 +302,13 @@ export default function AssignmentModule({
         dispatch(
           assignmentsApi.util.invalidateTags([
             { type: "Submissions", id: "LIST" },
-            ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+            ...(eventAssignId
+              ? [
+                  { type: "Submissions" as const, id: `MY_${eventAssignId}` },
+                  { type: "Submissions" as const, id: `QUIZ_${eventAssignId}` },
+                  { type: "Submissions" as const, id: `QUIZ_RESULTS_${eventAssignId}` },
+                ]
+              : []),
             { type: "Assignments", id: "LIST" },
             ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
           ])
@@ -262,6 +318,14 @@ export default function AssignmentModule({
         if (currentSelected && eventAssignId && eventAssignId === String(currentSelected._id)) {
           if (isTeacherRef.current) {
             try { refetchSubmissionsRef.current?.(); } catch (e) {}
+            const subStudentId = String(data.submission?.studentId || data.studentId || "");
+            if (subStudentId !== String(userId)) {
+              const student = roomMembersRef.current?.find((m: any) => m.userId === subStudentId);
+              const name = student?.displayName || student?.name || "Một thành viên";
+              toast.info(t("toast_quiz_submitted_teacher", { name }), {
+                id: `quiz_submit_${subStudentId}_${eventAssignId}`,
+              });
+            }
           } else {
             try { refetchMySubmissionRef.current?.(); } catch (e) {}
           }
@@ -291,6 +355,8 @@ export default function AssignmentModule({
           assignmentsApi.util.invalidateTags([
             { type: "Submissions", id: "LIST" },
             { type: "Submissions", id: `MY_${eventAssignId}` },
+            { type: "Submissions", id: `QUIZ_${eventAssignId}` },
+            { type: "Submissions", id: `QUIZ_RESULTS_${eventAssignId}` },
             { type: "Assignments", id: "LIST" },
             { type: "Assignments", id: eventAssignId },
           ])
@@ -313,7 +379,13 @@ export default function AssignmentModule({
         dispatch(
           assignmentsApi.util.invalidateTags([
             { type: "Submissions", id: "LIST" },
-            ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+            ...(eventAssignId
+              ? [
+                  { type: "Submissions" as const, id: `MY_${eventAssignId}` },
+                  { type: "Submissions" as const, id: `QUIZ_${eventAssignId}` },
+                  { type: "Submissions" as const, id: `QUIZ_RESULTS_${eventAssignId}` },
+                ]
+              : []),
             { type: "Assignments", id: "LIST" },
             ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
           ])
@@ -325,6 +397,10 @@ export default function AssignmentModule({
             try { refetchSubmissionsRef.current?.(); } catch (e) {}
           } else {
             try { refetchMySubmissionRef.current?.(); } catch (e) {}
+            const targetStudentId = String(data.studentId || data.submission?.studentId || "");
+            if (targetStudentId === String(userId)) {
+              toast.success(t("toast_quiz_graded_student", { title: currentSelected.title }));
+            }
           }
         }
       }
@@ -556,8 +632,14 @@ export default function AssignmentModule({
           channels={channels}
           roomMembers={roomMembers}
           userId={userId}
+          assignmentToEdit={selectedAssignment?.type === "quiz" ? selectedAssignment : undefined}
           onBack={() => {
-            setView("list");
+            if (selectedAssignment) {
+              setView("detail");
+            } else {
+              setView("list");
+              setSelectedAssignment(null);
+            }
           }}
         />
       )}
@@ -582,7 +664,16 @@ export default function AssignmentModule({
             onGradeClick={() => setView("grade")}
             onGrade={handleGradeSubmission}
             isGrading={isGrading}
-            onEditAssignment={() => setView("edit")}
+            onEditAssignment={() => {
+              if (selectedAssignment?.type === "quiz") {
+                setView("create_quiz");
+              } else {
+                setView("edit");
+              }
+            }}
+            onTakeQuiz={() => setView("take_quiz")}
+            onViewQuizResult={() => setView("quiz_result")}
+            onGradeQuizEssay={() => setView("grade_quiz_essay")}
             refetchSubmission={() => {
               if (!isTeacher) {
                 try { refetchMySubmission(); } catch (e) {}
@@ -608,6 +699,34 @@ export default function AssignmentModule({
           onBack={() => setView("detail")}
           onGrade={handleGradeSubmission}
           isGrading={isGrading}
+        />
+      )}
+
+      {view === "take_quiz" && selectedAssignment && (
+        <QuizTake
+          assignment={selectedAssignment}
+          userId={userId}
+          onBack={() => setView("detail")}
+          onSubmitted={() => {
+            try { refetchMySubmission(); } catch {}
+            setView("quiz_result");
+          }}
+        />
+      )}
+
+      {view === "quiz_result" && selectedAssignment && (
+        <QuizResult
+          assignment={selectedAssignment}
+          userId={userId}
+          onBack={() => setView("detail")}
+        />
+      )}
+
+      {view === "grade_quiz_essay" && selectedAssignment && (
+        <QuizEssayGrading
+          assignment={selectedAssignment}
+          roomMembers={roomMembers}
+          onBack={() => setView("detail")}
         />
       )}
     </div>

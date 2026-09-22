@@ -61,10 +61,14 @@ export async function downloadAssignmentExcel(
       const content = await FileSystem.readAsStringAsync(fileUri);
       const parsed = JSON.parse(content);
       errorMsg = parsed.message || errorMsg;
-    } catch {}
+    } catch {
+      // Bỏ qua lỗi đọc/parse file để giữ nguyên fallback errorMsg
+    }
     try {
       await FileSystem.deleteAsync(fileUri, { idempotent: true });
-    } catch {}
+    } catch {
+      // Bỏ qua lỗi xóa file tạm nếu không còn tồn tại
+    }
     throw new Error(errorMsg);
   }
 

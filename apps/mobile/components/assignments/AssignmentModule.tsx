@@ -25,6 +25,9 @@ import AssignmentCreate from "./AssignmentCreate";
 import AssignmentDetail from "./AssignmentDetail";
 import AssignmentGrading from "./AssignmentGrading";
 import QuizCreate from "./quiz/QuizCreate";
+import QuizTake from "./quiz/QuizTake";
+import QuizResult from "./quiz/QuizResult";
+import QuizEssayGrading from "./quiz/QuizEssayGrading";
 import { socket } from "../../lib/socket";
 
 interface AssignmentModuleProps {
@@ -48,7 +51,10 @@ export default function AssignmentModule({
 }: AssignmentModuleProps) {
   const dispatch = useDispatch<AppDispatch>();
   const { t } = useTranslation();
-  const [view, setView] = useState<"list" | "create" | "create_quiz" | "edit" | "detail" | "grade">("list");
+  const [view, setView] = useState<
+    "list" | "create" | "create_quiz" | "edit" | "detail" | "grade" |
+    "quiz_take" | "quiz_result" | "quiz_essay_grade"
+  >("list");
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "grading" | "overdue" | "returned" | "draft">("upcoming");
 
@@ -542,9 +548,48 @@ export default function AssignmentModule({
           channels={channels}
           roomMembers={roomMembers}
           userId={userId}
+          assignmentToEdit={undefined}
           onBack={() => {
             setView("list");
           }}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
+        />
+      )}
+
+      {/* ─── Quiz: Làm bài ─── */}
+      {view === "quiz_take" && selectedAssignment && (
+        <QuizTake
+          assignment={selectedAssignment}
+          userId={userId}
+          onBack={() => setView("detail")}
+          onSubmitted={() => {
+            setView("quiz_result");
+          }}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
+        />
+      )}
+
+      {/* ─── Quiz: Kết quả ─── */}
+      {view === "quiz_result" && selectedAssignment && (
+        <QuizResult
+          assignment={selectedAssignment}
+          userId={userId}
+          onBack={() => {
+            setView("detail");
+          }}
+          onOpenLeftDrawer={onOpenLeftDrawer}
+          onOpenRightDrawer={onOpenRightDrawer}
+        />
+      )}
+
+      {/* ─── Quiz: Chấm tự luận (trưởng nhóm) ─── */}
+      {view === "quiz_essay_grade" && selectedAssignment && (
+        <QuizEssayGrading
+          assignment={selectedAssignment}
+          roomMembers={roomMembers}
+          onBack={() => setView("detail")}
           onOpenLeftDrawer={onOpenLeftDrawer}
           onOpenRightDrawer={onOpenRightDrawer}
         />
@@ -577,8 +622,25 @@ export default function AssignmentModule({
           onOpenRightDrawer={onOpenRightDrawer}
           onCreateClick={() => setView("create")}
           onCreateQuizClick={() => setView("create_quiz")}
+          onStartQuiz={
+            selectedAssignment.type === "quiz" && !isTeacher
+              ? () => setView("quiz_take")
+              : undefined
+          }
+          onViewQuizResult={
+            selectedAssignment.type === "quiz" && !isTeacher && mySubmission?.submittedAt
+              ? () => setView("quiz_result")
+              : undefined
+          }
+          onGradeEssay={
+            selectedAssignment.type === "quiz" && isTeacher
+              ? () => setView("quiz_essay_grade")
+              : undefined
+          }
         />
       )}
+
+
 
       {view === "grade" && selectedAssignment && (
         <AssignmentGrading

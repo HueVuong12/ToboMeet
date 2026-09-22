@@ -4,6 +4,7 @@ import { AssignmentsService } from "./assignments.service";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { SubmitAssignmentDto } from "./dto/submit-assignment.dto";
 import { GradeSubmissionDto } from "./dto/grade-submission.dto";
+import { QuizAnswerDto } from "./dto/create-quiz-question.dto";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 
 interface AuthenticatedRequest extends Request {
@@ -125,5 +126,41 @@ export class AssignmentsController {
     @Req() req: AuthenticatedRequest
   ) {
     return this.assignmentsService.deleteAssignmentComment(assignmentId, commentId, req.user.id);
+  }
+
+  // ─── Quiz endpoints ────────────────────────────────────────────────────
+
+  @Post(":id/quiz/start")
+  startQuiz(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.startQuiz(id, req.user.id);
+  }
+
+  @Get(":id/quiz/my-attempt")
+  getMyQuizAttempt(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.getMyQuizAttempt(id, req.user.id);
+  }
+
+  @Post(":id/quiz/submit")
+  submitQuiz(
+    @Param("id") id: string,
+    @Body("answers") answers: QuizAnswerDto[],
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.submitQuiz(id, req.user.id, answers);
+  }
+
+  @Post(":id/quiz/grade-essay")
+  gradeEssayQuestion(
+    @Param("id") assignmentId: string,
+    @Body("studentId") studentId: string,
+    @Body("essayScores") essayScores: { questionId: string; score: number }[],
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.gradeEssayQuestion(assignmentId, studentId, essayScores, req.user.id);
+  }
+
+  @Get(":id/quiz/results")
+  getQuizResults(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.getQuizResults(id, req.user.id);
   }
 }

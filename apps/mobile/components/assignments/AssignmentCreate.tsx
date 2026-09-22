@@ -19,14 +19,31 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCreateSignedUploadUrlMutation } from "../../lib/redux/api/channelFilesApi";
 import { Assignment, Attachment } from "./types";
 
+interface ChannelItem {
+  _id: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+interface RoomMember {
+  userId?: string;
+  supabaseId?: string;
+  _id?: string;
+  displayName?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
 interface AssignmentCreateProps {
   roomId: string;
-  channels: any[];
-  roomMembers: any[];
+  channels: ChannelItem[];
+  roomMembers: RoomMember[];
   userId: string;
   assignmentToEdit?: Assignment;
   onBack: () => void;
-  onSubmit: (payload: any) => Promise<void>;
+  onSubmit: (payload: Partial<Assignment> & Record<string, unknown>) => Promise<void>;
   isSubmitting?: boolean;
   onOpenLeftDrawer?: () => void;
   onOpenRightDrawer?: () => void;
@@ -185,8 +202,8 @@ export default function AssignmentCreate({
           ]);
         }
       }
-    } catch (err: any) {
-      Alert.alert(t("room.error"), err?.message || t("assignments.toast_error_generic"));
+    } catch (err: unknown) {
+      Alert.alert(t("room.error"), (err as Error)?.message || t("assignments.toast_error_generic"));
     } finally {
       setIsUploading(false);
     }
@@ -225,7 +242,7 @@ export default function AssignmentCreate({
 
     const fullDeadlineIso = new Date(`${deadlineDate}T${deadlineTime}:00`).toISOString();
 
-    const payload: any = {
+    const payload = {
       title: title.trim(),
       description: description.trim(),
       roomId,
@@ -627,7 +644,8 @@ export default function AssignmentCreate({
                 <Text className="text-xs text-slate-400 py-2">{t("assignments.no_data")}</Text>
               ) : (
                 filteredMembers.map((m) => {
-                  const mId = m.userId || m.supabaseId;
+                  const mId = m.userId || m.supabaseId || m._id || "";
+                  if (!mId) return null;
                   const isChecked = selectedMemberIds.includes(mId);
                   return (
                     <TouchableOpacity

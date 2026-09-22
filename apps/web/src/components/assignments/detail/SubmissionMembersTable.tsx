@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
 import {
-  CheckCircle2,
   MessageSquare,
   ArrowUpDown,
   CornerUpLeft,
@@ -76,8 +75,8 @@ export default function SubmissionMembersTable({
         return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
       }
       if (sortField === "score") {
-        const scoreA = a.submission?.score ?? -1;
-        const scoreB = b.submission?.score ?? -1;
+        const scoreA = (a.submission?.score ?? (a.submission as any)?.quizScore) ?? -1;
+        const scoreB = (b.submission?.score ?? (b.submission as any)?.quizScore) ?? -1;
         return sortAsc ? scoreA - scoreB : scoreB - scoreA;
       }
       if (sortField === "status") {
@@ -251,16 +250,17 @@ export default function SubmissionMembersTable({
 
         {/* Score / maxScore */}
         <td className="px-4 py-3">
-          {item.isGraded && sub?.score !== undefined ? (
-            <div className="flex items-center gap-1.5">
-              <span className="px-2.5 py-1 bg-slate-100 rounded-md font-bold text-slate-800 text-xs min-w-[32px] text-center">
-                {sub.score}
-              </span>
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-            </div>
-          ) : (
-            <span className="text-slate-400 font-medium pl-2">—</span>
-          )}
+          {(() => {
+            const displayScore = sub?.score ?? (sub as any)?.quizScore;
+            if (displayScore !== undefined && displayScore !== null) {
+              return (
+                <span className="px-2.5 py-1 bg-slate-100 rounded-md font-bold text-slate-800 text-xs min-w-[32px] inline-block text-center">
+                  {displayScore}
+                </span>
+              );
+            }
+            return <span className="text-slate-400 font-medium pl-2">—</span>;
+          })()}
         </td>
       </tr>
     );
@@ -329,7 +329,7 @@ export default function SubmissionMembersTable({
         <tbody>
           {members.length === 0 ? (
             <tr>
-              <td colSpan={6} className="text-center py-12 text-slate-400">
+              <td colSpan={7} className="text-center py-12 text-slate-400">
                 {t("empty_search")}
               </td>
             </tr>

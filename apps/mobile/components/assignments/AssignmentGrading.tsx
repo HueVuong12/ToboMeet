@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
-  Linking,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -18,10 +17,21 @@ import { Assignment, Submission } from "./types";
 import { useFileViewer } from "../../hooks/useFileViewer";
 import FileViewerModal from "../common/FileViewerModal";
 
+interface RoomMember {
+  userId?: string;
+  supabaseId?: string;
+  _id?: string;
+  displayName?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
 interface AssignmentGradingProps {
   assignment: Assignment;
   submissions: Submission[];
-  roomMembers: any[];
+  roomMembers: RoomMember[];
   onBack: () => void;
   onGrade: (submissionId: string, score: number | undefined, feedback: string) => Promise<void>;
   isGrading?: boolean;
@@ -47,11 +57,12 @@ export default function AssignmentGrading({
   // Assigned members list
   const assignedMembers = roomMembers.filter((member) => {
     // Skip creators / teachers
-    if (["owner", "admin", "teacher", "leader"].includes(member.role?.toLowerCase())) {
+    if (["owner", "admin", "teacher", "leader"].includes(member.role?.toLowerCase() ?? "")) {
       return false;
     }
     if (assignment.recipientType === "specific_members" || assignment.recipientType === "current_members") {
-      return assignment.recipientMemberIds?.includes(member.userId || member.supabaseId);
+      const memberId = member.userId || member.supabaseId;
+      return memberId ? assignment.recipientMemberIds?.includes(memberId) : false;
     }
     return true;
   });
@@ -80,8 +91,8 @@ export default function AssignmentGrading({
       await onGrade(selectedSubmission._id, scoreVal, feedbackInput.trim());
       Alert.alert(t("room.success"), t("assignments.toast_grade_success"));
       setSelectedSubmission(null);
-    } catch (err: any) {
-      Alert.alert(t("room.error"), err?.message || t("assignments.toast_error_generic"));
+    } catch (err: unknown) {
+      Alert.alert(t("room.error"), (err as Error)?.message || t("assignments.toast_error_generic"));
     }
   };
 
@@ -98,7 +109,7 @@ export default function AssignmentGrading({
 
   const filteredMembers = assignedMembers.filter((m) => {
     const userId = m.userId || m.supabaseId;
-    const sub = submissionsMap.get(userId);
+    const sub = userId ? submissionsMap.get(userId) : undefined;
     if (filterTab === "submitted") return !!sub;
     if (filterTab === "graded") return sub && sub.score !== undefined;
     return true;
@@ -196,7 +207,7 @@ export default function AssignmentGrading({
         ) : (
           filteredMembers.map((member) => {
             const userId = member.userId || member.supabaseId;
-            const submission = submissionsMap.get(userId);
+            const submission = userId ? submissionsMap.get(userId) : undefined;
             const isGraded = submission && submission.score !== undefined;
 
             return (

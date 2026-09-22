@@ -20,6 +20,7 @@ import {
   Loader2,
   FileText,
   Paperclip,
+  HelpCircle,
 } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";
@@ -59,6 +60,9 @@ interface AssignmentDetailProps {
   onDeleteAssignment?: () => Promise<void>;
   onAddComment: (assignmentId: string, content: string, memberId?: string) => Promise<void>;
   onDeleteComment?: (commentId: string) => Promise<void>;
+  onTakeQuiz?: () => void;
+  onViewQuizResult?: () => void;
+  onGradeQuizEssay?: () => void;
 }
 
 export default function AssignmentDetail({
@@ -81,6 +85,9 @@ export default function AssignmentDetail({
   onDeleteAssignment,
   onAddComment,
   onDeleteComment,
+  onTakeQuiz,
+  onViewQuizResult,
+  onGradeQuizEssay,
 }: AssignmentDetailProps) {
   const t = useTranslations("room.assignments_i18n");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -130,15 +137,49 @@ export default function AssignmentDetail({
 
   // Ghép nối mỗi học viên với bài nộp tương ứng
   const membersWithSubmissions = useMemo<MemberWithSubmission[]>(() => {
-    const subMap = new Map<string, Submission>(
-      (submissions || []).map((s) => [s.studentId, s])
-    );
+    const subMap = new Map<string, Submission>();
+    for (const s of submissions || []) {
+      const existing = subMap.get(s.studentId);
+      if (!existing) {
+        subMap.set(s.studentId, s);
+      } else {
+        const existingHasSubmitted = !!existing.submittedAt;
+        const currentHasSubmitted = !!s.submittedAt;
+        if (!existingHasSubmitted && currentHasSubmitted) {
+          subMap.set(s.studentId, s);
+        } else if (existingHasSubmitted && currentHasSubmitted) {
+          const sScore = s.score ?? (s as any).quizScore ?? -1;
+          const exScore = existing.score ?? (existing as any).quizScore ?? -1;
+          if (sScore > exScore) {
+            subMap.set(s.studentId, s);
+          }
+        }
+      }
+    }
 
     return targetMembers.map((member) => {
       const uId = member.userId || member.supabaseId;
       const sub = subMap.get(uId);
-      const isSubmitted = !!sub?.submittedAt && ((sub.attachments && sub.attachments.length > 0) || !!(sub as any).content);
-      const isGraded = sub ? (sub.score !== undefined || !!sub.feedback) : false;
+      const isQuiz = assignment.type === "quiz";
+      // Quiz: submittedAt being set is the authoritative signal of submission
+      // Regular: require attachments or content
+      const isSubmitted = isQuiz
+        ? !!sub?.submittedAt
+        : !!sub?.submittedAt &&
+          ((sub.attachments && sub.attachments.length > 0) ||
+            !!(sub as any).content);
+      // For quiz: use quizScore as fallback when score not yet set (pending essay grading)
+      const effectiveScore = sub?.score ?? (isQuiz ? sub?.quizScore : undefined);
+      const gradingStatus = (sub as any)?.gradingStatus as string | null | undefined;
+      // isGraded = teacher has completed all necessary grading:
+      // - Regular assignment: score or feedback given
+      // - Quiz: auto_graded (all MCQ) or manually graded (graded) by teacher
+      //   pending_manual = still needs essay grading → not yet "returned"
+      const isGraded = sub
+        ? isQuiz
+          ? gradingStatus === "auto_graded" || gradingStatus === "graded" || sub.score !== undefined
+          : sub.score !== undefined || !!sub.feedback
+        : false;
       const timing = calculateSubmissionTiming(sub?.submittedAt, assignment.deadline);
 
       return {
@@ -153,7 +194,8 @@ export default function AssignmentDetail({
         timing,
       };
     });
-  }, [targetMembers, submissions, assignment.deadline]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetMembers, submissions, assignment.deadline, assignment.type]);
 
   // Lọc theo tìm kiếm và tab
   const filteredMembers = useMemo(() => {
@@ -485,9 +527,18 @@ export default function AssignmentDetail({
     return null;
   };
 
-  const isOverdue = assignment.deadline ? new Date() > new Date(assignment.deadline) : false;
+  const now = new Date();
+  const isOverdue = assignment.deadline ? now > new Date(assignment.deadline) : false;
   // Nhiệm vụ bị khóa nộp: hết hạn VÀ chính sách là khóa sau deadline
   const isLocked = isOverdue && assignment.submissionPolicy === "lock_after_deadline";
+
+  // Kiểm tra riêng bài trắc nghiệm: đã hết hạn (quá deadline / quá closeDate / quá endDate / hoặc tắt acceptingResponses)
+  const isQuizSettingsExpired = assignment.type === "quiz" && (
+    (assignment.quizSettings?.closeDate ? now > new Date(assignment.quizSettings.closeDate) : false) ||
+    (assignment.quizSettings?.endDate ? now > new Date(assignment.quizSettings.endDate) : false) ||
+    assignment.quizSettings?.acceptingResponses === false
+  );
+  const isQuizExpired = assignment.type === "quiz" && (isOverdue || isQuizSettingsExpired || isLocked);
 
   // 1. TRƯỞNG NHÓM VIEW (QUẢN LÝ NHIỆM VỤ, TABS & CHẤM BÀI)
   if (isTeacher) {
@@ -501,6 +552,23 @@ export default function AssignmentDetail({
           onEdit={() => onEditAssignment && onEditAssignment()}
           onDelete={onDeleteAssignment}
         />
+
+        {/* Quiz Banner for Teacher */}
+        {assignment.type === "quiz" && onGradeQuizEssay && (
+          <div className="px-6 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-blue-800 font-semibold">
+              <HelpCircle className="w-4 h-4 text-[#0052FF]" />
+              <span>{t("quiz_banner_type")}</span>
+            </div>
+            <button
+              type="button"
+              onClick={onGradeQuizEssay}
+              className="px-3 py-1.5 bg-[#0052FF] hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+            >
+              {t("quiz_grade_essay_btn")}
+            </button>
+          </div>
+        )}
 
         {/* 2 Tabs quản lý trạng thái + Tìm kiếm */}
         <SubmissionTabs
@@ -667,11 +735,45 @@ export default function AssignmentDetail({
 
         {/* Action Button for Member */}
         <div className="flex gap-3 flex-wrap">
-          {isLocked ? (
+          {assignment.type === "quiz" ? (
+            submission?.submittedAt || (submission?.quizAnswers && submission.quizAnswers.length > 0) ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onViewQuizResult}
+                  className="px-5 py-2.5 bg-[#0052FF] hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center cursor-pointer active:scale-98"
+                >
+                  <span>{t("quiz_view_result_btn")}</span>
+                </button>
+                {assignment.quizSettings?.allowMultipleAttempts && !isQuizExpired && (
+                  <button
+                    type="button"
+                    onClick={onTakeQuiz}
+                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-98 border border-slate-200"
+                  >
+                    <span>{t("quiz_retake_btn")}</span>
+                  </button>
+                )}
+              </>
+            ) : isQuizExpired ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-semibold">
+                <Lock size={14} />
+                <span>{t("quiz_locked_notice")}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onTakeQuiz}
+                className="px-5 py-2.5 bg-[#0052FF] hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center cursor-pointer active:scale-98"
+              >
+                <span>{t("quiz_start_btn")}</span>
+              </button>
+            )
+          ) : isLocked ? (
             /* Nhiệm vụ đã khóa — không cho nộp/sửa bài mới */
             <div className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-semibold">
               <Lock size={14} />
-              <span>Đã hết hạn nộp bài — Nhiệm vụ đã bị khóa</span>
+              <span>{t("assignment_expired_locked")}</span>
             </div>
           ) : !hasActiveSubmission ? (
             <button

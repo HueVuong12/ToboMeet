@@ -20,23 +20,34 @@ import { useFileViewer } from "../../hooks/useFileViewer";
 import FileViewerModal from "../common/FileViewerModal";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { axiosInstance } from "../../lib/axios";
+// axiosInstance removed – not used in this file
 import { calculateSubmissionTiming } from "./utils/submissionTimeHelper";
 import { downloadAssignmentExcel } from "./utils/excelExport";
 import CreateTaskModal from "./CreateTaskModal";
 import MemberCommentsModal from "./MemberCommentsModal";
 import { socket } from "../../lib/socket";
 
+interface RoomMember {
+  userId?: string;
+  supabaseId?: string;
+  _id?: string;
+  displayName?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  user?: { _id?: string };
+}
+
 interface AssignmentDetailProps {
   assignment: Assignment;
   submission?: Submission | null;
   submissions?: Submission[];
   isTeacher: boolean;
-  roomMembers: any[];
+  roomMembers: RoomMember[];
   comments: AssignmentCommentItem[];
   userId: string;
   onBack: () => void;
-  onSubmit: (attachments: any[]) => Promise<void>;
+  onSubmit: (attachments: unknown[]) => Promise<void>;
   isSubmitting?: boolean;
   onGradeClick?: () => void;
   onGradeSubmission?: (
@@ -54,6 +65,10 @@ interface AssignmentDetailProps {
   onOpenRightDrawer?: () => void;
   onCreateClick?: () => void;
   onCreateQuizClick?: () => void;
+  /** Quiz callbacks — chỉ dùng khi assignment.type === 'quiz' */
+  onStartQuiz?: () => void;
+  onViewQuizResult?: () => void;
+  onGradeEssay?: () => void;
 }
 
 export default function AssignmentDetail({
@@ -67,7 +82,7 @@ export default function AssignmentDetail({
   onBack,
   onSubmit,
   isSubmitting = false,
-  onGradeClick,
+  // onGradeClick intentionally omitted – prop kept in interface for backward compat
   onGradeSubmission,
   onEditAssignment,
   refetchSubmission,
@@ -79,6 +94,9 @@ export default function AssignmentDetail({
   onOpenRightDrawer,
   onCreateClick,
   onCreateQuizClick,
+  onStartQuiz,
+  onViewQuizResult,
+  onGradeEssay,
 }: AssignmentDetailProps) {
   const { t, i18n } = useTranslation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -93,19 +111,19 @@ export default function AssignmentDetail({
   const [isExporting, setIsExporting] = useState(false);
   const [memberTab, setMemberTab] = useState<"need_return" | "returned">("need_return");
   const [memberSearch, setMemberSearch] = useState("");
-  const [gradeModal, setGradeModal] = useState<{ member: any; submission: Submission | null } | null>(null);
-  const [activeCommentMember, setActiveCommentMember] = useState<any | null>(null);
+  const [gradeModal, setGradeModal] = useState<{ member: RoomMember; submission: Submission | null } | null>(null);
+  const [activeCommentMember, setActiveCommentMember] = useState<RoomMember | null>(null);
   const [scoreInput, setScoreInput] = useState("");
   const [feedbackInput, setFeedbackInput] = useState("");
   const [isSavingGrade, setIsSavingGrade] = useState(false);
 
   const scrollViewRef = React.useRef<ScrollView>(null);
-  const { selectedFile, isVisible: isFileViewerVisible, openFile, closeFile } = useFileViewer();
+  const { selectedFile, isVisible: isFileViewerVisible, closeFile } = useFileViewer();
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const onShow = (e: any) => {
+    const onShow = (e: { endCoordinates?: { height?: number } }) => {
       setKeyboardHeight(e.endCoordinates?.height ?? 0);
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     };
@@ -131,30 +149,39 @@ export default function AssignmentDetail({
   useEffect(() => {
     if (!socket.connected) socket.connect();
 
-    const handleAssignmentGraded = (data: any) => {
-      const eventAssignId = String(data?.submission?.assignmentId || data?.assignmentId || "");
+    const handleAssignmentGraded = (data: Record<string, unknown>) => {
+      const submission = data?.submission as Record<string, unknown> | undefined;
+      const eventAssignId = String(submission?.assignmentId || data?.assignmentId || "");
       if ((eventAssignId === String(assignment._id) || String(data?.roomId) === String(assignment.roomId)) && refetchSubmissionRef.current) {
         try {
           refetchSubmissionRef.current();
-        } catch (e) {}
+        } catch {
+          // intentionally empty – ignore refetch errors
+        }
       }
     };
 
-    const handleSubmissionDeleted = (data: any) => {
-      const eventAssignId = String(data?.assignmentId || data?.submission?.assignmentId || "");
+    const handleSubmissionDeleted = (data: Record<string, unknown>) => {
+      const submission = data?.submission as Record<string, unknown> | undefined;
+      const eventAssignId = String(data?.assignmentId || submission?.assignmentId || "");
       if ((eventAssignId === String(assignment._id) || String(data?.roomId) === String(assignment.roomId)) && refetchSubmissionRef.current) {
         try {
           refetchSubmissionRef.current();
-        } catch (e) {}
+        } catch {
+          // intentionally empty – ignore refetch errors
+        }
       }
     };
 
-    const handleAssignmentSubmitted = (data: any) => {
-      const eventAssignId = String(data?.submission?.assignmentId || data?.assignmentId || "");
+    const handleAssignmentSubmitted = (data: Record<string, unknown>) => {
+      const submission = data?.submission as Record<string, unknown> | undefined;
+      const eventAssignId = String(submission?.assignmentId || data?.assignmentId || "");
       if ((eventAssignId === String(assignment._id) || String(data?.roomId) === String(assignment.roomId)) && refetchSubmissionRef.current) {
         try {
           refetchSubmissionRef.current();
-        } catch (e) {}
+        } catch {
+          // intentionally empty – ignore refetch errors
+        }
       }
     };
 
@@ -174,6 +201,13 @@ export default function AssignmentDetail({
   const isPastDeadline = now.getTime() > deadline.getTime();
   const isLocked = isPastDeadline && assignment.submissionPolicy === "lock_after_deadline";
 
+  // Derived: học sinh đã có bài nộp hợp lệ (không phải not_submitted)
+  const hasActiveSubmission = !!(
+    submission &&
+    submission.submissionStatus !== "not_submitted" &&
+    submission.submittedAt
+  );
+
   const pad = (n: number) => String(n).padStart(2, "0");
 
   const formatDeadline24h = (dateStr?: string) => {
@@ -183,17 +217,7 @@ export default function AssignmentDetail({
     return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // formatDate removed – not used in this component
 
   const formatMobileDateTime = (dateStr?: string) => {
     if (!dateStr) return "";
@@ -391,10 +415,10 @@ export default function AssignmentDetail({
     try {
       setIsExporting(true);
       await downloadAssignmentExcel(assignment._id, assignment.title);
-    } catch (err: any) {
+    } catch (err: unknown) {
       Alert.alert(
         t("assignments.error_title", { defaultValue: "Lỗi" }),
-        err?.message || t("assignments.export_excel_error", { defaultValue: "Không thể xuất file Excel" })
+        (err as Error)?.message || t("assignments.export_excel_error", { defaultValue: "Không thể xuất file Excel" })
       );
     } finally {
       setIsExporting(false);
@@ -424,10 +448,10 @@ export default function AssignmentDetail({
         t("assignments.notice_title", { defaultValue: "Thông báo" }),
         t("assignments.download_file_success", { name: att.name, defaultValue: `Đã tải tập tin: ${att.name}` })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       Alert.alert(
         t("assignments.error_title", { defaultValue: "Lỗi" }),
-        err?.message || t("assignments.download_file_error", { defaultValue: "Không thể tải tập tin" })
+        (err as Error)?.message || t("assignments.download_file_error", { defaultValue: "Không thể tải tập tin" })
       );
     } finally {
       setDownloadingAttName(null);
@@ -458,10 +482,10 @@ export default function AssignmentDetail({
           ? t("assignments.update_grade_success", { defaultValue: "Đã cập nhật đánh giá thành công" })
           : t("assignments.save_grade_success", { defaultValue: "Đã lưu đánh giá thành công" })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       Alert.alert(
         t("assignments.error_title", { defaultValue: "Lỗi" }),
-        err?.message || t("assignments.toast_error_generic", { defaultValue: "Đã xảy ra lỗi" })
+        (err as Error)?.message || t("assignments.toast_error_generic", { defaultValue: "Đã xảy ra lỗi" })
       );
     } finally {
       setIsSavingGrade(false);
@@ -471,16 +495,17 @@ export default function AssignmentDetail({
   const submissionsMap = new Map(submissions.map((s) => [s.studentId, s]));
 
   const assignedMembers = roomMembers.filter((member) => {
-    if (["owner", "admin"].includes(member.role?.toLowerCase())) return false;
+    if (["owner", "admin"].includes(member.role?.toLowerCase() ?? "")) return false;
     if (assignment.recipientType === "specific_members" || assignment.recipientType === "current_members") {
-      return assignment.recipientMemberIds?.includes(member.userId || member.supabaseId);
+      const memberId = member.userId || member.supabaseId;
+      return memberId ? assignment.recipientMemberIds?.includes(memberId) : false;
     }
     return true;
   });
 
   const filteredMembers = assignedMembers.filter((m) => {
     const uid = m.userId || m.supabaseId;
-    const sub = submissionsMap.get(uid);
+    const sub = uid ? submissionsMap.get(uid) : undefined;
     if (memberSearch.trim()) {
       const name = (m.displayName || m.name || "").toLowerCase();
       const email = (m.email || "").toLowerCase();
@@ -715,6 +740,122 @@ export default function AssignmentDetail({
                 </Text>
               </View>
             </View>
+
+            {/* ─── Quiz action card (chỉ hiển thị khi type = quiz) ─── */}
+            {assignment.type === "quiz" && (
+              <View className="bg-white rounded-2xl border border-purple-100 shadow-xs mt-3 overflow-hidden">
+                {/* Quiz info */}
+                <View className="px-4 pt-4 pb-3 flex-row gap-3 flex-wrap">
+                  {(assignment.questions?.length ?? 0) > 0 && (
+                    <View className="bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-lg">
+                      <Text className="text-xs font-bold text-purple-700">
+                        {assignment.questions?.length}{" "}
+                        {t("quiz.questions_count", { defaultValue: "câu hỏi" })}
+                      </Text>
+                    </View>
+                  )}
+                  {(assignment.quizSettings?.timeLimitMinutes ?? 0) > 0 && (
+                    <View className="bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg">
+                      <Text className="text-xs font-bold text-amber-700">
+                        {assignment.quizSettings?.timeLimitMinutes}{" "}
+                        {t("quiz.minutes_label", { defaultValue: "phút" })}
+                      </Text>
+                    </View>
+                  )}
+                  {(assignment.quizSettings?.passScore ?? 0) > 0 && (
+                    <View className="bg-green-50 border border-green-100 px-2.5 py-1 rounded-lg">
+                      <Text className="text-xs font-bold text-green-700">
+                        {t("quiz.pass_score_label", {
+                          defaultValue: `Đạt: ${assignment.quizSettings?.passScore} điểm`,
+                        })}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View className="h-px bg-purple-50 mx-4" />
+
+                {/* Quiz action buttons */}
+                <View className="px-4 py-3 flex-row gap-2">
+                  {onStartQuiz && (
+                    <TouchableOpacity
+                      onPress={onStartQuiz}
+                      className="flex-1 flex-row items-center justify-center bg-purple-600 active:bg-purple-700 rounded-xl py-3"
+                    >
+                      <Text className="font-bold text-white text-sm">
+                        {t("quiz.start_btn", { defaultValue: "Bắt đầu thực hiện" })}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {onViewQuizResult && (
+                    <TouchableOpacity
+                      onPress={onViewQuizResult}
+                      className="flex-row items-center justify-center gap-2 bg-slate-100 border border-slate-200 active:bg-slate-200 rounded-xl py-3 px-4"
+                    >
+                      <Feather name="bar-chart-2" size={14} color="#475569" />
+                      <Text className="font-bold text-slate-700 text-sm">
+                        {t("quiz.view_result_btn", { defaultValue: "Xem kết quả" })}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* TEACHER VIEW: Quiz stats + chấm tự luận (khi type = quiz) */}
+        {isTeacher && assignment.type === "quiz" && (
+          <View className="bg-white rounded-2xl border border-purple-100 shadow-xs mb-4 overflow-hidden">
+            <View className="px-4 pt-4 pb-3">
+              <Text className="text-xs font-bold text-slate-400 uppercase mb-3">
+                {t("quiz.quiz_overview", { defaultValue: "Tổng quan trắc nghiệm" })}
+              </Text>
+              <View className="flex-row gap-3 flex-wrap mb-3">
+                <View className="bg-purple-50 border border-purple-100 px-2.5 py-1.5 rounded-xl">
+                  <Text className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">
+                    {t("quiz.total_questions", { defaultValue: "Câu hỏi" })}
+                  </Text>
+                  <Text className="text-base font-bold text-purple-800">
+                    {assignment.questions?.length ?? 0}
+                  </Text>
+                </View>
+                <View className="bg-blue-50 border border-blue-100 px-2.5 py-1.5 rounded-xl">
+                  <Text className="text-[10px] font-bold text-blue-600 uppercase mb-0.5">
+                    {t("quiz.total_pts", { defaultValue: "Tổng điểm" })}
+                  </Text>
+                  <Text className="text-base font-bold text-blue-800">
+                    {assignment.maxScore ?? 0}
+                  </Text>
+                </View>
+                {(assignment.quizSettings?.timeLimitMinutes ?? 0) > 0 && (
+                  <View className="bg-amber-50 border border-amber-100 px-2.5 py-1.5 rounded-xl">
+                    <Text className="text-[10px] font-bold text-amber-600 uppercase mb-0.5">
+                      {t("quiz.time_limit_short", { defaultValue: "Thời gian" })}
+                    </Text>
+                    <Text className="text-base font-bold text-amber-800">
+                      {assignment.quizSettings?.timeLimitMinutes}p
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {onGradeEssay && (
+              <>
+                <View className="h-px bg-slate-100 mx-4" />
+                <TouchableOpacity
+                  onPress={onGradeEssay}
+                  className="flex-row items-center gap-3 px-4 py-3.5 active:bg-slate-50"
+                >
+                  <Feather name="edit-3" size={16} color="#7C3AED" />
+                  <Text className="text-sm font-semibold text-purple-700">
+                    {t("quiz.grade_essay_btn", { defaultValue: "Chấm điểm tự luận" })}
+                  </Text>
+                  <Feather name="chevron-right" size={14} color="#94A3B8" style={{ marginLeft: "auto" }} />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
 
@@ -789,7 +930,7 @@ export default function AssignmentDetail({
                   <TouchableOpacity
                     key={tab.id}
                     onPress={() => {
-                      setMemberTab(tab.id as any);
+                      setMemberTab(tab.id as "need_return" | "returned");
                       setMemberSearch("");
                     }}
                     className={
@@ -865,7 +1006,7 @@ export default function AssignmentDetail({
                 ) : (
                   filteredMembers.map((member) => {
                     const uid = member.userId || member.supabaseId;
-                    const sub = submissionsMap.get(uid);
+                    const sub = uid ? submissionsMap.get(uid) : undefined;
                     const hasSubmitted = !!sub?.submittedAt;
                     const isGraded = sub?.score !== undefined;
 
@@ -1002,7 +1143,7 @@ export default function AssignmentDetail({
                         >
                           {(() => {
                             const memberCommentsCount = (comments || []).filter(
-                              (c: any) => (c.memberId || c.userId) === uid
+                              (c: AssignmentCommentItem) => (c.memberId || c.userId) === uid
                             ).length;
 
                             return (
@@ -1586,7 +1727,7 @@ export default function AssignmentDetail({
           onClose={() => setShowSubmitModal(false)}
           roomId={assignment.roomId}
           channelId={assignment.channelId}
-          existingSubmission={submission}
+          existingSubmission={hasActiveSubmission ? submission : null}
           onSubmit={async (atts) => {
             await onSubmit(atts);
             setShowSubmitModal(false);
@@ -1622,12 +1763,12 @@ export default function AssignmentDetail({
           visible={!!activeCommentMember}
           onClose={() => setActiveCommentMember(null)}
           member={activeCommentMember}
-          comments={(comments || []).filter((c: any) => {
+          comments={(comments || []).filter((c: AssignmentCommentItem) => {
             const mId =
               activeCommentMember.userId ||
               activeCommentMember.supabaseId ||
               activeCommentMember._id ||
-              (activeCommentMember.user as any)?._id;
+              activeCommentMember.user?._id;
             return (c.memberId || c.userId) === mId;
           })}
           currentUserId={userId}
@@ -1636,8 +1777,8 @@ export default function AssignmentDetail({
               activeCommentMember.userId ||
               activeCommentMember.supabaseId ||
               activeCommentMember._id ||
-              (activeCommentMember.user as any)?._id;
-            await onAddComment(assignment._id, content, mId);
+              activeCommentMember.user?._id;
+            await onAddComment(assignment._id, content, mId as string | undefined);
           }}
           onDeleteComment={onDeleteComment}
         />
