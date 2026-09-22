@@ -9,6 +9,7 @@ import {
   PresignedUploadResponse,
   RoomMemberStatus,
   SessionAttendanceItem,
+  WhiteboardAccessResponse,
   WhiteboardSettings,
   WhiteboardTokenResponse,
   WhiteboardUserInfo,
@@ -21,7 +22,7 @@ interface ExchangeSessionResponse {
   channelId?: string;
 }
 
-export type { WhiteboardUserInfo, WhiteboardTokenResponse };
+export type { WhiteboardAccessResponse, WhiteboardUserInfo, WhiteboardTokenResponse };
 
 export const meetingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -229,6 +230,17 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    // Kiểm tra quyền truy cập Whiteboard của người dùng
+    getWhiteboardAccess: builder.query<WhiteboardAccessResponse, string>({
+      query: (code) => ({
+        url: `/meetings/${code}/whiteboard-access`,
+        method: "GET",
+      }),
+      providesTags: (_res, _err, code) => [
+        { type: "Meetings", id: `whiteboard-access-${code}` },
+      ],
+    }),
+
     // Lấy cấu hình phân quyền Whiteboard
     getWhiteboardSettings: builder.query<WhiteboardSettings, string>({
       query: (code) => ({
@@ -252,6 +264,7 @@ export const meetingsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_res, _err, { code }) => [
         { type: "Meetings", id: `whiteboard-${code}` },
+        { type: "Meetings", id: `whiteboard-access-${code}` },
       ],
     }),
 
@@ -489,6 +502,7 @@ export const {
 
   // Whiteboard token and settings APIs
   useGetWhiteboardTokenMutation,
+  useGetWhiteboardAccessQuery,
   useGetWhiteboardSettingsQuery,
   useUpdateWhiteboardSettingsMutation,
 } = meetingsApi;

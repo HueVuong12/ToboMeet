@@ -34,10 +34,15 @@ import { UpdateWhiteboardSettingsDto } from "./dtos/whiteboard-settings.dto";
 interface AuthenticatedRequest extends Request {
   user: {
     id: string;
+    email?: string;
     user_metadata?: {
-      full_name: string;
-      avatar_url: string;
+      full_name?: string;
+      name?: string;
+      display_name?: string;
+      avatar_url?: string;
+      [key: string]: any;
     };
+    [key: string]: any;
   };
 }
 
@@ -72,6 +77,25 @@ export class ChannelMeetingsController {
   ) {
     const userId = req.user.id;
     return this.meetingsService.ensureChannelMeeting(roomId, channelId, userId);
+  }
+
+  /**
+   * GET /api/rooms/:id/channels/:channelId/meetings/whiteboard-access
+   * Kiểm tra quyền truy cập Whiteboard của người dùng trong kênh
+   */
+  @Get("whiteboard-access")
+  @UseGuards(SupabaseGuard)
+  async checkChannelWhiteboardAccess(
+    @Param("id") roomId: string,
+    @Param("channelId") channelId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.meetingsService.checkChannelWhiteboardAccess(
+      roomId,
+      channelId,
+      userId,
+    );
   }
 }
 
@@ -238,7 +262,31 @@ export class MeetingsController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
-    return this.meetingsService.generateWhiteboardToken(meetingCode, userId);
+    const displayName =
+      req.user.user_metadata?.full_name ||
+      req.user.user_metadata?.name ||
+      req.user.user_metadata?.display_name ||
+      req.user.email?.split("@")[0] ||
+      "Người dùng";
+    return this.meetingsService.generateWhiteboardToken(
+      meetingCode,
+      userId,
+      displayName,
+    );
+  }
+
+  /**
+   * GET /api/meetings/:code/whiteboard-access
+   * Kiểm tra quyền truy cập Whiteboard của người dùng trong cuộc họp
+   */
+  @Get(":code/whiteboard-access")
+  @UseGuards(SupabaseGuard)
+  async checkWhiteboardAccess(
+    @Param("code") meetingCode: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    return this.meetingsService.checkWhiteboardAccess(meetingCode, userId);
   }
 
   /**

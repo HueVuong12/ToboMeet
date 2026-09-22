@@ -331,7 +331,6 @@ export function useMeetingWhiteboardLogic({
           : (settings.allowedRoles?.includes("guest") ?? true);
 
       if (!allowed) {
-        console.warn("[Whiteboard] Access revoked by host settings");
         invalidateWhiteboardToken(meetingCodeRef.current);
         if (onPermissionRevokedRef.current) {
           onPermissionRevokedRef.current();
@@ -350,7 +349,6 @@ export function useMeetingWhiteboardLogic({
       const expectedReadOnly = targetPermLevel === "view";
 
       if (!isInitialCheck && expectedReadOnly !== isReadOnly) {
-        console.log(`[Whiteboard] Permission level changed to ${targetPermLevel}`);
         invalidateWhiteboardToken(meetingCodeRef.current);
         setIsReadOnly(expectedReadOnly);
         if (onPermissionChangedRef.current) {

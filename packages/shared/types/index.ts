@@ -408,6 +408,14 @@ export interface WhiteboardSettings {
   guestPermission: WhiteboardPermissionLevel;
 }
 
+export interface WhiteboardAccessResponse {
+  canAccess: boolean;
+  role: "owner" | "admin" | "member" | "guest";
+  hasAdminPowers: boolean;
+  permission: WhiteboardPermissionLevel;
+  isReadOnly: boolean;
+}
+
 export interface WhiteboardUserInfo {
   id: string;
   name: string;

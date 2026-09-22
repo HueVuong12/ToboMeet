@@ -41,7 +41,6 @@ import { useCloudRecorder } from "@/hooks/useCloudRecorder";
 import { useToolbarActions } from "@/hooks/useToolbarActions";
 import CreateBreakoutModal from "./CreateBreakoutModal";
 import JoinBreakoutModal from "./JoinBreakoutModal";
-import WhiteboardSettingsModal from "./WhiteboardSettingsModal";
 import { useSafeMeetingWhiteboard } from "./contexts/MeetingWhiteboardContext";
 
 /**
@@ -66,8 +65,6 @@ export default function CustomToolbar({
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
   const [isJoinBreakoutModalOpen, setIsJoinBreakoutModalOpen] = useState(false);
-  const [isWhiteboardSettingsModalOpen, setIsWhiteboardSettingsModalOpen] =
-    useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isRecordMenuOpen, setIsRecordMenuOpen] = useState(false);
   const [isLeaveMenuOpen, setIsLeaveMenuOpen] = useState(false);
@@ -130,7 +127,6 @@ export default function CustomToolbar({
     isWaitingRoomEnabled,
     isBreakoutActive,
     approvalPermission,
-    whiteboardSettings,
     canAccessWhiteboard,
     breakoutRoomsList,
     roomType,
@@ -145,7 +141,6 @@ export default function CustomToolbar({
     handleEndBreakout,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
-    handleUpdateWhiteboardSettings,
   } = useRoomSettings({
     meetingCode,
   });
@@ -682,21 +677,6 @@ export default function CustomToolbar({
                         : t("join_whiteboard")}
                     </span>
                   </button>
-
-                  {isHost && (
-                    <button
-                      type="button"
-                      title={t("whiteboard_settings")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMoreMenuOpen(false);
-                        setIsWhiteboardSettingsModalOpen(true);
-                      }}
-                      className="p-1 hover:bg-[#2c2c32] text-slate-400 hover:text-blue-400 rounded transition-colors cursor-pointer ml-1"
-                    >
-                      <Settings size={15} />
-                    </button>
-                  )}
                 </div>
 
 
@@ -981,14 +961,6 @@ export default function CustomToolbar({
         isOpen={isJoinBreakoutModalOpen}
         onClose={() => setIsJoinBreakoutModalOpen(false)}
         rooms={breakoutRoomsList}
-      />
-
-      {/* ================= MODAL CÀI ĐẶT WHITEBOARD ================= */}
-      <WhiteboardSettingsModal
-        isOpen={isWhiteboardSettingsModalOpen}
-        onClose={() => setIsWhiteboardSettingsModalOpen(false)}
-        currentSettings={whiteboardSettings}
-        onSave={handleUpdateWhiteboardSettings}
       />
     </footer>
   );

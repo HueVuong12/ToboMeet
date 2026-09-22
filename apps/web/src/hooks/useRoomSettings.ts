@@ -3,21 +3,17 @@ import { useLocalParticipant, useRoomInfo } from "@livekit/components-react";
 import { toast } from "sonner";
 import {
   useEndBreakoutSessionMutation,
-  useGetWhiteboardSettingsQuery,
+  useGetWhiteboardAccessQuery,
   useToggleMeetingChatMutation,
   useToggleWaitingRoomStatusMutation,
   useUpdateApprovalPermissionMutation,
-  useUpdateWhiteboardSettingsMutation,
 } from "@/lib/redux/api/meetingsApi";
 import { useTranslations } from "next-intl";
 import {
   LivekitBreakoutRoom,
   LivekitRoomMetadata,
   ParticipantMetadata,
-  WhiteboardSettings,
 } from "@tobomeet/shared/types";
-import { invalidateWhiteboardToken } from "@/lib/whiteboard/whiteboardTokenManager";
-import { socket } from "@/lib/socket";
 
 // Hook quản lý cài đặt phòng (Chat, Phòng chờ, Quyền duyệt) dùng trong cuộc họp
 export function useRoomSettings({
@@ -34,41 +30,14 @@ export function useRoomSettings({
   const [toggleChatApi] = useToggleMeetingChatMutation();
   const [toggleWaitingRoomApi] = useToggleWaitingRoomStatusMutation(); // API bật/tắt phòng chờ
   const [updateApprovalPermissionApi] = useUpdateApprovalPermissionMutation(); // Khởi tạo mutation
-  const [updateWhiteboardSettingsApi] = useUpdateWhiteboardSettingsMutation();
 
-  const { data: serverWbSettings } = useGetWhiteboardSettingsQuery(
+  const { data: wbAccessData } = useGetWhiteboardAccessQuery(
     meetingCode || "",
     { skip: !meetingCode },
   );
 
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
-  const [whiteboardSettings, setWhiteboardSettings] = useState<WhiteboardSettings>({
-    allowedRoles: ["admin", "member", "guest"],
-    memberPermission: "edit",
-    guestPermission: "edit",
-  });
-
-  // Đồng bộ cài đặt Whiteboard từ API khi tải phòng
-  useEffect(() => {
-    if (serverWbSettings) {
-      setWhiteboardSettings(serverWbSettings);
-    }
-  }, [serverWbSettings]);
-
-  // Lắng nghe cập nhật realtime phân quyền Whiteboard từ socket backend
-  useEffect(() => {
-    if (!meetingCode) return;
-    const handleWbSettingsUpdated = (newSettings: WhiteboardSettings) => {
-      setWhiteboardSettings(newSettings);
-      invalidateWhiteboardToken(meetingCode);
-    };
-
-    socket.on("meeting:whiteboard-settings-updated", handleWbSettingsUpdated);
-    return () => {
-      socket.off("meeting:whiteboard-settings-updated", handleWbSettingsUpdated);
-    };
-  }, [meetingCode]);
   const [roomType, setRoomType] = useState<"main" | "breakout">("main");
   const [breakoutRoomsList, setBreakoutRoomsList] = useState<
     LivekitBreakoutRoom[]
@@ -103,11 +72,11 @@ export function useRoomSettings({
     }
   } catch (e) { }
 
-  const canAccessWhiteboard = isHost
-    ? true
-    : userRole === "member"
-    ? (whiteboardSettings.allowedRoles?.includes("member") ?? true)
-    : (whiteboardSettings.allowedRoles?.includes("guest") ?? true);
+  const canAccessWhiteboard = !meetingCode
+    ? false
+    : wbAccessData !== undefined
+      ? wbAccessData.canAccess
+      : true;
 
   // Lắng nghe và đồng bộ trạng thái cài đặt chung từ Server (Metadata của LiveKit)
   useEffect(() => {
@@ -150,9 +119,6 @@ export function useRoomSettings({
     }
   }, [roomMetadata]);
 
-  // Thành viên có được phép chat không:
-  // - Nếu bật Chat: ai cũng được chat
-  // - Nếu tắt Chat: chỉ Host (owner/admin) mới được gửi tin nhắn
   const canChat = isChatEnabled || isHost;
 
   // Hàm xử lý bật/tắt Chat
@@ -236,30 +202,7 @@ export function useRoomSettings({
     }
   };
 
-  const handleUpdateWhiteboardSettings = async (
-    settings: WhiteboardSettings,
-  ) => {
-    const oldState = whiteboardSettings;
-    setWhiteboardSettings(settings); // Optimistic UI
 
-    if (!meetingCode) return;
-
-    try {
-      await updateWhiteboardSettingsApi({
-        code: meetingCode,
-        settings,
-      }).unwrap();
-    } catch (error: any) {
-      console.error("Lỗi cập nhật cấu hình whiteboard:", error);
-      if (error?.code) {
-        toast.error(t(String(error.code)) || tSession("general_action_error"));
-      } else {
-        toast.error(tSession("general_action_error"));
-      }
-      setWhiteboardSettings(oldState); // Rollback
-      throw error;
-    }
-  };
 
   const isCloudRecordingActive = !!recordingInfo?.isRecording;
   const isRecordingByMe =
@@ -276,7 +219,6 @@ export function useRoomSettings({
     canChat,
     isWaitingRoomEnabled,
     approvalPermission,
-    whiteboardSettings,
     canAccessWhiteboard,
     isBreakoutActive,
     breakoutRoomsList,
@@ -294,7 +236,6 @@ export function useRoomSettings({
     handleToggleChat,
     handleToggleWaitingRoom,
     handleUpdateApprovalPermission,
-    handleUpdateWhiteboardSettings,
     handleEndBreakout,
   };
 }

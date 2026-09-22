@@ -3,12 +3,18 @@
 import React, { useState, useCallback } from "react";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
-import { Loader2, WifiOff, X, Layers, RefreshCw, ExternalLink } from "lucide-react";
+import { Loader2, WifiOff, X, Layers, RefreshCw, ExternalLink, Settings, Eye } from "lucide-react";
 import { useMeetingWhiteboardLogic } from "@/hooks/useMeetingWhiteboardLogic";
 import { useSafeMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
+import WhiteboardSettingsModal from "@/components/meeting/WhiteboardSettingsModal";
+import {
+  useGetWhiteboardAccessQuery,
+  useGetWhiteboardSettingsQuery,
+  useUpdateWhiteboardSettingsMutation,
+} from "@/lib/redux/api/meetingsApi";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
-import { WhiteboardPermissionLevel } from "@tobomeet/shared/types";
+import { WhiteboardPermissionLevel, WhiteboardSettings } from "@tobomeet/shared/types";
 
 export interface MeetingWhiteboardProps {
   meetingCode: string;
@@ -49,6 +55,34 @@ function MeetingWhiteboardCanvas({
     onPermissionRevoked,
     onPermissionChanged,
   });
+
+  const tToolbar = useTranslations("meeting.toolbar");
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Lấy quyền Whiteboard trực tiếp từ API (không phụ thuộc participant metadata)
+  const { data: wbAccessData } = useGetWhiteboardAccessQuery(
+    meetingCode || "",
+    { skip: !meetingCode },
+  );
+
+  const canManageSettings =
+    wbAccessData?.hasAdminPowers ||
+    wbAccessData?.role === "owner" ||
+    wbAccessData?.role === "admin";
+
+  const { data: serverWbSettings } = useGetWhiteboardSettingsQuery(
+    meetingCode || "",
+    { skip: !meetingCode || !canManageSettings },
+  );
+
+  const [updateWhiteboardSettingsApi] = useUpdateWhiteboardSettingsMutation();
+
+  const handleSaveSettings = async (newSettings: WhiteboardSettings) => {
+    await updateWhiteboardSettingsApi({
+      code: meetingCode,
+      settings: newSettings,
+    }).unwrap();
+  };
 
   const handleOpenInNewTab = useCallback(() => {
     window.open(`/whiteboard/${meetingCode}`, "_blank");
@@ -148,19 +182,23 @@ function MeetingWhiteboardCanvas({
   return (
     <div className="w-full h-full relative overflow-hidden bg-[#111113]">
       {/* Top Floating Control Bar */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#161619]/90 backdrop-blur-md border border-[#232328] rounded-xl px-3 py-1.5 shadow-xl select-none">
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
-          <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2 bg-[#161619]/90 backdrop-blur-md border border-[#232328] rounded-xl px-2.5 sm:px-3 py-1.5 shadow-xl select-none max-w-[95vw]">
+        <div className="flex items-center gap-2 text-xs font-medium text-slate-200 shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
             <Layers size={14} />
           </div>
-          <span className="font-semibold text-xs">{t("title")}</span>
+          <span className="font-semibold text-xs hidden lg:inline">{t("title")}</span>
         </div>
 
         {isReadOnly && (
           <>
             <div className="h-4 w-px bg-[#232328]" />
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-medium">
-              <span>{t("view_only_mode")}</span>
+            <div
+              title={t("view_only_mode")}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-medium shrink-0"
+            >
+              <Eye size={12} className="shrink-0" />
+              <span className="hidden lg:inline">{t("view_only_mode")}</span>
             </div>
           </>
         )}
@@ -172,10 +210,25 @@ function MeetingWhiteboardCanvas({
             <button
               onClick={handleOpenInNewTab}
               title={t("open_in_new_tab")}
-              className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0"
             >
               <ExternalLink size={14} />
-              <span className="hidden sm:inline">{t("open_new_tab")}</span>
+              <span className="hidden lg:inline">{t("open_new_tab")}</span>
+            </button>
+          </>
+        )}
+
+        {/* Nút Cài đặt Whiteboard: Chỉ hiển thị cho Admin hoặc Owner */}
+        {canManageSettings && (
+          <>
+            <div className="h-4 w-px bg-[#232328]" />
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              title={tToolbar("whiteboard_settings")}
+              className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0"
+            >
+              <Settings size={14} />
+              <span className="hidden lg:inline">{tToolbar("whiteboard_settings")}</span>
             </button>
           </>
         )}
@@ -185,10 +238,10 @@ function MeetingWhiteboardCanvas({
         <button
           onClick={leaveWhiteboard}
           title={t("close_tooltip")}
-          className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0"
         >
           <X size={14} />
-          <span className="hidden md:inline">{t("close")}</span>
+          <span className="hidden lg:inline">{t("close")}</span>
         </button>
       </div>
 
@@ -196,6 +249,22 @@ function MeetingWhiteboardCanvas({
       <div className="w-full h-full">
         <Tldraw store={store.store} user={user} autoFocus />
       </div>
+
+      {/* Modal Cài đặt Whiteboard (Chỉ hiện với Admin / Owner) */}
+      {canManageSettings && (
+        <WhiteboardSettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          currentSettings={
+            serverWbSettings || {
+              allowedRoles: ["admin", "member", "guest"],
+              memberPermission: "edit",
+              guestPermission: "edit",
+            }
+          }
+          onSave={handleSaveSettings}
+        />
+      )}
     </div>
   );
 }

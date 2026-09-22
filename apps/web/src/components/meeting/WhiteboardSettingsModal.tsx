@@ -52,7 +52,12 @@ export default function WhiteboardSettingsModal({
     }
   }, [isOpen, currentSettings]);
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleSave = async () => {
     try {
@@ -78,8 +83,8 @@ export default function WhiteboardSettingsModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 px-4 animate-fade-in backdrop-blur-sm">
-      <div className="bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-scale-in">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 px-4 animate-fade-in backdrop-blur-md">
+      <div className="bg-[#161619] border border-[#232328] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-scale-in relative z-10">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#232328] bg-[#111113]">
           <h3 className="text-[15px] font-bold text-white tracking-wide flex items-center gap-2.5">
