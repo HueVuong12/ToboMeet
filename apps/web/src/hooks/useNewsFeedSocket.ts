@@ -13,6 +13,18 @@ export function useNewsFeedSocket(roomId: string, channelId: string, currentUser
     // Lắng nghe tạo bài viết mới
     socket.on("post_created", (newPost: PostDto) => {
       if (newPost.channelId === channelId) {
+        // Kiểm tra quyền client-side cho bài đăng nhiệm vụ
+        if (newPost.isAssignment) {
+          const isAuthor = currentUserId && newPost.authorId === currentUserId;
+          const isAssigned =
+            newPost.recipientType === "specific_members" || newPost.recipientType === "current_members"
+              ? currentUserId && newPost.recipientMemberIds?.includes(currentUserId)
+              : true;
+          if (!isAuthor && !isAssigned) {
+            return;
+          }
+        }
+
         dispatch(
           newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
             const exists = draft.some((p) => p._id === newPost._id);
@@ -27,6 +39,23 @@ export function useNewsFeedSocket(roomId: string, channelId: string, currentUser
     // Lắng nghe cập nhật bài viết
     socket.on("post_updated", (updatedPost: PostDto) => {
       if (updatedPost.channelId === channelId) {
+        if (updatedPost.isAssignment) {
+          const isAuthor = currentUserId && updatedPost.authorId === currentUserId;
+          const isAssigned =
+            updatedPost.recipientType === "specific_members" || updatedPost.recipientType === "current_members"
+              ? currentUserId && updatedPost.recipientMemberIds?.includes(currentUserId)
+              : true;
+          if (!isAuthor && !isAssigned) {
+            // Nếu bị gỡ khỏi danh sách người nhận, xóa bài viết khỏi feed hiện tại
+            dispatch(
+              newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
+                return draft.filter((p) => p._id !== updatedPost._id);
+              })
+            );
+            return;
+          }
+        }
+
         dispatch(
           newsFeedApi.util.updateQueryData("getPosts", { roomId, channelId }, (draft) => {
             const index = draft.findIndex((p) => p._id === updatedPost._id);

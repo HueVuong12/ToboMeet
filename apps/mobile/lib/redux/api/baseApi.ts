@@ -15,6 +15,8 @@ export const baseApi = createApi({
     "UserSearch",
     "Notification",
     "MeetingSessions",
+    "Assignments",
+    "Submissions",
   ],
   endpoints: () => ({}),
 });

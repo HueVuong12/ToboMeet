@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   useGetRoomByIdQuery,
   useGetRoomMembersQuery,
   useRemoveMemberMutation,
 } from "@/lib/redux/api/roomsApi";
 import Sidebar from "./Sidebar";
-import { Loader2, Menu, X, Info } from "lucide-react";
+import { Loader2, Menu, X, Info, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
@@ -26,6 +26,8 @@ import ChannelSessionsTab from "./ChannelSessionsTab";
 import RoomRightSidebar from "./RoomRightSidebar";
 import ChannelMeetingModal from "../calendar/ChannelMeetingModal";
 import ChannelMeetingButton from "./ChannelMeetingButton";
+import AssignmentModule from "@/components/assignments/AssignmentModule";
+import CreateTaskDropdown from "@/components/assignments/CreateTaskDropdown";
 
 interface RoomContentProps {
   roomId: string;
@@ -46,22 +48,13 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
   const members = membersResponse || [];
 
   const [removeMember] = useRemoveMemberMutation();
-  useRoomUpdateListener(roomId, userId, {
-    onUserLeftChannel: (leftChannelId) => {
-      // Khi user vừa rời kênh, nếu đang ở kênh đó thì switch về General / kênh đầu tiên
-      const leftChannelObj = room?.channels?.find((c: any) => (c._id || c.id) === leftChannelId);
-      if (leftChannelObj && leftChannelObj.name === activeChannel) {
-        const firstChannel = room?.channels?.find((c: any) => (c._id || c.id) !== leftChannelId);
-        setActiveChannel(firstChannel?.name || "General");
-      }
-    },
-  });
 
   // Trạng thái Layout, Tìm kiếm & Quản lý Phân quyền
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>("General"); // Quản lý kênh đang chọn
   const [activeTab, setActiveTab] = useState<"feed" | "files" | "sessions">("feed");
+  const [assignmentView, setAssignmentView] = useState("list");
   const [showChannelMeetingModal, setShowChannelMeetingModal] = useState(false);
   const [memberToReport, setMemberToReport] = useState<{
     userId: string;
@@ -71,6 +64,23 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     userId: string;
     displayName: string;
   } | null>(null);
+
+  // useCallback để ổn định reference, tránh useRoomUpdateListener re-run liên tục
+  const handleUserLeftChannel = useCallback(
+    (leftChannelId: string) => {
+      // Khi user vừa rời kênh, nếu đang ở kênh đó thì switch về General / kênh đầu tiên
+      const leftChannelObj = room?.channels?.find((c: any) => (c._id || c.id) === leftChannelId);
+      if (leftChannelObj && leftChannelObj.name === activeChannel) {
+        const firstChannel = room?.channels?.find((c: any) => (c._id || c.id) !== leftChannelId);
+        setActiveChannel(firstChannel?.name || "General");
+      }
+    },
+    [room?.channels, activeChannel]
+  );
+
+  useRoomUpdateListener(roomId, userId, {
+    onUserLeftChannel: handleUserLeftChannel,
+  });
 
   // Tìm thông tin chi tiết của kênh đang được active
   const currentChannel = room?.channels.find(
@@ -95,12 +105,20 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     return rawMember?.role;
   })();
 
-  // Đọc tham số URL "channel" khi tải trang để chuyển đổi kênh tự động nếu được trỏ đến từ liên kết bên ngoài
+  const [targetAssignmentId, setTargetAssignmentId] = useState<string | null>(null);
+
+  // Đọc tham số URL "channel" và "assignmentId" khi tải trang
   useEffect(() => {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const urlChannel = searchParams.get("channel");
-      if (urlChannel && room?.channels) {
+      const urlAssignmentId = searchParams.get("assignmentId");
+      if (urlChannel === "__assignments__") {
+        setActiveChannel("__assignments__");
+        if (urlAssignmentId) {
+          setTargetAssignmentId(urlAssignmentId);
+        }
+      } else if (urlChannel && room?.channels) {
         const matchingChan = room.channels.find(
           (c: any) => c.name === urlChannel || (c._id && c._id === urlChannel)
         );
@@ -111,8 +129,24 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
     }
   }, [room?.channels]);
 
+  // Lắng nghe sự kiện chuyển trang nhiệm vụ từ PostCard
+  useEffect(() => {
+    const handleNavigateToAssignment = (e: any) => {
+      const assignId = e.detail?.assignmentId;
+      setActiveChannel("__assignments__");
+      if (assignId) {
+        setTargetAssignmentId(assignId);
+      }
+    };
+    window.addEventListener("navigate-to-assignment", handleNavigateToAssignment);
+    return () => {
+      window.removeEventListener("navigate-to-assignment", handleNavigateToAssignment);
+    };
+  }, []);
+
   // Navigation Guard: Nếu kênh hiện tại không còn thuộc room.channels (do bị xóa hoặc vừa rời), tự động switch về kênh đầu tiên
   useEffect(() => {
+    if (activeChannel === "__assignments__") return;
     if (room?.channels && room.channels.length > 0) {
       const channelExists = room.channels.some((c: any) => c.name === activeChannel);
       if (!channelExists) {
@@ -150,6 +184,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
 
   // Navigation Guard: Nếu kênh hiện tại không nằm trong danh sách được phép truy cập (VD: bị xóa khỏi Kênh riêng tư)
   useEffect(() => {
+    if (activeChannel === "__assignments__") return;
     if (room?.channels && room.channels.length > 0) {
       const channelExists = room.channels.some(
         (c: any) => c.name === activeChannel,
@@ -347,51 +382,70 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
                 {room.name.charAt(0).toUpperCase()}
               </div>
               <h1 className="text-lg font-bold text-slate-800">
-                {activeChannel}
+                {activeChannel === "__assignments__" ? t("assignments") : activeChannel}
               </h1>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
-              <button
-                onClick={() => setActiveTab("feed")}
-                className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "feed"
-                  ? "border-brand-500 text-brand-600 font-semibold"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-              >
-                {t("class_feed")}
-              </button>
-              {/* localized files tab */}
-              <button
-                onClick={() => setActiveTab("files")}
-                className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "files"
-                  ? "border-brand-500 text-brand-600 font-semibold"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-              >
-                {t("files")}
-              </button>
-              {/* meeting sessions tab */}
-              <button
-                onClick={() => setActiveTab("sessions")}
-                className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "sessions"
-                  ? "border-brand-500 text-brand-600 font-semibold"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-              >
-                {t("meeting_sessions", { defaultValue: "Phiên họp" })}
-              </button>
-            </div>
+            {activeChannel !== "__assignments__" && (
+              <div className="hidden sm:flex items-center gap-1 ml-4 text-sm font-medium">
+                <button
+                  onClick={() => setActiveTab("feed")}
+                  className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "feed"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                  {t("class_feed")}
+                </button>
+                {/* localized files tab */}
+                <button
+                  onClick={() => setActiveTab("files")}
+                  className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "files"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                  {t("files")}
+                </button>
+                {/* meeting sessions tab */}
+                <button
+                  onClick={() => setActiveTab("sessions")}
+                  className={`px-3 py-4 border-b-2 transition-colors cursor-pointer ${activeTab === "sessions"
+                    ? "border-brand-500 text-brand-600 font-semibold"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                  {t("meeting_sessions", { defaultValue: "Phiên họp" })}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
             {/* Nút Cuộc họp / Tham gia */}
-            <ChannelMeetingButton
-              roomId={roomId}
-              channelId={currentChannelId}
-              isOngoing={!!activeMeeting?.isOngoing}
-              onScheduleMeeting={() => setShowChannelMeetingModal(true)}
-            />
+            {activeChannel !== "__assignments__" && (
+              <ChannelMeetingButton
+                roomId={roomId}
+                channelId={currentChannelId}
+                isOngoing={!!activeMeeting?.isOngoing}
+                onScheduleMeeting={() => setShowChannelMeetingModal(true)}
+              />
+            )}
+
+            {activeChannel === "__assignments__" &&
+              (isCurrentUserOwner ||
+                (currentUserRoomRole &&
+                  ["owner", "admin", "teacher", "leader"].includes(currentUserRoomRole.toLowerCase()))) &&
+              assignmentView === "list" && (
+                <CreateTaskDropdown
+                  onSelectAssignment={() =>
+                    window.dispatchEvent(new CustomEvent("trigger-create-assignment"))
+                  }
+                  onSelectQuiz={() =>
+                    window.dispatchEvent(new CustomEvent("trigger-create-quiz"))
+                  }
+                />
+              )}
 
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
@@ -405,8 +459,17 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           </div>
         </header>
 
-        {/* News Feed / Files / Sessions Panel */}
-        {currentChannel ? (
+        {/* News Feed / Files / Sessions / Assignment Panel */}
+        {activeChannel === "__assignments__" ? (
+          <AssignmentModule
+            roomId={roomId}
+            userId={userId}
+            channels={room.channels}
+            roomMembers={members}
+            onViewChange={setAssignmentView}
+            initialAssignmentId={targetAssignmentId}
+          />
+        ) : currentChannel ? (
           activeTab === "files" ? (
             <ChannelFilesTab
               key={`files-${currentChannel._id || activeChannel}`}
@@ -485,7 +548,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
               <p className="text-sm text-slate-600 leading-relaxed">
                 {t.rich("remove_member_confirm", {
                   name: memberToRemove.displayName,
-                  strong: (chunks) => (
+                  strong: (chunks: React.ReactNode) => (
                     <strong className="text-slate-900 font-bold">
                       {chunks}
                     </strong>
@@ -533,6 +596,7 @@ export default function RoomContent({ roomId, userId }: RoomContentProps) {
           roomCode={room.code}
         />
       )}
+
       {/* Modal chuyển quyền chủ phòng / Giảng viên / Trưởng nhóm */}
       {memberToTransfer && (
         <TransferOwnershipModal

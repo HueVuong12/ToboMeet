@@ -52,6 +52,12 @@ export interface PostDto {
   meetingStartDate?: string;
   meetingEndDate?: string;
   meetingCode?: string;
+  isAssignment?: boolean;
+  assignmentId?: string;
+  assignmentTitle?: string;
+  assignmentDeadline?: string;
+  recipientType?: string;
+  recipientMemberIds?: string[];
 }
 
 export interface CommentDto {

@@ -1,0 +1,166 @@
+import { Controller, Post, Put, Delete, Get, Body, Param, UseGuards, Req, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
+import { AssignmentsService } from "./assignments.service";
+import { CreateAssignmentDto } from "./dto/create-assignment.dto";
+import { SubmitAssignmentDto } from "./dto/submit-assignment.dto";
+import { GradeSubmissionDto } from "./dto/grade-submission.dto";
+import { QuizAnswerDto } from "./dto/create-quiz-question.dto";
+import { SupabaseGuard } from "../core/guards/supabase.guard";
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+  };
+}
+
+@Controller("assignments")
+@UseGuards(SupabaseGuard)
+export class AssignmentsController {
+  constructor(private readonly assignmentsService: AssignmentsService) {}
+
+  @Post()
+  create(@Body() createDto: CreateAssignmentDto, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.create(createDto, req.user.id);
+  }
+
+  @Put(":id")
+  update(@Param("id") id: string, @Body() updateDto: Partial<CreateAssignmentDto>, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.update(id, updateDto, req.user.id);
+  }
+
+  @Delete(":id")
+  delete(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.delete(id, req.user.id);
+  }
+
+  @Get("room/:roomId")
+  getRoomAssignments(
+    @Param("roomId") roomId: string,
+    @Query("status") status: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.getRoomAssignments(roomId, req.user.id, status);
+  }
+
+  @Get(":id")
+  findOne(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.findOne(id, req.user.id);
+  }
+
+  @Post(":id/submit")
+  submit(@Param("id") id: string, @Body() submitDto: SubmitAssignmentDto, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.submit(id, submitDto, req.user.id);
+  }
+
+  @Get(":id/submissions")
+  getSubmissions(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.getSubmissions(id, req.user.id);
+  }
+
+  @Get(":id/export-excel")
+  exportExcel(
+    @Param("id") id: string,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response
+  ) {
+    return this.assignmentsService.exportExcel(id, req.user.id, res);
+  }
+
+  @Get(":id/my-submission")
+  getMySubmission(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.getMySubmission(id, req.user.id);
+  }
+
+  @Post("submissions/:submissionId/grade")
+  grade(@Param("submissionId") submissionId: string, @Body() gradeDto: GradeSubmissionDto, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.grade(submissionId, gradeDto, req.user.id);
+  }
+
+  @Post(":id/students/:studentId/grade")
+  gradeStudent(
+    @Param("id") assignmentId: string,
+    @Param("studentId") studentId: string,
+    @Body() gradeDto: GradeSubmissionDto,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.gradeStudent(assignmentId, studentId, gradeDto, req.user.id);
+  }
+
+  @Delete(":id/submit")
+  deleteSubmission(@Param("id") assignmentId: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.deleteSubmission(assignmentId, req.user.id);
+  }
+
+  @Post("submissions/:submissionId/comments")
+  addComment(
+    @Param("submissionId") submissionId: string,
+    @Body("content") content: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.addComment(submissionId, content, req.user.id);
+  }
+
+  @Post(":assignmentId/comments")
+  addAssignmentComment(
+    @Param("assignmentId") assignmentId: string,
+    @Body("content") content: string,
+    @Body("memberId") memberId: string | undefined,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.addAssignmentComment(assignmentId, content, req.user.id, memberId);
+  }
+
+  @Get(":assignmentId/comments")
+  getAssignmentComments(
+    @Param("assignmentId") assignmentId: string,
+    @Query("memberId") memberId: string | undefined,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.getAssignmentComments(assignmentId, req.user.id, memberId);
+  }
+
+  @Delete(":assignmentId/comments/:commentId")
+  deleteAssignmentComment(
+    @Param("assignmentId") assignmentId: string,
+    @Param("commentId") commentId: string,
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.deleteAssignmentComment(assignmentId, commentId, req.user.id);
+  }
+
+  // ─── Quiz endpoints ────────────────────────────────────────────────────
+
+  @Post(":id/quiz/start")
+  startQuiz(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.startQuiz(id, req.user.id);
+  }
+
+  @Get(":id/quiz/my-attempt")
+  getMyQuizAttempt(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.getMyQuizAttempt(id, req.user.id);
+  }
+
+  @Post(":id/quiz/submit")
+  submitQuiz(
+    @Param("id") id: string,
+    @Body("answers") answers: QuizAnswerDto[],
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.submitQuiz(id, req.user.id, answers);
+  }
+
+  @Post(":id/quiz/grade-essay")
+  gradeEssayQuestion(
+    @Param("id") assignmentId: string,
+    @Body("studentId") studentId: string,
+    @Body("essayScores") essayScores: { questionId: string; score: number }[],
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.assignmentsService.gradeEssayQuestion(assignmentId, studentId, essayScores, req.user.id);
+  }
+
+  @Get(":id/quiz/results")
+  getQuizResults(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.assignmentsService.getQuizResults(id, req.user.id);
+  }
+}

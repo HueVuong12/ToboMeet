@@ -9,6 +9,7 @@ import { toast } from "../../lib/toast";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../lib/redux/store";
 import { channelFilesApi } from "../../lib/redux/api/channelFilesApi";
+import { assignmentsApi } from "../../lib/redux/api/assignmentsApi";
 
 interface UseRoomUpdateListenerOptions {
   onUserLeftChannel?: (channelId: string) => void;
@@ -180,12 +181,83 @@ export function useRoomUpdateListener(
       }
     };
 
+    const handleSubmissionDeletedGlobal = (data: any) => {
+      console.log("[MOBILE-GLOBAL] Received assignment_submission_deleted event:", data);
+      const eventAssignId = String(data?.assignmentId || data?.submission?.assignmentId || "");
+      if (eventAssignId) {
+        dispatch(
+          assignmentsApi.util.updateQueryData("getMySubmission", eventAssignId, (old: any) => {
+            if (!old) return null;
+            if (old.score !== undefined || old.feedback) {
+              return {
+                ...old,
+                attachments: [],
+                submittedAt: undefined,
+                submissionStatus: "not_submitted",
+              };
+            }
+            return null;
+          })
+        );
+        dispatch(
+          assignmentsApi.util.updateQueryData("getSubmissions", eventAssignId, (draft) => {
+            if (Array.isArray(draft)) {
+              return draft.filter(
+                (s: any) => s._id !== data?.submissionId && s.studentId !== data?.studentId
+              );
+            }
+            return draft;
+          })
+        );
+      }
+      dispatch(
+        assignmentsApi.util.invalidateTags([
+          { type: "Submissions", id: "LIST" },
+          { type: "Assignments", id: "LIST" },
+          ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+          ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+        ])
+      );
+    };
+
+    const handleAssignmentEventGlobal = (data: any) => {
+      const eventAssignId = String(
+        data?.assignmentId ||
+        data?.submission?.assignmentId ||
+        data?.assignment?._id ||
+        data?._id ||
+        ""
+      );
+      dispatch(
+        assignmentsApi.util.invalidateTags([
+          { type: "Submissions", id: "LIST" },
+          { type: "Assignments", id: "LIST" },
+          ...(eventAssignId ? [{ type: "Submissions" as const, id: `MY_${eventAssignId}` }] : []),
+          ...(eventAssignId ? [{ type: "Assignments" as const, id: eventAssignId }] : []),
+        ])
+      );
+    };
+
     socket.on("room_updated", handleRoomUpdated);
+    socket.on("assignment_submission_deleted", handleSubmissionDeletedGlobal);
+    socket.on("assignment_created", handleAssignmentEventGlobal);
+    socket.on("assignment_published", handleAssignmentEventGlobal);
+    socket.on("assignment_updated", handleAssignmentEventGlobal);
+    socket.on("assignment_deleted", handleAssignmentEventGlobal);
+    socket.on("assignment_submitted", handleAssignmentEventGlobal);
+    socket.on("assignment_graded", handleAssignmentEventGlobal);
 
     return () => {
       socket.emit("leave_room", roomId);
       socket.off("connect", joinRoomSocket);
       socket.off("room_updated", handleRoomUpdated);
+      socket.off("assignment_submission_deleted", handleSubmissionDeletedGlobal);
+      socket.off("assignment_created", handleAssignmentEventGlobal);
+      socket.off("assignment_published", handleAssignmentEventGlobal);
+      socket.off("assignment_updated", handleAssignmentEventGlobal);
+      socket.off("assignment_deleted", handleAssignmentEventGlobal);
+      socket.off("assignment_submitted", handleAssignmentEventGlobal);
+      socket.off("assignment_graded", handleAssignmentEventGlobal);
     };
   }, [
     roomId,

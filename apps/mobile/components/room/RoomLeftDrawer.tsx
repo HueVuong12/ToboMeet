@@ -100,6 +100,22 @@ export default function RoomLeftDrawer({
           </View>
         </View>
 
+        {/* Nhiệm vụ Section */}
+        <View className="px-3 pt-3 pb-2 border-b border-slate-100">
+          <TouchableOpacity
+            onPress={() => {
+              onSelectChannel("__assignments__");
+              onClose();
+            }}
+            className="flex-row items-center gap-3 px-3 py-2.5 rounded-xl bg-blue-50/70 active:bg-blue-100"
+          >
+            <Feather name="file-text" size={18} color="#0052FF" />
+            <Text className="font-bold text-[#0052FF] text-base">
+              {t("room.assignments", { defaultValue: "Nhiệm vụ" })}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Channels List */}
         <View className="flex-1 py-4">
           <View className="flex-row justify-between items-center px-5 mb-2">

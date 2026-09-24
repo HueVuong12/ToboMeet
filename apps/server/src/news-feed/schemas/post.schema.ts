@@ -77,6 +77,29 @@ export class Post {
 
   @Prop({ type: String, default: "" })
   meetingCode: string;
+
+  // Cấu hình bổ sung cho bài viết dạng "Nhiệm vụ"
+  @Prop({ type: Boolean, default: false, index: true })
+  isAssignment: boolean;
+
+  @Prop({ type: String, default: "", index: true })
+  assignmentId: string;
+
+  @Prop({ type: String, default: "" })
+  assignmentTitle: string;
+
+  @Prop({ type: Date })
+  assignmentDeadline: Date;
+
+  @Prop({ type: String, default: "" })
+  recipientType: string;
+
+  @Prop({ type: [String], default: [] })
+  recipientMemberIds: string[];
+
+  /** Phân biệt loại bài đăng: "assignment" | "quiz" (mặc định "assignment") */
+  @Prop({ type: String, enum: ["assignment", "quiz"], default: "assignment" })
+  assignmentType: string;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);

@@ -12,6 +12,7 @@ import { ReportsModule } from "./reports/reports.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { NewsFeedModule } from "./news-feed/news-feed.module";
 import { ChannelFilesModule } from "./channel-files/channel-files.module";
+import { AssignmentsModule } from "./assignments/assignments.module";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { BullModule } from "@nestjs/bullmq";
 
@@ -45,6 +46,7 @@ import { BullModule } from "@nestjs/bullmq";
     UploadsModule,
     NewsFeedModule,
     ChannelFilesModule,
+    AssignmentsModule,
   ],
 })
 export class AppModule { }

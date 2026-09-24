@@ -220,6 +220,10 @@ export class UsersService {
     };
   }
 
+  async findBySupabaseId(supabaseId: string) {
+    return this.userModel.findOne({ supabaseId }).exec();
+  }
+
   /** Cache reverse geocode (lat/lon tròn 2 chữ số thập phân → địa chỉ) để tránh spam Nominatim */
   private readonly reverseGeoCache = new Map<
     string,

@@ -152,13 +152,13 @@ export async function loginWithOAuth(
   return { error: "error.auth.unknown_error", message: null };
 }
 
-export async function logout() {
+export async function logout(): Promise<{ redirectUrl: string }> {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
 
   const locale = await getLocale();
 
-  return redirect(`/${locale}/login`);
+  return { redirectUrl: `/${locale}/login` };
 }
 
 // 1. Gửi mã OTP về email

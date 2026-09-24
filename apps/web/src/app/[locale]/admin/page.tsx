@@ -12,19 +12,19 @@ import UserManagement from "@/components/admin/UserManagement";
 import AdminRoomManagement from "@/components/admin/AdminRoomManagement";
 import ReportManagement from "@/components/admin/reports/ReportManagement";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
-import { logout } from "@/app/[locale]/auth/actions";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 function AdminDashboardContent() {
   const router = useRouter();
+  const locale = useLocale();
   const t = useTranslations("admin");
   const [activeTab, setActiveTab] = useState<"overview" | "users" | "rooms" | "reports">("overview");
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    window.location.href = `/api/auth/logout?locale=${locale}`;
   };
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);

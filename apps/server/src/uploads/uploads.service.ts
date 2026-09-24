@@ -24,7 +24,12 @@ export class UploadsService implements OnModuleInit {
     return this.uploadDir;
   }
 
+  private readonly verifiedBuckets = new Set<string>();
+
   private async ensureBucketExists(bucketName: string) {
+    if (this.verifiedBuckets.has(bucketName)) {
+      return;
+    }
     try {
       const { data: buckets, error: listError } = await this.supabaseService.admin.storage.listBuckets();
       if (listError) {
@@ -41,6 +46,7 @@ export class UploadsService implements OnModuleInit {
           throw createError;
         }
       }
+      this.verifiedBuckets.add(bucketName);
     } catch (err) {
       console.error(`Failed to ensure bucket "${bucketName}" exists:`, err);
     }

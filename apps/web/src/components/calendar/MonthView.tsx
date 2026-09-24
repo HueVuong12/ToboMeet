@@ -101,9 +101,13 @@ export default function MonthView({
                     className={`px-1.5 py-0.5 text-[9px] font-semibold border-l-2 rounded-sm truncate ${getEventBgColor(
                       ev.roomType,
                       ev.status,
+                      ev.eventType,
+                      ev.assignmentStatus,
                     )}`}
                   >
-                    {ev.title}
+                    {ev.eventType === "assignment"
+                      ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${ev.title}`
+                      : ev.title}
                   </div>
                 ))}
                 {dayEvents.length > 3 && (

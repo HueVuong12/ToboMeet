@@ -19,6 +19,8 @@ export const baseApi = createApi({
     "MeetingSessions",
     "CalendarEvent",
     "CalendarRsvp",
+    "Assignments",
+    "Submissions",
   ],
   endpoints: () => ({}),
 });
