@@ -23,6 +23,7 @@ import {
 } from "@/lib/redux/api/meetingsApi";
 import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
+import { isAgentParticipant } from "@/utils/participant";
 
 export default function JoinBreakoutModal({
   isOpen,
@@ -189,11 +190,10 @@ export default function JoinBreakoutModal({
             {/* THỜI GIAN ĐẾM NGƯỢC DUY NHẤT Ở HEADER */}
             {durationMinutes > 0 && timeDisplay && (
               <div
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                  isExpired
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${isExpired
                     ? "bg-red-500/10 border-red-500/30 text-red-400"
                     : "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                }`}
+                  }`}
                 title={t("time_remaining")}
               >
                 <Clock
@@ -240,13 +240,14 @@ export default function JoinBreakoutModal({
 
               // Danh sách người tham gia phòng chính chưa được gán vào phòng này (loại bỏ Host / Admin)
               const eligibleParticipants = participants.filter((p) => {
+                if (isAgentParticipant(p)) return false;
                 let role = "guest";
                 try {
                   if (p.metadata) {
                     const meta = JSON.parse(p.metadata);
                     role = meta.role || "guest";
                   }
-                } catch (e) {}
+                } catch (e) { }
 
                 // Loại bỏ Host / Admin khỏi danh sách có thể gán
                 if (
@@ -274,11 +275,10 @@ export default function JoinBreakoutModal({
               return (
                 <div
                   key={room.id}
-                  className={`flex flex-col gap-2.5 p-3.5 bg-[#161619] border rounded-xl transition-all duration-200 ${
-                    isExpanded
+                  className={`flex flex-col gap-2.5 p-3.5 bg-[#161619] border rounded-xl transition-all duration-200 ${isExpanded
                       ? "border-blue-500/50 shadow-md shadow-blue-500/5"
                       : "border-[#232328] hover:border-blue-500/30"
-                  }`}
+                    }`}
                 >
                   {/* HÀNG CHÍNH: Thông tin phòng + Nút Thao tác */}
                   <div className="flex items-center justify-between gap-3">
@@ -321,11 +321,10 @@ export default function JoinBreakoutModal({
                             setSearchQuery("");
                           }}
                           title={t("add_user")}
-                          className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                            isExpanded
+                          className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${isExpanded
                               ? "bg-blue-600 text-white border-blue-500 shadow-sm"
                               : "bg-[#1a1a1e] hover:bg-[#232328] text-slate-300 hover:text-white border-[#232328]"
-                          }`}
+                            }`}
                         >
                           <UserPlus size={14} />
                         </button>
@@ -335,11 +334,10 @@ export default function JoinBreakoutModal({
                         <button
                           onClick={() => handleJoin(room.id)}
                           disabled={isDisabled}
-                          className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 ${
-                            isDisabled
+                          className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 ${isDisabled
                               ? "bg-[#232328] text-slate-500 border border-[#2e2e34] cursor-not-allowed"
                               : "bg-blue-600 hover:bg-blue-500 text-white shadow-sm hover:shadow-blue-500/20 active:scale-95 border border-blue-500 hover:border-blue-400 cursor-pointer"
-                          }`}
+                            }`}
                         >
                           {isCurrentlyJoining ? (
                             <Loader2
@@ -409,7 +407,7 @@ export default function JoinBreakoutModal({
                                 const meta = JSON.parse(p.metadata);
                                 avatarUrl = meta.avatarUrl || "";
                               }
-                            } catch (e) {}
+                            } catch (e) { }
 
                             const isAdding = assigningUserId === p.identity;
 

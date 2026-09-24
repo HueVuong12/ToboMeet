@@ -32,7 +32,7 @@ export default function NotificationDrawer({
       />
 
       <div
-        className={`fixed top-0 left-17 bottom-0 w-95 bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-[-150%]"
+        className={`fixed top-0 left-16 md:left-20 bottom-0 w-80 sm:w-95 max-w-[calc(100vw-4rem)] md:max-w-[calc(100vw-5rem)] bg-white z-40 shadow-[24px_0_40px_rgba(0,0,0,0.08)] flex flex-col border-r border-slate-100 transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-[-150%]"
           }`}
       >
         <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 bg-white/80 backdrop-blur-md">

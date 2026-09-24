@@ -158,6 +158,17 @@ export class MeetingsController {
   }
 
   /**
+   * POST /meetings/:meetingCode/captions/ensure
+   * Đảm bảo STT agent được dispatch vào cuộc họp khi bật live captions
+   */
+  @Post(":meetingCode/captions/ensure")
+  @UseGuards(SupabaseGuard)
+  async ensureCaptions(@Param("meetingCode") meetingCode: string) {
+    return this.meetingsService.ensureSttAgent(meetingCode);
+  }
+
+
+  /**
    * GET /api/meetings/:meetingCode/member-status
    * Kiểm tra trạng thái thành viên trong phòng của người dùng không lộ roomId
    * Chỉ trả về roomId khi là thành viên trong phòng (dùng điều hướng)

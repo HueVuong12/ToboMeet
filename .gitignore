@@ -4,6 +4,15 @@ node_modules/
 .pnp
 .pnp.js
 
+# Python virtual environments & cache
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+transcripts/
+**/transcripts/
+
 # Build outputs
 .next/
 **/.next/

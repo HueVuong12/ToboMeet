@@ -92,7 +92,7 @@ export default function HomeLayout({
       {/* Container chính dạng flex-row để Sidebar full height */}
       <div className="h-screen bg-[#f5f5f5] font-sans flex overflow-hidden">
         {/* ── Left Sidebar (Full Height) ── */}
-        <aside className="w-20 h-full bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center py-4 shrink-0 z-50 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
+        <aside className="w-16 md:w-20 h-full bg-[#f8f9fa] border-r border-slate-200 flex flex-col justify-between items-center py-4 shrink-0 z-50 shadow-[2px_0_8px_rgba(0,0,0,0.02)] relative">
           <div className="w-full flex flex-col items-center gap-1.5">
             {/* Tự động render danh sách Menu */}
             {navItems.map((item) => {
@@ -104,7 +104,7 @@ export default function HomeLayout({
                     if (item.onClick) item.onClick();
                     if (item.href) router.push(item.href);
                   }}
-                  className={`flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1.5 transition-all group border-l-2 ${item.isActive
+                  className={`flex flex-col items-center justify-center gap-1.5 w-full py-3 px-1 md:px-1.5 transition-all group border-l-2 ${item.isActive
                     ? "text-brand-600 bg-brand-50/50 border-brand-500 font-semibold"
                     : "text-slate-600 hover:bg-slate-50 border-transparent font-medium"
                     }`}
@@ -115,7 +115,7 @@ export default function HomeLayout({
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white" />
                     )}
                   </div>
-                  <span className="text-[10px] tracking-tight text-center leading-tight truncate max-w-[72px]">
+                  <span className="hidden md:block text-[10px] tracking-tight text-center leading-tight truncate max-w-[72px]">
                     {item.label}
                   </span>
                 </button>
@@ -127,7 +127,7 @@ export default function HomeLayout({
           <div className="relative">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-colors ${showSettings
+              className={`flex flex-col items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-colors ${showSettings
                 ? "bg-slate-200/80 text-slate-800"
                 : "text-slate-400 hover:bg-slate-200/60 hover:text-slate-700"
                 }`}

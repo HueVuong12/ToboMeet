@@ -52,7 +52,7 @@ export function useChatManager({
           const meta = JSON.parse(p.metadata);
           avatarUrl = meta.avatar || meta.avatarUrl || meta.picture || "";
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // Luôn ghi đè thông tin mới nhất vào Cache
       participantCache.current[p.identity] = {
@@ -261,7 +261,7 @@ export function useChatManager({
           return msg;
         }),
       );
-    } catch (error) {}
+    } catch (error) { }
   };
 
   // Lấy chi tiết thông tin người dùng
@@ -282,7 +282,7 @@ export function useChatManager({
           const meta = JSON.parse(realtimeP.metadata);
           avatarUrl = meta.avatar || meta.avatarUrl || meta.picture || "";
         }
-      } catch (e) {}
+      } catch (e) { }
     } else {
       // B. ƯU TIÊN 2: Nếu người dùng đã rời phòng, lấy dữ liệu từ Cache
       const cachedInfo = participantCache.current[id];

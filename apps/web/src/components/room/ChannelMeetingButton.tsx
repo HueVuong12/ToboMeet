@@ -67,12 +67,12 @@ export default function ChannelMeetingButton({
   return (
     <div className="relative">
       {isOngoing ? (
-        // TRẠNG THÁI 1: ĐANG HỌP
+        // TRẠNG THÁI 1: ĐANG HỌP (THAM GIA CUỘC HỌP - NỀN ĐẦY MÀU XANH DƯƠNG)
         <>
           <button
             disabled={!!ensuringTarget}
             onClick={() => setIsJoinTooltipOpen(!isJoinTooltipOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-600 hover:via-teal-600 hover:to-emerald-700 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed group"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/30 active:scale-95 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed group"
           >
             {ensuringTarget ? (
               <Loader2 size={16} className="animate-spin" />
@@ -99,10 +99,10 @@ export default function ChannelMeetingButton({
                 <button
                   disabled={!!ensuringTarget}
                   onClick={() => handleStartOrJoinMeeting("current")}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                    <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
                       <Video size={16} />
                     </div>
                     <span className="font-medium text-slate-800">
@@ -112,17 +112,17 @@ export default function ChannelMeetingButton({
                   {ensuringTarget === "current" && (
                     <Loader2
                       size={14}
-                      className="animate-spin text-emerald-600 shrink-0"
+                      className="animate-spin text-brand-600 shrink-0"
                     />
                   )}
                 </button>
                 <button
                   disabled={!!ensuringTarget}
                   onClick={() => handleStartOrJoinMeeting("new")}
-                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700 rounded-xl flex items-center justify-between gap-2 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                    <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
                       <ExternalLink size={16} />
                     </div>
                     <span className="font-medium text-slate-800">
@@ -132,7 +132,7 @@ export default function ChannelMeetingButton({
                   {ensuringTarget === "new" && (
                     <Loader2
                       size={14}
-                      className="animate-spin text-emerald-600 shrink-0"
+                      className="animate-spin text-brand-600 shrink-0"
                     />
                   )}
                 </button>
@@ -141,20 +141,20 @@ export default function ChannelMeetingButton({
           )}
         </>
       ) : (
-        // TRẠNG THÁI 2: KHÔNG CÓ CUỘC HỌP
+        // TRẠNG THÁI 2: CHƯA CÓ CUỘC HỌP (CẤU TRÚC RỖNG VỚI VIỀN XANH DƯƠNG)
         <>
           <button
             disabled={!!ensuringTarget}
             onClick={() => setIsMeetingMenuOpen(!isMeetingMenuOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/30 active:scale-95 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed group"
+            className="flex items-center gap-2 px-4 py-2 border-2 border-brand-500 hover:border-brand-600 bg-transparent hover:bg-brand-50/70 text-brand-600 dark:border-brand-500/80 dark:text-brand-400 dark:hover:bg-brand-500/10 rounded-full text-sm font-semibold transition-all duration-200 active:scale-95 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed group shadow-xs"
           >
             {ensuringTarget ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin text-brand-600 dark:text-brand-400" />
             ) : (
-              <Video size={16} className="transition-transform group-hover:scale-110" />
+              <Video size={16} className="transition-transform group-hover:scale-110 text-brand-600 dark:text-brand-400" />
             )}
             <span>{t("btn_meeting")}</span>
-            <ChevronDown size={14} className={`transition-transform duration-200 ${isMeetingMenuOpen ? "rotate-180" : ""}`} />
+            <ChevronDown size={14} className={`transition-transform duration-200 text-brand-600 dark:text-brand-400 ${isMeetingMenuOpen ? "rotate-180" : ""}`} />
           </button>
 
           {isMeetingMenuOpen && (

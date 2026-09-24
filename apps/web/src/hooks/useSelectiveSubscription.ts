@@ -13,6 +13,7 @@ import {
   Track,
 } from "livekit-client";
 import { useSafeMeetingWhiteboard } from "@/components/meeting/contexts/MeetingWhiteboardContext";
+import { isAgentParticipant } from "@/utils/participant";
 
 function makeKey(identity: string, source: Track.Source) {
 
@@ -25,7 +26,7 @@ function isWaiting(participant: Participant): boolean {
       const meta = JSON.parse(participant.metadata);
       return meta.status === "waiting";
     }
-  } catch (e) {}
+  } catch (e) { }
   return false;
 }
 
@@ -72,9 +73,11 @@ export function useSelectiveSubscription() {
     };
   }, [room]);
 
-  // Lọc người đang chờ
+  // Lọc người đang chờ và agent/bot (không tạo tile hiển thị cho agent)
   const validTracks = useMemo(() => {
-    return allTracks.filter((t) => !isWaiting(t.participant));
+    return allTracks.filter(
+      (t) => !isWaiting(t.participant) && !isAgentParticipant(t.participant),
+    );
   }, [allTracks, metaTick]);
 
   // Nếu người bị pin rời phòng / mất track → tự clear pin
@@ -109,8 +112,8 @@ export function useSelectiveSubscription() {
     // Tìm track đang được pin (chỉ pin camera, không pin screenshare)
     const pinnedTrack = pinnedKey
       ? cameraTracks.find(
-          (t) => makeKey(t.participant.identity, t.source) === pinnedKey,
-        )
+        (t) => makeKey(t.participant.identity, t.source) === pinnedKey,
+      )
       : undefined;
 
     // Lọc người đã pin khỏi camera pages để tránh trùng
@@ -189,6 +192,8 @@ export function useSelectiveSubscription() {
       const micPub = participant.getTrackPublication(
         Track.Source.Microphone,
       ) as RemoteTrackPublication | undefined;
+
+      if (isAgentParticipant(participant)) return;
 
       if (micPub && typeof micPub.setSubscribed === "function") {
         const shouldSubscribe = !isWaiting(participant);

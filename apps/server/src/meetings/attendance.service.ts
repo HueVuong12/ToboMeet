@@ -78,6 +78,16 @@ export class AttendanceService {
         userId: string,
         displayName?: string,
     ) {
+        if (
+            !userId ||
+            userId.startsWith("EG_") ||
+            userId.startsWith("agent-") ||
+            userId.includes("stt-transcriber") ||
+            displayName?.includes("stt-transcriber")
+        ) {
+            return;
+        }
+
         const session = await this.findOngoingSession(meetingCode);
         if (!session) return;
 
@@ -127,6 +137,15 @@ export class AttendanceService {
      * User leave phòng
      */
     async markLeft(meetingCode: string, userId: string) {
+        if (
+            !userId ||
+            userId.startsWith("EG_") ||
+            userId.startsWith("agent-") ||
+            userId.includes("stt-transcriber")
+        ) {
+            return;
+        }
+
         const session = await this.findOngoingSession(meetingCode);
         if (!session) return;
 

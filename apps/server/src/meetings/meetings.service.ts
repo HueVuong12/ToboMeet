@@ -11,6 +11,7 @@ import {
   TrackType,
   Room as LiveKitRoom,
   TrackSource,
+  AgentDispatchClient,
 } from "livekit-server-sdk";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import {
@@ -42,7 +43,9 @@ import { Attendance, AttendanceDocument } from "./schemas/attendance.schema";
 @Injectable()
 export class MeetingsService {
   private livekitRoomService: RoomServiceClient;
+  private agentDispatchClient: AgentDispatchClient | null = null;
   private readonly BUCKET_NAME = "meeting-chat";
+  private readonly STT_AGENT_NAME = "stt-transcriber";
   constructor(
     private eventEmitter: EventEmitter2,
     private readonly supabaseService: SupabaseService,
@@ -61,6 +64,12 @@ export class MeetingsService {
 
     if (livekitHost && apiKey && apiSecret) {
       this.livekitRoomService = new RoomServiceClient(
+        livekitHost,
+        apiKey,
+        apiSecret,
+      );
+
+      this.agentDispatchClient = new AgentDispatchClient(
         livekitHost,
         apiKey,
         apiSecret,
@@ -161,6 +170,8 @@ export class MeetingsService {
             approvalPermission: "admin_only",
           } as MainRoomMetadata),
         });
+
+        await this.dispatchSttAgent(meeting.meetingCode, currentSessionId);
       } catch (e) {
         console.error("Lỗi tạo phòng LiveKit:", e);
       }
@@ -222,6 +233,71 @@ export class MeetingsService {
       channelId: role !== "guest" && meeting.channelId?.toString(),
     };
   }
+
+  /**
+   * Gọi agent STT vào room khi meeting start.
+   */
+  private async dispatchSttAgent(
+    roomName: string,
+    sessionId?: string,
+  ): Promise<void> {
+    await this.ensureSttAgent(roomName, sessionId);
+  }
+
+  /**
+   * Đảm bảo agent STT đã được dispatch vào phòng cuộc họp.
+   * Nếu đã dispatch rồi thì không gọi lại, nếu chưa thì gọi createDispatch.
+   */
+  async ensureSttAgent(
+    roomName: string,
+    sessionId?: string,
+  ): Promise<{ dispatched: boolean; message?: string }> {
+    if (!this.agentDispatchClient) {
+      return { dispatched: false, message: "Agent dispatch client not initialized" };
+    }
+
+    try {
+      // Kiểm tra danh sách dispatch hiện tại của room
+      const dispatches = await this.agentDispatchClient.listDispatch(roomName);
+      const isAlreadyDispatched = dispatches.some(
+        (d) => d.agentName === this.STT_AGENT_NAME,
+      );
+
+      if (isAlreadyDispatched) {
+        return { dispatched: true, message: "Agent already dispatched" };
+      }
+
+      // Kiểm tra xem agent đã có mặt trong phòng dưới dạng participant chưa
+      if (this.livekitRoomService) {
+        try {
+          const participants = await this.livekitRoomService.listParticipants(roomName);
+          const hasAgentParticipant = participants.some(
+            (p) =>
+              p.identity?.includes(this.STT_AGENT_NAME) ||
+              p.name?.includes(this.STT_AGENT_NAME),
+          );
+          if (hasAgentParticipant) {
+            return { dispatched: true, message: "Agent participant already in room" };
+          }
+        } catch { }
+      }
+
+      await this.agentDispatchClient.createDispatch(
+        roomName,
+        this.STT_AGENT_NAME,
+        {
+          metadata: JSON.stringify({
+            sessionId: sessionId || "",
+            purpose: "stt",
+          }),
+        },
+      );
+      return { dispatched: true };
+    } catch (err: any) {
+      return { dispatched: false, message: err?.message };
+    }
+  }
+
 
   /**
    * Kiểm tra user có quyền start meeting này không
@@ -1180,12 +1256,23 @@ export class MeetingsService {
         }
       }
 
-      // Nếu không phải phòng breakout, tiếp tục logic kiểm tra số người
-      // Gọi API trực tiếp lên LiveKit Server để lấy danh sách người dùng hiện tại
       const participants =
         await this.livekitRoomService.listParticipants(meetingCode);
 
-      if (participants.length === 0) {
+      const humanParticipants = participants.filter((p) => {
+        const id = p.identity || "";
+        const name = p.name || "";
+        return (
+          !id.startsWith("EG_") &&
+          !id.startsWith("agent-") &&
+          !id.includes("stt-transcriber") &&
+          !name.includes("stt-transcriber") &&
+          (p as any).kind !== 2 &&
+          !(p as any).isAgent
+        );
+      });
+
+      if (humanParticipants.length === 0) {
         await this.endMeetingByCode(meetingCode);
         await this.forceDeleteLiveKitRoom(meetingCode);
       }

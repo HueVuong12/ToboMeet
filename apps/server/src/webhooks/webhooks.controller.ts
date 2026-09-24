@@ -64,12 +64,20 @@ export class WebhooksController {
     const meetingCode = event.room?.name;
     const userId = event.participant?.identity;
     const displayName = event.participant?.name;
+    const isAgent =
+      !userId ||
+      userId.startsWith("EG_") ||
+      userId.startsWith("agent-") ||
+      userId.includes("stt-transcriber") ||
+      displayName?.includes("stt-transcriber") ||
+      (event.participant as any)?.kind === 2 ||
+      Boolean((event.participant as any)?.isAgent);
 
     switch (event.event) {
       case "participant_joined":
         if (meetingCode && userId) {
-          // Bỏ qua egress client
-          if (userId.startsWith("EG_")) break;
+          // Bỏ qua egress client và Agent
+          if (isAgent) break;
           await this.meetingQueue.add(
             "attendance-joined",
             { meetingCode, userId, displayName },
@@ -85,6 +93,8 @@ export class WebhooksController {
 
       case "participant_left":
         if (meetingCode && userId) {
+          // Bỏ qua egress client và Agent
+          if (isAgent) break;
           // Tự động dừng ghi hình nếu người thoát chính là người đang quay cuộc họp
           await this.recordingsService.handleParticipantLeft(meetingCode, userId);
 

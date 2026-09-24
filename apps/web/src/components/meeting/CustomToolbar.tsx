@@ -30,6 +30,7 @@ import {
   ChevronUp,
   PenTool,
   Settings,
+  Captions,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -53,11 +54,15 @@ export default function CustomToolbar({
   activeTab,
   onToggleSidebar,
   hasUnreadChat,
+  isLiveCaptionEnabled,
+  onToggleLiveCaption,
 }: {
   meetingCode: string;
   activeTab: "chat" | "people" | null;
   onToggleSidebar: (tab: "chat" | "people") => void;
   hasUnreadChat: boolean;
+  isLiveCaptionEnabled?: boolean;
+  onToggleLiveCaption?: () => void;
 }) {
   const t = useTranslations("meeting.toolbar");
 
@@ -75,7 +80,7 @@ export default function CustomToolbar({
   const wbContext = useSafeMeetingWhiteboard();
   const isWhiteboardActive = !!wbContext?.isWhiteboardActive;
   const isLoadingWhiteboard = !!wbContext?.isLoadingToken;
-  const toggleWhiteboard = wbContext?.toggleWhiteboard || (async () => {});
+  const toggleWhiteboard = wbContext?.toggleWhiteboard || (async () => { });
 
   const {
     isMicrophoneEnabled,
@@ -173,7 +178,7 @@ export default function CustomToolbar({
       },
       cancel: {
         label: t("cancel"),
-        onClick: () => {},
+        onClick: () => { },
       },
       duration: 8000,
     });
@@ -192,7 +197,7 @@ export default function CustomToolbar({
       },
       cancel: {
         label: t("cancel"),
-        onClick: () => {},
+        onClick: () => { },
       },
       duration: 8000,
     });
@@ -208,8 +213,7 @@ export default function CustomToolbar({
     isActive: boolean,
     customActiveColor = "bg-[#232328] text-white",
   ) =>
-    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${
-      isActive ? customActiveColor : "text-gray-300 hover:bg-[#1a1a1e]"
+    `relative flex flex-col items-center justify-center min-w-[55px] sm:min-w-[65px] h-full transition-colors ${isActive ? customActiveColor : "text-gray-300 hover:bg-[#1a1a1e]"
     }`;
 
   return (
@@ -333,8 +337,8 @@ export default function CustomToolbar({
               isEffectiveCloudRecording
                 ? "bg-[#232328] text-red-500 hover:bg-[#1a1a1e]"
                 : isLocalRecording
-                ? "bg-[#232328] text-amber-500 hover:bg-[#1a1a1e]"
-                : "bg-[#232328] text-white",
+                  ? "bg-[#232328] text-amber-500 hover:bg-[#1a1a1e]"
+                  : "bg-[#232328] text-white",
             )}
             title={t("record")}
           >
@@ -362,19 +366,17 @@ export default function CustomToolbar({
               )}
               <ChevronUp
                 size={11}
-                className={`absolute -top-1.5 -right-4.5 text-slate-400 transition-transform duration-200 ${
-                  isRecordMenuOpen ? "rotate-180 text-white" : ""
-                }`}
+                className={`absolute -top-1.5 -right-4.5 text-slate-400 transition-transform duration-200 ${isRecordMenuOpen ? "rotate-180 text-white" : ""
+                  }`}
               />
             </div>
             <span
-              className={`text-[10px] mt-1 hidden sm:block font-medium ${
-                isEffectiveCloudRecording
-                  ? "text-red-500 font-semibold"
-                  : isLocalRecording
+              className={`text-[10px] mt-1 hidden sm:block font-medium ${isEffectiveCloudRecording
+                ? "text-red-500 font-semibold"
+                : isLocalRecording
                   ? "text-amber-500 font-semibold"
                   : ""
-              }`}
+                }`}
             >
               {t("record")}
             </span>
@@ -679,6 +681,45 @@ export default function CustomToolbar({
                   </button>
                 </div>
 
+                {/* BẬT / TẮT PHỤ ĐỀ TRỰC TIẾP (LIVE CAPTION) */}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleLiveCaption?.();
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center justify-between transition-colors cursor-pointer rounded"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Captions
+                      size={16}
+                      className={
+                        isLiveCaptionEnabled
+                          ? "text-emerald-400"
+                          : "text-slate-300"
+                      }
+                    />
+                    <span
+                      className={
+                        isLiveCaptionEnabled
+                          ? "text-emerald-400 font-medium"
+                          : ""
+                      }
+                    >
+                      {t("live_caption")}
+                    </span>
+                  </div>
+                  <div
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isLiveCaptionEnabled ? "bg-emerald-500" : "bg-slate-600"
+                      }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isLiveCaptionEnabled
+                        ? "translate-x-4"
+                        : "translate-x-0"
+                        }`}
+                    />
+                  </div>
+                </div>
 
                 {isHost && (
                   <>
@@ -746,14 +787,12 @@ export default function CustomToolbar({
                         <span>{t("enable_chat")}</span>
                       </div>
                       <div
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
-                        }`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isChatEnabled ? "bg-emerald-500" : "bg-slate-600"
+                          }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isChatEnabled ? "translate-x-4" : "translate-x-0"
-                          }`}
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChatEnabled ? "translate-x-4" : "translate-x-0"
+                            }`}
                         />
                       </div>
                     </div>
@@ -777,18 +816,16 @@ export default function CustomToolbar({
                         <span>{t("waiting_room")}</span>
                       </div>
                       <div
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          isWaitingRoomEnabled
-                            ? "bg-emerald-500"
-                            : "bg-slate-600"
-                        }`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isWaitingRoomEnabled
+                          ? "bg-emerald-500"
+                          : "bg-slate-600"
+                          }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isWaitingRoomEnabled
-                              ? "translate-x-4"
-                              : "translate-x-0"
-                          }`}
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isWaitingRoomEnabled
+                            ? "translate-x-4"
+                            : "translate-x-0"
+                            }`}
                         />
                       </div>
                     </div>

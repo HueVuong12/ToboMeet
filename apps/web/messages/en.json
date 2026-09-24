@@ -1321,7 +1321,9 @@
       "end_breakout": "End breakout rooms",
       "leave_short": "Leave",
       "leave_breakout_room": "Leave breakout room",
-      "end_breakout_error": "Cannot end breakout session at this time."
+      "end_breakout_error": "Cannot end breakout session at this time.",
+      "live_caption": "Live captions",
+      "live_caption_desc": "Listening to meeting audio..."
     },
     "whiteboard": {
       "title": "Meeting Whiteboard",
@@ -1638,24 +1640,19 @@
   },
   "server": {
     "errors": {
-      "4041": "User or room/channel not found",
-      "4031": "Your account has been locked",
-      "4032": "You do not have sufficient permissions to perform this action",
-      "4011": "Please log in or token is invalid/expired",
-      "4012": "Incorrect email or password",
-      "4013": "Already in the meeting",
-      "4014": "The meeting has not started or has ended",
       "4001": "This email is already in use",
       "4002": "The meeting room has reached maximum capacity",
       "4003": "The meeting is not currently active",
       "4004": "Unable to access meeting information",
       "4005": "You must be in the meeting to send invitations",
       "4006": "The session does not exist or has ended",
-      "4042": "Session not found",
-      "4291": "You have already sent an invitation to this person. Please try again in a few minutes",
       "4007": "Unable to update waiting room status",
       "4008": "Unable to approve this participant",
       "4009": "Unable to update approval permission settings",
+      "4011": "Please log in or token is invalid/expired",
+      "4012": "Incorrect email or password",
+      "4013": "Already in the meeting",
+      "4014": "The meeting has not started or has ended",
       "4015": "Another person is currently sharing screen. Please wait for them to finish",
       "4016": "Unable to remove participant from the meeting",
       "4017": "Unable to update chat status",
@@ -1671,12 +1668,17 @@
       "4027": "You are not assigned to this breakout room",
       "4029": "Unable to rename participant",
       "4030": "Recording is not available in breakout rooms",
+      "4031": "Your account has been locked",
+      "4032": "You do not have sufficient permissions to perform this action",
       "4033": "Recording is already in progress for this meeting",
       "4034": "Only the participant who started recording can stop it",
+      "4041": "User or room/channel not found",
+      "4042": "Session not found",
       "4043": "User is not in the meeting",
       "4044": "Meeting not found",
       "4045": "Breakout room does not exist or has closed",
       "4046": "Main meeting room information not found",
+      "4291": "You have already sent an invitation to this person. Please try again in a few minutes",
       "5011": "System error, please try again later"
     }
   }

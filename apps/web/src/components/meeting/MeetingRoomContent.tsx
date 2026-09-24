@@ -11,6 +11,8 @@ import ParticipantList from "@/components/meeting/ParticipantList";
 import CustomToolbar from "@/components/meeting/CustomToolbar";
 import CustomVideoGrid from "@/components/meeting/CustomVideoGrid";
 import MeetingChat from "@/components/meeting/MeetingChat";
+import LiveCaptionOverlay from "@/components/meeting/LiveCaptionOverlay";
+import { axiosInstance } from "@/lib/axios";
 import { ChatMessage } from "@tobomeet/shared/types";
 import { useTranslations } from "next-intl";
 import { useRoomSettings } from "@/hooks/useRoomSettings";
@@ -44,6 +46,17 @@ export default function MeetingRoomContent({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const [screenSources, setScreenSources] = useState<any[]>([]);
+  const [isLiveCaptionEnabled, setIsLiveCaptionEnabled] = useState(false);
+
+  const handleToggleLiveCaption = () => {
+    setIsLiveCaptionEnabled((prev) => {
+      const nextState = !prev;
+      if (nextState && meetingCode) {
+        axiosInstance.post(`/meetings/${meetingCode}/captions/ensure`).catch(() => {});
+      }
+      return nextState;
+    });
+  };
 
   const storageKey = `meeting_chat_${meetingCode}`;
 
@@ -190,6 +203,11 @@ export default function MeetingRoomContent({
 
         <main className="flex-1 flex overflow-hidden relative min-h-0 w-full bg-[#0a0a0c]">
           <CustomVideoGrid />
+          <LiveCaptionOverlay
+            room={room}
+            enabled={isLiveCaptionEnabled}
+            onClose={() => setIsLiveCaptionEnabled(false)}
+          />
         </main>
 
         <div className="shrink-0 w-full relative z-[500]">
@@ -249,6 +267,8 @@ export default function MeetingRoomContent({
             meetingCode={meetingCode || ""}
             hasUnreadChat={hasUnreadChat}
             activeTab={isSidebarOpen ? sidebarTab : null}
+            isLiveCaptionEnabled={isLiveCaptionEnabled}
+            onToggleLiveCaption={handleToggleLiveCaption}
             onToggleSidebar={(tab) => {
               if (isSidebarOpen && sidebarTab === tab) setIsSidebarOpen(false);
               else {

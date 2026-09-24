@@ -1307,7 +1307,9 @@
       "end_breakout": "Kết thúc thảo luận",
       "leave_short": "Rời đi",
       "leave_breakout_room": "Rời nhóm thảo luận",
-      "end_breakout_error": "Không thể kết thúc thảo luận lúc này."
+      "end_breakout_error": "Không thể kết thúc thảo luận lúc này.",
+      "live_caption": "Phụ đề trực tiếp",
+      "live_caption_desc": "Đang lắng nghe âm thanh cuộc họp..."
     },
     "whiteboard": {
       "title": "Bảng vẽ cuộc họp",
@@ -1624,24 +1626,19 @@
   },
   "server": {
     "errors": {
-      "4041": "Người dùng hoặc phòng/kênh không tồn tại",
-      "4031": "Tài khoản của bạn đã bị khóa",
-      "4032": "Bạn không đủ quyền thực hiện chức năng này",
-      "4011": "Vui lòng đăng nhập hoặc token không hợp lệ/hết hạn",
-      "4012": "Email hoặc mật khẩu không đúng",
-      "4013": "Đã trong cuộc họp",
-      "4014": "Cuộc họp chưa bắt đầu hoặc đã kết thúc",
       "4001": "Email này đã được sử dụng",
       "4002": "Phòng họp đã đạt số lượng tối đa",
       "4003": "Cuộc họp hiện không diễn ra",
       "4004": "Không thể truy cập thông tin cuộc họp",
       "4005": "Bạn phải đang tham gia cuộc họp mới có thể gửi lời mời",
       "4006": "Phiên họp không tồn tại hoặc đã kết thúc",
-      "4042": "Không tìm thấy phiên họp này",
-      "4291": "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút",
       "4007": "Không thể cập nhật trạng thái phòng chờ",
       "4008": "Không thể duyệt người dùng này",
       "4009": "Không thể cập nhật cấu hình quyền duyệt",
+      "4011": "Vui lòng đăng nhập hoặc token không hợp lệ/hết hạn",
+      "4012": "Email hoặc mật khẩu không đúng",
+      "4013": "Đã trong cuộc họp",
+      "4014": "Cuộc họp chưa bắt đầu hoặc đã kết thúc",
       "4015": "Một người khác đang chia sẻ màn hình. Vui lòng đợi họ kết thúc",
       "4016": "Không thể xoá người dùng khỏi cuộc họp",
       "4017": "Không thể cập nhật trạng thái chat",
@@ -1657,12 +1654,17 @@
       "4027": "Bạn không được phân công vào phòng thảo luận này",
       "4029": "Không thể đổi tên người tham gia",
       "4030": "Không thể ghi hình trong phòng thảo luận nhóm",
+      "4031": "Tài khoản của bạn đã bị khóa",
+      "4032": "Bạn không đủ quyền thực hiện chức năng này",
       "4033": "Cuộc họp đã có người đang ghi hình",
       "4034": "Chỉ người bắt đầu ghi hình mới có quyền dừng ghi hình",
+      "4041": "Người dùng hoặc phòng/kênh không tồn tại",
+      "4042": "Không tìm thấy phiên họp này",
       "4043": "Người dùng không tồn tại trong cuộc họp",
       "4044": "Không tìm thấy cuộc họp",
       "4045": "Phòng thảo luận không tồn tại hoặc đã đóng",
       "4046": "Không tìm thấy thông tin phòng họp chính",
+      "4291": "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút",
       "5011": "Lỗi hệ thống, vui lòng thử lại sau"
     }
   }

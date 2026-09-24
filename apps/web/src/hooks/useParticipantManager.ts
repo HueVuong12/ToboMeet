@@ -19,6 +19,8 @@ import {
 } from "@/lib/redux/api/roomsApi";
 import { useMeetingSessionContext } from "@/components/meeting/contexts/MeetingSessionContext";
 
+import { isAgentParticipant } from "@/utils/participant";
+
 export function useParticipantManager({
   meetingCode,
 }: {
@@ -88,8 +90,9 @@ export function useParticipantManager({
     }
   }
 
-  // Lọc ra danh sách ĐANG CHỜ (waiting)
+  // Lọc ra danh sách ĐANG CHỜ (waiting) - bỏ qua agent/bot
   const waitingParticipants = participants.filter((p) => {
+    if (isAgentParticipant(p)) return false;
     if (kickedUsers.includes(p.identity)) return false;
     try {
       if (p.metadata) {
@@ -100,9 +103,10 @@ export function useParticipantManager({
     return false;
   });
 
-  // Lọc ra danh sách ĐÃ VÀO PHÒNG (joined/owner)
+  // Lọc ra danh sách ĐÃ VÀO PHÒNG (joined/owner) - bỏ qua agent/bot
   const displayParticipants = participants
     .filter((p) => {
+      if (isAgentParticipant(p)) return false;
       if (kickedUsers.includes(p.identity)) return false;
       try {
         if (p.metadata) {
