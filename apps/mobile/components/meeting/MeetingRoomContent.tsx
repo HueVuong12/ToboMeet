@@ -19,11 +19,13 @@ import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
 import MobileWhiteboardModal from "../../components/meeting/MobileWhiteboardModal";
+import MobileLiveCaptionOverlay from "../../components/meeting/MobileLiveCaptionOverlay";
 import { useParticipantManager } from "../../hooks/useParticipantManager";
 import { useTranslation } from "react-i18next";
 import { useBreakoutSync } from "../../hooks/useBreakoutSync";
 import { useRoomSettings } from "../../hooks/useRoomSettings";
 import { useBreakoutTimer } from "../../hooks/useBreakoutTimer";
+import { axiosInstance } from "../../lib/axios";
 
 export default function MeetingRoomContent({
   meetingData,
@@ -52,6 +54,19 @@ export default function MeetingRoomContent({
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showWhiteboardModal, setShowWhiteboardModal] = useState(false);
+  const [isLiveCaptionEnabled, setIsLiveCaptionEnabled] = useState(false);
+
+  const handleToggleLiveCaption = () => {
+    setIsLiveCaptionEnabled((prev) => {
+      const nextState = !prev;
+      if (nextState && meetingCode) {
+        axiosInstance
+          .post(`/meetings/${meetingCode}/captions/ensure`)
+          .catch(() => {});
+      }
+      return nextState;
+    });
+  };
 
   const { displayParticipants } = useParticipantManager({
     meetingCode: meetingCode,
@@ -275,8 +290,9 @@ export default function MeetingRoomContent({
 
   // GIAO DIỆN KHI ĐÃ ĐƯỢC DUYỆT VÀO PHÒNG
   return (
-    <View className="flex-1 bg-black">
-      <View className="h-[70px] justify-center items-center bg-[#111] border-b border-[#333] px-4">
+    <View className="flex-1 bg-[#0d0d10]">
+      {/* Header bar */}
+      <View className="h-[70px] justify-center items-center bg-[#111113] border-b border-[#232328] px-4">
         {isBreakoutRoom ? (
           <View className="items-center">
             <View className="flex-row items-center gap-1.5 mb-2">
@@ -286,7 +302,7 @@ export default function MeetingRoomContent({
               </Text>
             </View>
             {timeDisplay && (
-              <View className="flex-row items-center gap-1 bg-[#222] px-2.5 py-0.5 rounded-full border border-[#333]">
+              <View className="flex-row items-center gap-1 bg-[#18181d] px-2.5 py-0.5 rounded-full border border-[#232328]">
                 <Feather name="clock" size={11} color="#f59e0b" />
                 <Text className="text-amber-400 font-mono font-bold text-xs">
                   {timeDisplay}
@@ -296,18 +312,29 @@ export default function MeetingRoomContent({
           </View>
         ) : (
           <>
-            <Text className="text-gray-400 text-xs uppercase font-bold">
+            <Text className="text-slate-400 text-xs uppercase font-bold">
               {t("meeting.meeting_page.room_header")}
             </Text>
-            <Text className="text-white font-bold text-base">{meetingCode}</Text>
+            <Text className="text-slate-100 font-bold text-base">{meetingCode}</Text>
           </>
         )}
       </View>
 
-      <View className="flex-1">
+      {/* Khung chứa các ô video / participant tiles */}
+      <View className="flex-1 bg-[#0a0a0c]">
         <MobileVideoGrid />
       </View>
 
+      {/* Khung Phụ đề trực tiếp: Nằm kẹp giữa khung participant tile và toolbar */}
+      {isLiveCaptionEnabled && (
+        <MobileLiveCaptionOverlay
+          room={room}
+          enabled={isLiveCaptionEnabled}
+          onClose={() => setIsLiveCaptionEnabled(false)}
+        />
+      )}
+
+      {/* Thanh điều khiển (Toolbar) */}
       <MobileToolbar
         meetingCode={meetingCode}
         initialFacingMode={
@@ -316,6 +343,8 @@ export default function MeetingRoomContent({
         onOpenMembers={() => setShowMembersModal(true)}
         onOpenChat={() => setShowChatModal(true)}
         onOpenWhiteboard={() => setShowWhiteboardModal(true)}
+        isLiveCaptionEnabled={isLiveCaptionEnabled}
+        onToggleLiveCaption={handleToggleLiveCaption}
       />
 
       <MembersModal

@@ -7,7 +7,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { useRoomContext, useLocalParticipant } from "@livekit/react-native";
 import { toast } from "../../lib/toast";
@@ -27,12 +27,16 @@ export default function MobileToolbar({
   onOpenMembers,
   onOpenChat,
   onOpenWhiteboard,
+  isLiveCaptionEnabled,
+  onToggleLiveCaption,
 }: {
   initialFacingMode?: "user" | "environment";
   meetingCode: string;
   onOpenMembers: () => void;
   onOpenChat: () => void;
   onOpenWhiteboard?: () => void;
+  isLiveCaptionEnabled?: boolean;
+  onToggleLiveCaption?: () => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -172,7 +176,7 @@ export default function MobileToolbar({
 
   return (
     <>
-      <View className="bg-[#111] border-t border-[#333] h-14">
+      <View className="bg-[#111113] border-t border-[#232328] h-14">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -305,6 +309,25 @@ export default function MobileToolbar({
             </Text>
           </TouchableOpacity>
 
+          {/* Nút Phụ đề (Live Captions) */}
+          <TouchableOpacity
+            onPress={onToggleLiveCaption}
+            className="min-w-[60px] h-14 justify-center items-center"
+          >
+            <MaterialCommunityIcons
+              name={isLiveCaptionEnabled ? "subtitles" : "subtitles-outline"}
+              size={20}
+              color={isLiveCaptionEnabled ? "#10b981" : "#d1d5db"}
+            />
+            <Text
+              className={`text-[10px] mt-1 font-medium ${
+                isLiveCaptionEnabled ? "text-emerald-400 font-bold" : "text-gray-300"
+              }`}
+            >
+              {t("meeting.toolbar.captions", { defaultValue: "Phụ đề" })}
+            </Text>
+          </TouchableOpacity>
+
           {/* Nút Quản lý/Tùy chọn */}
           <TouchableOpacity
             onPress={() => setShowAdminMenu(true)}
@@ -345,9 +368,9 @@ export default function MobileToolbar({
         >
           <TouchableOpacity
             activeOpacity={1}
-            className="bg-[#222] p-5 rounded-t-2xl border border-[#333]"
+            className="bg-[#121215] p-5 rounded-t-2xl border border-[#232328]"
           >
-            <View className="w-10 h-1 bg-[#444] rounded-full self-center mb-4" />
+            <View className="w-10 h-1 bg-[#3a3a42] rounded-full self-center mb-4" />
 
             {/* TÙY CHỌN CHUNG (AI CŨNG THẤY) */}
             <Text className="text-gray-400 text-[11px] font-bold mb-3 uppercase">
@@ -356,7 +379,7 @@ export default function MobileToolbar({
 
             <TouchableOpacity
               onPress={handleCopyLink}
-              className="flex-row items-center py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
+              className="flex-row items-center py-3.5 px-3 bg-[#111113] rounded-lg border border-[#232328] mb-2"
             >
               <Feather
                 name={isCopied ? "check" : "copy"}
@@ -377,12 +400,34 @@ export default function MobileToolbar({
                 setShowAdminMenu(false); // Đóng menu tùy chọn
                 setTimeout(() => setIsInviteModalOpen(true), 300);
               }}
-              className="flex-row items-center py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2"
+              className="flex-row items-center py-3.5 px-3 bg-[#111113] rounded-lg border border-[#232328] mb-2"
             >
               <Feather name="user-plus" size={20} color="#d1d5db" />
               <Text className="ml-3 text-sm font-medium text-gray-300">
                 {t("meeting.toolbar.invite_participants")}
               </Text>
+            </TouchableOpacity>
+
+            {/* Tùy chọn Phụ đề trực tiếp (Live Captions) */}
+            <TouchableOpacity
+              onPress={() => {
+                onToggleLiveCaption?.();
+              }}
+              className="flex-row items-center justify-between py-3.5 px-3 bg-[#111113] rounded-lg border border-[#232328] mb-2"
+            >
+              <View className="flex-row items-center">
+                <MaterialCommunityIcons
+                  name="subtitles-outline"
+                  size={20}
+                  color={isLiveCaptionEnabled ? "#10b981" : "#94a3b8"}
+                />
+                <Text className="ml-3 text-sm font-medium text-gray-200">
+                  {t("meeting.toolbar.live_captions", {
+                    defaultValue: "Phụ đề trực tiếp",
+                  })}
+                </Text>
+              </View>
+              <CustomSwitch value={Boolean(isLiveCaptionEnabled)} />
             </TouchableOpacity>
 
             {/* Tùy chọn Bảng trắng (Whiteboard) */}
@@ -399,7 +444,7 @@ export default function MobileToolbar({
                 setShowAdminMenu(false);
                 setTimeout(() => onOpenWhiteboard?.(), 200);
               }}
-              className={`flex-row items-center justify-between py-3.5 px-3 bg-[#111] rounded-lg border border-[#333] mb-2 ${
+              className={`flex-row items-center justify-between py-3.5 px-3 bg-[#111113] rounded-lg border border-[#232328] mb-2 ${
                 canAccessWhiteboard === false ? "opacity-50" : "opacity-100"
               }`}
             >

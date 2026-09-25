@@ -498,12 +498,12 @@ export default function CreateBreakoutModal({
           className="flex-1"
         />
 
-        <View className="bg-[#111] h-[85%] rounded-t-3xl border-t border-[#333] flex-col overflow-hidden">
+        <View className="bg-[#111113] h-[85%] rounded-t-3xl border-t border-[#232328] flex-col overflow-hidden">
           {/* DRAG HANDLE */}
-          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-3 mb-2" />
+          <View className="w-10 h-1 bg-[#3a3a42] rounded-full self-center mt-3 mb-2" />
 
           {/* HEADER */}
-          <View className="px-5 py-3 border-b border-[#222] flex-row items-center justify-between">
+          <View className="px-5 py-3 border-b border-[#232328] flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-2">
               <View className="flex-1">
                 <View className="flex-row items-center">
@@ -519,7 +519,7 @@ export default function CreateBreakoutModal({
                         defaultValue: "Phân chia thành viên",
                       })}
                   </Text>
-                  <View className="px-2 py-0.5 rounded-full bg-[#222] border border-[#333]">
+                  <View className="px-2 py-0.5 rounded-full bg-[#18181d] border border-[#232328]">
                     <Text className="text-[10px] font-semibold text-gray-400">
                       {step === 1 ? "1 / 2" : "2 / 2"}
                     </Text>
@@ -544,14 +544,14 @@ export default function CreateBreakoutModal({
 
             <TouchableOpacity
               onPress={onClose}
-              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
+              className="p-1.5 rounded-lg bg-[#18181d] border border-[#232328]"
             >
               <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
           </View>
 
           {/* BODY */}
-          <View className="flex-1 bg-[#111] relative">
+          <View className="flex-1 bg-[#111113] relative">
             {/* ================= STEP 1: SETUP & MODE SELECTION ================= */}
             {step === 1 && (
               <ScrollView
@@ -560,7 +560,7 @@ export default function CreateBreakoutModal({
                 showsVerticalScrollIndicator={false}
               >
                 {/* Room Count Card */}
-                <View className="bg-[#222] p-4 rounded-2xl border border-[#333] mb-4">
+                <View className="bg-[#18181d] p-4 rounded-2xl border border-[#232328] mb-4">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1 mr-3">
                       <Text className="text-xs font-bold uppercase tracking-wider text-gray-300">
@@ -582,12 +582,12 @@ export default function CreateBreakoutModal({
                     <View className="flex-row items-center">
                       <TouchableOpacity
                         onPress={() => setRoomCount((c) => Math.max(1, c - 1))}
-                        className="w-8 h-8 rounded-lg bg-[#333] border border-[#444] items-center justify-center mr-2 active:bg-[#444]"
+                        className="w-8 h-8 rounded-lg bg-[#232328] border border-[#33333d] items-center justify-center mr-2 active:bg-[#2b2b36]"
                       >
                         <Feather name="minus" size={16} color="#ffffff" />
                       </TouchableOpacity>
 
-                      <View className="w-12 h-8 bg-[#1a1a1a] border border-[#444] rounded-lg items-center justify-center mr-2">
+                      <View className="w-12 h-8 bg-[#141418] border border-[#33333d] rounded-lg items-center justify-center mr-2">
                         <Text className="text-white text-sm font-mono font-bold">
                           {roomCount}
                         </Text>
@@ -595,7 +595,7 @@ export default function CreateBreakoutModal({
 
                       <TouchableOpacity
                         onPress={() => setRoomCount((c) => Math.min(50, c + 1))}
-                        className="w-8 h-8 rounded-lg bg-[#333] border border-[#444] items-center justify-center active:bg-[#444]"
+                        className="w-8 h-8 rounded-lg bg-[#232328] border border-[#33333d] items-center justify-center active:bg-[#2b2b36]"
                       >
                         <Feather name="plus" size={16} color="#ffffff" />
                       </TouchableOpacity>
@@ -603,7 +603,7 @@ export default function CreateBreakoutModal({
                   </View>
 
                   {mode === "auto" && assignableParticipants.length > 0 && (
-                    <View className="mt-3 pt-3 border-t border-[#333] flex-row items-center justify-between">
+                    <View className="mt-3 pt-3 border-t border-[#232328] flex-row items-center justify-between">
                       <Text className="text-gray-400 text-xs">
                         {t(
                           "meeting.create_breakout_modal.expected_distribution",
@@ -641,13 +641,13 @@ export default function CreateBreakoutModal({
                   activeOpacity={0.8}
                   className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${mode === "auto"
                     ? "border-blue-500 bg-blue-500/10"
-                    : "border-[#333] bg-[#222]"
+                    : "border-[#232328] bg-[#18181d]"
                     }`}
                 >
                   <View
                     className={`p-2 rounded-xl mr-3 ${mode === "auto"
                       ? "bg-blue-600"
-                      : "bg-[#333] border border-[#444]"
+                      : "bg-[#232328] border border-[#33333d]"
                       }`}
                   >
                     <Feather
@@ -694,13 +694,13 @@ export default function CreateBreakoutModal({
                   activeOpacity={0.8}
                   className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${mode === "manual"
                     ? "border-blue-500 bg-blue-500/10"
-                    : "border-[#333] bg-[#222]"
+                    : "border-[#232328] bg-[#18181d]"
                     }`}
                 >
                   <View
                     className={`p-2 rounded-xl mr-3 ${mode === "manual"
                       ? "bg-blue-600"
-                      : "bg-[#333] border border-[#444]"
+                      : "bg-[#232328] border border-[#33333d]"
                       }`}
                   >
                     <Feather
@@ -745,13 +745,13 @@ export default function CreateBreakoutModal({
                   activeOpacity={0.8}
                   className={`p-3.5 rounded-2xl border mb-2.5 flex-row items-start ${mode === "free_choose"
                     ? "border-blue-500 bg-blue-500/10"
-                    : "border-[#333] bg-[#222]"
+                    : "border-[#232328] bg-[#18181d]"
                     }`}
                 >
                   <View
                     className={`p-2 rounded-xl mr-3 ${mode === "free_choose"
                       ? "bg-blue-600"
-                      : "bg-[#333] border border-[#444]"
+                      : "bg-[#232328] border border-[#33333d]"
                       }`}
                   >
                     <Feather
@@ -798,13 +798,13 @@ export default function CreateBreakoutModal({
             {step === 2 && (
               <View className="flex-1 flex-col">
                 {/* Step 2 Top Sub-Bar */}
-                <View className="px-4 py-2 border-b border-[#222] bg-[#1a1a1a] flex-row items-center justify-between">
+                <View className="px-4 py-2 border-b border-[#232328] bg-[#141418] flex-row items-center justify-between">
                   <View className="flex-1 mr-2">
                     {mode !== "free_choose" && (
                       <View
                         className={`px-2 py-0.5 rounded-lg border self-start ${unassignedParticipants.length > 0
                           ? "bg-amber-500/10 border-amber-500/30"
-                          : "bg-[#222] border-[#333]"
+                          : "bg-[#18181d] border-[#232328]"
                           }`}
                       >
                         <Text
@@ -827,7 +827,7 @@ export default function CreateBreakoutModal({
                     {mode === "auto" && (
                       <TouchableOpacity
                         onPress={handleShuffleAgain}
-                        className="px-2.5 py-1.5 bg-[#222] border border-[#333] rounded-xl mr-2 flex-row items-center active:bg-[#333]"
+                        className="px-2.5 py-1.5 bg-[#18181d] border border-[#232328] rounded-xl mr-2 flex-row items-center active:bg-[#232328]"
                       >
                         <Feather name="refresh-cw" size={12} color="#94a3b8" />
                         <Text className="text-gray-300 text-xs font-semibold ml-1.5">
@@ -841,7 +841,7 @@ export default function CreateBreakoutModal({
                     {/* Expand / Collapse all toggle */}
                     <TouchableOpacity
                       onPress={toggleAllRooms}
-                      className="p-1.5 bg-[#222] border border-[#333] rounded-xl mr-2"
+                      className="p-1.5 bg-[#18181d] border border-[#232328] rounded-xl mr-2"
                     >
                       <Feather
                         name={
@@ -894,14 +894,14 @@ export default function CreateBreakoutModal({
                     return (
                       <View
                         key={room.id}
-                        className="bg-[#222] border border-[#333] rounded-2xl mb-2.5 overflow-hidden"
+                        className="bg-[#18181d] border border-[#232328] rounded-2xl mb-2.5 overflow-hidden"
                       >
                         {/* Room Header Row */}
                         <TouchableOpacity
                           activeOpacity={0.7}
                           onPress={() => toggleRoomExpand(room.id)}
                           className={`px-3.5 py-3 flex-row items-center justify-between ${isExpanded
-                            ? "bg-[#2a2a2a] border-b border-[#333]"
+                            ? "bg-[#232328] border-b border-[#232328]"
                             : ""
                             }`}
                         >
@@ -921,7 +921,7 @@ export default function CreateBreakoutModal({
                                   value={editingRoomName}
                                   onChangeText={setEditingRoomName}
                                   autoFocus
-                                  className="bg-[#111] border border-blue-500 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 flex-1 mr-2"
+                                  className="bg-[#111113] border border-blue-500 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 flex-1 mr-2"
                                 />
                                 <TouchableOpacity
                                   onPress={() => handleSaveRoomName(room.id)}
@@ -986,7 +986,7 @@ export default function CreateBreakoutModal({
                               onPress={() =>
                                 handleStartRenameRoom(room.id, room.name)
                               }
-                              className="p-1.5 bg-[#333] border border-[#444] rounded-lg mr-1.5"
+                              className="p-1.5 bg-[#232328] border border-[#33333d] rounded-lg mr-1.5"
                             >
                               <Feather name="edit-2" size={12} color="#94a3b8" />
                             </TouchableOpacity>
@@ -995,7 +995,7 @@ export default function CreateBreakoutModal({
                               onPress={() => handleDeleteRoom(room.id)}
                               disabled={rooms.length <= 1}
                               className={`p-1.5 rounded-lg ${rooms.length <= 1
-                                ? "opacity-30 bg-[#333]"
+                                ? "opacity-30 bg-[#232328]"
                                 : "bg-red-500/10 border border-red-500/20"
                                 }`}
                             >
@@ -1012,7 +1012,7 @@ export default function CreateBreakoutModal({
 
                         {/* Room Expanded Content */}
                         {isExpanded && (
-                          <View className="bg-[#1a1a1a]">
+                          <View className="bg-[#141418]">
                             {mode === "free_choose" ? (
                               <View className="py-3 px-4 items-center justify-center">
                                 <Text className="text-gray-500 text-xs italic text-center">
@@ -1061,10 +1061,10 @@ export default function CreateBreakoutModal({
                                 return (
                                   <View
                                     key={userId}
-                                    className="border-b border-[#262626] last:border-b-0"
+                                    className="border-b border-[#232328] last:border-b-0"
                                   >
                                     <View
-                                      className={`px-4 py-2.5 flex-row items-center justify-between ${isMenuOpen ? "bg-[#222]" : ""
+                                      className={`px-4 py-2.5 flex-row items-center justify-between ${isMenuOpen ? "bg-[#18181d]" : ""
                                         }`}
                                     >
                                       <View className="flex-row items-center flex-1 mr-2">
@@ -1091,7 +1091,7 @@ export default function CreateBreakoutModal({
                                             setActiveSubMenu(null);
                                           }
                                         }}
-                                        className="p-1 rounded-lg bg-[#222] border border-[#333]"
+                                        className="p-1 rounded-lg bg-[#18181d] border border-[#232328]"
                                       >
                                         <Feather
                                           name="more-vertical"
@@ -1103,7 +1103,7 @@ export default function CreateBreakoutModal({
 
                                     {/* Action Sub-Menu */}
                                     {isMenuOpen && (
-                                      <View className="bg-[#111] p-2.5 mx-3 mb-2.5 rounded-xl border border-[#333]">
+                                      <View className="bg-[#111113] p-2.5 mx-3 mb-2.5 rounded-xl border border-[#232328]">
                                         {/* Option 1: Remove */}
                                         <TouchableOpacity
                                           onPress={() => {
@@ -1137,7 +1137,7 @@ export default function CreateBreakoutModal({
                                                 prev === "move" ? null : "move",
                                               )
                                             }
-                                            className="p-2 rounded-lg bg-[#222] border border-[#333] flex-row items-center justify-between"
+                                            className="p-2 rounded-lg bg-[#18181d] border border-[#232328] flex-row items-center justify-between"
                                           >
                                             <View className="flex-row items-center">
                                               <Feather
@@ -1166,7 +1166,7 @@ export default function CreateBreakoutModal({
                                           </TouchableOpacity>
 
                                           {activeSubMenu === "move" && (
-                                            <View className="mt-1 pl-3 border-l border-[#333]">
+                                            <View className="mt-1 pl-3 border-l border-[#232328]">
                                               {rooms
                                                 .filter((r) => r.id !== room.id)
                                                 .map((otherRoom) => (
@@ -1209,7 +1209,7 @@ export default function CreateBreakoutModal({
                                                   : "exchange",
                                               )
                                             }
-                                            className="p-2 rounded-lg bg-[#222] border border-[#333] flex-row items-center justify-between"
+                                            className="p-2 rounded-lg bg-[#18181d] border border-[#232328] flex-row items-center justify-between"
                                           >
                                             <View className="flex-row items-center">
                                               <Feather
@@ -1239,7 +1239,7 @@ export default function CreateBreakoutModal({
                                           </TouchableOpacity>
 
                                           {activeSubMenu === "exchange" && (
-                                            <View className="mt-1 pl-3 border-l border-[#333]">
+                                            <View className="mt-1 pl-3 border-l border-[#232328]">
                                               {rooms
                                                 .filter((r) => r.id !== room.id)
                                                 .flatMap((otherRoom) =>
@@ -1317,9 +1317,9 @@ export default function CreateBreakoutModal({
             {/* ================= MULTI-SELECT ADD PARTICIPANTS MODAL ================= */}
             {addModalTargetRoomId && targetRoomForAdd && (
               <View className="absolute inset-0 z-50 bg-black/75 p-4 justify-center items-center">
-                <View className="w-full bg-[#1a1a1a] border border-[#333] rounded-2xl overflow-hidden max-h-[85%] flex-col">
+                <View className="w-full bg-[#121215] border border-[#232328] rounded-2xl overflow-hidden max-h-[85%] flex-col shadow-2xl">
                   {/* Header */}
-                  <View className="px-4 py-3 border-b border-[#222] flex-row items-center justify-between">
+                  <View className="px-4 py-3 border-b border-[#232328] flex-row items-center justify-between">
                     <View className="flex-1 mr-2">
                       <Text
                         className="text-white text-xs font-bold"
@@ -1343,15 +1343,15 @@ export default function CreateBreakoutModal({
 
                     <TouchableOpacity
                       onPress={() => setAddModalTargetRoomId(null)}
-                      className="p-1 rounded-lg bg-[#222] border border-[#333]"
+                      className="p-1 rounded-lg bg-[#18181d] border border-[#232328]"
                     >
                       <Feather name="x" size={15} color="#94a3b8" />
                     </TouchableOpacity>
                   </View>
 
                   {/* Search & Select All */}
-                  <View className="p-2.5 border-b border-[#222] bg-[#111] flex-row items-center">
-                    <View className="flex-1 flex-row items-center bg-[#222] border border-[#333] rounded-xl px-2.5 py-1 mr-2">
+                  <View className="p-2.5 border-b border-[#232328] bg-[#111113] flex-row items-center">
+                    <View className="flex-1 flex-row items-center bg-[#18181d] border border-[#232328] rounded-xl px-2.5 py-1 mr-2">
                       <Feather name="search" size={13} color="#94a3b8" />
                       <TextInput
                         placeholder={t(
@@ -1379,7 +1379,7 @@ export default function CreateBreakoutModal({
                             );
                           }
                         }}
-                        className="px-2.5 py-1.5 bg-[#222] border border-[#333] rounded-xl"
+                        className="px-2.5 py-1.5 bg-[#18181d] border border-[#232328] rounded-xl"
                       >
                         <Text className="text-gray-300 text-[11px] font-semibold">
                           {selectedUserIdsToAdd.length ===
@@ -1426,7 +1426,7 @@ export default function CreateBreakoutModal({
                             }
                             className={`p-2.5 rounded-xl border mb-2 flex-row items-center justify-between ${isSelected
                               ? "bg-blue-600/15 border-blue-500"
-                              : "bg-[#222] border-[#333]"
+                              : "bg-[#18181d] border-[#232328]"
                               }`}
                           >
                             <View className="flex-row items-center flex-1 mr-2">
@@ -1457,7 +1457,7 @@ export default function CreateBreakoutModal({
                   </ScrollView>
 
                   {/* Footer */}
-                  <View className="p-3 border-t border-[#222] flex-row items-center justify-end bg-[#111]">
+                  <View className="p-3 border-t border-[#232328] flex-row items-center justify-end bg-[#111113]">
                     <TouchableOpacity
                       onPress={() => setAddModalTargetRoomId(null)}
                       className="px-3.5 py-2 rounded-xl mr-2"
@@ -1493,8 +1493,8 @@ export default function CreateBreakoutModal({
             {/* ================= OPTIONS / SETTINGS MODAL SHEET ================= */}
             {isSettingsOpen && (
               <View className="absolute inset-0 z-50 bg-black/75 p-4 justify-center items-center">
-                <View className="w-full bg-[#1a1a1a] border border-[#333] rounded-2xl p-4 flex-col">
-                  <View className="flex-row items-center justify-between border-b border-[#222] pb-3 mb-3">
+                <View className="w-full bg-[#121215] border border-[#232328] rounded-2xl p-4 flex-col shadow-2xl">
+                  <View className="flex-row items-center justify-between border-b border-[#232328] pb-3 mb-3">
                     <View className="flex-row items-center">
                       <Feather name="settings" size={15} color="#60a5fa" />
                       <Text className="text-white text-xs font-bold ml-2">
@@ -1505,7 +1505,7 @@ export default function CreateBreakoutModal({
                     </View>
                     <TouchableOpacity
                       onPress={() => setIsSettingsOpen(false)}
-                      className="p-1 rounded-lg bg-[#222] border border-[#333]"
+                      className="p-1 rounded-lg bg-[#18181d] border border-[#232328]"
                     >
                       <Feather name="x" size={15} color="#94a3b8" />
                     </TouchableOpacity>
@@ -1526,13 +1526,13 @@ export default function CreateBreakoutModal({
                       <Switch
                         value={isAutoCloseEnabled}
                         onValueChange={setIsAutoCloseEnabled}
-                        trackColor={{ false: "#333333", true: "#3b82f6" }}
+                        trackColor={{ false: "#232328", true: "#3b82f6" }}
                         thumbColor="#ffffff"
                       />
                     </View>
 
                     {isAutoCloseEnabled && (
-                      <View className="flex-row items-center mt-2 bg-[#111] border border-[#333] rounded-xl px-3 py-2">
+                      <View className="flex-row items-center mt-2 bg-[#111113] border border-[#232328] rounded-xl px-3 py-2">
                         <TextInput
                           value={String(autoCloseMinutes)}
                           onChangeText={(v) =>
@@ -1541,7 +1541,7 @@ export default function CreateBreakoutModal({
                             )
                           }
                           keyboardType="number-pad"
-                          className="text-white text-xs font-mono font-bold w-12 text-center bg-[#222] border border-[#333] rounded-lg py-1 mr-2"
+                          className="text-white text-xs font-mono font-bold w-12 text-center bg-[#18181d] border border-[#232328] rounded-lg py-1 mr-2"
                         />
                         <Text className="text-gray-400 text-xs">
                           {t("meeting.create_breakout_modal.minutes_unit", {
@@ -1553,7 +1553,7 @@ export default function CreateBreakoutModal({
                   </View>
 
                   {/* Status row */}
-                  <View className="pt-2.5 border-t border-[#222] flex-row items-center justify-between">
+                  <View className="pt-2.5 border-t border-[#232328] flex-row items-center justify-between">
                     <Text className="text-gray-400 text-[11px]">
                       {t("meeting.create_breakout_modal.status_label", {
                         defaultValue: "Trạng thái:",
@@ -1576,13 +1576,13 @@ export default function CreateBreakoutModal({
           </View>
 
           {/* FOOTER BAR */}
-          <View className="px-4 py-3 border-t border-[#222] bg-[#111] flex-row items-center justify-between">
+          <View className="px-4 py-3 border-t border-[#232328] bg-[#111113] flex-row items-center justify-between">
             <View className="flex-row items-center">
               {step === 2 && (
                 <>
                   <TouchableOpacity
                     onPress={() => setStep(1)}
-                    className="p-2 bg-[#222] border border-[#333] rounded-xl mr-2 flex-row items-center"
+                    className="p-2 bg-[#18181d] border border-[#232328] rounded-xl mr-2 flex-row items-center active:bg-[#232328]"
                   >
                     <Feather name="arrow-left" size={14} color="#94a3b8" />
                     <Text className="text-gray-300 text-xs font-semibold ml-1.5">
@@ -1594,7 +1594,7 @@ export default function CreateBreakoutModal({
 
                   <TouchableOpacity
                     onPress={() => setIsSettingsOpen(true)}
-                    className="p-2 bg-[#222] border border-[#333] rounded-xl flex-row items-center"
+                    className="p-2 bg-[#18181d] border border-[#232328] rounded-xl flex-row items-center active:bg-[#232328]"
                   >
                     <Feather name="settings" size={14} color="#60a5fa" />
                     {isAutoCloseEnabled && (

@@ -27,10 +27,10 @@ export default function MobileVideoGrid() {
       >
         {item.items.map((trackRef: TrackReference) => {
           // Tính toán class NativeWind thay cho style object
-          let itemClass = "border border-black bg-[#111]";
+          let itemClass = "border border-[#232328] bg-[#121215]";
 
           if (isScreenShare || tracksCount === 1) {
-            itemClass = "w-full h-full border-0 bg-[#111]";
+            itemClass = "w-full h-full border-0 bg-[#121215]";
           } else if (tracksCount === 2) {
             itemClass += " w-full h-1/2";
           } else {
@@ -52,9 +52,9 @@ export default function MobileVideoGrid() {
 
   if (tracks.length === 0) {
     return (
-      <View className="flex-1 justify-center items-center bg-black">
+      <View className="flex-1 justify-center items-center bg-[#0a0a0c]">
         <ActivityIndicator size="large" color="#3b82f6" />
-        <Text className="text-gray-400 mt-3">
+        <Text className="text-slate-400 mt-3 text-xs">
           Đang đợi người khác tham gia...
         </Text>
       </View>
@@ -62,7 +62,7 @@ export default function MobileVideoGrid() {
   }
 
   return (
-    <View className="flex-1 bg-black">
+    <View className="flex-1 bg-[#0a0a0c]">
       <FlatList
         data={pages}
         horizontal
@@ -84,12 +84,12 @@ export default function MobileVideoGrid() {
 
       {/* Chấm tròn phân trang (Pagination Dots) */}
       {pages.length > 1 && (
-        <View className="absolute bottom-5 flex-row justify-center items-center self-center bg-black/40 py-1.5 px-2 rounded-2xl">
+        <View className="absolute bottom-5 flex-row justify-center items-center self-center bg-[#111113]/80 border border-[#232328] py-1.5 px-2.5 rounded-full">
           {pages.map((_, index) => (
             <View
               key={index}
               className={`h-1.5 rounded-full mx-1 ${
-                currentPage === index ? "w-4 bg-blue-500" : "w-1.5 bg-[#666]"
+                currentPage === index ? "w-4 bg-blue-500" : "w-1.5 bg-[#4b4b58]"
               }`}
             />
           ))}

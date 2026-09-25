@@ -23,6 +23,7 @@ import { useMeetingSessionContext } from "./contexts/MeetingSessionContext";
 import { useRoomSettings } from "../../hooks/useRoomSettings";
 import { toast } from "../../lib/toast";
 import { LivekitBreakoutRoom } from "@tobomeet/shared/types";
+import { isAgentParticipant } from "../../utils/participant";
 
 interface JoinBreakoutModalProps {
   isOpen: boolean;
@@ -199,12 +200,12 @@ export default function JoinBreakoutModal({
           className="flex-1"
         />
 
-        <View className="bg-[#111] h-[75%] rounded-t-3xl border-t border-[#333] flex-col overflow-hidden">
+        <View className="bg-[#111113] h-[75%] rounded-t-3xl border-t border-[#232328] flex-col overflow-hidden">
           {/* DRAG HANDLE */}
-          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-3 mb-2" />
+          <View className="w-10 h-1 bg-[#3a3a42] rounded-full self-center mt-3 mb-2" />
 
           {/* HEADER */}
-          <View className="px-5 py-3.5 border-b border-[#222] flex-row items-center justify-between">
+          <View className="px-5 py-3.5 border-b border-[#232328] flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-2">
               <View className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/30 mr-2.5">
                 <Feather name="grid" size={18} color="#60a5fa" />
@@ -257,7 +258,7 @@ export default function JoinBreakoutModal({
 
               <TouchableOpacity
                 onPress={onClose}
-                className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
+                className="p-1.5 rounded-lg bg-[#18181d] border border-[#232328]"
               >
                 <Feather name="x" size={18} color="#94a3b8" />
               </TouchableOpacity>
@@ -291,8 +292,10 @@ export default function JoinBreakoutModal({
                 const isDisabled = isFull || isCurrentlyJoining || isExpired;
                 const isExpanded = isAssignedMode && expandedRoomId === room.id;
 
-                // Danh sách người tham gia phòng chính chưa được gán vào phòng này (loại bỏ Host / Admin)
+                // Danh sách người tham gia phòng chính chưa được gán vào phòng này (loại bỏ Host / Admin / Agent)
                 const eligibleParticipants = participants.filter((p) => {
+                  if (isAgentParticipant(p)) return false;
+
                   let role = "guest";
                   try {
                     if (p.metadata) {
@@ -327,10 +330,10 @@ export default function JoinBreakoutModal({
                 return (
                   <View
                     key={room.id}
-                    className={`p-3.5 bg-[#222] border rounded-2xl mb-2.5 ${
+                    className={`p-3.5 bg-[#18181d] border rounded-2xl mb-2.5 ${
                       isExpanded
                         ? "border-blue-500/50"
-                        : "border-[#333]"
+                        : "border-[#232328]"
                     }`}
                   >
                     {/* HÀNG TRÊN: Tên phòng + Nút thao tác */}
@@ -385,7 +388,7 @@ export default function JoinBreakoutModal({
                             className={`p-2 rounded-xl border mr-2 ${
                               isExpanded
                                 ? "bg-blue-600 border-blue-500"
-                                : "bg-[#2a2a2a] border-[#3a3a3a]"
+                                : "bg-[#232328] border-[#33333d]"
                             }`}
                           >
                             <Feather
@@ -402,7 +405,7 @@ export default function JoinBreakoutModal({
                             disabled={isDisabled}
                             className={`px-3.5 py-2 rounded-xl flex-row items-center active:opacity-90 ${
                               isDisabled
-                                ? "bg-[#333] border border-[#444]"
+                                ? "bg-[#232328] border border-[#33333d]"
                                 : "bg-blue-600 active:bg-blue-500"
                             }`}
                           >
@@ -442,7 +445,7 @@ export default function JoinBreakoutModal({
                             </Text>
                           </TouchableOpacity>
                         ) : (
-                          <View className="px-3 py-1.5 rounded-xl bg-[#1a1a1a] border border-[#333] flex-row items-center">
+                          <View className="px-3 py-1.5 rounded-xl bg-[#141418] border border-[#232328] flex-row items-center">
                             <Feather
                               name="lock"
                               size={12}
@@ -461,9 +464,9 @@ export default function JoinBreakoutModal({
 
                     {/* SỔ XUỐNG DANH SÁCH THÊM NGƯỜI (INLINE) */}
                     {isHost && isExpanded && (
-                      <View className="pt-3 mt-2.5 border-t border-[#333]">
+                      <View className="pt-3 mt-2.5 border-t border-[#232328]">
                         {/* Ô tìm kiếm cục bộ */}
-                        <View className="bg-[#181818] border border-[#3a3a3a] rounded-xl px-3 py-1.5 flex-row items-center mb-2.5">
+                        <View className="bg-[#121215] border border-[#232328] rounded-xl px-3 py-1.5 flex-row items-center mb-2.5">
                           <Feather
                             name="search"
                             size={14}
@@ -508,7 +511,7 @@ export default function JoinBreakoutModal({
                               return (
                                 <View
                                   key={p.identity}
-                                  className="flex-row items-center justify-between p-2 bg-[#181818] border border-[#333] rounded-xl"
+                                  className="flex-row items-center justify-between p-2 bg-[#121215] border border-[#232328] rounded-xl"
                                 >
                                   <View className="flex-row items-center flex-1 mr-2">
                                     {avatarUrl ? (
@@ -585,7 +588,7 @@ export default function JoinBreakoutModal({
               })
             ) : (
               <View className="items-center justify-center py-16">
-                <View className="w-14 h-14 rounded-full bg-[#222] items-center justify-center border border-[#333] mb-3">
+                <View className="w-14 h-14 rounded-full bg-[#18181d] items-center justify-center border border-[#232328] mb-3">
                   <Feather name="grid" size={24} color="#94a3b8" />
                 </View>
                 <Text className="text-gray-400 text-sm font-medium text-center">

@@ -22,14 +22,7 @@ import { ChannelRoleGuard } from "../core/guards/channel-role.guard";
 import { MeetingInviteService } from "./meeting-invite.service";
 import { MeetingRoleGuard } from "../core/guards/meeting-role.guard";
 import { AttendanceService } from "./attendance.service";
-import { AppException } from "../core/exceptions/app.exception";
-import { ErrorCode } from "@tobomeet/shared/types";
 import { UpdateWhiteboardSettingsDto } from "./dtos/whiteboard-settings.dto";
-
-// TODO (Gấp): bỏ sự phụ thuộc vào channelId và roomId, chỉ phụ thuộc vào meetingCode
-// Do sau này sẽ có thêm private meeting (meeting thuộc về 1 cá nhân nào đó, không phải 1 kênh của phòng)
-// Lưu thêm trường type để phân biệt và xử lý phân quyền tương ứng
-// Có thể lưu thêm meetingCode vào channel để tiện truy xuất
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -46,9 +39,14 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+import { WhiteboardService } from "./whiteboard.service";
+
 @Controller("rooms/:id/channels/:channelId/meetings")
 export class ChannelMeetingsController {
-  constructor(private readonly meetingsService: MeetingsService) { }
+  constructor(
+    private readonly meetingsService: MeetingsService,
+    private readonly whiteboardService: WhiteboardService,
+  ) { }
 
   /**
    * GET /api/rooms/:id/channels/:channelId/meetings/active
@@ -91,7 +89,7 @@ export class ChannelMeetingsController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
-    return this.meetingsService.checkChannelWhiteboardAccess(
+    return this.whiteboardService.checkChannelWhiteboardAccess(
       roomId,
       channelId,
       userId,
@@ -105,6 +103,7 @@ export class MeetingsController {
     private readonly meetingsService: MeetingsService,
     private readonly attendanceService: AttendanceService,
     private readonly meetingInviteService: MeetingInviteService,
+    private readonly whiteboardService: WhiteboardService,
   ) { }
 
   /**
@@ -279,7 +278,7 @@ export class MeetingsController {
       req.user.user_metadata?.display_name ||
       req.user.email?.split("@")[0] ||
       "Người dùng";
-    return this.meetingsService.generateWhiteboardToken(
+    return this.whiteboardService.generateWhiteboardToken(
       meetingCode,
       userId,
       displayName,
@@ -297,7 +296,7 @@ export class MeetingsController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.id;
-    return this.meetingsService.checkWhiteboardAccess(meetingCode, userId);
+    return this.whiteboardService.checkWhiteboardAccess(meetingCode, userId);
   }
 
   /**
@@ -311,7 +310,7 @@ export class MeetingsController {
     @Param("code") meetingCode: string,
     @Body() body: UpdateWhiteboardSettingsDto,
   ) {
-    return this.meetingsService.updateWhiteboardSettings(meetingCode, body);
+    return this.whiteboardService.updateWhiteboardSettings(meetingCode, body);
   }
 
   /**
@@ -321,7 +320,7 @@ export class MeetingsController {
   @Get(":code/whiteboard-settings")
   @UseGuards(SupabaseGuard, MeetingRoleGuard)
   async getWhiteboardSettings(@Param("code") meetingCode: string) {
-    return this.meetingsService.getWhiteboardSettings(meetingCode);
+    return this.whiteboardService.getWhiteboardSettings(meetingCode);
   }
 
 

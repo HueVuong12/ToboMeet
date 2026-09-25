@@ -613,7 +613,11 @@
       "whiteboard_preparing": "Đang chuẩn bị phiên làm việc...",
       "whiteboard_load_error": "Không thể mở bảng trắng",
       "whiteboard_loading_canvas": "Đang tải bảng vẽ...",
-      "retry": "Thử lại"
+      "retry": "Thử lại",
+      "live_captions": "Phụ đề trực tiếp",
+      "listening_captions": "Đang lắng nghe âm thanh cuộc họp...",
+      "you": "Bạn",
+      "participant": "Người tham gia"
     },
     "create_breakout_modal": {
       "modal_title": "Chia nhóm thảo luận",

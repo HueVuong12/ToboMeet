@@ -2,7 +2,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import * as jwt from "jsonwebtoken";
 import { Meeting, MeetingDocument } from "./schemas/meeting.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import {
@@ -25,10 +24,6 @@ import {
   ParticipantMetadata,
   PresignedUploadResponse,
   RoomMemberStatus,
-  WhiteboardAccessResponse,
-  WhiteboardAccessRole,
-  WhiteboardPermissionLevel,
-  WhiteboardSettings,
 } from "@tobomeet/shared/types";
 import { MeetingsGateway } from "./meetings.gateway";
 import { AppException } from "../core/exceptions/app.exception";
@@ -259,27 +254,47 @@ export class MeetingsService {
     try {
       // Kiểm tra danh sách dispatch hiện tại của room
       const dispatches = await this.agentDispatchClient.listDispatch(roomName);
-      const isAlreadyDispatched = dispatches.some(
-        (d) => d.agentName === this.STT_AGENT_NAME,
+      const existingDispatch = dispatches.find(
+        (d) => d.agentName === this.STT_AGENT_NAME
+          && !(d.state?.deletedAt && d.state.deletedAt > 0n), // bỏ qua dispatch đã bị xóa
       );
 
-      if (isAlreadyDispatched) {
-        return { dispatched: true, message: "Agent already dispatched" };
-      }
+      if (existingDispatch) {
+        // Kiểm tra agent có thực sự đang trong phòng không
+        let agentIsLive = false;
+        if (this.livekitRoomService) {
+          try {
+            const participants = await this.livekitRoomService.listParticipants(roomName);
+            agentIsLive = participants.some(
+              (p) =>
+                p.identity?.includes(this.STT_AGENT_NAME) ||
+                p.name?.includes(this.STT_AGENT_NAME),
+            );
+          } catch { }
+        }
 
-      // Kiểm tra xem agent đã có mặt trong phòng dưới dạng participant chưa
-      if (this.livekitRoomService) {
+        if (agentIsLive) {
+          return { dispatched: true, message: "Agent already active in room" };
+        }
+
+        // Dispatch tồn tại nhưng agent chưa vào — kiểm tra tuổi của dispatch.
+        // Nếu dispatch mới (<90s): agent đang cold-start (~13s) → ĐỢI, không xóa.
+        // Nếu dispatch cũ (>=90s): agent đã fail hoàn toàn → xóa và tạo lại.
+        const createdAt = existingDispatch.state?.createdAt
+          ? Number(existingDispatch.state.createdAt) // bigint seconds
+          : 0;
+        const ageSeconds = createdAt > 0 ? (Date.now() / 1000 - createdAt) : Infinity;
+
+        if (ageSeconds < 90) {
+          // Dispatch còn mới → agent đang khởi động, đợi thêm
+          return { dispatched: true, message: "Agent dispatch pending (cold-start)" };
+        }
+
+        // Dispatch quá cũ → agent fail → xóa và tạo lại
         try {
-          const participants = await this.livekitRoomService.listParticipants(roomName);
-          const hasAgentParticipant = participants.some(
-            (p) =>
-              p.identity?.includes(this.STT_AGENT_NAME) ||
-              p.name?.includes(this.STT_AGENT_NAME),
-          );
-          if (hasAgentParticipant) {
-            return { dispatched: true, message: "Agent participant already in room" };
-          }
-        } catch { }
+          await this.agentDispatchClient.deleteDispatch(existingDispatch.id, roomName);
+        } catch (e) {
+        }
       }
 
       await this.agentDispatchClient.createDispatch(
@@ -685,182 +700,7 @@ export class MeetingsService {
     }
   }
 
-  /**
-   * Cập nhật cấu hình phân quyền Whiteboard
-   */
-  async updateWhiteboardSettings(
-    meetingCode: string,
-    settings: WhiteboardSettings,
-  ): Promise<WhiteboardSettings> {
-    // Đảm bảo admin luôn có trong allowedRoles
-    const sanitizedRoles = Array.from(
-      new Set(["admin", ...(settings.allowedRoles || [])]),
-    ) as WhiteboardAccessRole[];
 
-    const sanitizedSettings: WhiteboardSettings = {
-      allowedRoles: sanitizedRoles,
-      memberPermission: settings.memberPermission === "view" ? "view" : "edit",
-      guestPermission: settings.guestPermission === "view" ? "view" : "edit",
-    };
-
-    // 1. Cập nhật MongoDB meeting
-    await this.meetingModel
-      .updateOne(
-        { meetingCode },
-        { $set: { whiteboardSettings: sanitizedSettings } },
-      )
-      .exec();
-
-    // 2. Cập nhật TLDocument.meta trên Whiteboard Sync Server
-    try {
-      const whiteboardHttpUrl = (
-        process.env.WHITEBOARD_HTTP_URL ||
-        process.env.WHITEBOARD_SERVER_URL ||
-        "http://localhost:3002"
-      )
-        .replace(/^ws:\/\//, "http://")
-        .replace(/^wss:\/\//, "https://")
-        .replace(/\/sync\/?$/, "")
-        .replace(/\/$/, "");
-
-      const response = await fetch(
-        `${whiteboardHttpUrl}/rooms/${encodeURIComponent(meetingCode)}/settings`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ settings: sanitizedSettings }),
-        },
-      );
-
-      if (!response.ok) {
-        console.warn(
-          `[Whiteboard Sync] Failed to update settings on whiteboard server: status ${response.status}`,
-        );
-      }
-    } catch (err: any) {
-      console.warn(
-        `[Whiteboard Sync] Cannot reach whiteboard server: ${err?.message}`,
-      );
-    }
-
-    return sanitizedSettings;
-  }
-
-  /**
-   * Lấy cấu hình phân quyền Whiteboard của cuộc họp
-   */
-  async getWhiteboardSettings(meetingCode: string): Promise<WhiteboardSettings> {
-    const meeting = await this.meetingModel
-      .findOne({ meetingCode })
-      .select("whiteboardSettings")
-      .lean();
-
-    return (
-      meeting?.whiteboardSettings || {
-        allowedRoles: ["admin", "member", "guest"],
-        memberPermission: "edit",
-        guestPermission: "edit",
-      }
-    );
-  }
-
-  /**
-   * Đánh giá quyền truy cập Whiteboard của người dùng đối với một cuộc họp
-   */
-  async evaluateWhiteboardAccess(
-    meeting: MeetingDocument,
-    userId: string,
-  ): Promise<WhiteboardAccessResponse> {
-    const { role, hasAdminPowers } = await this.resolveParticipantRole(
-      meeting,
-      userId,
-    );
-
-    const whiteboardSettings: WhiteboardSettings = meeting.whiteboardSettings || {
-      allowedRoles: ["admin", "member", "guest"],
-      memberPermission: "edit",
-      guestPermission: "edit",
-    };
-
-    let canAccess = false;
-    let isReadOnly = false;
-
-    if (hasAdminPowers || role === "owner" || role === "admin") {
-      canAccess = true;
-      isReadOnly = false;
-    } else if (role === "member") {
-      canAccess = whiteboardSettings.allowedRoles.includes("member");
-      isReadOnly = whiteboardSettings.memberPermission === "view";
-    } else {
-      canAccess = whiteboardSettings.allowedRoles.includes("guest");
-      isReadOnly = whiteboardSettings.guestPermission === "view";
-    }
-
-    const permission: WhiteboardPermissionLevel = isReadOnly ? "view" : "edit";
-
-    return {
-      canAccess,
-      role: (hasAdminPowers ? (role === "owner" ? "owner" : "admin") : role) as
-        | "owner"
-        | "admin"
-        | "member"
-        | "guest",
-      hasAdminPowers: hasAdminPowers || role === "owner" || role === "admin",
-      permission,
-      isReadOnly,
-    };
-  }
-
-  /**
-   * Kiểm tra quyền truy cập Whiteboard của người dùng theo mã cuộc họp (meetingCode)
-   */
-  async checkWhiteboardAccess(
-    meetingCode: string,
-    userId: string,
-  ): Promise<WhiteboardAccessResponse> {
-    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
-    if (!meeting) {
-      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
-    }
-
-    return this.evaluateWhiteboardAccess(meeting, userId);
-  }
-
-  /**
-   * Kiểm tra quyền truy cập Whiteboard của người dùng theo kênh (roomId & channelId)
-   */
-  async checkChannelWhiteboardAccess(
-    roomId: string,
-    channelId: string,
-    userId: string,
-  ): Promise<WhiteboardAccessResponse> {
-    const meeting = await this.meetingModel
-      .findOne({ roomId, channelId, type: "channel" })
-      .exec();
-
-    if (!meeting) {
-      const room = await this.roomModel.findById(roomId).exec();
-      if (!room) {
-        throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
-      }
-      const role = this.getUserRoleInChannel(room, channelId, userId);
-      const hasAdminPowers = role === "owner" || role === "admin";
-      const canAccess = hasAdminPowers || role === "member" || role === "guest";
-      return {
-        canAccess,
-        role: (hasAdminPowers ? (role === "owner" ? "owner" : "admin") : role) as
-          | "owner"
-          | "admin"
-          | "member"
-          | "guest",
-        hasAdminPowers,
-        permission: "edit",
-        isReadOnly: false,
-      };
-    }
-
-    return this.evaluateWhiteboardAccess(meeting, userId);
-  }
 
   /**
    * Kiểm tra xem thiết bị hiện tại có đang nằm trong cuộc họp của kênh này không.
@@ -999,70 +839,7 @@ export class MeetingsService {
     }
   }
 
-  /**
-   * Tạo Whiteboard Token (RS256) cho người dùng có quyền trong cuộc họp
-   */
-  async generateWhiteboardToken(
-    meetingCode: string,
-    userId: string,
-    displayName?: string,
-  ): Promise<{
-    token: string;
-    roomId: string;
-    whiteboardUrl: string;
-    user?: { id: string; name: string; avatarUrl?: string };
-  }> {
-    // Tìm meeting & xác định quyền người dùng trong cuộc họp
-    const meeting = await this.meetingModel.findOne({ meetingCode }).exec();
-    if (!meeting) {
-      throw new AppException(ErrorCode.MEETING_NOT_FOUND);
-    }
 
-    // Kiểm tra phân quyền truy cập Whiteboard (không cần check LiveKit room hay participant presence)
-    const access = await this.evaluateWhiteboardAccess(meeting, userId);
-    if (!access.canAccess) {
-      throw new AppException(ErrorCode.INVALID_PERMISSION);
-    }
-
-    const finalDisplayName = displayName?.trim() || "Người dùng";
-
-    const rawPrivateKey = process.env.WHITEBOARD_PRIVATE_KEY;
-    if (!rawPrivateKey) {
-      throw new AppException(ErrorCode.SERVER_ERROR);
-    }
-    const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
-
-    const userRole = access.hasAdminPowers ? "admin" : (access.role || "guest");
-    const payload = {
-      sub: userId,
-      role: userRole,
-      meetingCode,
-      roomId: meetingCode,
-      displayName: finalDisplayName,
-      isReadOnly: access.isReadOnly,
-      iss: "tobomeet-server",
-      aud: "tobomeet-whiteboard",
-    };
-
-    const token = jwt.sign(payload, privateKey, {
-      algorithm: "RS256",
-      expiresIn: "5m",
-    });
-
-    const whiteboardUrl =
-      process.env.WHITEBOARD_SERVER_URL || "ws://localhost:3002/sync";
-
-    return {
-      token,
-      roomId: meetingCode,
-      whiteboardUrl,
-      user: {
-        id: userId,
-        name: finalDisplayName,
-        avatarUrl: "",
-      },
-    };
-  }
 
 
   /**

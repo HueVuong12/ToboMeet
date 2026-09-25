@@ -138,30 +138,30 @@ export default function MobileChatModal({
 
       <View className="flex-1 mt-20 justify-end">
         <View
-          className="flex-1 rounded-t-3xl overflow-hidden border-t border-[#333]"
+          className="flex-1 rounded-t-3xl overflow-hidden border-t border-[#232328]"
           style={{
             position: "absolute",
             top: 50,
             left: 0,
             right: 0,
             bottom: keyboardHeight, // bàn phím mở → đáy panel nhích lên
-            backgroundColor: "#111",
+            backgroundColor: "#111113",
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             overflow: "hidden",
           }}
         >
           {/* Drag Handle */}
-          <View className="w-10 h-1 bg-[#444] rounded-full self-center mt-2 mb-1" />
+          <View className="w-10 h-1 bg-[#3a3a42] rounded-full self-center mt-2 mb-1" />
 
           {/* HEADER */}
-          <View className="flex-row justify-between items-center px-4 py-3 border-b border-[#222] shrink-0">
+          <View className="flex-row justify-between items-center px-4 py-3 border-b border-[#232328] shrink-0">
             <Text className="text-white font-bold text-base">
               {t("meeting.chat.chat_header")}
             </Text>
             <TouchableOpacity
               onPress={onClose}
-              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
+              className="p-1.5 rounded-lg bg-[#18181d] border border-[#232328]"
             >
               <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>

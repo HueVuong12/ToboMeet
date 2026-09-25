@@ -48,15 +48,15 @@ export default function InviteMemberModal({
   });
 
   const renderItem = ({ item }: { item: any }) => (
-    <View className="flex-row items-center p-3 bg-[#222] rounded-xl border border-[#333] mb-2">
+    <View className="flex-row items-center p-3 bg-[#18181d] rounded-xl border border-[#232328] mb-2">
       <View className="relative shrink-0">
         {item.avatarUrl ? (
           <Image
             source={{ uri: item.avatarUrl }}
-            className="w-10 h-10 rounded-full border border-[#444] bg-[#333]"
+            className="w-10 h-10 rounded-full border border-[#232328] bg-[#232328]"
           />
         ) : (
-          <View className="w-10 h-10 rounded-full bg-slate-700 items-center justify-center border border-[#444]">
+          <View className="w-10 h-10 rounded-full bg-slate-700 items-center justify-center border border-[#232328]">
             <Text className="text-slate-300 font-bold uppercase text-sm">
               {item.displayName?.charAt(0) || "?"}
             </Text>
@@ -89,7 +89,7 @@ export default function InviteMemberModal({
       <TouchableOpacity
         onPress={() => handleSendInvite(item.userId, item.displayName)}
         disabled={invitingUserId === item.userId}
-        className="px-4 py-2 bg-[#333] rounded-lg border border-[#444] min-w-[70px] items-center justify-center"
+        className="px-4 py-2 bg-[#232328] rounded-lg border border-[#33333d] min-w-[70px] items-center justify-center active:bg-[#2b2b36]"
       >
         {invitingUserId === item.userId ? (
           <ActivityIndicator size="small" color="#3b82f6" />
@@ -120,25 +120,28 @@ export default function InviteMemberModal({
         />
 
         <View
-          className="bg-[#1c1c1c] rounded-2xl border border-[#333] w-full flex-col overflow-hidden"
+          className="bg-[#121215] rounded-2xl border border-[#232328] w-full flex-col overflow-hidden shadow-2xl"
           style={{ maxHeight: 520 }}
         >
           {/* Header */}
-          <View className="flex-row items-center justify-between p-4 border-b border-[#333]">
+          <View className="flex-row items-center justify-between p-4 border-b border-[#232328]">
             <View className="flex-row items-center gap-2">
               <Feather name="user-plus" size={18} color="#3b82f6" />
               <Text className="text-[15px] font-bold text-white ml-2">
                 {t("meeting.invite_member_modal.title")}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} className="p-1.5">
-              <Feather name="x" size={20} color="#94a3b8" />
+            <TouchableOpacity
+              onPress={onClose}
+              className="p-1.5 rounded-lg bg-[#18181d] border border-[#232328]"
+            >
+              <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
           </View>
 
           {/* Search Bar */}
-          <View className="p-4 bg-[#111]">
-            <View className="flex-row items-center bg-[#222] border border-[#333] rounded-xl px-3 h-11">
+          <View className="p-4 bg-[#111113]">
+            <View className="flex-row items-center bg-[#18181d] border border-[#232328] rounded-xl px-3 h-11">
               <Feather name="search" size={18} color="#64748b" />
               {/* Đã sửa: Thêm p-0 và style includeFontPadding để căn giữa chữ tuyệt đối */}
               <TextInput
@@ -159,7 +162,7 @@ export default function InviteMemberModal({
           </View>
 
           {/* Khu vực danh sách */}
-          <View style={{ flexShrink: 1, maxHeight: 380 }} className="bg-[#1c1c1c] relative">
+          <View style={{ flexShrink: 1, maxHeight: 380 }} className="bg-[#121215] relative">
             {isLoading ? (
               <View className="py-10 justify-center items-center">
                 <ActivityIndicator size="large" color="#3b82f6" />

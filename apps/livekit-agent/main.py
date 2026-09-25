@@ -1,11 +1,14 @@
 import asyncio
 import json
 import logging
+import ssl
 from datetime import datetime, timezone
 from pathlib import Path
 
+import aiohttp
 from dotenv import load_dotenv
 from livekit.agents import JobContext, cli, AgentServer
+from livekit.agents.stt import SpeechEventType
 from livekit import rtc
 from livekit.plugins import deepgram
 
@@ -21,7 +24,9 @@ TRANSCRIPT_DIR = Path("transcripts")
 TRANSCRIPT_DIR.mkdir(exist_ok=True)
 
 
-server = AgentServer()
+server = AgentServer(
+    initialize_process_timeout=60.0,
+)
 
 
 @server.rtc_session(agent_name="stt-transcriber")
@@ -29,6 +34,12 @@ async def entrypoint(ctx: JobContext):
     room_name = ctx.room.name
     ctx.log_context_fields = {"room": room_name}
     logger.info("Agent job started for room: %s", room_name)
+
+    # Khởi tạo SSL context trong worker thread
+    # và tái sử dụng cho http_session để không block asyncio event loop
+    ssl_ctx = await asyncio.to_thread(ssl.create_default_context)
+    connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+    http_session = aiohttp.ClientSession(connector=connector)
 
     # Kết nối vào LiveKit room (bắt buộc khi không dùng AgentSession)
     await ctx.connect()
@@ -39,13 +50,14 @@ async def entrypoint(ctx: JobContext):
     session_id = started_at.strftime("%Y%m%d_%H%M%S")
 
     # Thư mục lưu transcript theo từng session: transcripts/{room}/{session_id}/
+    # Dùng to_thread để tránh blocking mkdir trên event loop
     session_dir = TRANSCRIPT_DIR / room_name / session_id
-    session_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(session_dir.mkdir, True, True)
     jsonl_path = session_dir / "transcript.jsonl"
 
     active_tasks: dict[str, asyncio.Task] = {}
 
-    # Deepgram STT - dùng chung một instance, mỗi track có stream riêng
+    # Deepgram STT - dùng chung một instance và http_session đã được khởi tạo SSL trong thread
     stt_instance = deepgram.STT(
         model="nova-2",
         language="vi",
@@ -53,7 +65,12 @@ async def entrypoint(ctx: JobContext):
         punctuate=True,
         smart_format=True,
         endpointing_ms=300,
+        http_session=http_session,
     )
+
+    def _sync_append_jsonl(path: Path, data: dict):
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
     async def broadcast(text: str, is_final: bool, speaker_id: str, speaker_name: str, segment_id: str | None = None):
         """Phát transcript qua LiveKit Data Channel đến các client trong phòng"""
@@ -69,7 +86,7 @@ async def entrypoint(ctx: JobContext):
             "speaker_name": speaker_name or "",
         }
 
-        # Text Stream (chuẩn LiveKit)
+        # Text Stream
         try:
             await ctx.room.local_participant.send_text(
                 text,
@@ -88,16 +105,12 @@ async def entrypoint(ctx: JobContext):
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             segments.append(entry)
-            # Ghi ngay vào JSONL theo từng segment — không cần chờ shutdown
-            with jsonl_path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            await asyncio.to_thread(_sync_append_jsonl, jsonl_path, entry)
 
     async def transcribe_track(participant: rtc.RemoteParticipant, audio_track: rtc.Track):
         """Lắng nghe audio từ một participant và stream tới Deepgram để transcribe.
         Dùng queue để tách audio reading khỏi STT stream, cho phép auto-reconnect.
         """
-        from livekit.agents.stt import SpeechEventType
-
         speaker_id = participant.identity
         speaker_name = participant.name or participant.identity
         logger.info("Started transcribing track for participant: %s (%s)", speaker_name, speaker_id)
@@ -301,7 +314,8 @@ async def entrypoint(ctx: JobContext):
             "transcript_file": "transcript.jsonl",
         }
         meta_path = session_dir / "metadata.json"
-        meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        content = json.dumps(metadata, ensure_ascii=False, indent=2)
+        await asyncio.to_thread(meta_path.write_text, content, "utf-8")
         logger.info(
             "Session metadata saved: %s (%d segments, %.0fs)",
             meta_path, len(segments), metadata["duration_seconds"],
@@ -319,6 +333,8 @@ async def entrypoint(ctx: JobContext):
         if active_tasks:
             await asyncio.gather(*active_tasks.values(), return_exceptions=True)
         active_tasks.clear()
+        if not http_session.closed:
+            await http_session.close()
         shutdown_event.set()
 
     ctx.add_shutdown_callback(signal_shutdown)

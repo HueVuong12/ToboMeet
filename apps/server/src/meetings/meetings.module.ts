@@ -31,6 +31,8 @@ import { AttendanceService } from "./attendance.service";
 import { RecordingsController } from "./recordings.controller";
 import { RecordingsService } from "./recordings.service";
 
+import { WhiteboardService } from "./whiteboard.service";
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -57,6 +59,7 @@ import { RecordingsService } from "./recordings.service";
   providers: [
     BreakoutRoomsService,
     MeetingsService,
+    WhiteboardService,
     MeetingInviteService,
     AttendanceService,
     RecordingsService,
@@ -67,6 +70,7 @@ import { RecordingsService } from "./recordings.service";
     AttendanceService,
     BreakoutRoomsService,
     MeetingsService,
+    WhiteboardService,
     RecordingsService,
     MeetingInviteService,
     MeetingsGateway,

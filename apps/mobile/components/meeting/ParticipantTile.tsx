@@ -59,7 +59,7 @@ export default function ParticipantTile({
     <View
       style={{
         flex: 1,
-        backgroundColor: "#111",
+        backgroundColor: "#121215",
         borderRadius: 0,
         overflow: "hidden",
         borderWidth: isScreenShare ? 2 : 0,
@@ -69,7 +69,7 @@ export default function ParticipantTile({
       {/* VIDEO HOẶC AVATAR */}
       {showVideo ? (
         <VideoView
-          style={{ flex: 1, backgroundColor: "#000" }}
+          style={{ flex: 1, backgroundColor: "#0a0a0c" }}
           videoTrack={videoTrack}
           objectFit={isScreenShare ? "contain" : "cover"}
         />
@@ -79,7 +79,7 @@ export default function ParticipantTile({
             flex: 1,
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: "#111",
+            backgroundColor: "#121215",
           }}
         >
           {avatarUrl ? (
@@ -93,7 +93,7 @@ export default function ParticipantTile({
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: "#333",
+                backgroundColor: "#232328",
                 justifyContent: "center",
                 alignItems: "center",
               }}
@@ -142,10 +142,12 @@ export default function ParticipantTile({
           position: "absolute",
           bottom: 6,
           left: 6,
-          backgroundColor: "rgba(0,0,0,0.7)",
-          paddingHorizontal: 6,
+          backgroundColor: "rgba(17, 17, 19, 0.85)",
+          borderWidth: 1,
+          borderColor: "rgba(255, 255, 255, 0.08)",
+          paddingHorizontal: 7,
           paddingVertical: 4,
-          borderRadius: 4,
+          borderRadius: 6,
           flexDirection: "row",
           alignItems: "center",
           maxWidth: "90%",

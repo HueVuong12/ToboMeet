@@ -78,11 +78,11 @@ export default function MembersModal({
         />
 
         {/* Khung Modal Thành Viên */}
-        <View className="bg-[#111] h-[75%] rounded-t-3xl p-5 border-t border-[#333]">
+        <View className="bg-[#111113] h-[75%] rounded-t-3xl p-5 border-t border-[#232328]">
           {/* Drag Handle */}
-          <View className="w-10 h-1 bg-[#444] rounded-full self-center mb-3" />
+          <View className="w-10 h-1 bg-[#3a3a42] rounded-full self-center mb-3" />
 
-          <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-[#222]">
+          <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-[#232328]">
             <Text className="text-white text-base font-bold">
               {t("meeting.member_modal.members_modal_title", {
                 defaultValue: "Thành viên",
@@ -90,7 +90,7 @@ export default function MembersModal({
             </Text>
             <TouchableOpacity
               onPress={onClose}
-              className="p-1.5 rounded-lg bg-[#222] border border-[#333]"
+              className="p-1.5 rounded-lg bg-[#18181d] border border-[#232328]"
             >
               <Feather name="x" size={18} color="#94a3b8" />
             </TouchableOpacity>
@@ -98,11 +98,11 @@ export default function MembersModal({
 
           {/* ================= THANH ĐIỀU HƯỚNG TABS ================= */}
           {canApprove && (
-            <View className="flex-row bg-[#1a1a1a] rounded-xl p-1 mb-3 border border-[#333]">
+            <View className="flex-row bg-[#18181d] rounded-xl p-1 mb-3 border border-[#232328]">
               <TouchableOpacity
                 onPress={() => setActiveListTab("joined")}
                 className={`flex-1 py-2 rounded-lg items-center ${
-                  activeListTab === "joined" ? "bg-[#333]" : "bg-transparent"
+                  activeListTab === "joined" ? "bg-[#232328]" : "bg-transparent"
                 }`}
               >
                 <Text
@@ -119,7 +119,7 @@ export default function MembersModal({
               <TouchableOpacity
                 onPress={() => setActiveListTab("waiting")}
                 className={`flex-1 py-2 rounded-lg items-center ${
-                  activeListTab === "waiting" ? "bg-[#333]" : "bg-transparent"
+                  activeListTab === "waiting" ? "bg-[#232328]" : "bg-transparent"
                 }`}
               >
                 <Text

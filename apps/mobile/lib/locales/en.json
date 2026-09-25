@@ -611,7 +611,11 @@
       "whiteboard_preparing": "Preparing workspace...",
       "whiteboard_load_error": "Could not open whiteboard",
       "whiteboard_loading_canvas": "Loading canvas...",
-      "retry": "Retry"
+      "retry": "Retry",
+      "live_captions": "Live captions",
+      "listening_captions": "Listening to meeting audio...",
+      "you": "You",
+      "participant": "Participant"
     },
     "create_breakout_modal": {
       "modal_title": "Breakout Rooms",

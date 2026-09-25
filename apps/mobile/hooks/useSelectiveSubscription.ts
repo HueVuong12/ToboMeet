@@ -10,6 +10,7 @@ import {
   RoomEvent,
   Track,
 } from "livekit-client";
+import { isAgentParticipant } from "../utils/participant";
 
 function makeKey(identity: string, source: Track.Source) {
   return `${identity}|${source}`;
@@ -59,9 +60,11 @@ export function useSelectiveSubscription() {
     };
   }, [room]);
 
-  // LỌC BỎ CÁC TRACK CỦA NHỮNG NGƯỜI ĐANG Ở PHÒNG CHỜ
+  // LỌC BỎ CÁC TRACK CỦA NHỮNG NGƯỜI ĐANG Ở PHÒNG CHỜ VÀ AGENT/BOT
   const validTracks = useMemo(() => {
-    return allTracks.filter((t) => !isWaiting(t.participant));
+    return allTracks.filter(
+      (t) => !isWaiting(t.participant) && !isAgentParticipant(t.participant),
+    );
   }, [allTracks, metaTick]);
 
   const pageSize = 4; // Trên Mobile chỉ hiện tối đa 4 camera mỗi trang
@@ -101,9 +104,11 @@ export function useSelectiveSubscription() {
     return newPages;
   }, [validTracks, pageSize]);
 
-  // Luôn subscribe toàn bộ audio NGOẠI TRỪ NGƯỜI ĐANG CHỜ
+  // Luôn subscribe toàn bộ audio NGOẠI TRỪ NGƯỜI ĐANG CHỜ VÀ AGENT
   const ensureAudioSubscribed = useCallback(() => {
     room.remoteParticipants.forEach((participant) => {
+      if (isAgentParticipant(participant)) return;
+
       const micPub = participant.getTrackPublication(
         Track.Source.Microphone,
       ) as RemoteTrackPublication | undefined;
@@ -203,8 +208,8 @@ export function useSelectiveSubscription() {
       publication: RemoteTrackPublication,
       participant: Participant,
     ) => {
-      // Chặn ngay lập tức không subscribe bất kì thứ gì nếu đang ở phòng chờ
-      if (isWaiting(participant)) return;
+      // Chặn ngay lập tức không subscribe bất kì thứ gì nếu đang ở phòng chờ hoặc là agent
+      if (isWaiting(participant) || isAgentParticipant(participant)) return;
 
       // Audio luôn subscribe ngay
       if (publication.source === Track.Source.Microphone) {
