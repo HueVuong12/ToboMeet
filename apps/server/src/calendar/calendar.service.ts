@@ -1,15 +1,22 @@
-import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 
 import { CalendarEvent, CalendarEventDocument } from "./schemas/calendar-event.schema";
-import { MeetingInvitation, MeetingInvitationDocument } from "./schemas/meeting-invitation.schema";
 import { User, UserDocument } from "../users/schemas/user.schema";
 import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { rrulestr } from "rrule";
 import { AppGateway } from "../core/gateways/app.gateway";
-import * as nodemailer from "nodemailer";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { CreateEventDto } from "./dto/create-event.dto";
+import {
+  CalendarRSVPMember,
+  CalendarRSVPStatus,
+  ErrorCode,
+} from "@tobomeet/shared/types";
+import { AppException } from "../core/exceptions/app.exception";
+import { MeetingsService } from "../meetings/meetings.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 import { Assignment, AssignmentDocument } from "../assignments/schemas/assignment.schema";
 import {
@@ -18,103 +25,148 @@ import {
 } from "../assignments/schemas/submission.schema";
 
 @Injectable()
-export class CalendarService {
-  private transporter: nodemailer.Transporter;
-
+export class CalendarService implements OnModuleInit {
   constructor(
-    @InjectModel(CalendarEvent.name) private calendarEventModel: Model<CalendarEventDocument>,
-    @InjectModel(MeetingInvitation.name) private meetingInvitationModel: Model<MeetingInvitationDocument>,
+    @InjectModel(CalendarEvent.name)
+    private calendarEventModel: Model<CalendarEventDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     @InjectModel("Post") private postModel: Model<any>,
-    @InjectModel(Assignment.name) private assignmentModel: Model<AssignmentDocument>,
-    @InjectModel(AssignmentSubmission.name) private submissionModel: Model<AssignmentSubmissionDocument>,
+    @InjectModel(Assignment.name)
+    private assignmentModel: Model<AssignmentDocument>,
+    @InjectModel(AssignmentSubmission.name)
+    private submissionModel: Model<AssignmentSubmissionDocument>,
     private readonly appGateway: AppGateway,
-  ) {
-    // Khởi tạo mail transporter từ SMTP Env
-    const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT) || 587;
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
+    private readonly meetingsService: MeetingsService,
+    private readonly eventEmitter: EventEmitter2,
+  ) { }
 
-    if (host && user && pass) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass },
-      });
+  async onModuleInit() {
+    try {
+      const indexes = await this.calendarEventModel.collection.indexes();
+      const uniqueMeetingCodeIndex = indexes.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (idx: any) => idx.name === "meetingCode_1" && idx.unique,
+      );
+      if (uniqueMeetingCodeIndex) {
+        await this.calendarEventModel.collection.dropIndex("meetingCode_1");
+        console.log("[CalendarService] Đã gỡ bỏ unique index meetingCode_1 thành công");
+      }
+    } catch (err) {
+      console.warn("[CalendarService] Không thể gỡ unique index meetingCode_1 (có thể chưa tồn tại):", err);
     }
   }
 
   /**
    * Tạo lịch họp mới
    */
-  async createEvent(
-    userId: string,
-    data: {
-      title: string;
-      description?: string;
-      roomId?: string;
-      channelId?: string;
-      roomType?: "meeting" | "classroom" | "channel_meeting";
-      startDate: string;
-      endDate: string;
-      timezone?: string;
-      location?: string;
-      meetingPassword?: string;
-      recurrenceRule?: string;
-      invitees?: { email: string; userId?: string }[];
-    },
-  ) {
+  async createEvent(userId: string, data: CreateEventDto) {
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);
 
-    const now = new Date();
-    if (start <= now) {
-      throw new BadRequestException("Thời gian bắt đầu họp phải sau thời gian hiện tại");
-    }
-
-    if (start >= end) {
-      throw new BadRequestException("Thời gian bắt đầu phải trước thời gian kết thúc");
-    }
-
-    // Validate dữ liệu riêng cho cuộc họp kênh (channel_meeting)
-    if (data.roomType === "channel_meeting") {
-      if (!data.roomId || !data.channelId) {
-        throw new BadRequestException(
-          "Cuộc họp kênh yêu cầu phải chọn phòng và kênh.",
-        );
-      }
-      // Kiểm tra channelId phải thuộc roomId đã chọn
+    // Kiểm tra tính hợp lệ của Room và Channel trong DB cho channel_meeting
+    if (data.roomType === "channel_meeting" && data.roomId && data.channelId) {
       const room = await this.roomModel.findOne({
         _id: data.roomId,
         isDeleted: { $ne: true },
       });
       if (!room) {
-        throw new BadRequestException(
-          "Phòng không tồn tại hoặc đã bị giải tán.",
-        );
+        throw new AppException(ErrorCode.CALENDAR_ROOM_NOT_FOUND);
       }
       const channelExists = room.channels.some(
         (ch) => ch._id?.toString() === data.channelId,
       );
       if (!channelExists) {
-        throw new BadRequestException(
-          "Kênh không thuộc phòng đã chọn. Dữ liệu không hợp lệ.",
-        );
+        throw new AppException(ErrorCode.CALENDAR_CHANNEL_NOT_FOUND);
       }
     }
 
-    // Tự động sinh meeting code duy nhất
-    const randomString = Math.random().toString(36).substring(2, 9);
-    const meetingCode = `meet-${randomString}`;
+    // Lấy meeting code từ MeetingService thay cho random string
+    const { meetingCode } = await this.meetingsService.ensureMeetingCode({
+      roomType: data.roomType,
+      userId,
+      roomId: data.roomId,
+      channelId: data.channelId,
+    });
 
-    // Kiểm tra conflict lịch cho tất cả những người tham gia được mời
+    // Lấy mảng userIds cho khách mời riêng lẻ
+    const inviteeUserIds: string[] = [];
     if (data.invitees && data.invitees.length > 0) {
-      const userIds = data.invitees.map((i) => i.userId).filter(Boolean);
-      await this.checkConflicts(userIds, start, end);
+      for (const invitee of data.invitees) {
+        let uId = invitee.userId;
+        if (!uId && invitee.email) {
+          const u = await this.userModel.findOne({ email: invitee.email }).exec();
+          if (u) uId = u.supabaseId;
+        }
+        if (uId && !inviteeUserIds.includes(uId)) {
+          inviteeUserIds.push(uId);
+        }
+      }
+    }
+
+    // Nếu tạo cuộc họp kênh (channel meeting), ghi nhận toàn bộ thành viên trong kênh vào acceptedUserIds (không thông báo)
+    let acceptedUserIds: string[] = [userId];
+    const isChannelMeeting = Boolean(
+      (data.roomType === "channel_meeting" || data.channelId) &&
+        data.roomId &&
+        data.channelId,
+    );
+
+    if (isChannelMeeting) {
+      const room = await this.roomModel.findOne({
+        _id: data.roomId,
+        isDeleted: { $ne: true },
+      });
+      if (room) {
+        const channel = room.channels.find(
+          (ch) => ch._id?.toString() === data.channelId,
+        );
+        if (channel) {
+          const channelMemberIds = new Set<string>();
+          if (room.ownerId) channelMemberIds.add(room.ownerId);
+
+          if (channel.isPrivate) {
+            // Kênh riêng tư: Lấy thành viên được phân quyền trong channel.members
+            channel.members?.forEach((m) => {
+              if (m.userId) channelMemberIds.add(m.userId);
+            });
+          } else {
+            // Kênh công khai: Tất cả thành viên trong room còn active (trừ người đã rời kênh)
+            const leftSet = new Set(channel.leftMemberIds || []);
+            room.members?.forEach((m) => {
+              if (
+                m.userId &&
+                m.status !== "left" &&
+                m.status !== "removed" &&
+                !leftSet.has(m.userId)
+              ) {
+                channelMemberIds.add(m.userId);
+              }
+            });
+          }
+
+          acceptedUserIds = Array.from(
+            new Set([...acceptedUserIds, ...channelMemberIds]),
+          );
+        }
+      }
+    }
+
+    // Trích xuất recurrenceEndDate từ RRULE (nếu có UNTIL)
+    let isRecurring = false;
+    let recurrenceEndDate: Date | null = null;
+    if (data.recurrenceRule) {
+      isRecurring = true;
+      const match = data.recurrenceRule.match(/UNTIL=([^;]+)/);
+      if (match) {
+        const untilStr = match[1];
+        const formattedStr = untilStr.replace(
+          /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+          "$1-$2-$3T$4:$5:$6Z",
+        );
+        recurrenceEndDate = new Date(formattedStr);
+      }
     }
 
     // Tạo Event mới
@@ -124,47 +176,48 @@ export class CalendarService {
       meetingCode,
       startDate: start,
       endDate: end,
+      isRecurring,
+      recurrenceEndDate,
+      acceptedUserIds,
+      pendingUserIds: isChannelMeeting ? [] : inviteeUserIds,
     });
 
-    // Mời các thành viên
-    const invitations = [];
-    if (data.invitees && data.invitees.length > 0) {
-      for (const invitee of data.invitees) {
-        let inviteeUser = null;
-        if (invitee.userId) {
-          inviteeUser = await this.userModel.findOne({ supabaseId: invitee.userId }).exec();
-        } else {
-          inviteeUser = await this.userModel.findOne({ email: invitee.email }).exec();
-        }
+    // Gửi thông báo lời mời cho những người được mời riêng lẻ (không gửi thông báo riêng cho thành viên kênh nếu là cuộc họp kênh)
+    if (!isChannelMeeting && inviteeUserIds.length > 0) {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: userId })
+        .select("displayName email avatarUrl")
+        .exec();
+      const hostDisplayName =
+        hostUser?.displayName ||
+        hostUser?.email?.split("@")[0] ||
+        "Người tổ chức";
 
-        const invitation = await this.meetingInvitationModel.create({
+      this.eventEmitter.emit("notification.calendar_invite", {
+        userIds: inviteeUserIds,
+        referenceId: event._id.toString(),
+        metadata: {
           eventId: event._id.toString(),
-          userId: inviteeUser ? inviteeUser.supabaseId : invitee.userId || "",
-          email: invitee.email,
-          displayName: inviteeUser ? inviteeUser.displayName : invitee.email,
-          avatarUrl: inviteeUser ? inviteeUser.avatarUrl : "",
-          status: "PENDING",
-        });
-
-        invitations.push(invitation);
-
-        // Gửi thông báo WebSocket Realtime
-        if (inviteeUser) {
-          this.appGateway.server.to(`user_${inviteeUser.supabaseId}`).emit("calendar_event_received", {
-            event,
-            invitation,
-          });
-        }
-
-        // Gửi Email thông báo qua SMTP
-        this.sendEmailInvitation(invitee.email, event);
-      }
+          title: event.title,
+          startDate: event.startDate.toISOString(),
+          endDate: event.endDate.toISOString(),
+          inviterId: userId,
+          inviterName: hostDisplayName,
+          inviterAvatarUrl: hostUser?.avatarUrl || "",
+          meetingCode: event.meetingCode,
+          location: event.location,
+          description: event.description,
+          roomType: event.roomType,
+        },
+      });
     }
 
     // Nếu tạo trong Group/Channel, gửi cho mọi thành viên trong kênh qua Socket
     if (data.channelId && data.roomType === "channel_meeting" && data.roomId) {
-      this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
-      
+      this.appGateway.server
+        .to(data.channelId)
+        .emit("channel_calendar_event_created", event);
+
       // Tự động tạo meeting post trong bảng tin kênh
       try {
         const meetingPost = await this.postModel.create({
@@ -184,12 +237,17 @@ export class CalendarService {
         });
 
         // Lấy thông tin user để emit realtime
-        const authorUser = await this.userModel.findOne({ supabaseId: userId }).exec();
+        const authorUser = await this.userModel
+          .findOne({ supabaseId: userId })
+          .exec();
         const postWithAuthor = {
           ...meetingPost.toObject(),
           author: {
             userId: userId,
-            displayName: authorUser?.displayName || authorUser?.email?.split('@')[0] || "Người dùng ẩn danh",
+            displayName:
+              authorUser?.displayName ||
+              authorUser?.email?.split("@")[0] ||
+              "Người dùng ẩn danh",
             avatarUrl: authorUser?.avatarUrl || "",
             role: "member",
           },
@@ -199,42 +257,73 @@ export class CalendarService {
         };
 
         // Phát realtime qua Socket IO cho kênh bảng tin
-        this.appGateway.server.to(`room_${data.roomId}`).emit("post_created", postWithAuthor);
+        this.appGateway.server
+          .to(`room_${data.roomId}`)
+          .emit("post_created", postWithAuthor);
       } catch (err) {
         console.error("Lỗi khi tự động tạo post lịch họp kênh:", err);
       }
     } else if (data.channelId) {
-      this.appGateway.server.to(data.channelId).emit("channel_calendar_event_created", event);
+      this.appGateway.server
+        .to(data.channelId)
+        .emit("channel_calendar_event_created", event);
     }
 
     // Phát event tạo lịch biểu realtime cho tất cả các client
     this.appGateway.server.emit("calendar_event_created", event);
 
-    return { event, invitations };
+    return { event };
   }
 
   /**
    * Truy vấn lịch họp theo khoảng thời gian và sinh chuỗi lặp ảo
    */
-  async getEventsForUser(userId: string, startRange: string, endRange: string, filters?: { roomId?: string; createdByMe?: boolean }) {
+  async getEventsForUser(
+    userId: string,
+    startRange: string,
+    endRange: string,
+    filters?: { roomId?: string; createdByMe?: boolean },
+  ) {
     const rangeStart = new Date(startRange);
     const rangeEnd = new Date(endRange);
 
-    // 1. Tìm các cuộc họp do user tổ chức hoặc được mời
-    const query: Record<string, unknown> = {};
+    const andConditions: any[] = [];
 
-    if (filters?.roomId) {
-      query.roomId = filters.roomId;
+    // Điều kiện quyền truy cập
+    if (filters?.createdByMe) {
+      andConditions.push({ hostId: userId });
+    } else if (filters?.roomId) {
+      andConditions.push({ roomId: filters.roomId });
     } else {
-      const myInvites = await this.meetingInvitationModel.find({ userId }).select("eventId").exec();
-      const eventIds = myInvites.map((inv) => inv.eventId);
-      
-      if (filters?.createdByMe) {
-        query.hostId = userId;
-      } else {
-        query.$or = [{ hostId: userId }, { _id: { $in: eventIds } }];
-      }
+      // Lấy sự kiện tôi làm host HOẶC tôi đã ACCEPT
+      andConditions.push({
+        $or: [{ hostId: userId }, { acceptedUserIds: userId }],
+      });
     }
+
+    // Điều kiện thời gian
+    andConditions.push({
+      $or: [
+        // TH1: Sự kiện đơn lẻ thông thường
+        {
+          isRecurring: { $ne: true },
+          startDate: { $lte: rangeEnd },
+          endDate: { $gte: rangeStart },
+        },
+        // TH2: Sự kiện Lặp (Recurring)
+        {
+          isRecurring: true,
+          startDate: { $lte: rangeEnd }, // Chuỗi đã bắt đầu trước khi range kết thúc
+          $or: [
+            { recurrenceEndDate: null }, // Lặp vô hạn (không có ngày kết thúc)
+            { recurrenceEndDate: { $exists: false } },
+            { recurrenceEndDate: { $gte: rangeStart } }, // Sẽ kết thúc sau khi range bắt đầu
+          ],
+        },
+      ],
+    });
+
+    const query = { $and: andConditions };
 
     const events = await this.calendarEventModel.find(query).exec();
     const resultEvents = [];
@@ -259,9 +348,8 @@ export class CalendarService {
           const duration = event.endDate.getTime() - event.startDate.getTime();
 
           for (const occ of occurrences) {
-            // occ.toISOString().substring(0, 10) sẽ là ngày theo múi giờ địa phương (do occ đã được dịch chuyển +7h)
             const dateStr = occ.toISOString().substring(0, 10);
-            
+
             // Bỏ qua nếu ngày này nằm trong danh sách ngoại lệ (bị hủy)
             if (event.recurrenceExceptions?.includes(dateStr)) {
               continue;
@@ -297,12 +385,14 @@ export class CalendarService {
       finalEvents.push({
         ...eventObj,
         hostEmail: hostUser ? hostUser.email : "",
-        hostDisplayName: hostUser ? (hostUser.displayName || hostUser.email.split('@')[0]) : "",
+        hostDisplayName: hostUser
+          ? hostUser.displayName || hostUser.email.split("@")[0]
+          : "",
         hostAvatarUrl: hostUser ? hostUser.avatarUrl : "",
       });
     }
 
-    // 2. Tìm các nhiệm vụ (Assignment) có hạn nộp (deadline) trong khoảng thời gian [rangeStart, rangeEnd]
+    // Tìm các nhiệm vụ (Assignment) có hạn nộp (deadline) trong khoảng thời gian [rangeStart, rangeEnd]
     const assignmentQuery: Record<string, unknown> = {
       deadline: { $gte: rangeStart, $lte: rangeEnd },
       status: "published",
@@ -325,27 +415,35 @@ export class CalendarService {
         if (!room) continue;
 
         const isCreator = assignment.createdBy === userId;
-        const member = room.members?.find((m) => m.userId === userId && m.status === "active");
+        const member = room.members?.find(
+          (m) => m.userId === userId && m.status === "active",
+        );
 
         // Quyền truy cập: Người tạo HOẶC thành viên hợp lệ trong phòng
         if (!isCreator) {
           if (!member) continue;
 
-          // Nếu người nhận là danh sách chỉ định: kiểm tra userId hoặc memberId
           if (
-            (assignment.recipientType === "specific_members" || assignment.recipientType === "current_members") &&
+            (assignment.recipientType === "specific_members" ||
+              assignment.recipientType === "current_members") &&
             assignment.recipientMemberIds?.length > 0
           ) {
             const userMemberId = (member as any)._id?.toString();
             const hasAccess =
               assignment.recipientMemberIds.includes(userId) ||
-              (userMemberId && assignment.recipientMemberIds.includes(userMemberId));
+              (userMemberId &&
+                assignment.recipientMemberIds.includes(userMemberId));
             if (!hasAccess) continue;
           }
         }
 
         // Xác định trạng thái của nhiệm vụ đối với người dùng này
-        let assignmentStatus: "in_progress" | "submitted" | "graded" | "overdue" | "closed" = "in_progress";
+        let assignmentStatus:
+          | "in_progress"
+          | "submitted"
+          | "graded"
+          | "overdue"
+          | "closed" = "in_progress";
         const submission = await this.submissionModel
           .findOne({
             assignmentId: assignment._id.toString(),
@@ -353,7 +451,11 @@ export class CalendarService {
           })
           .exec();
 
-        if (assignment.submissionPolicy === "lock_after_deadline" && assignment.deadline && now > assignment.deadline) {
+        if (
+          assignment.submissionPolicy === "lock_after_deadline" &&
+          assignment.deadline &&
+          now > assignment.deadline
+        ) {
           assignmentStatus = "closed";
         }
 
@@ -380,10 +482,10 @@ export class CalendarService {
           assignmentId: assignment._id.toString(),
           title: assignment.title || "Nhiệm vụ",
           description: assignment.description || "",
-          // QUAN TRỌNG: Nhiệm vụ chỉ hiển thị tại mốc dueDate, không kéo dài block
           startDate: assignment.deadline,
           endDate: assignment.deadline,
-          assignmentStartDate: assignment.startDate || (assignment as any).createdAt,
+          assignmentStartDate:
+            assignment.startDate || (assignment as any).createdAt,
           assignmentDueDate: assignment.deadline,
           eventType: "assignment",
           assignmentStatus,
@@ -392,7 +494,9 @@ export class CalendarService {
           meetingCode: "",
           hostId: assignment.createdBy,
           hostEmail: creatorUser ? creatorUser.email : "",
-          hostDisplayName: creatorUser ? (creatorUser.displayName || creatorUser.email.split("@")[0]) : "",
+          hostDisplayName: creatorUser
+            ? creatorUser.displayName || creatorUser.email.split("@")[0]
+            : "",
           hostAvatarUrl: creatorUser ? creatorUser.avatarUrl : "",
           roomType: "classroom",
           status: "active",
@@ -415,24 +519,23 @@ export class CalendarService {
   ) {
     const event = await this.calendarEventModel.findById(eventId);
     if (!event) {
-      throw new NotFoundException("Không tìm thấy sự kiện lịch họp");
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
     }
 
     // Kiểm tra quyền (Chỉ host mới có quyền sửa đổi)
     if (event.hostId !== userId) {
-      throw new ForbiddenException("Bạn không có quyền sửa đổi lịch họp này");
+      throw new AppException(ErrorCode.CALENDAR_EVENT_FORBIDDEN);
     }
 
     if (updateType === "single" && event.recurrenceRule && occurrenceDate) {
-      // 1. Chỉ chỉnh sửa 1 buổi đơn lẻ trong chuỗi lặp:
-      // Thêm ngày hiện tại vào exceptions của chuỗi chính
+      // Chỉ chỉnh sửa 1 buổi đơn lẻ trong chuỗi lặp
       event.recurrenceExceptions.push(occurrenceDate);
       await event.save();
 
       // Tạo một CalendarEvent mới không lặp riêng biệt cho ngày này
-      const originalStart = new Date(data.startDate);
-      const originalEnd = new Date(data.endDate);
-      
+      const originalStart = new Date(data.startDate || event.startDate);
+      const originalEnd = new Date(data.endDate || event.endDate);
+
       const newEvent = await this.calendarEventModel.create({
         ...event.toObject(),
         _id: undefined,
@@ -445,18 +548,30 @@ export class CalendarService {
       });
 
       // Gửi realtime thông báo cho các bên liên quan
-      this.appGateway.server.emit("calendar_event_updated", { eventId, updateType, event: newEvent });
+      this.appGateway.server.emit("calendar_event_updated", {
+        eventId,
+        updateType,
+        event: newEvent,
+      });
       return newEvent;
     } else {
-      // 2. Chỉnh sửa toàn bộ chuỗi
+      // Chỉnh sửa toàn bộ chuỗi
       const updatedEvent = await this.calendarEventModel.findByIdAndUpdate(
         eventId,
         { $set: data },
         { new: true },
       );
 
+      if (!updatedEvent) {
+        throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+      }
+
       // Cập nhật lại bài đăng meeting post nếu là cuộc họp kênh
-      if (updatedEvent.roomType === "channel_meeting" && updatedEvent.roomId && updatedEvent.channelId) {
+      if (
+        updatedEvent.roomType === "channel_meeting" &&
+        updatedEvent.roomId &&
+        updatedEvent.channelId
+      ) {
         try {
           const post = await this.postModel.findOneAndUpdate(
             { meetingId: eventId, isDeleted: { $ne: true } },
@@ -465,31 +580,41 @@ export class CalendarService {
                 meetingTitle: updatedEvent.title,
                 meetingStartDate: updatedEvent.startDate,
                 meetingEndDate: updatedEvent.endDate,
-              }
+              },
             },
-            { new: true }
+            { new: true },
           );
 
           if (post) {
-            // Lấy thông tin user để emit realtime
-            const authorUser = await this.userModel.findOne({ supabaseId: post.authorId }).exec();
+            const authorUser = await this.userModel
+              .findOne({ supabaseId: post.authorId })
+              .exec();
             const postWithAuthor = {
               ...post.toObject(),
               author: {
                 userId: post.authorId,
-                displayName: authorUser?.displayName || authorUser?.email?.split('@')[0] || "Người dùng ẩn danh",
+                displayName:
+                  authorUser?.displayName ||
+                  authorUser?.email?.split("@")[0] ||
+                  "Người dùng ẩn danh",
                 avatarUrl: authorUser?.avatarUrl || "",
                 role: "member",
               },
             };
-            this.appGateway.server.to(`room_${updatedEvent.roomId}`).emit("post_updated", postWithAuthor);
+            this.appGateway.server
+              .to(`room_${updatedEvent.roomId}`)
+              .emit("post_updated", postWithAuthor);
           }
         } catch (err) {
           console.error("Lỗi cập nhật post lịch họp:", err);
         }
       }
 
-      this.appGateway.server.emit("calendar_event_updated", { eventId, updateType, event: updatedEvent });
+      this.appGateway.server.emit("calendar_event_updated", {
+        eventId,
+        updateType,
+        event: updatedEvent,
+      });
       return updatedEvent;
     }
   }
@@ -497,103 +622,212 @@ export class CalendarService {
   /**
    * Hủy lịch họp (Chỉ lần này / Toàn chuỗi)
    */
-  async deleteEvent(userId: string, eventId: string, deleteType: "single" | "all", occurrenceDate?: string) {
+  async deleteEvent(
+    userId: string,
+    eventId: string,
+    deleteType: "single" | "all",
+    occurrenceDate?: string,
+  ) {
     const event = await this.calendarEventModel.findById(eventId);
     if (!event) {
-      throw new NotFoundException("Không tìm thấy sự kiện lịch họp");
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
     }
 
     if (event.hostId !== userId) {
-      throw new ForbiddenException("Bạn không có quyền hủy lịch họp này");
+      throw new AppException(ErrorCode.CALENDAR_EVENT_FORBIDDEN);
     }
 
-    // Xử lý xóa bài đăng cuộc họp kênh trong bảng tin
-    if (event.roomType === "channel_meeting" && event.roomId && event.channelId) {
-      try {
-        const post = await this.postModel.findOneAndUpdate(
-          { meetingId: eventId, isDeleted: { $ne: true } },
-          { $set: { isDeleted: true } },
-          { new: true }
-        );
-        if (post) {
-          this.appGateway.server.to(`room_${event.roomId}`).emit("post_deleted", { postId: post._id });
-        }
-      } catch (err) {
-        console.error("Lỗi xóa bài đăng lịch họp:", err);
-      }
-    }
-
-    if (deleteType === "single" && event.recurrenceRule && occurrenceDate) {
+    if (
+      deleteType === "single" &&
+      (event.recurrenceRule || event.isRecurring) &&
+      occurrenceDate
+    ) {
       // Chỉ hủy buổi này: Thêm ngày hủy vào danh sách exceptions
-      event.recurrenceExceptions.push(occurrenceDate);
-      await event.save();
+      const cleanDate = occurrenceDate.substring(0, 10);
+      if (!event.recurrenceExceptions) {
+        event.recurrenceExceptions = [];
+      }
+      if (!event.recurrenceExceptions.includes(cleanDate)) {
+        event.recurrenceExceptions.push(cleanDate);
+        await event.save();
+      }
 
-      this.appGateway.server.emit("calendar_event_deleted", { eventId, deleteType, occurrenceDate });
+      this.appGateway.server.emit("calendar_event_deleted", {
+        eventId,
+        deleteType,
+        occurrenceDate: cleanDate,
+      });
+
+      return { success: true, recurrenceExceptions: event.recurrenceExceptions };
     } else {
+      // Xử lý xóa bài đăng cuộc họp kênh trong bảng tin khi xóa toàn bộ
+      if (
+        event.roomType === "channel_meeting" &&
+        event.roomId &&
+        event.channelId
+      ) {
+        try {
+          const post = await this.postModel.findOneAndUpdate(
+            { meetingId: eventId, isDeleted: { $ne: true } },
+            { $set: { isDeleted: true } },
+            { new: true },
+          );
+          if (post) {
+            this.appGateway.server
+              .to(`room_${event.roomId}`)
+              .emit("post_deleted", { postId: post._id });
+          }
+        } catch (err) {
+          console.error("Lỗi xóa bài đăng lịch họp:", err);
+        }
+      }
+
       // Hủy toàn bộ chuỗi
       await this.calendarEventModel.findByIdAndDelete(eventId);
-      await this.meetingInvitationModel.deleteMany({ eventId });
 
-      this.appGateway.server.emit("calendar_event_deleted", { eventId, deleteType });
+      this.appGateway.server.emit("calendar_event_deleted", {
+        eventId,
+        deleteType,
+      });
+
+      return { success: true };
+    }
+  }
+
+  /**
+   * Khôi phục 1 ngày đã hủy trong chuỗi lặp
+   */
+  async restoreOccurrence(
+    userId: string,
+    eventId: string,
+    occurrenceDate: string,
+  ) {
+    const event = await this.calendarEventModel.findById(eventId);
+    if (!event) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
     }
 
-    return { success: true };
+    if (event.hostId !== userId) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_FORBIDDEN);
+    }
+
+    const cleanDate = occurrenceDate.substring(0, 10);
+    if (
+      event.recurrenceExceptions &&
+      event.recurrenceExceptions.includes(cleanDate)
+    ) {
+      event.recurrenceExceptions = event.recurrenceExceptions.filter(
+        (d) => d !== cleanDate,
+      );
+      await event.save();
+    }
+
+    this.appGateway.server.emit("calendar_event_updated", {
+      eventId,
+      updateType: "restore",
+      occurrenceDate: cleanDate,
+      event,
+    });
+
+    return { success: true, recurrenceExceptions: event.recurrenceExceptions || [] };
   }
 
   /**
    * Phản hồi trạng thái RSVP
    */
-  async updateRSVP(userId: string, eventId: string, status: "ACCEPTED" | "DECLINED" | "TENTATIVE") {
-    const invite = await this.meetingInvitationModel.findOneAndUpdate(
-      { eventId, userId },
-      { $set: { status } },
+  async updateRSVP(
+    userId: string,
+    eventId: string,
+    status: CalendarRSVPStatus,
+  ) {
+    // Rút user ra khỏi tất cả các mảng để làm sạch
+    await this.calendarEventModel.findByIdAndUpdate(eventId, {
+      $pull: {
+        pendingUserIds: userId,
+        acceptedUserIds: userId,
+        declinedUserIds: userId,
+      },
+    });
+
+    // Phân loại mảng cần đẩy vào
+    let targetArray = "pendingUserIds";
+    if (status === "ACCEPTED") targetArray = "acceptedUserIds";
+    if (status === "DECLINED") targetArray = "declinedUserIds";
+
+    // Đẩy user vào mảng tương ứng
+    const updatedEvent = await this.calendarEventModel.findByIdAndUpdate(
+      eventId,
+      { $push: { [targetArray]: userId } },
       { new: true },
     );
 
-    if (!invite) {
-      throw new NotFoundException("Không tìm thấy lời mời tham gia lịch họp này");
+    if (!updatedEvent) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
     }
 
-    // Phát sự kiện realtime về cho Host và các thành viên được mời
-    const event = await this.calendarEventModel.findById(eventId);
-    if (event) {
-      this.appGateway.server.to(`user_${event.hostId}`).emit("rsvp_updated", { eventId, userId, status });
-    }
+    // Phát event qua NotificationService để cập nhật trạng thái thông báo
+    this.eventEmitter.emit("notification.calendar_rsvp", {
+      userId,
+      eventId,
+      status,
+    });
 
-    return invite;
+    // Emit Realtime cho host
+    this.appGateway.server
+      .to(`user_${updatedEvent.hostId}`)
+      .emit("rsvp_updated", { eventId, userId, status });
+
+    return { success: true, status };
   }
 
   /**
-   * Lấy chi tiết RSVP của sự kiện
+   * Lấy chi tiết RSVP của sự kiện dựa vào các danh sách acceptedUserIds, pendingUserIds, declinedUserIds
    */
-  async getRSVPList(eventId: string) {
-    return this.meetingInvitationModel.find({ eventId }).exec();
-  }
+  async getRSVPList(eventId: string): Promise<CalendarRSVPMember[]> {
+    const event = await this.calendarEventModel.findById(eventId).exec();
+    if (!event) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
 
-  /**
-   * Helper: Kiểm tra trùng lịch (Conflict Check)
-   */
-  private async checkConflicts(userIds: string[], start: Date, end: Date) {
-    const conflicts = await this.meetingInvitationModel.find({
-      userId: { $in: userIds },
-      status: "ACCEPTED",
-    }).exec();
+    const acceptedIds = event.acceptedUserIds || [];
+    const pendingIds = event.pendingUserIds || [];
+    const declinedIds = event.declinedUserIds || [];
 
-    for (const conf of conflicts) {
-      const event = await this.calendarEventModel.findById(conf.eventId);
-      if (event) {
-        // Kiểm tra chồng chéo thời gian
-        if (
-          (start >= event.startDate && start < event.endDate) ||
-          (end > event.startDate && end <= event.endDate) ||
-          (start <= event.startDate && end >= event.endDate)
-        ) {
-          const user = await this.userModel.findOne({ supabaseId: conf.userId }).exec();
-          throw new BadRequestException(`Thành viên ${user?.displayName || conf.userId} đã bận lịch họp khác vào khung giờ này`);
-        }
+    const allUserIds = Array.from(
+      new Set([...acceptedIds, ...pendingIds, ...declinedIds]),
+    );
+
+    if (allUserIds.length === 0) {
+      return [];
+    }
+
+    const users = await this.userModel
+      .find({ supabaseId: { $in: allUserIds } })
+      .select("supabaseId email displayName avatarUrl")
+      .exec();
+
+    const userMap = new Map(users.map((u) => [u.supabaseId, u]));
+
+    return allUserIds.map((uid) => {
+      const u = userMap.get(uid);
+      let status: CalendarRSVPStatus = "PENDING";
+      if (acceptedIds.includes(uid)) {
+        status = "ACCEPTED";
+      } else if (declinedIds.includes(uid)) {
+        status = "DECLINED";
       }
-    }
+
+      return {
+        userId: uid,
+        email: u?.email || "",
+        displayName:
+          u?.displayName || u?.email?.split("@")[0] || "Người dùng",
+        avatarUrl: u?.avatarUrl || "",
+        status,
+      };
+    });
   }
+
 
   /**
    * Tìm kiếm sự kiện của người dùng theo từ khóa (gần đúng, không phân biệt hoa thường)
@@ -605,14 +839,10 @@ export class CalendarService {
 
     const trimmedQuery = queryText.trim();
 
-    // Query toàn bộ sự kiện có title hoặc description chứa keyword (Global Search)
     const query: Record<string, unknown> = {
-      $or: [
-        { title: { $regex: trimmedQuery, $options: "i" } }
-      ]
+      $or: [{ title: { $regex: trimmedQuery, $options: "i" } }],
     };
 
-    // Chỉ select những trường phục vụ Search UI và giới hạn tối đa 10 kết quả
     const events = await this.calendarEventModel
       .find(query)
       .select("_id title startDate endDate roomType hostId")
@@ -620,7 +850,6 @@ export class CalendarService {
       .limit(10)
       .exec();
 
-    // Đính kèm nhanh email host (chỉ select email từ userModel)
     const results = [];
     for (const event of events) {
       const hostUser = await this.userModel
@@ -633,32 +862,5 @@ export class CalendarService {
       });
     }
     return results;
-  }
-
-  /**
-   * Helper: Gửi thư mời qua SMTP Email
-   */
-  private async sendEmailInvitation(email: string, event: CalendarEvent) {
-    if (!this.transporter) return;
-
-    try {
-      const from = process.env.SMTP_FROM || `"ToboMeet Calendar" <${process.env.SMTP_USER}>`;
-      await this.transporter.sendMail({
-        from,
-        to: email,
-        subject: `[ToboMeet] Lời mời họp: ${event.title}`,
-        html: `
-          <h3>Bạn nhận được lời mời tham gia cuộc họp trên ToboMeet</h3>
-          <p><strong>Tiêu đề:</strong> ${event.title}</p>
-          <p><strong>Bắt đầu:</strong> ${event.startDate.toLocaleString()}</p>
-          <p><strong>Mô tả:</strong> ${event.description || "Không có mô tả"}</p>
-          <p><strong>Mã cuộc họp Livekit:</strong> ${event.meetingCode}</p>
-          <hr />
-          <p>Vui lòng đăng nhập hệ thống ToboMeet để phản hồi lời mời.</p>
-        `,
-      });
-    } catch (e) {
-      console.error("Lỗi gửi email mời họp:", e);
-    }
   }
 }

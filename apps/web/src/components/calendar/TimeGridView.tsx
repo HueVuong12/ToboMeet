@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Repeat } from "lucide-react";
 import { CalendarEvent, getDaysOfWeek, getEventBgColor, getEventIcon } from "./types";
 
 interface TimeGridViewProps {
@@ -37,118 +38,24 @@ export default function TimeGridView({
     return true;
   });
 
-  const hoursRange = Array.from({ length: 23 }, (_, i) => i + 1); // 1 AM đến 11 PM
+  // Hỗ trợ đầy đủ 24 khung giờ từ 0 đến 23
+  const hoursRange = Array.from({ length: 24 }, (_, i) => i);
 
-  // Tính toán vị trí tuyệt đối của Event Card trong lưới Grid
-  const getEventPositionStyles = (event: CalendarEvent) => {
-    const start = new Date(event.startDate);
-    const end = new Date(event.endDate);
-
-    let startHour = start.getHours() + start.getMinutes() / 60;
-    let endHour = end.getHours() + end.getMinutes() / 60;
-
-    // Đối với Assignment: Hiển thị marker nhỏ gọn cắm tại đúng mốc giờ deadline, không kéo dài
-    if (event.eventType === "assignment") {
-      const displayStart = Math.max(1, Math.min(23, startHour));
-      const top = (displayStart - 1) * 64;
-      const finalHeight = 36;
-      return {
-        top: `${top}px`,
-        height: `${finalHeight}px`,
-      };
+  const formatHourLabel = (hour: number) => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    if (locale === "vi") {
+      return `${pad(hour)}:00`;
     }
-
-    if (end.toDateString() !== start.toDateString()) {
-      endHour = 23;
-    }
-
-    const displayStart = Math.max(1, Math.min(23, startHour));
-    const displayEnd = Math.max(1, Math.min(23, endHour));
-    const durationHours = Math.max(0.5, displayEnd - displayStart);
-
-    const top = (displayStart - 1) * 64;
-    const height = durationHours * 64;
-
-    const finalHeight = Math.max(38, height - 4);
-    const offsetTop = (height - finalHeight) / 2;
-
-    return {
-      top: `${top + offsetTop}px`,
-      height: `${finalHeight}px`,
-    };
+    if (hour === 0) return "12 AM";
+    if (hour === 12) return "12 PM";
+    return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
   };
 
-  // Tính toán layout chiều ngang (left, width) cho các sự kiện bị trùng giờ song song
-  const getEventsLayout = (dayEvents: CalendarEvent[]) => {
-    interface EventLayout {
-      left: string;
-      width: string;
-    }
-    const layouts: Record<string, EventLayout> = {};
-    if (dayEvents.length === 0) return layouts;
-
-    const sorted = [...dayEvents].sort(
-      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-    );
-
-    const groups: CalendarEvent[][] = [];
-    let currentGroup: CalendarEvent[] = [];
-    let groupEnd = 0;
-
-    for (const event of sorted) {
-      const start = new Date(event.startDate).getTime();
-      const end = new Date(event.endDate).getTime();
-
-      if (currentGroup.length === 0 || start < groupEnd) {
-        currentGroup.push(event);
-        groupEnd = Math.max(groupEnd, end);
-      } else {
-        groups.push(currentGroup);
-        currentGroup = [event];
-        groupEnd = end;
-      }
-    }
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup);
-    }
-
-    for (const group of groups) {
-      const columns: CalendarEvent[][] = [];
-
-      for (const event of group) {
-        let placed = false;
-        const start = new Date(event.startDate).getTime();
-
-        for (let i = 0; i < columns.length; i++) {
-          const lastInCol = columns[i][columns[i].length - 1];
-          const lastEnd = new Date(lastInCol.endDate).getTime();
-
-          if (start >= lastEnd) {
-            columns[i].push(event);
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          columns.push([event]);
-        }
-      }
-
-      const totalCols = columns.length;
-      for (let colIdx = 0; colIdx < totalCols; colIdx++) {
-        for (const event of columns[colIdx]) {
-          const widthPercent = 100 / totalCols;
-          const leftPercent = colIdx * widthPercent;
-
-          layouts[event._id] = {
-            left: `calc(${leftPercent}% + 1.5px)`,
-            width: `calc(${widthPercent}% - 3px)`,
-          };
-        }
-      }
-    }
-
-    return layouts;
+  const formatEventTime = (startDate: string, endDate: string) => {
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${pad(s.getHours())}:${pad(s.getMinutes())} - ${pad(e.getHours())}:${pad(e.getMinutes())}`;
   };
 
   const handleDragStart = (e: React.DragEvent, eventId: string) => {
@@ -159,14 +66,23 @@ export default function TimeGridView({
     e.preventDefault();
   };
 
+  const handleDropOnCell = (
+    e: React.DragEvent,
+    dayDate: Date,
+    hour: number,
+  ) => {
+    e.preventDefault();
+    const eventId = e.dataTransfer.getData("text/plain");
+    if (eventId) {
+      onDropEvent(eventId, dayDate, hour);
+    }
+  };
+
   return (
-    <div
-      className="min-w-[800px] bg-white border border-slate-200 rounded-2xl shadow-sm relative"
-      style={{ height: `${23 * 64 + 48}px` }}
-    >
-      {/* Grid Header */}
-      <div className="flex border-b border-slate-100 h-12 items-center bg-white sticky top-0 z-30 rounded-t-2xl">
-        <div className="w-20 text-center text-xs font-bold text-slate-400 border-r border-slate-100 bg-white sticky left-0 z-30 h-full flex items-center justify-center">
+    <div className="min-w-[800px] bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+      {/* Grid Header — Hàng tiêu đề ngày cố định khi lướt xuống */}
+      <div className="flex border-b border-slate-200 h-12 items-center bg-white sticky top-0 z-30 rounded-t-2xl shadow-xs">
+        <div className="w-20 text-center text-xs font-bold text-slate-400 border-r border-slate-200 bg-white sticky left-0 top-0 z-40 h-full flex items-center justify-center shrink-0 rounded-tl-2xl">
           GMT+07
         </div>
         {displayedDays.map((date, idx) => (
@@ -192,123 +108,125 @@ export default function TimeGridView({
         ))}
       </div>
 
-      {/* Grid Body */}
-      <div className="flex relative" style={{ height: `${23 * 64}px` }}>
-        {/* Time labels column */}
-        <div className="w-20 border-r border-slate-100 flex flex-col bg-white sticky left-0 z-20">
-          {hoursRange.map((hour) => (
-            <div
-              key={hour}
-              className="h-16 flex justify-center items-start pt-2 border-b border-slate-50 text-[11px] font-bold text-slate-400 bg-white"
-            >
-              {hour > 12
-                ? `${hour - 12} PM`
-                : hour === 12
-                  ? "12 PM"
-                  : `${hour} AM`}
-            </div>
-          ))}
-        </div>
-
-        {/* Day Columns */}
-        {displayedDays.map((dayDate, colIdx) => (
+      {/* Grid Body — Từng hàng là 1 khung giờ, mỗi ô có thể chứa nhiều lịch xuống dòng */}
+      <div className="flex flex-col divide-y divide-slate-100">
+        {hoursRange.map((hour) => (
           <div
-            key={colIdx}
-            className="flex-1 border-r border-slate-100 last:border-0 relative h-full flex flex-col overflow-hidden"
-            onDragOver={handleDragOver}
-            onDrop={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const y = e.clientY - rect.top;
-              const hourOffset = Math.floor(y / 64) + 1; // Bắt đầu từ 1 AM
-              const eventId = e.dataTransfer.getData("text/plain");
-              if (eventId) {
-                onDropEvent(eventId, dayDate, hourOffset);
-              }
-            }}
+            key={hour}
+            className="flex min-h-[68px] hover:bg-slate-50/20 transition-colors"
           >
-            {/* Time cell slots */}
-            {hoursRange.map((hour) => (
-              <div
-                key={hour}
-                onClick={() => onCellClick(dayDate, hour)}
-                className="h-16 border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer"
-              />
-            ))}
+            {/* Nhãn khung giờ bên trái */}
+            <div className="w-20 shrink-0 border-r border-slate-100 flex justify-center items-start pt-2 text-[11px] font-bold text-slate-400 bg-white sticky left-0 z-20 select-none">
+              {formatHourLabel(hour)}
+            </div>
 
-            {/* Absolutely positioned events */}
-            {(() => {
-              const dayEvents = filteredEvents.filter(
-                (ev) =>
-                  new Date(ev.startDate).toDateString() === dayDate.toDateString()
-              );
-              const layouts = getEventsLayout(dayEvents);
+            {/* Các ô (khung giờ) theo từng ngày */}
+            {displayedDays.map((dayDate, colIdx) => {
+              // Lấy tất cả sự kiện bắt đầu trong khung giờ này (hoặc deadline nhiệm vụ trong giờ này)
+              const cellEvents = filteredEvents
+                .filter((ev) => {
+                  const evDate = new Date(ev.startDate);
+                  const isSameDay =
+                    evDate.toDateString() === dayDate.toDateString();
+                  if (!isSameDay) return false;
 
-              return dayEvents.map((event) => {
-                const { top, height } = getEventPositionStyles(event);
-                const layout = layouts[event._id] || {
-                  left: "1.5px",
-                  width: "calc(100% - 3px)",
-                };
+                  if (ev.eventType === "assignment") {
+                    const d = new Date(ev.assignmentDueDate || ev.startDate);
+                    return d.getHours() === hour;
+                  }
 
-                return (
-                  <div
-                    key={event._id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, event._id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectEvent(event);
-                    }}
-                    style={{
-                      top,
-                      minHeight: height,
-                      left: layout.left,
-                      width: layout.width,
-                    }}
-                    className={`absolute h-auto px-3 py-1.5 rounded-xl border border-l-4 ${getEventBgColor(
-                      event.roomType,
-                      event.status,
-                      event.eventType,
-                      event.assignmentStatus
-                    )} transition-all cursor-pointer overflow-hidden flex flex-col ${
-                      parseFloat(height) > 48
-                        ? "justify-between"
-                        : "justify-center"
-                    } z-10 hover:z-30 hover:shadow-md ${
-                      highlightedEventId === event._id
-                        ? "ring-4 ring-indigo-500 ring-offset-2 scale-105 z-50 shadow-xl animate-pulse"
-                        : ""
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="shrink-0">
-                          {getEventIcon(event.roomType, event.eventType)}
-                        </div>
-                        <h4 className="font-bold text-xs leading-tight truncate text-left flex-1 min-w-0">
-                          {event.eventType === "assignment"
-                            ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${event.title}`
-                            : event.title}
-                        </h4>
-                        {event.eventType === "assignment" && event.assignmentStatus && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/80 shrink-0">
-                            {event.assignmentStatus === "submitted"
-                              ? (locale === "vi" ? "Đã nộp" : "Submitted")
-                              : event.assignmentStatus === "graded"
-                              ? (locale === "vi" ? "Đã chấm" : "Graded")
-                              : event.assignmentStatus === "overdue"
-                              ? (locale === "vi" ? "Quá hạn" : "Overdue")
-                              : event.assignmentStatus === "closed"
-                              ? (locale === "vi" ? "Đã đóng" : "Closed")
-                              : (locale === "vi" ? "Đang làm" : "In Progress")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  return evDate.getHours() === hour;
+                })
+                .sort(
+                  (a, b) =>
+                    new Date(a.startDate).getTime() -
+                    new Date(b.startDate).getTime(),
                 );
-              });
-            })()}
+
+              return (
+                <div
+                  key={colIdx}
+                  onClick={() => onCellClick(dayDate, hour)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDropOnCell(e, dayDate, hour)}
+                  className="flex-1 border-r border-slate-100 last:border-0 p-1.5 flex flex-col gap-1.5 hover:bg-indigo-50/20 transition-colors cursor-pointer min-w-0"
+                >
+                  {/* Danh sách các lịch trong khung giờ này — Tự động xuống dòng theo từng lịch */}
+                  {cellEvents.map((event) => {
+                    const isAssignment = event.eventType === "assignment";
+                    const isHighlighted = highlightedEventId === event._id;
+
+                    return (
+                      <div
+                        key={`${event._id}_${event.occurrenceDate || event.startDate}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, event._id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectEvent(event);
+                        }}
+                        className={`w-full px-2.5 py-1.5 rounded-xl border border-l-4 ${getEventBgColor(
+                          event.roomType,
+                          event.status,
+                          event.eventType,
+                          event.assignmentStatus,
+                        )} transition-all cursor-pointer overflow-hidden flex flex-col justify-center shadow-xs hover:shadow-md hover:scale-[1.01] ${
+                          isHighlighted
+                            ? "ring-2 ring-indigo-500 ring-offset-1 scale-[1.02] z-20 shadow-lg animate-pulse"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="shrink-0 text-slate-600">
+                            {getEventIcon(event.roomType, event.eventType)}
+                          </div>
+                          <h4 className="font-bold text-xs leading-tight truncate text-left flex-1 min-w-0 text-slate-800">
+                            {isAssignment
+                              ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${event.title}`
+                              : event.title}
+                          </h4>
+                          {isAssignment && event.assignmentStatus && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/80 shrink-0">
+                              {event.assignmentStatus === "submitted"
+                                ? locale === "vi"
+                                  ? "Đã nộp"
+                                  : "Submitted"
+                                : event.assignmentStatus === "graded"
+                                  ? locale === "vi"
+                                    ? "Đã chấm"
+                                    : "Graded"
+                                  : event.assignmentStatus === "overdue"
+                                    ? locale === "vi"
+                                      ? "Quá hạn"
+                                      : "Overdue"
+                                    : event.assignmentStatus === "closed"
+                                      ? locale === "vi"
+                                        ? "Đã đóng"
+                                        : "Closed"
+                                      : locale === "vi"
+                                        ? "Đang làm"
+                                        : "In Progress"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium mt-0.5">
+                          <span>
+                            {formatEventTime(event.startDate, event.endDate)}
+                          </span>
+                          {(event.recurrenceRule || event.isRecurring) && (
+                            <span className="flex items-center gap-0.5 text-indigo-600 font-semibold text-[9px] shrink-0">
+                              <Repeat className="w-2.5 h-2.5" />
+                              <span>{locale === "vi" ? "Lặp" : "Recur"}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

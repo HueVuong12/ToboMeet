@@ -20,7 +20,7 @@ export class NotificationsService {
     private notificationModel: Model<NotificationDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
-  ) {}
+  ) { }
 
   /**
    * Helper cập nhật trạng thái có thông báo chưa đọc cho User(s).
@@ -79,6 +79,7 @@ export class NotificationsService {
       _id: doc._id.toString(),
       userId: doc.userId,
       type: doc.type,
+      referenceId: doc.referenceId,
       metadata: doc.metadata,
       isRead: doc.isRead,
       createdAt: doc.createdAt,
@@ -251,6 +252,68 @@ export class NotificationsService {
         .emit("receive_notifications", [newNotif]);
     } catch (error) {
       console.error("Lỗi khi tạo thông báo ROOM_BLOCKED:", error);
+    }
+  }
+
+  // Thông báo lời mời tham gia lịch họp
+  @OnEvent("notification.calendar_invite", { async: true })
+  async handleCalendarInvite(payload: {
+    userIds: string[];
+    referenceId?: string;
+    metadata: Record<string, unknown>;
+  }) {
+    try {
+      if (!payload.userIds?.length) return;
+
+      const notificationsToInsert = payload.userIds.map((userId) => ({
+        userId,
+        type: "CALENDAR_INVITE",
+        referenceId: payload.referenceId || (payload.metadata?.eventId as string) || "",
+        metadata: payload.metadata,
+        isRead: false,
+        isNotified: false,
+        canPopup: true,
+      }));
+
+      const insertedNotifs = await this.notificationModel.insertMany(
+        notificationsToInsert,
+      );
+
+      this.toggleUnreadStatus(payload.userIds, true);
+
+      insertedNotifs.forEach((notif) => {
+        this.appGateway.server
+          .to(`user_${notif.userId}`)
+          .emit("receive_notifications", [notif]);
+      });
+    } catch (error) {
+      console.error("Lỗi khi tạo thông báo CALENDAR_INVITE:", error);
+    }
+  }
+
+  // Cập nhật trạng thái thông báo khi user phản hồi RSVP
+  @OnEvent("notification.calendar_rsvp", { async: true })
+  async handleCalendarRSVP(payload: {
+    userId: string;
+    eventId: string;
+    status: string;
+  }) {
+    try {
+      await this.notificationModel.updateMany(
+        {
+          userId: payload.userId,
+          type: "CALENDAR_INVITE",
+          referenceId: payload.eventId,
+        },
+        {
+          $set: {
+            "metadata.rsvpStatus": payload.status,
+            isRead: true,
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái thông báo CALENDAR_INVITE:", error);
     }
   }
 }

@@ -10,11 +10,16 @@ import {
   Req,
   UseGuards,
   Patch,
+  UsePipes,
+  ValidationPipe,
 } from "@nestjs/common";
 import { CalendarService } from "./calendar.service";
 import { SupabaseGuard } from "../core/guards/supabase.guard";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { UpdateRsvpDto } from "./dto/update-rsvp.dto";
+import { GetEventsDto } from "./dto/get-events.dto";
+import { RestoreOccurrenceDto } from "./dto/restore-occurrence.dto";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -24,11 +29,15 @@ interface AuthenticatedRequest extends Request {
 
 @Controller("calendar")
 @UseGuards(SupabaseGuard)
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class CalendarController {
   constructor(private readonly calendarService: CalendarService) {}
 
   @Post()
-  async createEvent(@Req() req: AuthenticatedRequest, @Body() body: CreateEventDto) {
+  async createEvent(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: CreateEventDto,
+  ) {
     return this.calendarService.createEvent(req.user.id, body);
   }
 
@@ -50,15 +59,17 @@ export class CalendarController {
   @Get()
   async getEvents(
     @Req() req: AuthenticatedRequest,
-    @Query("start") start: string,
-    @Query("end") end: string,
-    @Query("roomId") roomId?: string,
-    @Query("createdByMe") createdByMe?: string,
+    @Query() query: GetEventsDto,
   ) {
-    return this.calendarService.getEventsForUser(req.user.id, start, end, {
-      roomId,
-      createdByMe: createdByMe === "true",
-    });
+    return this.calendarService.getEventsForUser(
+      req.user.id,
+      query.start,
+      query.end,
+      {
+        roomId: query.roomId,
+        createdByMe: query.createdByMe === "true",
+      },
+    );
   }
 
   @Put(":id")
@@ -69,7 +80,13 @@ export class CalendarController {
     @Query("occurrenceDate") occurrenceDate?: string,
     @Body() body: UpdateEventDto = {},
   ) {
-    return this.calendarService.updateEvent(req.user.id, eventId, updateType, body, occurrenceDate);
+    return this.calendarService.updateEvent(
+      req.user.id,
+      eventId,
+      updateType,
+      body,
+      occurrenceDate,
+    );
   }
 
   @Delete(":id")
@@ -79,16 +96,34 @@ export class CalendarController {
     @Query("type") deleteType: "single" | "all" = "all",
     @Query("occurrenceDate") occurrenceDate?: string,
   ) {
-    return this.calendarService.deleteEvent(req.user.id, eventId, deleteType, occurrenceDate);
+    return this.calendarService.deleteEvent(
+      req.user.id,
+      eventId,
+      deleteType,
+      occurrenceDate,
+    );
+  }
+
+  @Post(":id/restore")
+  async restoreOccurrence(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") eventId: string,
+    @Body() body: RestoreOccurrenceDto,
+  ) {
+    return this.calendarService.restoreOccurrence(
+      req.user.id,
+      eventId,
+      body.occurrenceDate,
+    );
   }
 
   @Patch(":id/rsvp")
   async updateRSVP(
     @Req() req: AuthenticatedRequest,
     @Param("id") eventId: string,
-    @Body("status") status: "ACCEPTED" | "DECLINED" | "TENTATIVE",
+    @Body() body: UpdateRsvpDto,
   ) {
-    return this.calendarService.updateRSVP(req.user.id, eventId, status);
+    return this.calendarService.updateRSVP(req.user.id, eventId, body.status);
   }
 
   @Get(":id/rsvp")

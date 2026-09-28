@@ -34,6 +34,7 @@ import {
   useUpdateCalendarEventMutation,
   useDeleteCalendarEventMutation,
 } from "@/lib/redux/api/calendarApi";
+import { toast } from "sonner";
 
 export default function CalendarPage() {
   return (
@@ -77,7 +78,7 @@ function CalendarContent() {
   // RSVP Management & Mutations
   const [triggerRsvpQuery, { data: rsvpData }] = useLazyGetCalendarRsvpQuery();
   const [updateCalendarEvent] = useUpdateCalendarEventMutation();
-  const [deleteCalendarEvent] = useDeleteCalendarEventMutation();
+  const [deleteCalendarEvent, { isLoading: isDeletingEvent }] = useDeleteCalendarEventMutation();
 
   const selectedEventRef = useRef<CalendarEvent | null>(null);
 
@@ -213,14 +214,55 @@ function CalendarContent() {
     setShowCreateModal(true);
   };
 
-  const handleDeleteEvent = async (event: CalendarEvent) => {
+  const handleDeleteEvent = async (
+    event: CalendarEvent,
+    deleteType: "single" | "all" = "all",
+  ) => {
     try {
-      await deleteCalendarEvent(event._id).unwrap();
+      const occurrenceDate =
+        event.occurrenceDate ||
+        (event.startDate ? event.startDate.substring(0, 10) : undefined);
+
+      await deleteCalendarEvent({
+        id: event._id,
+        type: deleteType,
+        occurrenceDate: deleteType === "single" ? occurrenceDate : undefined,
+      }).unwrap();
+
+      toast.success(
+        deleteType === "single"
+          ? locale === "vi"
+            ? "Đã hủy buổi họp này thành công!"
+            : "Successfully cancelled this meeting occurrence!"
+          : locale === "vi"
+            ? "Đã hủy lịch họp thành công!"
+            : "Successfully cancelled meeting!",
+      );
+
       setShowDeleteConfirmModal(false);
       setShowDetailPopup(false);
+      refetchEvents();
     } catch (err) {
       console.error("Lỗi xóa sự kiện:", err);
+      toast.error(
+        locale === "vi"
+          ? "Không thể xóa lịch họp. Vui lòng thử lại!"
+          : "Failed to delete meeting. Please try again!",
+      );
     }
+  };
+
+  const handleRestoreOccurrenceSuccess = (eventId: string, dateStr: string) => {
+    setSelectedEvent((prev) => {
+      if (!prev || prev._id !== eventId) return prev;
+      return {
+        ...prev,
+        recurrenceExceptions: (prev.recurrenceExceptions || []).filter(
+          (d) => d !== dateStr,
+        ),
+      };
+    });
+    refetchEvents();
   };
 
   const handleJoinMeeting = (meetingCode: string) => {
@@ -359,17 +401,28 @@ function CalendarContent() {
         onEdit={handleEditClick}
         onDelete={() => setShowDeleteConfirmModal(true)}
         onJoinMeeting={handleJoinMeeting}
+        onRestoreOccurrence={handleRestoreOccurrenceSuccess}
       />
 
       <DeleteEventConfirmModal
         isOpen={showDeleteConfirmModal}
         onClose={() => setShowDeleteConfirmModal(false)}
-        onConfirm={() => {
+        onConfirm={(deleteType) => {
           if (selectedEvent) {
-            handleDeleteEvent(selectedEvent);
+            handleDeleteEvent(selectedEvent, deleteType);
           }
         }}
+        isRecurring={Boolean(
+          selectedEvent?.recurrenceRule || selectedEvent?.isRecurring,
+        )}
+        occurrenceDate={
+          selectedEvent?.occurrenceDate ||
+          (selectedEvent?.startDate
+            ? selectedEvent.startDate.substring(0, 10)
+            : undefined)
+        }
         locale={locale}
+        isLoading={isDeletingEvent}
       />
 
       {showSettingsDialog && (

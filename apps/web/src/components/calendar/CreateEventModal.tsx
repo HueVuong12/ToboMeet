@@ -124,6 +124,7 @@ export default function CreateEventModal({
 
     const inviteeList = selectedInvitees.map((usr) => ({
       email: usr.email,
+      userId: usr.supabaseId || usr.userId || usr._id,
       displayName: usr.displayName || usr.email,
     }));
 

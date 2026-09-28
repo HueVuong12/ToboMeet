@@ -7,12 +7,18 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Calendar,
+  Check,
+  X as XIcon,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLazyExchangeSessionQuery } from "@/lib/redux/api/meetingsApi";
+import { useUpdateCalendarRsvpMutation } from "@/lib/redux/api/calendarApi";
 import { toast } from "sonner";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 interface NotificationCardProps {
   notification: NotificationResponse;
@@ -24,9 +30,17 @@ export default function NotificationCard({
   onCloseDrawer,
 }: NotificationCardProps) {
   const t = useTranslations("notification");
+  const locale = useLocale();
   const router = useRouter();
   const [exchangeSession] = useLazyExchangeSessionQuery();
+  const [updateCalendarRsvp] = useUpdateCalendarRsvpMutation();
   const [isLoading, setIsLoading] = useState(false);
+  const [rsvpLoading, setRsvpLoading] = useState<"ACCEPTED" | "DECLINED" | null>(
+    null,
+  );
+  const [rsvpStatus, setRsvpStatus] = useState<string | null>(
+    notification.metadata?.rsvpStatus || null,
+  );
 
   const formatTimeAgo = (dateString: string) => {
     const now = new Date();
@@ -46,7 +60,7 @@ export default function NotificationCard({
     if (diffInDays <= 30) return t("time.days_ago", { count: diffInDays });
 
     // Quá 30 ngày thì hiển thị đầy đủ ngày giờ
-    return past.toLocaleString("vi-VN", {
+    return past.toLocaleString(locale === "vi" ? "vi-VN" : "en-US", {
       hour: "2-digit",
       minute: "2-digit",
       day: "2-digit",
@@ -90,6 +104,20 @@ export default function NotificationCard({
           sessionId: metadata?.sessionId,
           isActionable: true,
         };
+      case "CALENDAR_INVITE":
+        return {
+          title: t("types.calendar_invite.title"),
+          content: t("types.calendar_invite.content", {
+            inviterName: metadata?.inviterName || t("common.someone"),
+            title: metadata?.title || metadata?.eventTitle || "",
+          }),
+          icon: Calendar,
+          colorClass: "text-indigo-600 bg-indigo-100",
+          eventId: metadata?.eventId || notification.referenceId,
+          isCalendarInvite: true,
+          startDate: metadata?.startDate,
+          endDate: metadata?.endDate,
+        };
       case "ROOM_REPORTED":
         return {
           title: t("types.room_reported.title"),
@@ -121,6 +149,9 @@ export default function NotificationCard({
     colorClass,
     isActionable,
     sessionId,
+    isCalendarInvite,
+    eventId,
+    startDate,
   } = getNotificationDetails(notification.type, notification.metadata || {});
 
   const handleActionClick = async () => {
@@ -138,6 +169,37 @@ export default function NotificationCard({
       toast.error(error?.message || t("errors.session_ended"));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRsvp = async (status: "ACCEPTED" | "DECLINED") => {
+    if (!eventId) return;
+
+    setRsvpLoading(status);
+    try {
+      await updateCalendarRsvp({ eventId, status }).unwrap();
+      setRsvpStatus(status);
+      if (status === "ACCEPTED") {
+        toast.success(
+          locale === "vi"
+            ? "Đã chấp nhận lời mời và ghi nhận vào lịch của bạn"
+            : "Invitation accepted and added to your calendar",
+        );
+      } else {
+        toast.info(
+          locale === "vi" ? "Đã từ chối lời mời họp" : "Invitation declined",
+        );
+      }
+    } catch (error: any) {
+      toast.error(
+        error?.data?.message ||
+          error?.message ||
+          (status === "ACCEPTED"
+            ? "Không thể chấp nhận lời mời"
+            : "Không thể từ chối lời mời"),
+      );
+    } finally {
+      setRsvpLoading(null);
     }
   };
 
@@ -183,6 +245,71 @@ export default function NotificationCard({
                   t("actions.join")
                 )}
               </button>
+            </div>
+          )}
+
+          {isCalendarInvite && eventId && (
+            <div className="mt-3">
+              {startDate && (
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-2.5 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>
+                    {new Date(startDate).toLocaleDateString(
+                      locale === "vi" ? "vi-VN" : "en-US",
+                      {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {rsvpStatus === "ACCEPTED" ? (
+                <div className="flex items-center gap-1.5 py-1.5 px-3 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-lg text-xs font-semibold w-fit">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{t("actions.accepted")}</span>
+                </div>
+              ) : rsvpStatus === "DECLINED" ? (
+                <div className="flex items-center gap-1.5 py-1.5 px-3 bg-rose-50 text-rose-700 border border-rose-200/80 rounded-lg text-xs font-semibold w-fit">
+                  <XCircle className="w-4 h-4 text-rose-600" />
+                  <span>{t("actions.declined")}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleRsvp("ACCEPTED")}
+                    disabled={rsvpLoading !== null}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                  >
+                    {rsvpLoading === "ACCEPTED" ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{t("actions.accept")}</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleRsvp("DECLINED")}
+                    disabled={rsvpLoading !== null}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 border border-slate-200 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                  >
+                    {rsvpLoading === "DECLINED" ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <XIcon className="w-3.5 h-3.5" />
+                        <span>{t("actions.decline")}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

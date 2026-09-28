@@ -2018,6 +2018,10 @@
         "title": "Tham gia họp",
         "content": "{inviterName} đã mời bạn tham gia cuộc họp trong phòng {roomName}."
       },
+      "calendar_invite": {
+        "title": "Lời mời tham gia họp",
+        "content": "{inviterName} đã mời bạn tham gia lịch họp \"{title}\"."
+      },
       "room_reported": {
         "title": "Phòng bị báo cáo",
         "content": "Phòng của bạn đã bị người dùng báo cáo vi phạm."
@@ -2032,7 +2036,11 @@
       }
     },
     "actions": {
-      "join": "Tham gia"
+      "join": "Tham gia",
+      "accept": "Chấp nhận",
+      "decline": "Từ chối",
+      "accepted": "Đã chấp nhận",
+      "declined": "Đã từ chối"
     },
     "errors": {
       "session_ended": "Phiên họp có thể đã kết thúc."

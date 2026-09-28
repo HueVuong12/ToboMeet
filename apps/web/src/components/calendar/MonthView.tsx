@@ -31,22 +31,22 @@ export default function MonthView({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col h-full min-h-[600px]">
-      {/* Month Grid Header */}
-      <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50 h-10 items-center text-center text-xs font-bold text-slate-500">
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col h-full min-h-[600px]">
+      {/* Month Grid Header — Cố định khi cuộn xuống */}
+      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs h-10 items-center text-center text-xs font-bold text-slate-500 sticky top-0 z-30 rounded-t-2xl shadow-xs">
         {locale === "vi"
           ? [
-              "CN",
-              "THỨ 2",
-              "THỨ 3",
-              "THỨ 4",
-              "THỨ 5",
-              "THỨ 6",
-              "THỨ 7",
-            ].map((d) => <div key={d}>{d}</div>)
+            "CN",
+            "THỨ 2",
+            "THỨ 3",
+            "THỨ 4",
+            "THỨ 5",
+            "THỨ 6",
+            "THỨ 7",
+          ].map((d) => <div key={d}>{d}</div>)
           : ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
-              <div key={d}>{d}</div>
-            ))}
+            <div key={d}>{d}</div>
+          ))}
       </div>
 
       {/* Month Grid Cells */}
@@ -67,21 +67,19 @@ export default function MonthView({
             <div
               key={idx}
               onClick={() => onSelectDate(cellDate)}
-              className={`p-2 flex flex-col justify-between hover:bg-slate-50/50 transition-colors cursor-pointer min-h-[90px] ${
-                isCurrentMonth
+              className={`p-2 flex flex-col justify-between hover:bg-slate-50/50 transition-colors cursor-pointer min-h-[90px] ${isCurrentMonth
                   ? "bg-white"
                   : "bg-slate-50/20 text-slate-400"
-              } ${isSelected ? "ring-2 ring-indigo-500/20" : ""}`}
+                } ${isSelected ? "ring-2 ring-indigo-500/20" : ""}`}
             >
               <div className="flex items-center justify-between">
                 <span
-                  className={`text-[11px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
-                    isToday
+                  className={`text-[11px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday
                       ? "bg-indigo-600 text-white font-extrabold"
                       : isCurrentMonth
                         ? "text-slate-800"
                         : "text-slate-300"
-                  }`}
+                    }`}
                 >
                   {cellDate.getDate() === 1
                     ? `${cellDate.getDate()} thg ${cellDate.getMonth() + 1}`
@@ -90,10 +88,10 @@ export default function MonthView({
               </div>
 
               {/* Mini events list inside Month Cell */}
-              <div className="flex-1 mt-1 overflow-y-auto space-y-1 max-h-[70px]">
-                {dayEvents.slice(0, 3).map((ev) => (
+              <div className="flex-1 mt-1 overflow-y-auto space-y-1 max-h-[85px] pr-0.5">
+                {dayEvents.map((ev) => (
                   <div
-                    key={ev._id}
+                    key={`${ev._id}_${ev.occurrenceDate || ev.startDate}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectEvent(ev);
@@ -103,18 +101,13 @@ export default function MonthView({
                       ev.status,
                       ev.eventType,
                       ev.assignmentStatus,
-                    )}`}
+                    )} transition-transform hover:scale-[1.02] cursor-pointer`}
                   >
                     {ev.eventType === "assignment"
                       ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${ev.title}`
                       : ev.title}
                   </div>
                 ))}
-                {dayEvents.length > 3 && (
-                  <div className="text-[8px] text-slate-400 font-bold text-center">
-                    +{dayEvents.length - 3} more
-                  </div>
-                )}
               </div>
             </div>
           );

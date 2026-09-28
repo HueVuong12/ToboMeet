@@ -21,6 +21,9 @@ export interface CalendarEvent {
   roomType: "meeting" | "classroom" | "livestream" | "private" | "channel_meeting";
   status?: "active" | "cancelled" | "completed";
   recurrenceRule?: string;
+  isRecurring?: boolean;
+  recurrenceEndDate?: string;
+  recurrenceExceptions?: string[];
   isOccurrence?: boolean;
   occurrenceDate?: string;
   invitees?: { email: string; displayName?: string; status?: string }[];

@@ -454,6 +454,23 @@ export class MeetingsService {
   }
 
   /**
+   * Lấy hoặc tạo meetingCode tương ứng dựa trên loại meeting:
+   * - Nếu là cuộc họp kênh (channel_meeting): gọi ensureChannelMeeting
+   * - Nếu là cuộc họp cá nhân (personal/meeting): gọi ensurePersonalMeeting
+   */
+  async ensureMeetingCode(params: {
+    roomType?: "meeting" | "classroom" | "channel_meeting" | string;
+    userId: string;
+    roomId?: string;
+    channelId?: string;
+  }): Promise<{ meetingCode: string }> {
+    if (params.roomType === "channel_meeting" && params.roomId && params.channelId) {
+      return this.ensureChannelMeeting(params.roomId, params.channelId, params.userId);
+    }
+    return this.ensurePersonalMeeting(params.userId);
+  }
+
+  /**
    * Bật tắt chế độ phòng chờ (Waiting Room)
    */
   async toggleWaitingRoom(meetingCode: string, isWaitingRoomEnabled: boolean) {

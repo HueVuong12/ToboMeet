@@ -267,6 +267,48 @@ export const ErrorCode: Record<string, ErrorDetail> = {
     message: "Chỉ người bắt đầu ghi hình mới có quyền dừng ghi hình",
     statusCode: 403,
   },
+
+  // Calendar errors
+  CALENDAR_EVENT_NOT_FOUND: {
+    code: 4048,
+    message: "Không tìm thấy sự kiện lịch họp",
+    statusCode: 404,
+  },
+  CALENDAR_EVENT_FORBIDDEN: {
+    code: 4035,
+    message: "Bạn không có quyền thực hiện thao tác này trên sự kiện lịch",
+    statusCode: 403,
+  },
+  CALENDAR_EVENT_CONFLICT: {
+    code: 40015,
+    message: "Một hoặc nhiều thành viên được mời đã bận lịch khác vào khung giờ này",
+    statusCode: 400,
+  },
+  CALENDAR_START_TIME_INVALID: {
+    code: 40016,
+    message: "Thời gian bắt đầu họp phải sau thời gian hiện tại",
+    statusCode: 400,
+  },
+  CALENDAR_END_TIME_INVALID: {
+    code: 40017,
+    message: "Thời gian bắt đầu phải trước thời gian kết thúc",
+    statusCode: 400,
+  },
+  CALENDAR_CHANNEL_MEETING_INVALID: {
+    code: 40018,
+    message: "Cuộc họp kênh yêu cầu phải chọn phòng và kênh.",
+    statusCode: 400,
+  },
+  CALENDAR_ROOM_NOT_FOUND: {
+    code: 4049,
+    message: "Phòng không tồn tại hoặc đã bị giải tán.",
+    statusCode: 404,
+  },
+  CALENDAR_CHANNEL_NOT_FOUND: {
+    code: 40410,
+    message: "Kênh không thuộc phòng đã chọn. Dữ liệu không hợp lệ.",
+    statusCode: 404,
+  },
 };
 
 export interface NavLink {
@@ -531,6 +573,7 @@ export interface NotificationResponse {
   _id: string;
   userId: string;
   type: string;
+  referenceId?: string;
   metadata: Record<string, any>;
   isRead: boolean;
   isNotified?: boolean; // Dành cho Popup/Toast
@@ -627,5 +670,46 @@ export interface RecordingWebhookDto {
   folder: string; // e.g. "recordings/meet-6a80-ii70qip/string2"
   duration_sec: number;
   r2: R2FolderDetails;
+}
+
+// Calendar Service Shared Types
+export type CalendarRSVPStatus = "ACCEPTED" | "DECLINED" | "TENTATIVE" | "PENDING";
+
+export interface CalendarRSVPMember {
+  userId: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string;
+  status: CalendarRSVPStatus;
+}
+
+export interface CalendarEventResponse {
+  _id: string;
+  title: string;
+  description?: string;
+  hostId: string;
+  hostEmail?: string;
+  hostDisplayName?: string;
+  hostAvatarUrl?: string;
+  roomId?: string;
+  channelId?: string;
+  roomType?: "meeting" | "classroom" | "channel_meeting";
+  startDate: string | Date;
+  endDate: string | Date;
+  timezone?: string;
+  location?: string;
+  meetingCode: string;
+  meetingPassword?: string;
+  recurrenceRule?: string;
+  recurrenceExceptions?: string[];
+  acceptedUserIds?: string[];
+  pendingUserIds?: string[];
+  declinedUserIds?: string[];
+  isRecurring?: boolean;
+  recurrenceEndDate?: string | Date | null;
+  isOccurrence?: boolean;
+  occurrenceDate?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 

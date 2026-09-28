@@ -84,29 +84,30 @@ export default function CalendarHeader({
   }, [showSearch]);
 
   return (
-    <div className="h-[72px] bg-white border-b border-slate-200/60 flex items-center flex-shrink-0 z-35">
-      {/* LEFT: Cố định = độ rộng sidebar (w-64 = 256px) — Menu + Lịch */}
-      <div className="w-64 flex-shrink-0 flex items-center gap-3 px-4">
+    <div className="h-[68px] sm:h-[72px] bg-white border-b border-slate-200/60 flex items-center justify-between flex-shrink-0 z-35 px-2 sm:px-4 gap-1.5 sm:gap-3 select-none">
+      {/* LEFT: Menu + Lịch + Tháng/Năm dồn cạnh nhau, tự co gọn khi màn hình nhỏ */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
         <button
           onClick={onToggleSidebar}
-          className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors shrink-0"
+          className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors shrink-0"
+          title={locale === "vi" ? "Đóng/mở thanh bên" : "Toggle sidebar"}
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-            <CalendarIcon className="w-4 h-4 text-blue-500" />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+            <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
           </div>
-          <span className="text-[17px] sm:text-lg font-bold text-slate-800 tracking-tight">
+          <span className="text-sm sm:text-base md:text-lg font-bold text-slate-800 tracking-tight hidden sm:inline">
             {locale === "vi" ? "Lịch" : "Calendar"}
           </span>
         </div>
-      </div>
 
-      {/* RIGHT: flex-1 — tháng/năm + view switcher + điều hướng + tạo lịch */}
-      <div className="flex-1 flex items-center justify-between pl-[46px] lg:pl-[54px] pr-4 lg:pr-6 gap-4">
-        {/* Tháng/năm — thẳng hàng với đường kẻ phân cách */}
-        <h2 className="text-[20px] font-bold text-slate-800 tracking-tight truncate">
+        {/* Dấu phân cách dọc nhẹ */}
+        <div className="w-[1px] h-4 bg-slate-200 hidden sm:block shrink-0" />
+
+        {/* Tháng / Năm hiển thị ngay cạnh chữ Lịch */}
+        <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 tracking-tight whitespace-nowrap truncate max-w-[120px] sm:max-w-none">
           {currentDate
             .toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", {
               month: "long",
@@ -115,31 +116,32 @@ export default function CalendarHeader({
             .replace(/\u200E/g, "")
             .replace(/^./, (c) => c.toUpperCase())}
         </h2>
+      </div>
 
-        {/* Giữa: Bộ chuyển đổi View */}
-        <div className="hidden lg:flex justify-center">
-          <div className="flex bg-slate-100/70 p-1 rounded-full shadow-inner">
-            {(["day", "week", "month", "agenda"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => onSetView(v)}
-                className={`px-5 py-1.5 rounded-full text-[13px] font-bold uppercase tracking-wider transition-all duration-200 ${
-                  view === v
-                    ? "bg-white text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                {v === "day" && (locale === "vi" ? "Ngày" : "Day")}
-                {v === "week" && (locale === "vi" ? "Tuần" : "Week")}
-                {v === "month" && (locale === "vi" ? "Tháng" : "Month")}
-                {v === "agenda" && (locale === "vi" ? "Năm" : "Year")}
-              </button>
-            ))}
-          </div>
+      {/* CENTER: Bộ chuyển đổi View (Ngày, Tuần, Tháng, Năm) vào chính giữa */}
+      <div className="flex-1 flex justify-center items-center px-1 sm:px-2 min-w-0">
+        <div className="flex bg-slate-100/80 p-0.5 sm:p-1 rounded-full shadow-inner border border-slate-200/40 shrink-0">
+          {(["day", "week", "month", "agenda"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => onSetView(v)}
+              className={`px-2 sm:px-3.5 md:px-5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs md:text-[13px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                view === v
+                  ? "bg-white text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {v === "day" && (locale === "vi" ? "Ngày" : "Day")}
+              {v === "week" && (locale === "vi" ? "Tuần" : "Week")}
+              {v === "month" && (locale === "vi" ? "Tháng" : "Month")}
+              {v === "agenda" && (locale === "vi" ? "Năm" : "Year")}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Phải: Điều hướng + Nút Tạo */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+      {/* RIGHT: Tìm kiếm + Điều hướng (Hôm nay, Prev, Next) + Nút Tạo Lịch */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Search Component */}
           <div
             ref={searchContainerRef}
@@ -233,10 +235,10 @@ export default function CalendarHeader({
           </div>
 
           {/* Cụm nút điều hướng */}
-          <div className="flex items-center gap-1 bg-slate-100/70 p-1 rounded-full border border-slate-200/50">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100/70 p-0.5 sm:p-1 rounded-full border border-slate-200/50 shrink-0">
             <button
               onClick={() => onSetCurrentDate(new Date())}
-              className="px-4 py-1.5 hover:bg-white rounded-full text-[13px] font-bold text-slate-700 transition-all shadow-sm"
+              className="px-2.5 sm:px-4 py-1 sm:py-1.5 hover:bg-white rounded-full text-xs sm:text-[13px] font-bold text-slate-700 transition-all shadow-xs"
             >
               {locale === "vi" ? "Hôm nay" : "Today"}
             </button>
@@ -333,6 +335,5 @@ export default function CalendarHeader({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

@@ -35,7 +35,7 @@ export class CalendarEvent {
   @Prop()
   location: string; // Địa điểm vật lý (nếu có)
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true, index: true })
   meetingCode: string; // LiveKit Room Code
 
   @Prop()
@@ -49,8 +49,27 @@ export class CalendarEvent {
   // Lưu dạng chuỗi YYYYMMDD hoặc ISO Date string
   @Prop({ type: [String], default: [] })
   recurrenceExceptions: string[];
+
+  @Prop({ type: [String], default: [] })
+  acceptedUserIds: string[]; // Đã đồng ý (sẽ hiển thị lên lịch)
+
+  @Prop({ type: [String], default: [] })
+  pendingUserIds: string[]; // Đang chờ phản hồi (chỉ hiện thông báo)
+
+  @Prop({ type: [String], default: [] })
+  declinedUserIds: string[]; // Đã từ chối
+
+  @Prop({ type: Boolean, default: false })
+  isRecurring: boolean; // Cờ đánh dấu là sự kiện lặp
+
+  @Prop({ type: Date, default: null })
+  recurrenceEndDate: Date; // Ngày kết thúc chuỗi lặp
 }
 
 export const CalendarEventSchema = SchemaFactory.createForClass(CalendarEvent);
+
 CalendarEventSchema.index({ startDate: 1, endDate: 1 });
 CalendarEventSchema.index({ roomId: 1, channelId: 1 });
+CalendarEventSchema.index({ acceptedUserIds: 1, startDate: 1 });
+CalendarEventSchema.index({ hostId: 1, startDate: 1 });
+CalendarEventSchema.index({ pendingUserIds: 1 });

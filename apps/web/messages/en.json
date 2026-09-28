@@ -2033,6 +2033,10 @@
         "title": "Meeting Invitation",
         "content": "{inviterName} invited you to join a meeting in {roomName}."
       },
+      "calendar_invite": {
+        "title": "Meeting Invitation",
+        "content": "{inviterName} invited you to meeting \"{title}\"."
+      },
       "room_reported": {
         "title": "Room reported",
         "content": "Your room has been reported for a violation."
@@ -2047,7 +2051,11 @@
       }
     },
     "actions": {
-      "join": "Join"
+      "join": "Join",
+      "accept": "Accept",
+      "decline": "Decline",
+      "accepted": "Accepted",
+      "declined": "Declined"
     },
     "errors": {
       "session_ended": "The meeting session may have ended."

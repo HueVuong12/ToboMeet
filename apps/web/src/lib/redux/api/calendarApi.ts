@@ -45,10 +45,48 @@ export const calendarApi = baseApi.injectEndpoints({
       invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
     }),
 
-    deleteCalendarEvent: builder.mutation<void, string>({
-      query: (id) => ({
-        url: `/calendar/${id}?type=all`,
-        method: "DELETE",
+    deleteCalendarEvent: builder.mutation<
+      void,
+      string | { id: string; type?: "single" | "all"; occurrenceDate?: string }
+    >({
+      query: (arg) => {
+        if (typeof arg === "string") {
+          return {
+            url: `/calendar/${arg}?type=all`,
+            method: "DELETE",
+          };
+        }
+        const { id, type = "all", occurrenceDate } = arg;
+        const queryParams = new URLSearchParams({ type });
+        if (occurrenceDate) queryParams.append("occurrenceDate", occurrenceDate);
+        return {
+          url: `/calendar/${id}?${queryParams.toString()}`,
+          method: "DELETE",
+        };
+      },
+      invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
+    }),
+
+    restoreCalendarOccurrence: builder.mutation<
+      { success: boolean; recurrenceExceptions: string[] },
+      { id: string; occurrenceDate: string }
+    >({
+      query: ({ id, occurrenceDate }) => ({
+        url: `/calendar/${id}/restore`,
+        method: "POST",
+        data: { occurrenceDate },
+      }),
+      invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
+    }),
+
+    updateCalendarRsvp: builder.mutation<
+      { success: boolean; status: "ACCEPTED" | "DECLINED" | "TENTATIVE" },
+      { eventId: string; status: "ACCEPTED" | "DECLINED" | "TENTATIVE" }
+    >({
+      query: ({ eventId, status }) => ({
+        url: `/calendar/${eventId}/rsvp`,
+        method: "PATCH",
+        data: { status },
       }),
       invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
     }),
@@ -66,4 +104,7 @@ export const {
   useCreateCalendarEventMutation,
   useUpdateCalendarEventMutation,
   useDeleteCalendarEventMutation,
+  useRestoreCalendarOccurrenceMutation,
+  useUpdateCalendarRsvpMutation,
 } = calendarApi;
+

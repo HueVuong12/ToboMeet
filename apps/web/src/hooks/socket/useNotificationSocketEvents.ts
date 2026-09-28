@@ -81,6 +81,17 @@ export function useNotificationSocketEvents() {
               break;
             }
 
+            case "CALENDAR_INVITE": {
+              const title =
+                notif.metadata?.title || notif.metadata?.eventTitle || "";
+              const inviter = notif.metadata?.inviterName || "Ai đó";
+              toast.info("Lời mời lịch họp", {
+                description: `${inviter} đã mời bạn tham gia cuộc họp "${title}".`,
+                duration: 8000,
+              });
+              break;
+            }
+
             default:
               console.warn(
                 "Chưa hỗ trợ hiển thị loại thông báo này:",
