@@ -209,7 +209,18 @@ function CalendarContent() {
   };
 
   const handleEditClick = (event: CalendarEvent) => {
-    setEditingEvent(event);
+    const guests = rsvpList
+      .filter((r) => !r.isHost && r.userId !== event.hostId)
+      .map((r) => ({
+        email: r.email,
+        displayName: r.displayName,
+        status: r.status,
+      }));
+
+    setEditingEvent({
+      ...event,
+      invitees: guests.length > 0 ? guests : event.invitees,
+    });
     setShowDetailPopup(false);
     setShowCreateModal(true);
   };

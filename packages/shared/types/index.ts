@@ -681,6 +681,7 @@ export interface CalendarRSVPMember {
   displayName: string;
   avatarUrl?: string;
   status: CalendarRSVPStatus;
+  isHost?: boolean;
 }
 
 export interface CalendarEventResponse {

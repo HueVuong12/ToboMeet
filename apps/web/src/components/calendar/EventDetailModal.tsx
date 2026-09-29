@@ -204,6 +204,13 @@ export default function EventDetailModal({
     (currentUserId && currentUserId === event.hostId) ||
     (currentSupabaseId && currentSupabaseId === event.hostId);
 
+  const hostMember = rsvpList?.find(
+    (m) => m.isHost || m.userId === event.hostId,
+  );
+  const guestList = (rsvpList || []).filter(
+    (inv) => !inv.isHost && inv.userId !== event.hostId,
+  );
+
   const [restoreCalendarOccurrence] = useRestoreCalendarOccurrenceMutation();
   const [restoringDate, setRestoringDate] = useState<string | null>(null);
   const [exceptions, setExceptions] = useState<string[]>(
@@ -313,7 +320,7 @@ export default function EventDetailModal({
             </div>
 
             {/* Microsoft Teams style Action Buttons */}
-            {(isChannelMeeting || hasRsvp) && (
+            {(isChannelMeeting || Boolean(event.meetingCode) || hasRsvp || isHost) && (
               <div className="flex items-center gap-2 mt-3">
                 <button
                   onClick={() => {
@@ -478,8 +485,8 @@ export default function EventDetailModal({
             </div>
           )}
 
-          {/* Danh sách người tham gia (chỉ hiển thị khi cuộc họp có khách mời) */}
-          {rsvpList && rsvpList.length > 0 && (
+          {/* Danh sách người tham gia (người tổ chức và khách mời) */}
+          {(Boolean(event.hostId) || hasRsvp) && (
             <div className="border-t border-slate-100 pt-4">
               <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
                 {locale === "vi" ? "Người tham gia" : "Participants"}
@@ -488,16 +495,18 @@ export default function EventDetailModal({
                 {/* Người tổ chức (Host) */}
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2.5">
-                    {event.hostAvatarUrl ? (
+                    {hostMember?.avatarUrl || event.hostAvatarUrl ? (
                       <img
-                        src={event.hostAvatarUrl}
+                        src={hostMember?.avatarUrl || event.hostAvatarUrl}
                         className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
                         alt=""
                       />
                     ) : (
                       <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border border-slate-200 uppercase shrink-0">
                         {(
+                          hostMember?.displayName ||
                           event.hostDisplayName ||
+                          hostMember?.email ||
                           event.hostEmail ||
                           "?"
                         ).substring(0, 1)}
@@ -505,11 +514,14 @@ export default function EventDetailModal({
                     )}
                     <div className="flex flex-col min-w-0">
                       <span className="font-bold text-slate-800 truncate">
-                        {event.hostDisplayName ||
-                          event.hostEmail?.split("@")[0]}
+                        {hostMember?.displayName ||
+                          event.hostDisplayName ||
+                          hostMember?.email?.split("@")[0] ||
+                          event.hostEmail?.split("@")[0] ||
+                          (locale === "vi" ? "Người tổ chức" : "Organizer")}
                       </span>
                       <span className="text-[10px] text-slate-400 truncate">
-                        {event.hostEmail}
+                        {hostMember?.email || event.hostEmail}
                       </span>
                     </div>
                   </div>
@@ -519,7 +531,7 @@ export default function EventDetailModal({
                 </div>
 
                 {/* Khách mời */}
-                {rsvpList.map((inv, idx) => {
+                {guestList.map((inv, idx) => {
                   const isResponded = inv.status !== "PENDING";
                   const statusText = isResponded
                     ? locale === "vi"

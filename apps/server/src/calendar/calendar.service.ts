@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 
@@ -25,7 +25,7 @@ import {
 } from "../assignments/schemas/submission.schema";
 
 @Injectable()
-export class CalendarService implements OnModuleInit {
+export class CalendarService {
   constructor(
     @InjectModel(CalendarEvent.name)
     private calendarEventModel: Model<CalendarEventDocument>,
@@ -41,22 +41,6 @@ export class CalendarService implements OnModuleInit {
     private readonly meetingsService: MeetingsService,
     private readonly eventEmitter: EventEmitter2,
   ) { }
-
-  async onModuleInit() {
-    try {
-      const indexes = await this.calendarEventModel.collection.indexes();
-      const uniqueMeetingCodeIndex = indexes.find(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (idx: any) => idx.name === "meetingCode_1" && idx.unique,
-      );
-      if (uniqueMeetingCodeIndex) {
-        await this.calendarEventModel.collection.dropIndex("meetingCode_1");
-        console.log("[CalendarService] Đã gỡ bỏ unique index meetingCode_1 thành công");
-      }
-    } catch (err) {
-      console.warn("[CalendarService] Không thể gỡ unique index meetingCode_1 (có thể chưa tồn tại):", err);
-    }
-  }
 
   /**
    * Tạo lịch họp mới
@@ -99,18 +83,18 @@ export class CalendarService implements OnModuleInit {
           const u = await this.userModel.findOne({ email: invitee.email }).exec();
           if (u) uId = u.supabaseId;
         }
-        if (uId && !inviteeUserIds.includes(uId)) {
+        if (uId && uId !== userId && !inviteeUserIds.includes(uId)) {
           inviteeUserIds.push(uId);
         }
       }
     }
 
     // Nếu tạo cuộc họp kênh (channel meeting), ghi nhận toàn bộ thành viên trong kênh vào acceptedUserIds (không thông báo)
-    let acceptedUserIds: string[] = [userId];
+    let acceptedUserIds: string[] = [];
     const isChannelMeeting = Boolean(
       (data.roomType === "channel_meeting" || data.channelId) &&
-        data.roomId &&
-        data.channelId,
+      data.roomId &&
+      data.channelId,
     );
 
     if (isChannelMeeting) {
@@ -148,7 +132,7 @@ export class CalendarService implements OnModuleInit {
 
           acceptedUserIds = Array.from(
             new Set([...acceptedUserIds, ...channelMemberIds]),
-          );
+          ).filter((id) => id !== userId);
         }
       }
     }
@@ -740,6 +724,16 @@ export class CalendarService implements OnModuleInit {
     eventId: string,
     status: CalendarRSVPStatus,
   ) {
+    const event = await this.calendarEventModel.findById(eventId);
+    if (!event) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    // Host luôn là người tổ chức, không cần lưu vào mảng RSVP
+    if (event.hostId === userId) {
+      return { success: true, status: "ACCEPTED" };
+    }
+
     // Rút user ra khỏi tất cả các mảng để làm sạch
     await this.calendarEventModel.findByIdAndUpdate(eventId, {
       $pull: {
@@ -781,7 +775,7 @@ export class CalendarService implements OnModuleInit {
   }
 
   /**
-   * Lấy chi tiết RSVP của sự kiện dựa vào các danh sách acceptedUserIds, pendingUserIds, declinedUserIds
+   * Lấy chi tiết RSVP của sự kiện bao gồm người tổ chức (hostId) và các thành viên được mời
    */
   async getRSVPList(eventId: string): Promise<CalendarRSVPMember[]> {
     const event = await this.calendarEventModel.findById(eventId).exec();
@@ -789,29 +783,56 @@ export class CalendarService implements OnModuleInit {
       throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
     }
 
-    const acceptedIds = event.acceptedUserIds || [];
-    const pendingIds = event.pendingUserIds || [];
-    const declinedIds = event.declinedUserIds || [];
+    const hostId = event.hostId;
+    const acceptedIds = (event.acceptedUserIds || []).filter(
+      (id) => id && id !== hostId,
+    );
+    const pendingIds = (event.pendingUserIds || []).filter(
+      (id) => id && id !== hostId,
+    );
+    const declinedIds = (event.declinedUserIds || []).filter(
+      (id) => id && id !== hostId,
+    );
 
+    // Luôn đưa hostId lên đầu danh sách, tiếp theo là accepted, pending, declined
     const allUserIds = Array.from(
-      new Set([...acceptedIds, ...pendingIds, ...declinedIds]),
+      new Set([
+        ...(hostId ? [hostId] : []),
+        ...acceptedIds,
+        ...pendingIds,
+        ...declinedIds,
+      ]),
     );
 
     if (allUserIds.length === 0) {
       return [];
     }
 
+    const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+    const validObjectIds = allUserIds.filter(isValidObjectId);
+
     const users = await this.userModel
-      .find({ supabaseId: { $in: allUserIds } })
-      .select("supabaseId email displayName avatarUrl")
+      .find({
+        $or: [
+          { supabaseId: { $in: allUserIds } },
+          ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+        ],
+      })
+      .select("_id supabaseId email displayName avatarUrl")
       .exec();
 
-    const userMap = new Map(users.map((u) => [u.supabaseId, u]));
+    const userMap = new Map<string, any>();
+    users.forEach((u) => {
+      if (u.supabaseId) userMap.set(u.supabaseId, u);
+      if (u._id) userMap.set(u._id.toString(), u);
+    });
 
     return allUserIds.map((uid) => {
       const u = userMap.get(uid);
+      const isHost = uid === hostId;
+
       let status: CalendarRSVPStatus = "PENDING";
-      if (acceptedIds.includes(uid)) {
+      if (isHost || acceptedIds.includes(uid)) {
         status = "ACCEPTED";
       } else if (declinedIds.includes(uid)) {
         status = "DECLINED";
@@ -821,9 +842,12 @@ export class CalendarService implements OnModuleInit {
         userId: uid,
         email: u?.email || "",
         displayName:
-          u?.displayName || u?.email?.split("@")[0] || "Người dùng",
+          u?.displayName ||
+          u?.email?.split("@")[0] ||
+          (isHost ? "Người tổ chức" : "Người dùng"),
         avatarUrl: u?.avatarUrl || "",
         status,
+        isHost,
       };
     });
   }

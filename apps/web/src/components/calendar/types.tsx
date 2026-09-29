@@ -56,6 +56,7 @@ export interface RsvpMember {
   displayName?: string;
   avatarUrl?: string;
   status: "ACCEPTED" | "DECLINED" | "TENTATIVE" | "PENDING";
+  isHost?: boolean;
 }
 
 export const getEventBgColor = (type: string, status?: string, eventType?: string, assignmentStatus?: string) => {

@@ -193,10 +193,10 @@ export default function NotificationCard({
     } catch (error: any) {
       toast.error(
         error?.data?.message ||
-          error?.message ||
-          (status === "ACCEPTED"
-            ? "Không thể chấp nhận lời mời"
-            : "Không thể từ chối lời mời"),
+        error?.message ||
+        (status === "ACCEPTED"
+          ? "Không thể chấp nhận lời mời"
+          : "Không thể từ chối lời mời"),
       );
     } finally {
       setRsvpLoading(null);
@@ -205,11 +205,10 @@ export default function NotificationCard({
 
   return (
     <div
-      className={`relative p-4 rounded-2xl border transition-all duration-200 ${
-        notification.isRead
+      className={`relative p-4 rounded-2xl border transition-all duration-200 ${notification.isRead
           ? "bg-white border-slate-100"
           : "bg-brand-50/40 border-brand-100/60"
-      }`}
+        }`}
     >
       {!notification.isRead && (
         <span className="absolute top-4 right-4 w-2 h-2 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(0,85,255,0.4)]" />
