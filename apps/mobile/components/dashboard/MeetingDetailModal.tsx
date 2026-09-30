@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Modal,
   View,
@@ -6,11 +6,19 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import {
+  useGetCalendarRsvpQuery,
+  useLeaveCalendarEventMutation,
+} from "../../lib/redux/api/calendarApi";
+import { useGetMeQuery } from "../../lib/redux/features/users/usersApi";
+import InviteCalendarModal from "./InviteCalendarModal";
 
 interface Props {
   visible: boolean;
@@ -19,6 +27,7 @@ interface Props {
   onEdit: (event: any) => void;
   onDelete: (event: any) => void;
   onJoin: (meetingCode: string) => void;
+  onRefresh?: () => void;
 }
 
 export default function MeetingDetailModal({
@@ -28,10 +37,20 @@ export default function MeetingDetailModal({
   onEdit,
   onDelete,
   onJoin,
+  onRefresh,
 }: Props) {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURN (Rules of Hooks)
+  const { data: currentUser } = useGetMeQuery();
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [leaveCalendarEvent, { isLoading: isLeaving }] = useLeaveCalendarEventMutation();
+
+  const { data: rsvpData } = useGetCalendarRsvpQuery(event?._id ?? "", {
+    skip: !visible || !event?._id || event?.eventType === "assignment",
+  });
 
   if (!event) return null;
 
@@ -86,7 +105,7 @@ export default function MeetingDetailModal({
     return (
       <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
         <View style={styles.overlay}>
-          <View style={[styles.container, { paddingBottom: insets.bottom || 24 }]}>
+          <View style={[styles.container, { paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
             <View style={styles.header}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Feather name="clipboard" size={20} color="#4F46E5" />
@@ -202,15 +221,85 @@ export default function MeetingDetailModal({
     );
   }
 
-  // Data pre-fetched in calendar.tsx before modal opened — available immediately
-  const currentUserId = event._currentUserId ?? null;
-  const invitees: { email: string; displayName?: string }[] =
-    event._prefetchedInvitees ?? [];
+  const activeInvitees: { email: string; displayName?: string; userId?: string; status?: string; isHost?: boolean; avatarUrl?: string }[] =
+    rsvpData && rsvpData.length > 0 ? rsvpData : (event._prefetchedInvitees || event.invitees || []);
 
-  const isHost = currentUserId && event.hostId && currentUserId === event.hostId;
+  const currentUserId =
+    currentUser?.supabaseId ||
+    (currentUser as any)?.id ||
+    (currentUser as any)?._id ||
+    event._currentUserId ||
+    null;
+
+  const isHost = Boolean(
+    (currentUserId && event.hostId && (
+      currentUserId === event.hostId ||
+      currentUser?.supabaseId === event.hostId ||
+      (currentUser as any)?.id === event.hostId ||
+      (currentUser as any)?._id === event.hostId
+    )) ||
+    (event._currentUserId && event.hostId && event._currentUserId === event.hostId)
+  );
+
   const isChannelMeeting = event.roomType === "channel_meeting";
-  const hasInvitees = invitees && invitees.length > 0;
-  const showJoin = event.meetingCode && (isChannelMeeting || hasInvitees);
+  const hasInvitees = activeInvitees && activeInvitees.length > 0;
+  const showJoin = event.meetingCode && (isChannelMeeting || hasInvitees || isHost);
+
+  const hostMember = activeInvitees.find(
+    (m: any) => m.isHost || m.userId === event.hostId
+  );
+  const guestList = activeInvitees.filter(
+    (inv: any) => !inv.isHost && inv.userId !== event.hostId
+  );
+
+  const existingMemberIds = [
+    ...(event.hostId ? [event.hostId] : []),
+    ...(event.acceptedUserIds || []),
+    ...(event.pendingUserIds || []),
+    ...activeInvitees
+      .filter((m: any) => m.status === "ACCEPTED" || m.status === "PENDING" || m.isHost)
+      .map((m: any) => m.userId)
+      .filter(Boolean),
+  ];
+
+  const existingEmails = [
+    ...(event.hostEmail ? [event.hostEmail] : []),
+    ...(event.invitees || []).map((i: any) => i.email).filter(Boolean),
+    ...activeInvitees
+      .filter((m: any) => m.status === "ACCEPTED" || m.status === "PENDING" || m.isHost)
+      .map((m: any) => m.email)
+      .filter(Boolean),
+  ];
+
+  const handleLeaveConfirm = () => {
+    Alert.alert(
+      t("calendar.leave_confirm_title", { defaultValue: "Xác nhận hủy tham gia" }),
+      t("calendar.leave_confirm_desc", { defaultValue: "Bạn có chắc chắn muốn hủy tham gia lịch họp này không? Sự kiện sẽ được xóa khỏi lịch của bạn." }),
+      [
+        { text: t("calendar.cancel", { defaultValue: "Hủy" }), style: "cancel" },
+        {
+          text: t("calendar.leave_event", { defaultValue: "Hủy tham gia" }),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leaveCalendarEvent(event._id).unwrap();
+              Alert.alert(
+                i18n.language === "vi" ? "Thành công" : "Success",
+                t("calendar.alert_leave_success", { defaultValue: "Đã hủy tham gia lịch họp thành công" })
+              );
+              onRefresh?.();
+              onClose();
+            } catch (err: any) {
+              Alert.alert(
+                i18n.language === "vi" ? "Lỗi" : "Error",
+                err?.data?.message || err?.message || t("calendar.alert_leave_error", { defaultValue: "Không thể hủy tham gia lịch họp. Vui lòng thử lại" })
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Modal
@@ -220,7 +309,7 @@ export default function MeetingDetailModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.container, { paddingBottom: insets.bottom || 24 }]}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
@@ -263,7 +352,7 @@ export default function MeetingDetailModal({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => {}}
+                  onPress={() => { }}
                   style={styles.meetChatBtn}
                 >
                   <Feather name="message-square" size={16} color="#475569" />
@@ -305,113 +394,159 @@ export default function MeetingDetailModal({
               )}
 
               {/* Invitees / Participants */}
-              {hasInvitees && (
-                <View style={styles.infoRow}>
-                  <Feather name="users" size={18} color="#0052FF" style={styles.infoIcon} />
-                  <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoLabel}>
-                      {i18n.language === "vi" ? "Người tham gia" : "Participants"}
-                    </Text>
-                    <View style={styles.participantList}>
-
-                      {/* Host row */}
-                      <View style={styles.participantRow}>
-                        <View style={styles.participantAvatar}>
-                          <Text style={styles.participantAvatarText}>
-                            {(event.hostDisplayName || event.hostEmail || "?").substring(0, 1).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.participantInfo}>
-                          <Text style={styles.participantName} numberOfLines={1}>
-                            {event.hostDisplayName || event.hostEmail?.split("@")[0] || ""}
-                          </Text>
-                          {event.hostEmail ? (
-                            <Text style={styles.participantEmail} numberOfLines={1}>
-                              {event.hostEmail}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <View style={[styles.statusBadge, { backgroundColor: "#EEF2FF" }]}>
-                          <Text style={[styles.statusBadgeText, { color: "#4F46E5" }]}>
-                            {i18n.language === "vi" ? "Người tổ chức" : "Organizer"}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Invitee rows */}
-                      {invitees.map((inv: any, idx: number) => {
-                        const status: string = inv.status || "PENDING";
-                        let dotColor = "#94A3B8";
-                        if (status === "ACCEPTED") dotColor = "#10B981";
-                        else if (status === "DECLINED") dotColor = "#F43F5E";
-                        else if (status === "TENTATIVE") dotColor = "#F59E0B";
-
-                        const statusLabel =
-                          status === "ACCEPTED"
-                            ? i18n.language === "vi" ? "Đã chấp nhận" : "Accepted"
-                            : status === "DECLINED"
-                            ? i18n.language === "vi" ? "Đã từ chối" : "Declined"
-                            : i18n.language === "vi" ? "Chưa phản hồi" : "Pending";
-
-                        return (
-                          <View key={idx} style={styles.participantRow}>
-                            <View style={styles.participantAvatar}>
-                              <Text style={styles.participantAvatarText}>
-                                {(inv.displayName || inv.email || "?").substring(0, 1).toUpperCase()}
-                              </Text>
-                            </View>
-                            <View style={styles.participantInfo}>
-                              <Text style={styles.participantName} numberOfLines={1}>
-                                {inv.displayName || inv.email?.split("@")[0]}
-                              </Text>
-                              {inv.email ? (
-                                <Text style={styles.participantEmail} numberOfLines={1}>
-                                  {inv.email}
-                                </Text>
-                              ) : null}
-                            </View>
-                            <View style={styles.statusBadge}>
-                              <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                              <Text style={styles.statusBadgeText}>{statusLabel}</Text>
-                            </View>
-                          </View>
-                        );
-                      })}
+              {(hasInvitees || isHost) && (
+                <View style={styles.participantsSection}>
+                  <View style={styles.participantsHeaderRow}>
+                    <View style={styles.participantsHeaderLeft}>
+                      <Feather name="users" size={18} color="#0052FF" />
+                      <Text style={[styles.infoLabel, { marginBottom: 0 }]}>
+                        {t("calendar.participants", { defaultValue: i18n.language === "vi" ? "Người tham gia" : "Participants" })}
+                      </Text>
                     </View>
+                    {isHost && (
+                      <TouchableOpacity
+                        onPress={() => setInviteModalVisible(true)}
+                        style={styles.inviteButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Feather name="user-plus" size={13} color="#0052FF" />
+                        <Text style={styles.inviteButtonText}>
+                          {t("calendar.invite_btn", { defaultValue: "Mời" })}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.participantList}>
+                    {/* Host row */}
+                    <View style={styles.participantRow}>
+                      <View style={styles.participantAvatar}>
+                        <Text style={styles.participantAvatarText}>
+                          {(hostMember?.displayName || event.hostDisplayName || hostMember?.email || event.hostEmail || "?").substring(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.participantInfo}>
+                        <Text style={styles.participantName} numberOfLines={1}>
+                          {hostMember?.displayName || event.hostDisplayName || hostMember?.email?.split("@")[0] || event.hostEmail?.split("@")[0] || ""}
+                        </Text>
+                        {(hostMember?.email || event.hostEmail) ? (
+                          <Text style={styles.participantEmail} numberOfLines={1}>
+                            {hostMember?.email || event.hostEmail}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: "#EEF2FF" }]}>
+                        <Text style={[styles.statusBadgeText, { color: "#4F46E5" }]}>
+                          {t("calendar.organizer", { defaultValue: i18n.language === "vi" ? "Người tổ chức" : "Organizer" })}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Invitee rows */}
+                    {guestList.map((inv: any, idx: number) => {
+                      const status: string = inv.status || "PENDING";
+                      let dotColor = "#94A3B8";
+                      if (status === "ACCEPTED") dotColor = "#10B981";
+                      else if (status === "DECLINED") dotColor = "#F43F5E";
+                      else if (status === "TENTATIVE") dotColor = "#F59E0B";
+
+                      const statusLabel =
+                        status === "ACCEPTED"
+                          ? t("calendar.responded", { defaultValue: i18n.language === "vi" ? "Đã chấp nhận" : "Accepted" })
+                          : status === "DECLINED"
+                            ? i18n.language === "vi" ? "Đã từ chối" : "Declined"
+                            : t("calendar.no_response", { defaultValue: i18n.language === "vi" ? "Chưa phản hồi" : "Pending" });
+
+                      return (
+                        <View key={idx} style={styles.participantRow}>
+                          <View style={styles.participantAvatar}>
+                            <Text style={styles.participantAvatarText}>
+                              {(inv.displayName || inv.email || "?").substring(0, 1).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={styles.participantInfo}>
+                            <Text style={styles.participantName} numberOfLines={1}>
+                              {inv.displayName || inv.email?.split("@")[0]}
+                            </Text>
+                            {inv.email ? (
+                              <Text style={styles.participantEmail} numberOfLines={1}>
+                                {inv.email}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <View style={styles.statusBadge}>
+                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                            <Text style={styles.statusBadgeText}>{statusLabel}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               )}
             </View>
           </ScrollView>
 
-          {/* Actions Footer - Management Only */}
-          {isHost && (
-            <View style={styles.footer}>
-              {/* Edit Button */}
-              <TouchableOpacity
-                onPress={() => onEdit({ ...event, invitees })}
-                style={styles.editBtn}
-              >
-                <Feather name="edit-2" size={18} color="#475569" />
-                <Text style={styles.editBtnText}>
-                  {i18n.language === "vi" ? "Chỉnh sửa" : "Edit"}
-                </Text>
-              </TouchableOpacity>
+          {/* Actions Footer */}
+          <View style={styles.footer}>
+            {isHost ? (
+              <>
+                {/* Edit Button */}
+                <TouchableOpacity
+                  onPress={() => onEdit({ ...event, invitees: activeInvitees })}
+                  style={styles.editBtn}
+                >
+                  <Feather name="edit-2" size={18} color="#475569" />
+                  <Text style={styles.editBtnText}>
+                    {i18n.language === "vi" ? "Chỉnh sửa" : "Edit"}
+                  </Text>
+                </TouchableOpacity>
 
-              {/* Delete Button */}
+                {/* Delete Button */}
+                <TouchableOpacity
+                  onPress={() => onDelete({ ...event, invitees: activeInvitees })}
+                  style={styles.deleteBtn}
+                >
+                  <Feather name="trash-2" size={18} color="#EF4444" />
+                  <Text style={styles.deleteBtnText}>
+                    {i18n.language === "vi" ? "Xóa" : "Delete"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
               <TouchableOpacity
-                onPress={() => onDelete({ ...event, invitees })}
-                style={styles.deleteBtn}
+                onPress={handleLeaveConfirm}
+                disabled={isLeaving}
+                style={styles.leaveBtn}
               >
-                <Feather name="trash-2" size={18} color="#EF4444" />
-                <Text style={styles.deleteBtnText}>
-                  {i18n.language === "vi" ? "Xóa" : "Delete"}
-                </Text>
+                {isLeaving ? (
+                  <ActivityIndicator size="small" color="#E11D48" />
+                ) : (
+                  <>
+                    <Feather name="log-out" size={18} color="#E11D48" />
+                    <Text style={styles.leaveBtnText}>
+                      {t("calendar.leave_event", { defaultValue: "Hủy tham gia" })}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
-            </View>
-          )}
+            )}
+          </View>
         </View>
       </View>
+
+      {inviteModalVisible && (
+        <InviteCalendarModal
+          visible={inviteModalVisible}
+          onClose={() => setInviteModalVisible(false)}
+          eventId={event._id}
+          existingMemberIds={existingMemberIds}
+          existingEmails={existingEmails}
+          onSuccess={() => {
+            onRefresh?.();
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -541,7 +676,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   participantList: {
-    marginTop: 10,
     gap: 12,
   },
   participantRow: {
@@ -640,6 +774,53 @@ const styles = StyleSheet.create({
   },
   deleteBtnText: {
     color: "#EF4444",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  participantsSection: {
+    marginTop: 4,
+  },
+  participantsHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  participantsHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  inviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+  },
+  inviteButtonText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#0052FF",
+  },
+  leaveBtn: {
+    flex: 1,
+    backgroundColor: "#FFF1F2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#FECDD3",
+  },
+  leaveBtnText: {
+    color: "#E11D48",
     fontSize: 14,
     fontWeight: "600",
   },

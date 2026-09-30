@@ -560,25 +560,6 @@ export class MeetingsService {
       throw new AppException(ErrorCode.MEETING_NOT_FOUND);
     }
 
-    const room = await this.roomModel.findById(meeting.roomId).exec();
-    if (!room) {
-      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
-    }
-
-    const channel = room.channels.find(
-      (c) => c._id?.toString() === meeting.channelId.toString(),
-    );
-    if (!channel) {
-      throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
-    }
-
-    // Xác định role của requester (người đang gửi yêu cầu duyệt) để kiểm tra quyền
-    const requesterRole = this.getUserRoleInChannel(
-      room,
-      channel._id.toString(),
-      requesterId,
-    );
-
     // Lấy thông tin quyền duyệt từ metadata của phòng LiveKit để kiểm tra xem requester có quyền duyệt hay không
     let approvalPermission = "admin_only"; // Mặc định nếu chưa setup
     try {
@@ -595,20 +576,54 @@ export class MeetingsService {
 
     let hasPermission = false;
 
-    // Owner và Admin LUÔN CÓ QUYỀN
-    if (requesterRole === "owner" || requesterRole === "admin") {
-      hasPermission = true;
-    }
-    // Nếu phòng setup cho mọi người (everyone)
-    else if (approvalPermission === "everyone") {
-      hasPermission = true;
-    }
-    // Nếu phòng setup cho member_and_admin và người này là member
-    else if (
-      approvalPermission === "member_and_admin" &&
-      requesterRole === "member"
-    ) {
-      hasPermission = true;
+    // TH1: Cuộc họp cá nhân (personal meeting)
+    // Không có channel/room. Chỉ căn cứ nếu người duyệt là host (ownerId) hoặc mở quyền duyệt cho tất cả (everyone).
+    // Không có trường hợp member_and_admin.
+    if (meeting.type === "personal") {
+      const isHost = meeting.ownerId === requesterId;
+      if (isHost || approvalPermission === "everyone") {
+        hasPermission = true;
+      }
+    } else {
+      // TH2: Cuộc họp theo kênh (channel meeting)
+      if (!meeting.roomId || !meeting.channelId) {
+        throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+      }
+
+      const room = await this.roomModel.findById(meeting.roomId).exec();
+      if (!room) {
+        throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+      }
+
+      const channel = room.channels.find(
+        (c) => c._id?.toString() === meeting.channelId?.toString(),
+      );
+      if (!channel) {
+        throw new AppException(ErrorCode.ROOM_OR_CHANNEL_NOT_FOUND);
+      }
+
+      // Xác định role của requester trong kênh để kiểm tra quyền
+      const requesterRole = this.getUserRoleInChannel(
+        room,
+        channel._id.toString(),
+        requesterId,
+      );
+
+      // Owner và Admin LUÔN CÓ QUYỀN
+      if (requesterRole === "owner" || requesterRole === "admin") {
+        hasPermission = true;
+      }
+      // Nếu phòng setup cho mọi người (everyone)
+      else if (approvalPermission === "everyone") {
+        hasPermission = true;
+      }
+      // Nếu phòng setup cho member_and_admin và người này là member
+      else if (
+        approvalPermission === "member_and_admin" &&
+        requesterRole === "member"
+      ) {
+        hasPermission = true;
+      }
     }
 
     if (!hasPermission) {

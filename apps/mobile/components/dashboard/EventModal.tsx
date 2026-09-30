@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  Dimensions,
+  type KeyboardEvent,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePickerJS from "./DateTimePickerJS";
@@ -79,6 +81,50 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   // Local UI states
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [recurrenceDropdownOpen, setRecurrenceDropdownOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Theo dõi bàn phím — tránh padding "dính" của KeyboardAvoidingView (tương tự MobileChatModal)
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
+    };
+    const onHide = () => {
+      setKeyboardHeight(0);
+    };
+
+    const subShow = Keyboard.addListener(showEvent, onShow);
+    const subHide = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) setKeyboardHeight(0);
+  }, [visible]);
+
+  const { height: windowHeight } = Dimensions.get("window");
+
+  // Spacing ở bottom: khi bàn phím đóng thì cộng thêm insets.bottom + 20 (tối thiểu 32px) để không bị vướng safe area bottom
+  const bottomPad =
+    keyboardHeight > 0 ? 16 : Math.max(insets.bottom + 20, 32);
+
+  const dynamicMaxHeight =
+    keyboardHeight > 0
+      ? windowHeight - keyboardHeight - Math.max(insets.top, 24) - 20
+      : "88%";
 
   // RTK query hooks
   const [createEvent, { isLoading: isCreating }] = useCreateCalendarEventMutation();
@@ -107,7 +153,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
         setDescription(eventToEdit.description || "");
         setStartDate(eventToEdit.startDate || "");
         setEndDate(eventToEdit.endDate || "");
-        
+
         // Match recurrence FREQ
         if (eventToEdit.recurrenceRule) {
           if (eventToEdit.recurrenceRule.startsWith("FREQ=")) {
@@ -208,54 +254,63 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
       Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_title_required"));
       return;
     }
-    if (!startDate || !endDate) {
-      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_select_time_required"));
-      return;
-    }
-
-    const startVal = new Date(startDate);
-    const endVal = new Date(endDate);
-    if (isNaN(startVal.getTime()) || isNaN(endVal.getTime())) {
-      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_invalid_datetime"));
-      return;
-    }
-
-    if (endVal <= startVal) {
-      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_end_before_start"));
-      return;
-    }
-
-    if (!eventToEdit && startVal <= new Date()) {
-      Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_start_in_past"));
-      return;
-    }
-
-    const inviteeList = selectedInvitees.map((usr) => ({
-      email: usr.email,
-      displayName: usr.displayName || usr.fullName || usr.email,
-    }));
 
     try {
-      const payload: EventPayload = {
-        title,
-        description,
-        startDate: startVal.toISOString(),
-        endDate: endVal.toISOString(),
-        roomType: eventToEdit?.roomType || "meeting",
-        invitees: inviteeList,
-      };
-
-      if (eventToEdit?.roomId) payload.roomId = eventToEdit.roomId;
-      if (eventToEdit?.channelId) payload.channelId = eventToEdit.channelId;
-
-      if (recurrence !== "NONE") {
-        payload.recurrenceRule = `FREQ=${recurrence}`;
-      }
-
       if (eventToEdit) {
+        const payload: any = {
+          title: title.trim(),
+          description: description.trim(),
+        };
+
+        if (recurrence && recurrence !== "NONE") {
+          payload.recurrenceRule = `FREQ=${recurrence}`;
+        } else {
+          payload.recurrenceRule = "";
+        }
+
         await updateEvent({ id: eventToEdit._id, body: payload }).unwrap();
         Alert.alert(t("password_reset.password_success"), t("calendar.alert_update_success"));
       } else {
+        if (!startDate || !endDate) {
+          Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_select_time_required"));
+          return;
+        }
+
+        const startVal = new Date(startDate);
+        const endVal = new Date(endDate);
+        if (isNaN(startVal.getTime()) || isNaN(endVal.getTime())) {
+          Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_invalid_datetime"));
+          return;
+        }
+
+        if (endVal <= startVal) {
+          Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_end_before_start"));
+          return;
+        }
+
+        if (startVal <= new Date()) {
+          Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", t("calendar.alert_start_in_past"));
+          return;
+        }
+
+        const inviteeList = selectedInvitees.map((usr) => ({
+          email: usr.email,
+          displayName: usr.displayName || usr.fullName || usr.email,
+        }));
+
+        const payload: EventPayload = {
+          title: title.trim(),
+          description: description.trim(),
+          startDate: startVal.toISOString(),
+          endDate: endVal.toISOString(),
+          roomType: "meeting",
+          invitees: inviteeList,
+        };
+
+        if (recurrence !== "NONE") {
+          payload.recurrenceRule = `FREQ=${recurrence}`;
+        }
+
         await createEvent(payload).unwrap();
         Alert.alert(t("password_reset.password_success"), t("calendar.alert_create_success"));
       }
@@ -319,13 +374,37 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-      >
-        <View style={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <View style={styles.overlay}>
+        {/* Backdrop chạm vào để dismiss bàn phím hoặc đóng modal */}
+        <TouchableOpacity
+          activeOpacity={1}
+          style={StyleSheet.absoluteFillObject}
+          onPress={() => {
+            if (keyboardHeight > 0) {
+              Keyboard.dismiss();
+            } else {
+              handleClose();
+            }
+          }}
+        />
+
+        <View
+          style={[
+            styles.content,
+            {
+              marginBottom: keyboardHeight,
+              paddingBottom: bottomPad,
+              maxHeight: dynamicMaxHeight,
+            },
+          ]}
+        >
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
@@ -355,48 +434,51 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
                 />
               </View>
 
-              {/* Bắt đầu */}
-              <View>
-                <Text style={styles.label}>{t("calendar.start_time")}</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setPickerTarget("start");
-                    setShowPicker(true);
-                  }}
-                  style={styles.datePickerInput}
-                >
-                  <Text style={{ fontSize: 14, color: startDate ? "#0F172A" : "#94A3B8" }}>
-                    {startDate ? formatDisplayDateTime(startDate) : t("calendar.select_start_time")}
-                  </Text>
-                  <Feather name="calendar" size={16} color="#64748B" />
-                </TouchableOpacity>
-              </View>
+              {/* Bắt đầu & Kết thúc (Ẩn khi đang chỉnh sửa) */}
+              {!eventToEdit && (
+                <>
+                  <View>
+                    <Text style={styles.label}>{t("calendar.start_time")}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPickerTarget("start");
+                        setShowPicker(true);
+                      }}
+                      style={styles.datePickerInput}
+                    >
+                      <Text style={{ fontSize: 14, color: startDate ? "#0F172A" : "#94A3B8" }}>
+                        {startDate ? formatDisplayDateTime(startDate) : t("calendar.select_start_time")}
+                      </Text>
+                      <Feather name="calendar" size={16} color="#64748B" />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Kết thúc */}
-              <View>
-                <Text style={styles.label}>{t("calendar.end_time")}</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setPickerTarget("end");
-                    setShowPicker(true);
-                  }}
-                  style={styles.datePickerInput}
-                >
-                  <Text style={{ fontSize: 14, color: endDate ? "#0F172A" : "#94A3B8" }}>
-                    {endDate ? formatDisplayDateTime(endDate) : t("calendar.select_end_time")}
-                  </Text>
-                  <Feather name="calendar" size={16} color="#64748B" />
-                </TouchableOpacity>
-              </View>
+                  <View>
+                    <Text style={styles.label}>{t("calendar.end_time")}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPickerTarget("end");
+                        setShowPicker(true);
+                      }}
+                      style={styles.datePickerInput}
+                    >
+                      <Text style={{ fontSize: 14, color: endDate ? "#0F172A" : "#94A3B8" }}>
+                        {endDate ? formatDisplayDateTime(endDate) : t("calendar.select_end_time")}
+                      </Text>
+                      <Feather name="calendar" size={16} color="#64748B" />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* DateTimePicker rendering */}
-              {showPicker && (
-                <DateTimePickerJS
-                  visible={showPicker}
-                  value={pickerTarget === "start" ? startDate : endDate}
-                  onClose={() => setShowPicker(false)}
-                  onChange={handleDateChange}
-                />
+                  {/* DateTimePicker rendering */}
+                  {showPicker && (
+                    <DateTimePickerJS
+                      visible={showPicker}
+                      value={pickerTarget === "start" ? startDate : endDate}
+                      onClose={() => setShowPicker(false)}
+                      onChange={handleDateChange}
+                    />
+                  )}
+                </>
               )}
 
               {/* Lặp lại (Recurrence) */}
@@ -440,124 +522,126 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
                 )}
               </View>
 
-              {/* Thêm khách mời */}
-              <View>
-                <Text style={styles.label}>{t("calendar.add_guests")}</Text>
-                <View style={{ position: "relative" }}>
-                  <TextInput
-                    value={memberSearchQuery}
-                    onChangeText={setMemberSearchQuery}
-                    placeholder={t("calendar.search_guests_placeholder")}
-                    placeholderTextColor="#94A3B8"
-                    style={styles.input}
-                  />
-                  {isSearching && (
-                    <ActivityIndicator
-                      size="small"
-                      color="#0052FF"
-                      style={{ position: "absolute", right: 12, top: 12 }}
+              {/* Thêm khách mời (Ẩn khi đang chỉnh sửa) */}
+              {!eventToEdit && (
+                <View>
+                  <Text style={styles.label}>{t("calendar.add_guests")}</Text>
+                  <View style={{ position: "relative" }}>
+                    <TextInput
+                      value={memberSearchQuery}
+                      onChangeText={setMemberSearchQuery}
+                      placeholder={t("calendar.search_guests_placeholder")}
+                      placeholderTextColor="#94A3B8"
+                      style={styles.input}
                     />
-                  )}
-                </View>
+                    {isSearching && (
+                      <ActivityIndicator
+                        size="small"
+                        color="#0052FF"
+                        style={{ position: "absolute", right: 12, top: 12 }}
+                      />
+                    )}
+                  </View>
 
-                {/* Danh sách người dùng gợi ý */}
-                {memberSearchQuery.trim().length > 0 && suggestedUsers.length > 0 && (
-                  <View style={styles.suggestionsContainer}>
-                    <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
-                      {suggestedUsers.map((usr) => {
-                        const isSelected = selectedInvitees.some((sel) => sel.email === usr.email);
-                        return (
+                  {/* Danh sách người dùng gợi ý */}
+                  {memberSearchQuery.trim().length > 0 && suggestedUsers.length > 0 && (
+                    <View style={styles.suggestionsContainer}>
+                      <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+                        {suggestedUsers.map((usr) => {
+                          const isSelected = selectedInvitees.some((sel) => sel.email === usr.email);
+                          return (
+                            <TouchableOpacity
+                              key={usr.supabaseId || usr._id || usr.email}
+                              onPress={() => {
+                                if (isSelected) return;
+                                setSelectedInvitees([
+                                  ...selectedInvitees,
+                                  {
+                                    email: usr.email,
+                                    displayName: usr.displayName || usr.email,
+                                    avatarUrl: usr.avatarUrl,
+                                  },
+                                ]);
+                                setMemberSearchQuery("");
+                              }}
+                              style={styles.suggestionItem}
+                            >
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <View style={styles.avatarPlaceholder}>
+                                  <Text style={styles.avatarPlaceholderText}>
+                                    {(usr.displayName || usr.email)
+                                      .substring(0, 1)
+                                      .toUpperCase()}
+                                  </Text>
+                                </View>
+                                <View>
+                                  <Text style={styles.suggestionTitle}>
+                                    {usr.displayName || usr.email}
+                                  </Text>
+                                  <Text style={styles.suggestionSub}>{usr.email}</Text>
+                                </View>
+                              </View>
+                              {isSelected && (
+                                <Text style={styles.selectedBadge}>{t("calendar.selected")}</Text>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {hasNextPage && (
                           <TouchableOpacity
-                            key={usr.supabaseId || usr._id || usr.email}
-                            onPress={() => {
-                              if (isSelected) return;
-                              setSelectedInvitees([
-                                ...selectedInvitees,
-                                {
-                                  email: usr.email,
-                                  displayName: usr.displayName || usr.email,
-                                  avatarUrl: usr.avatarUrl,
-                                },
-                              ]);
-                              setMemberSearchQuery("");
+                            onPress={loadMoreUsers}
+                            disabled={isLoadingMore}
+                            style={{
+                              paddingVertical: 8,
+                              alignItems: "center",
+                              borderTopWidth: 1,
+                              borderTopColor: "#F1F5F9",
                             }}
-                            style={styles.suggestionItem}
                           >
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              <View style={styles.avatarPlaceholder}>
-                                <Text style={styles.avatarPlaceholderText}>
-                                  {(usr.displayName || usr.email)
-                                    .substring(0, 1)
-                                    .toUpperCase()}
-                                </Text>
-                              </View>
-                              <View>
-                                <Text style={styles.suggestionTitle}>
-                                  {usr.displayName || usr.email}
-                                </Text>
-                                <Text style={styles.suggestionSub}>{usr.email}</Text>
-                              </View>
-                            </View>
-                            {isSelected && (
-                              <Text style={styles.selectedBadge}>{t("calendar.selected")}</Text>
+                            {isLoadingMore ? (
+                              <ActivityIndicator size="small" color="#0052FF" />
+                            ) : (
+                              <Text style={{ fontSize: 12, color: "#0052FF", fontWeight: "600" }}>
+                                {t("room.load_more", { defaultValue: "Tải thêm" })}
+                              </Text>
                             )}
                           </TouchableOpacity>
-                        );
-                      })}
-                      {hasNextPage && (
-                        <TouchableOpacity
-                          onPress={loadMoreUsers}
-                          disabled={isLoadingMore}
-                          style={{
-                            paddingVertical: 8,
-                            alignItems: "center",
-                            borderTopWidth: 1,
-                            borderTopColor: "#F1F5F9",
-                          }}
-                        >
-                          {isLoadingMore ? (
-                            <ActivityIndicator size="small" color="#0052FF" />
-                          ) : (
-                            <Text style={{ fontSize: 12, color: "#0052FF", fontWeight: "600" }}>
-                              {t("room.load_more", { defaultValue: "Tải thêm" })}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
 
-                {/* Danh sách khách mời đã chọn */}
-                {selectedInvitees.length > 0 && (
-                  <View style={{ marginTop: 8, gap: 6 }}>
-                    {selectedInvitees.map((usr) => (
-                      <View key={usr.email} style={styles.inviteeChip}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                          <View style={[styles.avatarPlaceholder, { width: 22, height: 22 }]}>
-                            <Text style={[styles.avatarPlaceholderText, { fontSize: 10 }]}>
-                              {(usr.displayName || usr.email).substring(0, 1).toUpperCase()}
+                  {/* Danh sách khách mời đã chọn */}
+                  {selectedInvitees.length > 0 && (
+                    <View style={{ marginTop: 8, gap: 6 }}>
+                      {selectedInvitees.map((usr) => (
+                        <View key={usr.email} style={styles.inviteeChip}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                            <View style={[styles.avatarPlaceholder, { width: 22, height: 22 }]}>
+                              <Text style={[styles.avatarPlaceholderText, { fontSize: 10 }]}>
+                                {(usr.displayName || usr.email).substring(0, 1).toUpperCase()}
+                              </Text>
+                            </View>
+                            <Text style={{ fontSize: 13, color: "#334155", flex: 1 }} numberOfLines={1}>
+                              {usr.displayName || usr.email}
                             </Text>
                           </View>
-                          <Text style={{ fontSize: 13, color: "#334155", flex: 1 }} numberOfLines={1}>
-                            {usr.displayName || usr.email}
-                          </Text>
+                          <TouchableOpacity
+                            onPress={() =>
+                              setSelectedInvitees(
+                                selectedInvitees.filter((sel) => sel.email !== usr.email)
+                              )
+                            }
+                            style={{ padding: 2 }}
+                          >
+                            <Feather name="x" size={14} color="#94A3B8" />
+                          </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                          onPress={() =>
-                            setSelectedInvitees(
-                              selectedInvitees.filter((sel) => sel.email !== usr.email)
-                            )
-                          }
-                          style={{ padding: 2 }}
-                        >
-                          <Feather name="x" size={14} color="#94A3B8" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Mô tả */}
               <View>
@@ -604,12 +688,16 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
               {isCreating || isUpdating ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.btnSaveText}>{t("calendar.save")}</Text>
+                <Text style={styles.btnSaveText}>
+                  {eventToEdit
+                    ? t("calendar.btn_update", { defaultValue: "Cập nhật" })
+                    : t("calendar.save", { defaultValue: "Lưu" })}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -624,8 +712,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: "85%",
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
   header: {
     flexDirection: "row",

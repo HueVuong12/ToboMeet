@@ -135,6 +135,7 @@ export default function CustomToolbar({
     canAccessWhiteboard,
     breakoutRoomsList,
     roomType,
+    isPersonalMeeting,
     isEndingBreakout,
     recordingInfo,
     isCloudRecordingActive,
@@ -864,25 +865,27 @@ export default function CustomToolbar({
                               <span>{t("admin_only")}</span>
                             </button>
 
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUpdateApprovalPermission(
-                                  "member_and_admin",
-                                );
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
-                            >
-                              <Check
-                                size={14}
-                                className={
-                                  approvalPermission === "member_and_admin"
-                                    ? "opacity-100 text-emerald-400"
-                                    : "opacity-0"
-                                }
-                              />
-                              <span>{t("member_and_admin")}</span>
-                            </button>
+                            {!isPersonalMeeting && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUpdateApprovalPermission(
+                                    "member_and_admin",
+                                  );
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <Check
+                                  size={14}
+                                  className={
+                                    approvalPermission === "member_and_admin"
+                                      ? "opacity-100 text-emerald-400"
+                                      : "opacity-0"
+                                  }
+                                />
+                                <span>{t("member_and_admin")}</span>
+                              </button>
+                            )}
 
                             <button
                               onClick={(e) => {

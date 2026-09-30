@@ -1186,6 +1186,10 @@ export default function CalendarScreen() {
         onJoin={(meetingCode) => {
           handleJoin(meetingCode);
         }}
+        onRefresh={() => {
+          cache.current = {};
+          fetchCalendar(selectedDate, viewMode, true);
+        }}
       />
 
       <EventModal

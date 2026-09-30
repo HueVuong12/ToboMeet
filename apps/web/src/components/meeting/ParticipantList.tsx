@@ -218,7 +218,7 @@ export default function ParticipantList({
                         className="w-8 h-8 rounded-full object-cover border border-[#333] bg-[#111]"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-[#232328] text-slate-300 border border-[#333] flex items-center justify-center font-bold text-xs uppercase shadow-sm">
                         {p.name?.charAt(0) || "?"}
                       </div>
                     )}
@@ -236,7 +236,7 @@ export default function ParticipantList({
                     </span>
 
                     {role !== "member" && roleText && (
-                      <span className="text-[10px] text-blue-400 font-medium truncate">
+                      <span className="text-[10px] text-slate-400 font-medium truncate">
                         {roleText}
                       </span>
                     )}
@@ -253,7 +253,7 @@ export default function ParticipantList({
                     <div className="text-slate-400">
                       {p.isMicrophoneEnabled ? (
                         <div className="p-1 bg-[#222] border border-[#333] rounded-md">
-                          <Mic size={13} className="text-blue-400" />
+                          <Mic size={13} className="text-slate-300" />
                         </div>
                       ) : (
                         <div className="p-1 bg-red-500/10 border border-red-500/20 rounded-md">
@@ -287,7 +287,7 @@ export default function ParticipantList({
                               className="fixed inset-0 z-40"
                               onClick={() => setOpenMenuId(null)}
                             ></div>
-                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-48 origin-top-right bg-[#161619] border border-[#232328] rounded-xl py-1 shadow-2xl backdrop-blur-xl animate-scale-in">
+                            <div className="absolute right-2 top-full mt-1 z-50 w-max min-w-44 origin-top-right bg-[#161619] border border-[#232328] rounded-xl py-1 shadow-2xl backdrop-blur-xl">
                               {isMe && (
                                 <button
                                   onClick={() => {
@@ -297,10 +297,10 @@ export default function ParticipantList({
                                     });
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                 >
-                                  <Edit2 size={14} className="text-blue-400" />{" "}
-                                  {t("rename_display_name")}
+                                  <Edit2 size={14} className="text-slate-400" />
+                                  <span>{t("rename_display_name")}</span>
                                 </button>
                               )}
 
@@ -313,10 +313,10 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "member");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
-                                      <UserCheck size={14} />
-                                      {t("revoke_vice_leader")}
+                                      <UserCheck size={14} className="text-slate-400" />
+                                      <span>{t("revoke_vice_leader")}</span>
                                     </button>
                                   ) : (
                                     <button
@@ -324,10 +324,10 @@ export default function ParticipantList({
                                         handleUpdateRole(p.identity, "admin");
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
-                                      <UserCheck size={14} className="text-blue-400" />
-                                      {t("appoint_vice_leader")}
+                                      <UserCheck size={14} className="text-slate-400" />
+                                      <span>{t("appoint_vice_leader")}</span>
                                     </button>
                                   )}
 
@@ -339,10 +339,10 @@ export default function ParticipantList({
                                       );
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                    className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                   >
-                                    <ShieldCheck size={14} className="text-amber-400" />
-                                    {t("appoint_leader")}
+                                    <ShieldCheck size={14} className="text-slate-400" />
+                                    <span>{t("appoint_leader")}</span>
                                   </button>
                                   <div className="h-px bg-[#232328] my-1 mx-2" />
                                 </>
@@ -361,10 +361,10 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
-                                      <MicOff size={14} />
-                                      {t("mic_off")}
+                                      <MicOff size={14} className="text-slate-400" />
+                                      <span>{t("mic_off")}</span>
                                     </button>
                                   )}
 
@@ -378,9 +378,10 @@ export default function ParticipantList({
                                         );
                                         setOpenMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-[#232328] flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                     >
-                                      <VideoOff size={14} /> {t("cam_off")}
+                                      <VideoOff size={14} className="text-slate-400" />
+                                      <span>{t("cam_off")}</span>
                                     </button>
                                   )}
 
@@ -389,10 +390,10 @@ export default function ParticipantList({
                                       handleRemove(p.identity);
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
+                                    className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors whitespace-nowrap cursor-pointer"
                                   >
-                                    <UserMinus size={14} />{" "}
-                                    {t("remove_from_meeting")}
+                                    <UserMinus size={14} className="text-red-400" />
+                                    <span>{t("remove_from_meeting")}</span>
                                   </button>
                                 </>
                               )}
@@ -426,7 +427,7 @@ export default function ParticipantList({
                 }
                 disabled={isRenaming}
                 placeholder={t("enter_new_name")}
-                className="w-full px-3 py-2 bg-[#111113] border border-[#232328] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 mb-4 transition-colors disabled:opacity-50"
+                className="w-full px-3 py-2 bg-[#111113] border border-[#232328] rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-500 mb-4 transition-colors disabled:opacity-50"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && !isRenaming && handleRenameSubmit()}
               />
@@ -442,7 +443,7 @@ export default function ParticipantList({
                 <button
                   onClick={handleRenameSubmit}
                   disabled={!renameState.newName.trim() || isRenaming}
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 shadow-md shadow-blue-500/20"
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-[#2a2a2f] hover:bg-[#35353c] text-white border border-[#3e3e46] rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isRenaming && <Loader2 size={13} className="animate-spin" />}
                   <span>{t("save_changes")}</span>

@@ -274,7 +274,7 @@ function CalendarContent() {
   };
 
   const handleJoinMeeting = (meetingCode: string) => {
-    window.location.href = `/room/join?code=${meetingCode}`;
+    window.location.href = `/meeting/${meetingCode}`;
   };
 
   // Filtered Events

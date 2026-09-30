@@ -39,6 +39,7 @@ export function useRoomSettings({
   const [isChatEnabled, setIsChatEnabled] = useState(true);
   const [isWaitingRoomEnabled, setIsWaitingRoomEnabled] = useState(false); // Mặc định tắt phòng chờ
   const [roomType, setRoomType] = useState<"main" | "breakout">("main");
+  const [meetingType, setMeetingType] = useState<"personal" | "channel">("channel");
   const [breakoutRoomsList, setBreakoutRoomsList] = useState<
     LivekitBreakoutRoom[]
   >([]);
@@ -85,12 +86,18 @@ export function useRoomSettings({
       const meta: LivekitRoomMetadata = JSON.parse(roomMetadata);
 
       setRoomName(meta.roomName);
+      if (meta.meetingType) {
+        setMeetingType(meta.meetingType);
+      }
 
       if (meta.roomType === "breakout") {
         setRoomType("breakout");
         if (meta.parentMetadata) {
           setIsChatEnabled(meta.parentMetadata.isChatEnabled);
           setApprovalPermission(meta.parentMetadata.approvalPermission);
+          if (meta.parentMetadata.meetingType) {
+            setMeetingType(meta.parentMetadata.meetingType);
+          }
         }
 
         setBreakoutStartedAt(meta.startedAt || 0);
@@ -226,6 +233,8 @@ export function useRoomSettings({
     breakoutStartedAt,
     isHost,
     roomType,
+    meetingType,
+    isPersonalMeeting: meetingType === "personal",
     roomName,
     isEndingBreakout,
     recordingInfo,

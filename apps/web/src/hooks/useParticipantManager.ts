@@ -73,7 +73,7 @@ export function useParticipantManager({
     }
   } catch (error) { }
 
-  const roleName = t("role_leader", { defaultValue: "Trưởng nhóm" });
+  const roleName = t("role_leader", { defaultValue: "Trưởng phòng" });
 
   // AI CÓ QUYỀN DUYỆT?
   let canApprove = false;
