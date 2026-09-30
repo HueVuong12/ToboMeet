@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { CalendarEvent } from "./types";
 
 interface YearViewProps {
@@ -15,6 +16,16 @@ export default function YearView({
   events,
   onSelectDate,
 }: YearViewProps) {
+  const t = useTranslations("calendar");
+  const shortDays = (t.raw("days.short") as string[]) || [
+    "Sun",
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+  ];
   const year = currentDate.getFullYear();
 
   return (
@@ -48,13 +59,9 @@ export default function YearView({
               {monthName}
             </h4>
             <div className="grid grid-cols-7 gap-y-1 text-center text-[9px] font-bold text-slate-400 mb-1.5">
-              {locale === "vi"
-                ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
-                    <div key={d}>{d}</div>
-                  ))
-                : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                    <div key={d}>{d}</div>
-                  ))}
+              {shortDays.map((d) => (
+                <div key={d}>{d}</div>
+              ))}
             </div>
             <div className="grid grid-cols-7 gap-y-0.5">
               {monthDays.map((cellDate, idx) => {

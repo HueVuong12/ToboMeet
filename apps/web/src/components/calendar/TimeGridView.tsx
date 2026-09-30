@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Repeat } from "lucide-react";
 import { CalendarEvent, getDaysOfWeek, getEventBgColor, getEventIcon } from "./types";
 
@@ -25,6 +26,7 @@ export default function TimeGridView({
   onCellClick,
   onDropEvent,
 }: TimeGridViewProps) {
+  const t = useTranslations("calendar");
   const daysOfWeek = getDaysOfWeek(currentDate);
 
   // Lọc theo chế độ làm việc (Work Week ẩn thứ 7 và CN)
@@ -182,30 +184,12 @@ export default function TimeGridView({
                           </div>
                           <h4 className="font-bold text-xs leading-tight truncate text-left flex-1 min-w-0 text-slate-800">
                             {isAssignment
-                              ? `[${locale === "vi" ? "Nhiệm vụ" : "Assignment"}] ${event.title}`
+                              ? `${t("event_item.assignment_tag")} ${event.title}`
                               : event.title}
                           </h4>
                           {isAssignment && event.assignmentStatus && (
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/80 shrink-0">
-                              {event.assignmentStatus === "submitted"
-                                ? locale === "vi"
-                                  ? "Đã nộp"
-                                  : "Submitted"
-                                : event.assignmentStatus === "graded"
-                                  ? locale === "vi"
-                                    ? "Đã chấm"
-                                    : "Graded"
-                                  : event.assignmentStatus === "overdue"
-                                    ? locale === "vi"
-                                      ? "Quá hạn"
-                                      : "Overdue"
-                                    : event.assignmentStatus === "closed"
-                                      ? locale === "vi"
-                                        ? "Đã đóng"
-                                        : "Closed"
-                                      : locale === "vi"
-                                        ? "Đang làm"
-                                        : "In Progress"}
+                              {t(`event_item.assignment_status.${event.assignmentStatus}`)}
                             </span>
                           )}
                         </div>
@@ -217,7 +201,7 @@ export default function TimeGridView({
                           {(event.recurrenceRule || event.isRecurring) && (
                             <span className="flex items-center gap-0.5 text-indigo-600 font-semibold text-[9px] shrink-0">
                               <Repeat className="w-2.5 h-2.5" />
-                              <span>{locale === "vi" ? "Lặp" : "Recur"}</span>
+                              <span>{t("event_item.recur_badge")}</span>
                             </span>
                           )}
                         </div>

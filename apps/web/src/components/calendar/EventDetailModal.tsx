@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   X,
   Video,
@@ -14,9 +15,16 @@ import {
   RotateCcw,
   CalendarX,
   Repeat,
+  UserPlus,
+  LogOut,
+  RefreshCw,
 } from "lucide-react";
 import { CalendarEvent, RsvpMember } from "./types";
-import { useRestoreCalendarOccurrenceMutation } from "@/lib/redux/api/calendarApi";
+import {
+  useRestoreCalendarOccurrenceMutation,
+  useLeaveCalendarEventMutation,
+} from "@/lib/redux/api/calendarApi";
+import InviteMembersModal from "./InviteMembersModal";
 import { toast } from "sonner";
 
 interface EventDetailModalProps {
@@ -46,6 +54,28 @@ export default function EventDetailModal({
   onJoinMeeting,
   onRestoreOccurrence,
 }: EventDetailModalProps) {
+  const t = useTranslations("calendar");
+  const [restoreCalendarOccurrence] = useRestoreCalendarOccurrenceMutation();
+  const [leaveCalendarEvent, { isLoading: isLeaving }] =
+    useLeaveCalendarEventMutation();
+  const [restoringDate, setRestoringDate] = useState<string | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [exceptions, setExceptions] = useState<string[]>(
+    event?.recurrenceExceptions || [],
+  );
+
+  useEffect(() => {
+    setExceptions(event?.recurrenceExceptions || []);
+  }, [event?.recurrenceExceptions]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsInviteModalOpen(false);
+      setShowLeaveConfirm(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen || !event) return null;
 
   const formatDateTime = (dateStr: string) => {
@@ -56,26 +86,25 @@ export default function EventDetailModal({
 
   // Trường hợp là Nhiệm vụ (Assignment)
   if (event.eventType === "assignment") {
-    const isVi = locale === "vi";
     const statusMap: Record<string, { label: string; color: string }> = {
       submitted: {
-        label: isVi ? "Đã nộp" : "Submitted",
+        label: t("detail_modal.assignment.statuses.submitted"),
         color: "bg-emerald-100 text-emerald-700 border-emerald-200",
       },
       graded: {
-        label: isVi ? "Đã chấm điểm" : "Graded",
+        label: t("detail_modal.assignment.statuses.graded"),
         color: "bg-emerald-100 text-emerald-700 border-emerald-200",
       },
       overdue: {
-        label: isVi ? "Đã quá hạn" : "Overdue",
+        label: t("detail_modal.assignment.statuses.overdue"),
         color: "bg-rose-100 text-rose-700 border-rose-200",
       },
       closed: {
-        label: isVi ? "Đã khóa/đóng" : "Closed",
+        label: t("detail_modal.assignment.statuses.closed"),
         color: "bg-slate-100 text-slate-700 border-slate-200",
       },
       in_progress: {
-        label: isVi ? "Đang thực hiện" : "In Progress",
+        label: t("detail_modal.assignment.statuses.in_progress"),
         color: "bg-blue-100 text-blue-700 border-blue-200",
       },
     };
@@ -99,7 +128,7 @@ export default function EventDetailModal({
             <div className="flex items-center gap-2">
               <ClipboardList className="w-5 h-5 text-indigo-600" />
               <h3 className="font-bold text-slate-800 text-[17px]">
-                {locale === "vi" ? "Chi tiết nhiệm vụ" : "Assignment Details"}
+                {t("detail_modal.assignment.title")}
               </h3>
             </div>
             <button
@@ -125,7 +154,7 @@ export default function EventDetailModal({
             <div className="space-y-2.5 text-xs text-slate-600 bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 font-medium">
-                  {locale === "vi" ? "Thời gian bắt đầu:" : "Start time:"}
+                  {t("detail_modal.assignment.start_time")}
                 </span>
                 <span className="font-semibold text-slate-700">
                   {formatDateTime(event.assignmentStartDate || event.startDate)}
@@ -133,7 +162,7 @@ export default function EventDetailModal({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 font-medium">
-                  {locale === "vi" ? "Thời gian kết thúc:" : "End time:"}
+                  {t("detail_modal.assignment.end_time")}
                 </span>
                 <span
                   className={
@@ -148,7 +177,7 @@ export default function EventDetailModal({
               {event.hostDisplayName && (
                 <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
                   <span className="text-slate-400 font-medium">
-                    {locale === "vi" ? "Người giao:" : "Assigned by:"}
+                    {t("detail_modal.assignment.assigned_by")}
                   </span>
                   <div className="flex items-center gap-1.5 font-semibold text-slate-800">
                     {event.hostAvatarUrl ? (
@@ -163,7 +192,7 @@ export default function EventDetailModal({
             {event.description && (
               <div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  {locale === "vi" ? "Mô tả nhiệm vụ" : "Description"}
+                  {t("detail_modal.assignment.description")}
                 </p>
                 <div className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
                   {event.description}
@@ -177,14 +206,14 @@ export default function EventDetailModal({
                 onClick={onClose}
                 className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               >
-                {locale === "vi" ? "Đóng" : "Close"}
+                {t("detail_modal.assignment.close")}
               </button>
               <button
                 type="button"
                 onClick={handleOpenAssignment}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
-                <span>{locale === "vi" ? "Xem chi tiết nhiệm vụ" : "View Assignment"}</span>
+                <span>{t("detail_modal.assignment.view_assignment")}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -211,16 +240,6 @@ export default function EventDetailModal({
     (inv) => !inv.isHost && inv.userId !== event.hostId,
   );
 
-  const [restoreCalendarOccurrence] = useRestoreCalendarOccurrenceMutation();
-  const [restoringDate, setRestoringDate] = useState<string | null>(null);
-  const [exceptions, setExceptions] = useState<string[]>(
-    event.recurrenceExceptions || [],
-  );
-
-  useEffect(() => {
-    setExceptions(event.recurrenceExceptions || []);
-  }, [event.recurrenceExceptions]);
-
   const isRecurring = Boolean(event.recurrenceRule || event.isRecurring);
 
   const formatCancelledDate = (dateStr: string) => {
@@ -228,16 +247,7 @@ export default function EventDetailModal({
       const [year, month, day] = dateStr.split("-").map(Number);
       const date = new Date(year, month - 1, day);
       if (isNaN(date.getTime())) return dateStr;
-      const daysVi = [
-        "Chủ Nhật",
-        "Thứ Hai",
-        "Thứ Ba",
-        "Thứ Tư",
-        "Thứ Năm",
-        "Thứ Sáu",
-        "Thứ Bảy",
-      ];
-      const daysEn = [
+      const daysFull = (t.raw("days.full") as string[]) || [
         "Sunday",
         "Monday",
         "Tuesday",
@@ -246,8 +256,7 @@ export default function EventDetailModal({
         "Friday",
         "Saturday",
       ];
-      const dayOfWeek =
-        locale === "vi" ? daysVi[date.getDay()] : daysEn[date.getDay()];
+      const dayOfWeek = daysFull[date.getDay()];
       const pad = (n: number) => n.toString().padStart(2, "0");
       return `${dayOfWeek}, ${pad(day)}/${pad(month)}/${year}`;
     } catch {
@@ -268,19 +277,28 @@ export default function EventDetailModal({
       onRestoreOccurrence?.(event._id, dateStr);
 
       toast.success(
-        locale === "vi"
-          ? `Đã hoàn lại buổi họp ngày ${formatCancelledDate(dateStr)}!`
-          : `Successfully restored meeting on ${formatCancelledDate(dateStr)}!`,
+        t("detail_modal.toast_restore_success", {
+          date: formatCancelledDate(dateStr),
+        }),
       );
     } catch (err) {
       console.error("Lỗi khi khôi phục buổi họp:", err);
-      toast.error(
-        locale === "vi"
-          ? "Không thể hoàn lại buổi họp này. Vui lòng thử lại!"
-          : "Failed to restore meeting occurrence. Please try again!",
-      );
+      toast.error(t("detail_modal.toast_restore_error"));
     } finally {
       setRestoringDate(null);
+    }
+  };
+
+  const handleConfirmLeave = async () => {
+    if (!event?._id) return;
+    try {
+      await leaveCalendarEvent(event._id).unwrap();
+      toast.success(t("detail_modal.leave_success"));
+      setShowLeaveConfirm(false);
+      onClose();
+    } catch (err) {
+      console.error("Lỗi khi hủy tham gia lịch họp:", err);
+      toast.error(t("detail_modal.leave_error"));
     }
   };
 
@@ -295,7 +313,7 @@ export default function EventDetailModal({
       >
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800 text-[17px]">
-            {locale === "vi" ? "Chi tiết lịch họp" : "Meeting Details"}
+            {t("detail_modal.title")}
           </h3>
           <button
             onClick={onClose}
@@ -314,7 +332,7 @@ export default function EventDetailModal({
               {isRecurring && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                   <Repeat className="w-3 h-3 text-indigo-500" />
-                  <span>{locale === "vi" ? "Lịch định kỳ" : "Recurring"}</span>
+                  <span>{t("detail_modal.recurring_badge")}</span>
                 </span>
               )}
             </div>
@@ -330,10 +348,10 @@ export default function EventDetailModal({
                       window.location.href = `/${locale}/room/${event.roomId}?channel=${event.channelId}`;
                     }
                   }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                  className="bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                 >
                   <Video className="w-4 h-4" />
-                  <span>{locale === "vi" ? "Tham gia" : "Join"}</span>
+                  <span>{t("detail_modal.join")}</span>
                 </button>
 
                 <button
@@ -341,7 +359,7 @@ export default function EventDetailModal({
                   className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
                 >
                   <MessageSquare className="w-4 h-4 text-slate-400" />
-                  <span>{locale === "vi" ? "Trò chuyện" : "Chat"}</span>
+                  <span>{t("detail_modal.chat")}</span>
                 </button>
               </div>
             )}
@@ -388,7 +406,7 @@ export default function EventDetailModal({
                     {files.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {locale === "vi" ? "Tệp đính kèm" : "Attachments"}
+                          {t("detail_modal.attachments")}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {files.map((f: any, idx: number) => (
@@ -418,13 +436,11 @@ export default function EventDetailModal({
                 <div className="flex items-center gap-2">
                   <CalendarX className="w-4 h-4 text-rose-500" />
                   <h5 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    {locale === "vi"
-                      ? "Các buổi đã hủy trong chuỗi"
-                      : "Cancelled Dates in Series"}
+                    {t("detail_modal.cancelled_dates_title")}
                   </h5>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
-                  {exceptions.length} {locale === "vi" ? "buổi" : "dates"}
+                  {t("detail_modal.dates_count", { count: exceptions.length })}
                 </span>
               </div>
 
@@ -443,7 +459,7 @@ export default function EventDetailModal({
                             {formatCancelledDate(dateStr)}
                           </span>
                           <span className="text-[10px] text-rose-600 font-medium">
-                            {locale === "vi" ? "Đã hủy" : "Cancelled"}
+                            {t("detail_modal.cancelled_status")}
                           </span>
                         </div>
                       </div>
@@ -454,27 +470,18 @@ export default function EventDetailModal({
                           disabled={isRestoringThis}
                           onClick={() => handleRestoreDate(dateStr)}
                           className="px-2.5 py-1.5 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-600 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
-                          title={
-                            locale === "vi"
-                              ? "Hoàn lại ngày này"
-                              : "Restore this date"
-                          }
+                          title={t("detail_modal.restore_tooltip")}
                         >
                           <RotateCcw
-                            className={`w-3.5 h-3.5 ${
-                              isRestoringThis
+                            className={`w-3.5 h-3.5 ${isRestoringThis
                                 ? "animate-spin text-indigo-600"
                                 : "text-indigo-500"
-                            }`}
+                              }`}
                           />
                           <span>
                             {isRestoringThis
-                              ? locale === "vi"
-                                ? "Đang hoàn..."
-                                : "Restoring..."
-                              : locale === "vi"
-                                ? "Hoàn lại"
-                                : "Restore"}
+                              ? t("detail_modal.restoring_button")
+                              : t("detail_modal.restore_button")}
                           </span>
                         </button>
                       )}
@@ -488,9 +495,20 @@ export default function EventDetailModal({
           {/* Danh sách người tham gia (người tổ chức và khách mời) */}
           {(Boolean(event.hostId) || hasRsvp) && (
             <div className="border-t border-slate-100 pt-4">
-              <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-                {locale === "vi" ? "Người tham gia" : "Participants"}
-              </h5>
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  {t("detail_modal.participants")}
+                </h5>
+                <button
+                  type="button"
+                  onClick={() => setIsInviteModalOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors cursor-pointer"
+                  title={t("detail_modal.invite_button")}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>{t("detail_modal.invite_button")}</span>
+                </button>
+              </div>
               <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                 {/* Người tổ chức (Host) */}
                 <div className="flex items-center justify-between text-xs">
@@ -518,15 +536,15 @@ export default function EventDetailModal({
                           event.hostDisplayName ||
                           hostMember?.email?.split("@")[0] ||
                           event.hostEmail?.split("@")[0] ||
-                          (locale === "vi" ? "Người tổ chức" : "Organizer")}
+                          t("detail_modal.organizer")}
                       </span>
                       <span className="text-[10px] text-slate-400 truncate">
                         {hostMember?.email || event.hostEmail}
                       </span>
                     </div>
                   </div>
-                  <span className="text-[9px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md font-bold uppercase shrink-0">
-                    {locale === "vi" ? "Người tổ chức" : "Organizer"}
+                  <span className="text-[9px] px-2 py-0.5 bg-brand-50 text-brand-600 rounded-md font-bold uppercase shrink-0">
+                    {t("detail_modal.organizer")}
                   </span>
                 </div>
 
@@ -534,12 +552,8 @@ export default function EventDetailModal({
                 {guestList.map((inv, idx) => {
                   const isResponded = inv.status !== "PENDING";
                   const statusText = isResponded
-                    ? locale === "vi"
-                      ? "Đã phản hồi"
-                      : "Responded"
-                    : locale === "vi"
-                      ? "Chưa phản hồi"
-                      : "No response";
+                    ? t("detail_modal.responded")
+                    : t("detail_modal.no_response");
 
                   let dotColor = "bg-slate-400";
                   if (inv.status === "ACCEPTED") dotColor = "bg-emerald-500";
@@ -591,29 +605,116 @@ export default function EventDetailModal({
           )}
 
           {/* Action Buttons ở Footer */}
-          <div className="flex gap-2 pt-4 w-full border-t border-slate-50">
-            {isHost && (
+          <div className="flex gap-2 pt-4 w-full border-t border-slate-50 justify-between items-center">
+            <div className="flex gap-2">
+              {isHost && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(event)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer"
+                  title={t("detail_modal.edit")}
+                >
+                  <Pencil className="w-3.5 h-3.5 text-slate-600" />
+                  <span>{t("detail_modal.edit")}</span>
+                </button>
+              )}
+              {isHost && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(event)}
+                  className="px-4 py-2 border border-red-100 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold text-red-600 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  <span>{t("detail_modal.delete")}</span>
+                </button>
+              )}
+            </div>
+
+            {!isHost && (
               <button
-                onClick={() => onEdit(event)}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold text-slate-700"
-                title={locale === "vi" ? "Chỉnh sửa" : "Edit"}
+                type="button"
+                onClick={() => setShowLeaveConfirm(true)}
+                className="px-4 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                title={t("detail_modal.leave_event")}
               >
-                <Pencil className="w-3.5 h-3.5 text-slate-600" />
-                <span>{locale === "vi" ? "Chỉnh sửa" : "Edit"}</span>
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                <span>{t("detail_modal.leave_event")}</span>
               </button>
             )}
-            {isHost &&
-              <button
-                onClick={() => onDelete(event)}
-                className="px-4 py-2 border border-red-100 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold text-red-600"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                <span>{locale === "vi" ? "Xóa" : "Delete"}</span>
-              </button>
-            }
           </div>
         </div>
       </div>
+
+      {/* Modal xác nhận hủy tham gia */}
+      {showLeaveConfirm && (
+        <div
+          onClick={() => !isLeaving && setShowLeaveConfirm(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-60 flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center animate-in zoom-in-95 duration-150 border border-slate-100"
+          >
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <h4 className="text-base font-bold text-slate-800 mb-1.5">
+              {t("detail_modal.leave_confirm_title")}
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              {t("detail_modal.leave_confirm_desc")}
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                disabled={isLeaving}
+                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {t("detail_modal.leave_cancel_btn")}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLeave}
+                disabled={isLeaving}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {isLeaving ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <LogOut className="w-3.5 h-3.5" />
+                )}
+                <span>{t("detail_modal.leave_confirm_btn")}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isInviteModalOpen && event && (
+        <InviteMembersModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          eventId={event._id}
+          existingMemberIds={[
+            ...(event.hostId ? [event.hostId] : []),
+            ...(event.acceptedUserIds || []),
+            ...(event.pendingUserIds || []),
+            ...((rsvpList || [])
+              .filter((m) => m.status === "ACCEPTED" || m.status === "PENDING")
+              .map((m) => m.userId)
+              .filter(Boolean) as string[]),
+          ]}
+          existingEmails={[
+            ...(event.hostEmail ? [event.hostEmail] : []),
+            ...((event.invitees || []).map((i) => i.email).filter(Boolean) as string[]),
+            ...((rsvpList || [])
+              .filter((m) => m.status === "ACCEPTED" || m.status === "PENDING")
+              .map((m) => m.email)
+              .filter(Boolean) as string[]),
+          ]}
+        />
+      )}
     </div>
   );
 }

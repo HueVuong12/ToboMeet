@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarEvent } from "./types";
 
@@ -16,6 +17,8 @@ export default function CalendarSidebar({
   onSetCurrentDate,
   events,
 }: CalendarSidebarProps) {
+  const t = useTranslations("calendar");
+  const shortDays = (t.raw("days.short") as string[]) || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -77,13 +80,9 @@ export default function CalendarSidebar({
 
         {/* Grid 7 columns */}
         <div className="grid grid-cols-7 gap-y-1.5 text-center text-[10px] font-bold text-slate-400 mb-2">
-          {locale === "vi"
-            ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
-                <div key={d}>{d}</div>
-              ))
-            : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                <div key={d}>{d}</div>
-              ))}
+          {shortDays.map((d) => (
+            <div key={d}>{d}</div>
+          ))}
         </div>
 
         <div className="grid grid-cols-7 gap-y-1">

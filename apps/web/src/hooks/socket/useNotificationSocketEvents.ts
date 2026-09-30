@@ -7,8 +7,14 @@ import { useRoomCacheManager } from "../useRoomCacheManager";
 import { NotificationResponse } from "@tobomeet/shared/types";
 import { useNotificationCacheManager } from "../useNotificationCacheManager";
 
+import { useDispatch } from "react-redux";
+import { notificationsApi } from "@/lib/redux/api/notificationsApi";
+import { usersApi } from "@/lib/redux/api/usersApi";
+import { AppDispatch } from "@/lib/redux/store";
+
 export function useNotificationSocketEvents() {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const { removeRoomFromMyList } = useRoomCacheManager();
   const { addNotificationsToCache, updateUnreadNotificationBadge } =
     useNotificationCacheManager();
@@ -105,10 +111,18 @@ export function useNotificationSocketEvents() {
       socket.emit("mark_notifications_notified", notifIds); // ack lại cho server biết đã popup rồi
     };
 
+    const handleNotificationDeleted = () => {
+      dispatch(notificationsApi.util.invalidateTags(["Notification"]));
+      dispatch(usersApi.util.invalidateTags(["User"]));
+    };
+
     socket.on("receive_notifications", handleNotifications);
+    socket.on("notification_deleted", handleNotificationDeleted);
 
     return () => {
       socket.off("receive_notifications", handleNotifications);
+      socket.off("notification_deleted", handleNotificationDeleted);
     };
-  }, []);
+  }, [dispatch]);
 }
+

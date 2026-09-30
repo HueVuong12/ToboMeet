@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { X, ChevronDown, RefreshCw } from "lucide-react";
 import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
 import { useGlobalUserSearch } from "@/hooks/useGlobalUserSearch";
@@ -27,8 +28,14 @@ export default function CreateEventModal({
   initialStartDate,
   initialEndDate,
 }: CreateEventModalProps) {
-  const [createCalendarEvent] = useCreateCalendarEventMutation();
-  const [updateCalendarEvent] = useUpdateCalendarEventMutation();
+  const t = useTranslations("calendar");
+  const [createCalendarEvent, { isLoading: isCreating }] =
+    useCreateCalendarEventMutation();
+  const [updateCalendarEvent, { isLoading: isUpdating }] =
+    useUpdateCalendarEventMutation();
+  const isSubmitting = isCreating || isUpdating;
+
+  const isEditMode = Boolean(editingEvent);
 
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -39,7 +46,7 @@ export default function CreateEventModal({
   const [recurrence, setRecurrence] = useState("NONE");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const descriptionRef = useRef("");
+  const [description, setDescription] = useState("");
   const [editorResetKey, setEditorResetKey] = useState(0);
 
   // Invitees & user search
@@ -55,7 +62,7 @@ export default function CreateEventModal({
     loadMore: loadMoreSuggestedUsers,
   } = useGlobalUserSearch({
     q: memberSearchQuery,
-    skip: !isOpen || !memberSearchQuery.trim(),
+    skip: !isOpen || !memberSearchQuery.trim() || isEditMode,
     debounceMs: 300,
   });
 
@@ -66,12 +73,24 @@ export default function CreateEventModal({
       setMemberSearchQuery("");
 
       if (editingEvent) {
-        setTitle(editingEvent.title);
-        setStartDate(formatDateTimeLocal(editingEvent.startDate));
-        setEndDate(formatDateTimeLocal(editingEvent.endDate));
-        setRoomType(editingEvent.roomType);
-        descriptionRef.current = editingEvent.description || "";
-        setRecurrence(editingEvent.recurrenceRule || "NONE");
+        setTitle(editingEvent.title || "");
+        setStartDate(
+          editingEvent.startDate
+            ? formatDateTimeLocal(editingEvent.startDate)
+            : "",
+        );
+        setEndDate(
+          editingEvent.endDate ? formatDateTimeLocal(editingEvent.endDate) : "",
+        );
+        setRoomType(editingEvent.roomType || "meeting");
+        setDescription(editingEvent.description || "");
+
+        // Chuẩn hóa chuỗi lặp: loại bỏ prefix "FREQ=" để match với value của các option
+        let initialRecurrence = "NONE";
+        if (editingEvent.recurrenceRule) {
+          initialRecurrence = editingEvent.recurrenceRule.replace(/^FREQ=/, "");
+        }
+        setRecurrence(initialRecurrence);
 
         if (editingEvent.invitees) {
           setSelectedInvitees(
@@ -85,7 +104,7 @@ export default function CreateEventModal({
         }
       } else {
         setTitle("");
-        descriptionRef.current = "";
+        setDescription("");
         setSelectedInvitees([]);
         setRoomType("meeting");
         setRecurrence("NONE");
@@ -112,53 +131,75 @@ export default function CreateEventModal({
     e.preventDefault();
     setErrorMsg("");
 
-    const now = new Date();
-    if (new Date(startDate) <= now) {
-      setErrorMsg(
-        locale === "vi"
-          ? "Thời gian bắt đầu họp phải sau thời gian hiện tại."
-          : "Start time must be in the future.",
-      );
-      return;
+    if (!isEditMode) {
+      const now = new Date();
+      if (new Date(startDate) <= now) {
+        setErrorMsg(t("create_modal.start_time_future_error"));
+        return;
+      }
     }
 
-    const inviteeList = selectedInvitees.map((usr) => ({
-      email: usr.email,
-      userId: usr.supabaseId || usr.userId || usr._id,
-      displayName: usr.displayName || usr.email,
-    }));
-
     try {
-      const payload: any = {
-        title,
-        description: descriptionRef.current,
-        startDate,
-        endDate,
-        roomType,
-        invitees: inviteeList,
-      };
+      if (isEditMode && editingEvent) {
+        const payload: any = {
+          title,
+          description,
+        };
 
-      if (recurrence !== "NONE") {
-        if (recurrence.includes(";")) {
-          const parts = recurrence.split(";");
-          const freqPart = parts[0];
-          const byDayPart = parts[1] || "";
-          payload.recurrenceRule = `FREQ=${freqPart};${byDayPart}`;
+        if (recurrence && recurrence !== "NONE") {
+          if (recurrence.includes(";")) {
+            const parts = recurrence.split(";");
+            const freqPart = parts[0];
+            const byDayPart = parts[1] || "";
+            payload.recurrenceRule = `FREQ=${freqPart};${byDayPart}`;
+          } else {
+            payload.recurrenceRule = `FREQ=${recurrence}`;
+          }
         } else {
-          payload.recurrenceRule = `FREQ=${recurrence}`;
+          payload.recurrenceRule = "";
         }
-      }
 
-      if (editingEvent) {
         await updateCalendarEvent({ id: editingEvent._id, body: payload }).unwrap();
       } else {
+        const inviteeList = selectedInvitees.map((usr) => ({
+          email: usr.email,
+          userId: usr.supabaseId || usr.userId || usr._id,
+          displayName: usr.displayName || usr.email,
+        }));
+
+        const payload: any = {
+          title,
+          description,
+          startDate,
+          endDate,
+          roomType,
+          invitees: inviteeList,
+        };
+
+        if (recurrence !== "NONE") {
+          if (recurrence.includes(";")) {
+            const parts = recurrence.split(";");
+            const freqPart = parts[0];
+            const byDayPart = parts[1] || "";
+            payload.recurrenceRule = `FREQ=${freqPart};${byDayPart}`;
+          } else {
+            payload.recurrenceRule = `FREQ=${recurrence}`;
+          }
+        }
+
         await createCalendarEvent(payload).unwrap();
       }
 
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.data?.message || err.message || (editingEvent ? "Không thể cập nhật cuộc họp" : "Không thể tạo cuộc họp"));
+      setErrorMsg(
+        err.data?.message ||
+          err.message ||
+          (isEditMode
+            ? t("create_modal.error_update")
+            : t("create_modal.error_create")),
+      );
     }
   };
 
@@ -175,7 +216,9 @@ export default function CreateEventModal({
       >
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800 text-lg">
-            {locale === "vi" ? "Sự kiện" : "Event"}
+            {isEditMode
+              ? (t("create_modal.edit_title") || t("create_modal.title"))
+              : t("create_modal.title")}
           </h3>
           <button
             onClick={onClose}
@@ -195,89 +238,78 @@ export default function CreateEventModal({
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                {locale === "vi" ? "Tiêu đề cuộc họp" : "Meeting Title"}
+                {t("create_modal.title_label")}
               </label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={
-                  locale === "vi"
-                    ? "Ví dụ: Sprint Planning"
-                    : "e.g., Sprint Planning"
-                }
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                placeholder={t("create_modal.title_placeholder")}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                  {locale === "vi" ? "Bắt đầu" : "Start"}
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                  {locale === "vi" ? "Kết thúc" : "End"}
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
+            {!isEditMode && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                      {t("create_modal.start")}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                      {t("create_modal.end")}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                    />
+                  </div>
+                </div>
 
-            {startDate && new Date(startDate) <= new Date() && (
-              <p className="text-red-500 text-[11px] font-semibold mt-1">
-                {locale === "vi"
-                  ? "Thời gian bắt đầu họp phải sau thời gian hiện tại."
-                  : "Start time must be in the future."}
-              </p>
+                {startDate && new Date(startDate) <= new Date() && (
+                  <p className="text-red-500 text-[11px] font-semibold mt-1">
+                    {t("create_modal.start_time_future_error")}
+                  </p>
+                )}
+              </>
             )}
 
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                  {locale === "vi" ? "Lặp lại" : "Recurrence"}
+                  {t("create_modal.recurrence.label")}
                 </label>
                 <div className="relative">
                   <select
                     value={recurrence}
                     onChange={(e) => setRecurrence(e.target.value)}
-                    className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white appearance-none"
+                    className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white appearance-none transition-all"
                   >
                     <option value="NONE">
-                      {locale === "vi" ? "Không lặp lại" : "Does not repeat"}
+                      {t("create_modal.recurrence.none")}
                     </option>
                     <option value="DAILY">
-                      {locale === "vi" ? "Hàng ngày" : "Daily"}
+                      {t("create_modal.recurrence.daily")}
                     </option>
                     {(() => {
                       if (!startDate) return null;
                       const dateObj = new Date(startDate);
                       if (isNaN(dateObj.getTime())) return null;
 
-                      const daysVi = [
-                        "chủ nhật",
-                        "thứ hai",
-                        "thứ ba",
-                        "thứ tư",
-                        "thứ năm",
-                        "thứ sáu",
-                        "thứ bảy",
-                      ];
-                      const daysEn = [
+                      const daysFull = (t.raw("days.full") as string[]) || [
                         "Sunday",
                         "Monday",
                         "Tuesday",
@@ -286,27 +318,17 @@ export default function CreateEventModal({
                         "Friday",
                         "Saturday",
                       ];
-                      const dayNameVi = daysVi[dateObj.getDay()];
-                      const dayNameEn = daysEn[dateObj.getDay()];
-
+                      const dayName = daysFull[dateObj.getDay()];
                       const dayNum = dateObj.getDate();
                       const weekIndex = Math.ceil(dayNum / 7);
-                      const weeksVi = [
-                        "đầu tiên",
-                        "thứ hai",
-                        "thứ ba",
-                        "thứ tư",
-                        "thứ năm",
-                      ];
-                      const weeksEn = [
+                      const weeksOrder = (t.raw("weeks_order") as string[]) || [
                         "first",
                         "second",
                         "third",
                         "fourth",
                         "fifth",
                       ];
-                      const weekNameVi = weeksVi[weekIndex - 1] || "đầu tiên";
-                      const weekNameEn = weeksEn[weekIndex - 1] || "first";
+                      const weekName = weeksOrder[weekIndex - 1] || weeksOrder[0];
 
                       const rruleDays = [
                         "SU",
@@ -319,27 +341,46 @@ export default function CreateEventModal({
                       ];
                       const rruleDay = rruleDays[dateObj.getDay()];
 
-                      const weeklyLabel =
-                        locale === "vi"
-                          ? `Hàng tuần vào ${dayNameVi}`
-                          : `Weekly on ${dayNameEn}`;
-                      const monthlyLabel =
-                        locale === "vi"
-                          ? `Hàng tháng vào ngày ${dayNameVi} ${weekNameVi}`
-                          : `Monthly on the ${weekNameEn} ${dayNameEn}`;
+                      const weeklyLabel = t(
+                        "create_modal.recurrence.weekly_on",
+                        { day: dayName },
+                      );
+                      const monthlyLabel = t(
+                        "create_modal.recurrence.monthly_on",
+                        { day: dayName, week: weekName },
+                      );
                       const yearlyLabel =
                         locale === "vi"
-                          ? `Hàng năm vào ngày ${dayNum} tháng ${dateObj.getMonth() + 1}`
-                          : `Annually on ${dayNameEn}, ${dateObj.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
-                      const weekdayLabel =
-                        locale === "vi"
-                          ? "Mọi ngày trong tuần (từ thứ Hai đến thứ Sáu)"
-                          : "Every weekday (Monday to Friday)";
+                          ? t("create_modal.recurrence.yearly_on", {
+                              date: `${dayNum} tháng ${dateObj.getMonth() + 1}`,
+                              day: String(dayNum),
+                              month: String(dateObj.getMonth() + 1),
+                            })
+                          : t("create_modal.recurrence.yearly_on", {
+                              date: `${dayName}, ${dateObj.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`,
+                              day: dayName,
+                              month: dateObj.toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                              }),
+                            });
+                      const weekdayLabel = t(
+                        "create_modal.recurrence.weekdays",
+                      );
 
                       const weeklyVal = `WEEKLY;BYDAY=${rruleDay}`;
                       const monthlyVal = `MONTHLY;BYDAY=${weekIndex}${rruleDay}`;
                       const yearlyVal = `YEARLY`;
                       const weekdayVal = "WEEKLY;BYDAY=MO,TU,WE,TH,FR";
+
+                      const isKnownOption = [
+                        "NONE",
+                        "DAILY",
+                        weeklyVal,
+                        monthlyVal,
+                        yearlyVal,
+                        weekdayVal,
+                      ].includes(recurrence);
 
                       return (
                         <>
@@ -347,6 +388,9 @@ export default function CreateEventModal({
                           <option value={monthlyVal}>{monthlyLabel}</option>
                           <option value={yearlyVal}>{yearlyLabel}</option>
                           <option value={weekdayVal}>{weekdayLabel}</option>
+                          {!isKnownOption && recurrence && recurrence !== "NONE" && (
+                            <option value={recurrence}>{recurrence}</option>
+                          )}
                         </>
                       );
                     })()}
@@ -356,251 +400,237 @@ export default function CreateEventModal({
               </div>
             </div>
 
-            <div className="relative">
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                {locale === "vi" ? "Thêm khách" : "Add Guests"}
-              </label>
+            {!isEditMode && (
+              <div className="relative">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                  {t("create_modal.guests.label")}
+                </label>
 
-              {/* Input Search Box */}
-              <div className="relative mb-2">
-                <input
-                  type="text"
-                  value={memberSearchQuery}
-                  onChange={(e) => setMemberSearchQuery(e.target.value)}
-                  placeholder={
-                    locale === "vi"
-                      ? "Nhập tên hoặc email..."
-                      : "Type name or email..."
-                  }
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
-                {isSearchingMembers && (
-                  <div className="absolute right-3.5 top-3">
-                    <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
-                  </div>
-                )}
-              </div>
-
-              {/* Autocomplete Dropdown List */}
-              {memberSearchQuery.trim().length > 0 && (
-                <div className="absolute left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-50">
-                  {isSearchingMembers ? (
-                    <div className="px-4 py-3 text-xs text-slate-400 flex items-center justify-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                      <span>
-                        {locale === "vi"
-                          ? "Đang tìm kiếm..."
-                          : "Searching..."}
-                      </span>
+                {/* Input Search Box */}
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    placeholder={t("create_modal.guests.search_placeholder")}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                  />
+                  {isSearchingMembers && (
+                    <div className="absolute right-3.5 top-3">
+                      <RefreshCw className="w-4 h-4 text-brand-500 animate-spin" />
                     </div>
-                  ) : (
-                    <>
-                      {suggestedUsers.map((usr) => {
-                        const isAlreadySelected = selectedInvitees.some(
-                          (sel) =>
-                            sel.email === usr.email ||
-                            (sel.supabaseId &&
-                              sel.supabaseId === usr.supabaseId) ||
-                            (sel.userId &&
-                              sel.userId === usr.supabaseId),
-                        );
-                        return (
-                          <div
-                            key={usr.supabaseId || usr._id || usr.email}
-                            onClick={() => {
-                              if (isAlreadySelected) return;
-                              setSelectedInvitees([
-                                ...selectedInvitees,
-                                usr,
-                              ]);
-                              setMemberSearchQuery("");
-                            }}
-                            className={`px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between ${
-                              isAlreadySelected
-                                ? "opacity-50 cursor-default"
-                                : "cursor-pointer"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              {usr.avatarUrl ? (
-                                <img
-                                  src={usr.avatarUrl}
-                                  alt="avatar"
-                                  className="w-7 h-7 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center">
-                                  {(
-                                    usr.displayName ||
-                                    usr.email ||
-                                    "?"
-                                  )
-                                    .substring(0, 1)
-                                    .toUpperCase()}
+                  )}
+                </div>
+
+                {/* Autocomplete Dropdown List */}
+                {memberSearchQuery.trim().length > 0 && (
+                  <div className="absolute left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-50">
+                    {isSearchingMembers ? (
+                      <div className="px-4 py-3 text-xs text-slate-400 flex items-center justify-center gap-2">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-500" />
+                        <span>{t("create_modal.guests.searching")}</span>
+                      </div>
+                    ) : (
+                      <>
+                        {suggestedUsers.map((usr) => {
+                          const isAlreadySelected = selectedInvitees.some(
+                            (sel) =>
+                              sel.email === usr.email ||
+                              (sel.supabaseId &&
+                                sel.supabaseId === usr.supabaseId) ||
+                              (sel.userId &&
+                                sel.userId === usr.supabaseId),
+                          );
+                          return (
+                            <div
+                              key={usr.supabaseId || usr._id || usr.email}
+                              onClick={() => {
+                                if (isAlreadySelected) return;
+                                setSelectedInvitees([
+                                  ...selectedInvitees,
+                                  usr,
+                                ]);
+                                setMemberSearchQuery("");
+                              }}
+                              className={`px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between ${
+                                isAlreadySelected
+                                  ? "opacity-50 cursor-default"
+                                  : "cursor-pointer"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                {usr.avatarUrl ? (
+                                  <img
+                                    src={usr.avatarUrl}
+                                    alt="avatar"
+                                    className="w-7 h-7 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-700 text-xs font-bold flex items-center justify-center">
+                                    {(
+                                      usr.displayName ||
+                                      usr.email ||
+                                      "?"
+                                    )
+                                      .substring(0, 1)
+                                      .toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-slate-800">
+                                    {usr.displayName || usr.email}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {usr.email}
+                                  </span>
                                 </div>
+                              </div>
+                              {isAlreadySelected && (
+                                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-bold">
+                                  {t("create_modal.guests.selected")}
+                                </span>
                               )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Email hợp lệ chưa có trong hệ thống (Khách ngoài hệ thống) */}
+                        {new RegExp(
+                          "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+                        ).test(debouncedMemberQuery.trim()) &&
+                          !suggestedUsers.some(
+                            (u) =>
+                              u.email?.toLowerCase() ===
+                              debouncedMemberQuery.trim().toLowerCase(),
+                          ) && (
+                            <div
+                              onClick={() => {
+                                const newExternalUser = {
+                                  email: debouncedMemberQuery.trim(),
+                                  displayName: debouncedMemberQuery.trim(),
+                                };
+                                setSelectedInvitees([
+                                  ...selectedInvitees,
+                                  newExternalUser,
+                                ]);
+                                setMemberSearchQuery("");
+                              }}
+                              className="px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3"
+                            >
+                              <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
+                                @
+                              </div>
                               <div className="flex flex-col">
                                 <span className="text-xs font-bold text-slate-800">
-                                  {usr.displayName || usr.email}
+                                  {debouncedMemberQuery.trim()}
                                 </span>
                                 <span className="text-[10px] text-slate-400">
-                                  {usr.email}
+                                  {t("create_modal.guests.invite_external")}
                                 </span>
                               </div>
                             </div>
-                            {isAlreadySelected && (
-                              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-bold">
-                                {locale === "vi" ? "Đã chọn" : "Selected"}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                          )}
 
-                      {/* Email hợp lệ chưa có trong hệ thống (Khách ngoài hệ thống) */}
-                      {new RegExp(
-                        "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
-                      ).test(debouncedMemberQuery.trim()) &&
-                        !suggestedUsers.some(
-                          (u) =>
-                            u.email?.toLowerCase() ===
-                            debouncedMemberQuery.trim().toLowerCase(),
-                        ) && (
-                          <div
-                            onClick={() => {
-                              const newExternalUser = {
-                                email: debouncedMemberQuery.trim(),
-                                displayName: debouncedMemberQuery.trim(),
-                              };
-                              setSelectedInvitees([
-                                ...selectedInvitees,
-                                newExternalUser,
-                              ]);
-                              setMemberSearchQuery("");
-                            }}
-                            className="px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3"
-                          >
-                            <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
-                              @
+                        {hasNextSuggestedUsers && (
+                          <div className="p-2 text-center border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadMoreSuggestedUsers();
+                              }}
+                              disabled={isLoadingMoreMembers}
+                              className="w-full py-1 text-xs font-semibold text-brand-600 hover:bg-brand-50 rounded-lg transition-colors flex items-center justify-center gap-1"
+                            >
+                              {isLoadingMoreMembers ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : null}
+                              <span>
+                                {t("create_modal.guests.load_more")}
+                              </span>
+                            </button>
+                          </div>
+                        )}
+
+                        {!isSearchingMembers &&
+                          suggestedUsers.length === 0 &&
+                          !new RegExp(
+                            "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+                          ).test(debouncedMemberQuery.trim()) && (
+                            <div className="px-4 py-3 text-xs text-slate-400 text-center">
+                              {t("create_modal.guests.no_users")}
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-800">
-                                {debouncedMemberQuery.trim()}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {locale === "vi"
-                                  ? "Mời khách ngoài hệ thống"
-                                  : "Invite external guest"}
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                          )}
+                      </>
+                    )}
+                  </div>
+                )}
 
-                      {hasNextSuggestedUsers && (
-                        <div className="p-2 text-center border-t border-slate-100">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              loadMoreSuggestedUsers();
-                            }}
-                            disabled={isLoadingMoreMembers}
-                            className="w-full py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center gap-1"
-                          >
-                            {isLoadingMoreMembers ? (
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                            ) : null}
-                            <span>
-                              {locale === "vi"
-                                ? "Tải thêm..."
-                                : "Load more..."}
-                            </span>
-                          </button>
-                        </div>
-                      )}
-
-                      {!isSearchingMembers &&
-                        suggestedUsers.length === 0 &&
-                        !new RegExp(
-                          "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
-                        ).test(debouncedMemberQuery.trim()) && (
-                          <div className="px-4 py-3 text-xs text-slate-400 text-center">
-                            {locale === "vi"
-                              ? "Không tìm thấy người dùng."
-                              : "No users found."}
-                          </div>
-                        )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Selected Invitees List */}
-              {selectedInvitees.length > 0 && (
-                <div className="mt-3 space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {selectedInvitees.map((usr) => (
-                    <div
-                      key={usr._id || usr.email}
-                      className="flex items-center justify-between p-2 hover:bg-slate-50/50 rounded-xl border border-slate-100 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        {usr.avatarUrl ? (
-                          <img
-                            src={usr.avatarUrl}
-                            alt="avatar"
-                            className="w-7 h-7 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center">
-                            {(usr.displayName || usr.email || "?")
-                              .substring(0, 1)
-                              .toUpperCase()}
-                          </div>
-                        )}
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-800">
-                            {usr.displayName || usr.email}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {usr.email}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedInvitees(
-                            selectedInvitees.filter(
-                              (sel) => sel.email !== usr.email,
-                            ),
-                          )
-                        }
-                        className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                {/* Selected Invitees List */}
+                {selectedInvitees.length > 0 && (
+                  <div className="mt-3 space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {selectedInvitees.map((usr) => (
+                      <div
+                        key={usr._id || usr.email}
+                        className="flex items-center justify-between p-2 hover:bg-slate-50/50 rounded-xl border border-slate-100 transition-all"
                       >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                        <div className="flex items-center gap-2.5">
+                          {usr.avatarUrl ? (
+                            <img
+                              src={usr.avatarUrl}
+                              alt="avatar"
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-700 text-xs font-bold flex items-center justify-center">
+                              {(usr.displayName || usr.email || "?")
+                                .substring(0, 1)
+                                .toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-800">
+                              {usr.displayName || usr.email}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {usr.email}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedInvitees(
+                              selectedInvitees.filter(
+                                (sel) => sel.email !== usr.email,
+                              ),
+                            )
+                          }
+                          className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2.5">
-                {locale === "vi" ? "Mô tả" : "Description"}
+                {t("create_modal.description")}
               </label>
               <TeamsRichEditor
-                value={descriptionRef.current}
+                key={isEditMode ? `edit-${editingEvent?._id}` : `create-${editorResetKey}`}
+                value={description}
                 onChange={(html) => {
-                  descriptionRef.current = html;
+                  setDescription(html);
                 }}
                 resetKey={editorResetKey}
                 locale={locale}
-                placeholder={
-                  locale === "vi"
-                    ? "Nội dung tóm tắt cuộc họp..."
-                    : "Meeting summary notes..."
-                }
+                placeholder={t("create_modal.description_placeholder")}
+                allowDraft={!isEditMode}
               />
             </div>
           </div>
@@ -611,13 +641,23 @@ export default function CreateEventModal({
               onClick={onClose}
               className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
             >
-              {locale === "vi" ? "Hủy" : "Cancel"}
+              {t("create_modal.cancel")}
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 py-3 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white rounded-xl text-sm font-bold shadow-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
             >
-              {locale === "vi" ? "Lưu" : "Save"}
+              {isSubmitting && (
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
+              )}
+              <span>
+                {isSubmitting
+                  ? (isEditMode
+                      ? t("create_modal.updating")
+                      : t("create_modal.saving"))
+                  : t("create_modal.save")}
+              </span>
             </button>
           </div>
         </form>

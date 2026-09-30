@@ -316,4 +316,46 @@ export class NotificationsService {
       console.error("Lỗi khi cập nhật trạng thái thông báo CALENDAR_INVITE:", error);
     }
   }
+
+  // Xử lý xóa thông báo khi người dùng hủy tham gia / rời lịch họp
+  @OnEvent("notification.calendar_leave", { async: true })
+  async handleCalendarLeave(payload: {
+    userId: string;
+    userIds?: string[];
+    eventId: string;
+  }) {
+    try {
+      const userIds = payload.userIds?.length
+        ? payload.userIds
+        : [payload.userId];
+
+      await this.notificationModel.deleteMany({
+        userId: { $in: userIds },
+        $or: [
+          { referenceId: payload.eventId },
+          { "metadata.eventId": payload.eventId },
+        ],
+      });
+
+      for (const uid of userIds) {
+        const hasUnread = await this.notificationModel.exists({
+          userId: uid,
+          isRead: false,
+        });
+        if (!hasUnread) {
+          await this.toggleUnreadStatus(uid, false);
+        }
+
+        this.appGateway.server
+          .to(`user_${uid}`)
+          .emit("notification_deleted", {
+            referenceId: payload.eventId,
+            userId: uid,
+          });
+      }
+    } catch (error) {
+      console.error("Lỗi khi xóa thông báo khi huỷ tham gia lịch:", error);
+    }
+  }
 }
+

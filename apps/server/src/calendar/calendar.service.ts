@@ -262,7 +262,7 @@ export class CalendarService {
   /**
    * Truy vấn lịch họp theo khoảng thời gian và sinh chuỗi lặp ảo
    */
-  async getEventsForUser(
+  async getEvents(
     userId: string,
     startRange: string,
     endRange: string,
@@ -286,38 +286,43 @@ export class CalendarService {
     }
 
     // Điều kiện thời gian
+    // TH1: Sự kiện đơn lẻ — nằm trong khoảng range (overlap)
+    // TH2: Sự kiện lặp — chuỗi đã bắt đầu trước rangeEnd và chưa kết thúc trước rangeStart
     andConditions.push({
       $or: [
-        // TH1: Sự kiện đơn lẻ thông thường
+        // TH1: Sự kiện đơn lẻ (isRecurring = false hoặc không có)
         {
-          isRecurring: { $ne: true },
-          startDate: { $lte: rangeEnd },
-          endDate: { $gte: rangeStart },
+          $and: [
+            { isRecurring: { $ne: true } },
+            { startDate: { $lte: rangeEnd } },
+            { endDate: { $gte: rangeStart } },
+          ],
         },
-        // TH2: Sự kiện Lặp (Recurring)
+        // TH2: Sự kiện Lặp (isRecurring = true)
         {
-          isRecurring: true,
-          startDate: { $lte: rangeEnd }, // Chuỗi đã bắt đầu trước khi range kết thúc
-          $or: [
-            { recurrenceEndDate: null }, // Lặp vô hạn (không có ngày kết thúc)
-            { recurrenceEndDate: { $exists: false } },
-            { recurrenceEndDate: { $gte: rangeStart } }, // Sẽ kết thúc sau khi range bắt đầu
+          $and: [
+            { isRecurring: true },
+            { startDate: { $lte: rangeEnd } }, // Chuỗi đã bắt đầu trước khi range kết thúc
+            {
+              $or: [
+                { recurrenceEndDate: null },           // Lặp vô hạn
+                { recurrenceEndDate: { $exists: false } },
+                { recurrenceEndDate: { $gte: rangeStart } }, // Kết thúc sau khi range bắt đầu
+              ],
+            },
           ],
         },
       ],
     });
 
     const query = { $and: andConditions };
-
     const events = await this.calendarEventModel.find(query).exec();
     const resultEvents = [];
 
     for (const event of events) {
-      if (!event.recurrenceRule) {
+      if (!event.isRecurring) {
         // Sự kiện đơn lẻ thông thường
-        if (event.startDate >= rangeStart && event.startDate <= rangeEnd) {
-          resultEvents.push(event);
-        }
+        resultEvents.push(event);
       } else {
         // Sự kiện lặp chuẩn RFC 5545
         try {
@@ -540,9 +545,39 @@ export class CalendarService {
       return newEvent;
     } else {
       // Chỉnh sửa toàn bộ chuỗi
+      const updateData: any = {};
+      if (data.title !== undefined) updateData.title = data.title;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.location !== undefined) updateData.location = data.location;
+      if (data.roomType !== undefined) updateData.roomType = data.roomType;
+      if (data.startDate) updateData.startDate = new Date(data.startDate);
+      if (data.endDate) updateData.endDate = new Date(data.endDate);
+
+      if (data.recurrenceRule !== undefined) {
+        if (data.recurrenceRule && data.recurrenceRule !== "NONE") {
+          updateData.isRecurring = true;
+          updateData.recurrenceRule = data.recurrenceRule;
+          const match = data.recurrenceRule.match(/UNTIL=([^;]+)/);
+          if (match) {
+            const untilStr = match[1];
+            const formattedStr = untilStr.replace(
+              /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+              "$1-$2-$3T$4:$5:$6Z",
+            );
+            updateData.recurrenceEndDate = new Date(formattedStr);
+          } else {
+            updateData.recurrenceEndDate = null;
+          }
+        } else {
+          updateData.isRecurring = false;
+          updateData.recurrenceRule = null;
+          updateData.recurrenceEndDate = null;
+        }
+      }
+
       const updatedEvent = await this.calendarEventModel.findByIdAndUpdate(
         eventId,
-        { $set: data },
+        { $set: updateData },
         { new: true },
       );
 
@@ -887,4 +922,179 @@ export class CalendarService {
     }
     return results;
   }
+
+  /**
+   * Mời thêm người dùng vào sự kiện đã có
+   */
+  async inviteUsers(
+    userId: string,
+    eventId: string,
+    data: { invitees?: any[]; userIds?: string[] },
+  ) {
+    const event = await this.calendarEventModel.findById(eventId);
+    if (!event) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    // Host hoặc người tham gia đã được chấp nhận đều có thể mời (hoặc ưu tiên host)
+    if (event.hostId !== userId && !event.acceptedUserIds?.includes(userId)) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_FORBIDDEN);
+    }
+
+    const candidateIds = new Set<string>();
+
+    if (data.userIds && Array.isArray(data.userIds)) {
+      data.userIds.forEach((id) => {
+        if (id && typeof id === "string") candidateIds.add(id);
+      });
+    }
+
+    if (data.invitees && Array.isArray(data.invitees)) {
+      for (const inv of data.invitees) {
+        let uId = inv.userId;
+        if (!uId && inv.email) {
+          const userObj = await this.userModel.findOne({ email: inv.email }).exec();
+          if (userObj) uId = userObj.supabaseId;
+        }
+        if (uId) candidateIds.add(uId);
+      }
+    }
+
+    // Loại bỏ các ID đã có trong sự kiện mà không thể mời lại:
+    // hostId, acceptedUserIds, pendingUserIds
+    // (Nếu ai đó trong declinedUserIds mà host mời lại, sẽ cho phép mời và chuyển sang pending)
+    const existingIds = new Set<string>([
+      event.hostId,
+      ...(event.acceptedUserIds || []),
+      ...(event.pendingUserIds || []),
+    ]);
+
+    const newInviteeIds = Array.from(candidateIds).filter(
+      (id) => !existingIds.has(id),
+    );
+
+    if (newInviteeIds.length === 0) {
+      return { success: true, count: 0, event };
+    }
+
+    const updatedEvent = await this.calendarEventModel.findByIdAndUpdate(
+      eventId,
+      {
+        $addToSet: { pendingUserIds: { $each: newInviteeIds } },
+        $pull: { declinedUserIds: { $in: newInviteeIds } },
+      },
+      { new: true },
+    );
+
+    // Gửi notification lời mời
+    const hostUser = await this.userModel
+      .findOne({ supabaseId: userId })
+      .select("displayName email avatarUrl")
+      .exec();
+    const hostDisplayName =
+      hostUser?.displayName ||
+      hostUser?.email?.split("@")[0] ||
+      "Người tổ chức";
+
+    this.eventEmitter.emit("notification.calendar_invite", {
+      userIds: newInviteeIds,
+      referenceId: event._id.toString(),
+      metadata: {
+        eventId: event._id.toString(),
+        title: event.title,
+        startDate: event.startDate.toISOString(),
+        endDate: event.endDate.toISOString(),
+        inviterId: userId,
+        inviterName: hostDisplayName,
+        inviterAvatarUrl: hostUser?.avatarUrl || "",
+        meetingCode: event.meetingCode,
+        location: event.location,
+        description: event.description,
+        roomType: event.roomType,
+      },
+    });
+
+    this.appGateway.server.emit("calendar_event_updated", {
+      eventId,
+      updateType: "all",
+      event: updatedEvent,
+    });
+
+    return {
+      success: true,
+      count: newInviteeIds.length,
+      event: updatedEvent,
+    };
+  }
+
+  /**
+   * Thành viên (không phải Host) hủy tham gia / rời khỏi lịch họp
+   */
+  async leaveEvent(userId: string, eventId: string) {
+    const event = await this.calendarEventModel.findById(eventId);
+    if (!event) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    // Host không thể tự rời khỏi lịch do mình tạo (Host cần xóa/hủy lịch)
+    if (event.hostId === userId) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_FORBIDDEN);
+    }
+
+    const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+    const user = await this.userModel.findOne({
+      $or: [
+        { supabaseId: userId },
+        ...(isValidObjectId(userId) ? [{ _id: userId }] : []),
+      ],
+    });
+
+    const userIdsToRemove = new Set<string>([userId]);
+    if (user) {
+      if (user.supabaseId) userIdsToRemove.add(user.supabaseId);
+      if (user._id) userIdsToRemove.add(user._id.toString());
+    }
+
+    const removeList = Array.from(userIdsToRemove);
+
+    // Rút user ra khỏi tất cả các mảng: accepted, pending, declined
+    // để làm sạch và cho phép host có thể mời lại sau này
+    const updatedEvent = await this.calendarEventModel.findByIdAndUpdate(
+      eventId,
+      {
+        $pull: {
+          acceptedUserIds: { $in: removeList },
+          pendingUserIds: { $in: removeList },
+          declinedUserIds: { $in: removeList },
+        },
+      },
+      { new: true },
+    );
+
+    if (!updatedEvent) {
+      throw new AppException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    // Phát event để xoá thông báo có referenceId là calendar event này
+    this.eventEmitter.emit("notification.calendar_leave", {
+      userId,
+      userIds: removeList,
+      eventId: event._id.toString(),
+    });
+
+    // Thông báo cho host là người này đã hủy tham gia
+    this.appGateway.server
+      .to(`user_${event.hostId}`)
+      .emit("rsvp_updated", { eventId, userId, status: "DECLINED" });
+
+    // Phát socket cập nhật sự kiện cho các client
+    this.appGateway.server.emit("calendar_event_updated", {
+      eventId,
+      updateType: "all",
+      event: updatedEvent,
+    });
+
+    return { success: true, message: "Left calendar event successfully" };
+  }
 }
+

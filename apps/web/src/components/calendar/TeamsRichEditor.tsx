@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -17,25 +18,16 @@ import {
   Bold as BoldIcon,
   Italic as ItalicIcon,
   Underline as UnderlineIcon,
-  Strikethrough as StrikethroughIcon,
   Check,
   List as ListIcon,
   ListOrdered as ListOrderedIcon,
-  Heading1,
-  Heading2,
-  Quote as QuoteIcon,
-  Link2 as LinkIcon,
-  Undo as UndoIcon,
-  Redo as RedoIcon,
   Paperclip as PaperclipIcon,
   Image as ImageIcon,
   Smile as SmileIcon,
-  ChevronDown,
   Trash2,
   FileText,
   AlertCircle,
-  Type,
-  Palette
+  Type
 } from "lucide-react";
 
 interface Attachment {
@@ -54,6 +46,7 @@ interface TeamsRichEditorProps {
   locale?: string;
   placeholder?: string;
   resetKey?: number;
+  allowDraft?: boolean;
 }
 
 // Popular Emojis List
@@ -73,6 +66,7 @@ const EMOJIS = [
 function ImageNodeView(props: any) {
   const { node, deleteNode } = props;
   const { src } = node.attrs;
+  const t = useTranslations("calendar");
 
   return (
     <NodeViewWrapper className="relative inline-block my-2 mr-2 select-none group align-middle">
@@ -93,7 +87,7 @@ function ImageNodeView(props: any) {
             deleteNode();
           }}
           className="absolute top-2 right-2 w-7 h-7 bg-white hover:bg-slate-50 rounded-full flex items-center justify-center text-slate-500 hover:text-red-500 shadow-md border border-slate-100 transition-all duration-200 cursor-pointer active:scale-95 z-10"
-          title="Xóa hình ảnh"
+          title={t("rich_editor.delete_image_title")}
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -114,9 +108,13 @@ export default function TeamsRichEditor({
   onAttachmentsChange,
   initialAttachments = [],
   locale = "vi",
-  placeholder = "Nội dung tóm tắt cuộc họp...",
-  resetKey = 0
+  placeholder,
+  resetKey = 0,
+  allowDraft = true,
 }: TeamsRichEditorProps) {
+  const t = useTranslations("calendar");
+  const editorPlaceholder = placeholder || t("rich_editor.placeholder");
+
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [isFormatVisible, setIsFormatVisible] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -218,7 +216,7 @@ export default function TeamsRichEditor({
     extensions: [
       StarterKit.configure(),
       Placeholder.configure({
-        placeholder,
+        placeholder: editorPlaceholder,
       }),
       Underline,
       Link.configure({
@@ -243,7 +241,9 @@ export default function TeamsRichEditor({
       const combined = combineHtmlAndAttachments(html, attachments);
       
       // Save Draft
-      localStorage.setItem("teams_rich_editor_draft_content", combined);
+      if (allowDraft) {
+        localStorage.setItem("teams_rich_editor_draft_content", combined);
+      }
 
       // Debounce notifying parent page
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -261,9 +261,9 @@ export default function TeamsRichEditor({
     },
   });
 
-  // Load Draft from LocalStorage on Mount (if value is empty)
+  // Load Draft from LocalStorage on Mount (if value is empty and drafts allowed)
   useEffect(() => {
-    if (editor && !value) {
+    if (editor && !value && allowDraft) {
       const savedContent = localStorage.getItem("teams_rich_editor_draft_content");
       if (savedContent) {
         const { cleanHtml, files } = extractAttachments(savedContent);
@@ -281,7 +281,7 @@ export default function TeamsRichEditor({
         setAttachments(files);
       }
     }
-  }, [editor, value]);
+  }, [editor, value, allowDraft]);
 
   // Reset content when resetKey changes
   useEffect(() => {
@@ -297,9 +297,11 @@ export default function TeamsRichEditor({
       const currentHtml = editor.getHTML();
       const combined = combineHtmlAndAttachments(currentHtml, attachments);
       onChange(combined);
-      localStorage.setItem("teams_rich_editor_draft_content", combined);
+      if (allowDraft) {
+        localStorage.setItem("teams_rich_editor_draft_content", combined);
+      }
     }
-  }, [attachments]);
+  }, [attachments, allowDraft]);
 
   // Close Popups on Click Outside
   useEffect(() => {
@@ -318,7 +320,6 @@ export default function TeamsRichEditor({
   // Character validation
   const plainText = editor.getText();
   const charCount = plainText.length;
-  const isOverLimit = charCount > 10000;
 
   // Handle file uploads (API request to get signed url and upload)
   const handleUploadFile = async (file: File, isInlineImage = false) => {
@@ -326,7 +327,7 @@ export default function TeamsRichEditor({
     setUploadProgress(10);
     try {
       // Step 1: Request signed upload url
-      const { signedUrl, url, fileName } = await axiosInstance.post<any, {
+      const { signedUrl, url } = await axiosInstance.post<any, {
         signedUrl: string;
         url: string;
         fileName: string;
@@ -364,7 +365,7 @@ export default function TeamsRichEditor({
       }
     } catch (error: any) {
       console.error("Lỗi upload file:", error);
-      alert(locale === "vi" ? `Không thể tải tệp lên: ${error.response?.data?.message || error.message}` : `Upload failed: ${error.message}`);
+      alert(t("rich_editor.upload_error", { error: error.response?.data?.message || error.message }));
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -431,7 +432,7 @@ export default function TeamsRichEditor({
 
   const triggerLinkPrompt = () => {
     const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt(locale === "vi" ? "Nhập địa chỉ liên kết:" : "Enter URL:", previousUrl);
+    const url = window.prompt(t("rich_editor.prompt_url"), previousUrl);
 
     if (url === null) {
       return;
@@ -467,7 +468,7 @@ export default function TeamsRichEditor({
       {/* Uploading progress bar */}
       {isUploading && (
         <div className="px-4 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>{locale === "vi" ? "Đang tải tệp lên..." : "Uploading file..."}</span>
+          <span>{t("rich_editor.uploading")}</span>
           <div className="flex items-center gap-2 w-32">
             <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
               <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
@@ -520,12 +521,10 @@ export default function TeamsRichEditor({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0"
-            title="Đính kèm tệp"
+            title={t("rich_editor.attach_file")}
           >
             <PaperclipIcon className="w-4.5 h-4.5" />
           </button>
-
-
 
           {/* Inline Image Input */}
           <input
@@ -539,7 +538,7 @@ export default function TeamsRichEditor({
             type="button"
             onClick={() => imageInputRef.current?.click()}
             className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0"
-            title="Chèn hình ảnh"
+            title={t("rich_editor.insert_image")}
           >
             <ImageIcon className="w-4.5 h-4.5" />
           </button>
@@ -551,7 +550,7 @@ export default function TeamsRichEditor({
               type="button"
               onClick={handleEmojiClick}
               className={`p-2 rounded-lg transition-colors shrink-0 ${isEmojiPickerOpen ? "bg-indigo-50 text-indigo-600" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"}`}
-              title="Emoji"
+              title={t("rich_editor.emoji")}
             >
               <SmileIcon className="w-4.5 h-4.5" />
             </button>
@@ -590,7 +589,7 @@ export default function TeamsRichEditor({
             type="button"
             onClick={() => setIsFormatVisible(!isFormatVisible)}
             className={`p-2 rounded-lg transition-colors shrink-0 ${isFormatVisible ? "bg-indigo-50 text-indigo-600" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"}`}
-            title="Định dạng nâng cao"
+            title={t("rich_editor.advanced_formatting")}
           >
             <Type className="w-4.5 h-4.5" />
           </button>
@@ -602,7 +601,7 @@ export default function TeamsRichEditor({
                 type="button"
                 onClick={() => editor.chain().focus().toggleBold().run()}
                 className={`p-1.5 rounded-lg transition-colors hover:bg-slate-200 shrink-0 ${editor.isActive("bold") ? "bg-slate-200 text-indigo-600" : "text-slate-600"}`}
-                title="In đậm (Ctrl+B)"
+                title={t("rich_editor.bold")}
               >
                 <BoldIcon className="w-4 h-4" />
               </button>
@@ -610,7 +609,7 @@ export default function TeamsRichEditor({
                 type="button"
                 onClick={() => editor.chain().focus().toggleItalic().run()}
                 className={`p-1.5 rounded-lg transition-colors hover:bg-slate-200 shrink-0 ${editor.isActive("italic") ? "bg-slate-200 text-indigo-600" : "text-slate-600"}`}
-                title="In nghiêng (Ctrl+I)"
+                title={t("rich_editor.italic")}
               >
                 <ItalicIcon className="w-4 h-4" />
               </button>
@@ -618,7 +617,7 @@ export default function TeamsRichEditor({
                 type="button"
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
                 className={`p-1.5 rounded-lg transition-colors hover:bg-slate-200 shrink-0 ${editor.isActive("underline") ? "bg-slate-200 text-indigo-600" : "text-slate-600"}`}
-                title="Gạch chân (Ctrl+U)"
+                title={t("rich_editor.underline")}
               >
                 <UnderlineIcon className="w-4 h-4" />
               </button>
@@ -643,7 +642,7 @@ export default function TeamsRichEditor({
                   editor.chain().focus().toggleBulletList().run();
                 }}
                 className={`p-1.5 rounded-lg transition-colors hover:bg-slate-200 shrink-0 ${editor.isActive("bulletList") ? "bg-slate-200 text-indigo-600" : "text-slate-600"}`}
-                title="Danh sách dấu đầu dòng"
+                title={t("rich_editor.bullet_list")}
               >
                 <ListIcon className="w-4 h-4" />
               </button>
@@ -665,7 +664,7 @@ export default function TeamsRichEditor({
                   editor.chain().focus().toggleOrderedList().run();
                 }}
                 className={`p-1.5 rounded-lg transition-colors hover:bg-slate-200 shrink-0 ${editor.isActive("orderedList") ? "bg-slate-200 text-indigo-600" : "text-slate-600"}`}
-                title="Danh sách số"
+                title={t("rich_editor.ordered_list")}
               >
                 <ListOrderedIcon className="w-4 h-4" />
               </button>
@@ -678,9 +677,7 @@ export default function TeamsRichEditor({
           <div className="text-xs text-red-500 font-semibold flex items-center gap-1 animate-pulse">
             <AlertCircle className="w-3.5 h-3.5" />
             <span>
-              {locale === "vi" 
-                ? "Nội dung mô tả không được vượt quá 10.000 ký tự" 
-                : "You can only type up to 10,000 characters"}
+              {t("rich_editor.char_limit_warning")}
             </span>
           </div>
         )}
@@ -699,12 +696,10 @@ export default function TeamsRichEditor({
             className="bg-white rounded-3xl p-7 max-w-md w-full shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
           >
             <h3 className="font-bold text-slate-800 text-lg mb-3">
-              {locale === "vi" ? "Xác nhận xóa" : "Confirm Delete"}
+              {t("rich_editor.confirm_delete_title")}
             </h3>
             <p className="text-sm text-slate-500 mb-7 leading-relaxed">
-              {locale === "vi" 
-                ? "Bạn có chắc chắn muốn xóa hình ảnh này khỏi nội dung mô tả?" 
-                : "Are you sure you want to remove this image from the description?"}
+              {t("rich_editor.confirm_delete_desc")}
             </p>
             <div className="flex gap-4">
               <button
@@ -715,7 +710,7 @@ export default function TeamsRichEditor({
                 }}
                 className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
               >
-                {locale === "vi" ? "Hủy" : "Cancel"}
+                {t("rich_editor.cancel")}
               </button>
               <button
                 type="button"
@@ -728,7 +723,7 @@ export default function TeamsRichEditor({
                 }}
                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
               >
-                {locale === "vi" ? "Xóa" : "Delete"}
+                {t("rich_editor.delete")}
               </button>
             </div>
           </div>
@@ -738,21 +733,3 @@ export default function TeamsRichEditor({
   );
 }
 
-// Inline SVG / Wrapper for highlight icon
-function HighlightIconWrapper({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="m9 11-6 6v3h9l3-3" />
-      <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
-    </svg>
-  );
-}

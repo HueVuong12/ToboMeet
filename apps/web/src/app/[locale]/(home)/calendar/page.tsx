@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
@@ -46,6 +46,7 @@ export default function CalendarPage() {
 
 function CalendarContent() {
   const locale = useLocale();
+  const t = useTranslations("calendar");
   const router = useRouter();
   const { data: meData } = useGetMeQuery();
   const currentUserId = meData?._id;
@@ -83,8 +84,12 @@ function CalendarContent() {
   const selectedEventRef = useRef<CalendarEvent | null>(null);
 
   // Calculate month boundaries for current selected date
+  // startOfMonth: ngày 1 của tháng lúc 00:00 giờ local (ví dụ: Sep 1 00:00 UTC+7 = Aug 31 17:00 UTC)
+  // endOfMonth: ngày 1 của tháng SAU lúc 23:59:59 (exclusive end) — đảm bảo bao gồm toàn bộ ngày cuối tháng
+  // Không dùng new Date(year, month+1, 0) vì ngày 0 = ngày cuối tháng lúc 00:00 giờ local,
+  // bỏ sót các sự kiện vào buổi chiều/tối của ngày cuối tháng
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
+  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1, 23, 59, 59, 999).toISOString();
 
   // RTK Query fetches
   const { data: rawEvents, isLoading: loading, refetch: refetchEvents } = useGetCalendarEventsQuery({
@@ -242,12 +247,8 @@ function CalendarContent() {
 
       toast.success(
         deleteType === "single"
-          ? locale === "vi"
-            ? "Đã hủy buổi họp này thành công!"
-            : "Successfully cancelled this meeting occurrence!"
-          : locale === "vi"
-            ? "Đã hủy lịch họp thành công!"
-            : "Successfully cancelled meeting!",
+          ? t("toasts.delete_single_success")
+          : t("toasts.delete_all_success")
       );
 
       setShowDeleteConfirmModal(false);
@@ -255,11 +256,7 @@ function CalendarContent() {
       refetchEvents();
     } catch (err) {
       console.error("Lỗi xóa sự kiện:", err);
-      toast.error(
-        locale === "vi"
-          ? "Không thể xóa lịch họp. Vui lòng thử lại!"
-          : "Failed to delete meeting. Please try again!",
-      );
+      toast.error(t("toasts.delete_error"));
     }
   };
 

@@ -2093,5 +2093,215 @@
       "4291": "Bạn đã gửi lời mời cho người này rồi. Vui lòng thử lại sau ít phút",
       "5011": "Lỗi hệ thống, vui lòng thử lại sau"
     }
+  },
+  "calendar": {
+    "title": "Lịch",
+    "toggle_sidebar": "Đóng/mở thanh bên",
+    "today": "Hôm nay",
+    "search": {
+      "placeholder": "Tìm kiếm",
+      "searching": "Đang tìm kiếm...",
+      "no_results": "Không tìm thấy kết quả"
+    },
+    "views": {
+      "day": "Ngày",
+      "week": "Tuần",
+      "month": "Tháng",
+      "year": "Năm"
+    },
+    "create": {
+      "button": "Tạo lịch",
+      "event": "Sự kiện",
+      "channel_meeting": "Cuộc họp kênh"
+    },
+    "days": {
+      "short": [
+        "CN",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "month_grid": [
+        "CN",
+        "THỨ 2",
+        "THỨ 3",
+        "THỨ 4",
+        "THỨ 5",
+        "THỨ 6",
+        "THỨ 7"
+      ],
+      "full": [
+        "chủ nhật",
+        "thứ hai",
+        "thứ ba",
+        "thứ tư",
+        "thứ năm",
+        "thứ sáu",
+        "thứ bảy"
+      ]
+    },
+    "weeks_order": [
+      "đầu tiên",
+      "thứ hai",
+      "thứ ba",
+      "thứ tư",
+      "thứ năm"
+    ],
+    "month_prefix": "thg",
+    "event_item": {
+      "assignment_tag": "[Nhiệm vụ]",
+      "recur_badge": "Lặp",
+      "assignment_status": {
+        "submitted": "Đã nộp",
+        "graded": "Đã chấm",
+        "overdue": "Quá hạn",
+        "closed": "Đã đóng",
+        "in_progress": "Đang làm"
+      }
+    },
+    "create_modal": {
+      "title": "Sự kiện",
+      "edit_title": "Chỉnh sửa sự kiện",
+      "title_label": "Tiêu đề cuộc họp",
+      "title_placeholder": "Ví dụ: Sprint Planning",
+      "start": "Bắt đầu",
+      "end": "Kết thúc",
+      "start_time_future_error": "Thời gian bắt đầu họp phải sau thời gian hiện tại.",
+      "recurrence": {
+        "label": "Lặp lại",
+        "none": "Không lặp lại",
+        "daily": "Hàng ngày",
+        "weekly_on": "Hàng tuần vào {day}",
+        "monthly_on": "Hàng tháng vào ngày {day} {week}",
+        "yearly_on": "Hàng năm vào ngày {day} tháng {month}",
+        "weekdays": "Mọi ngày trong tuần (từ thứ Hai đến thứ Sáu)"
+      },
+      "guests": {
+        "label": "Thêm khách",
+        "search_placeholder": "Nhập tên hoặc email...",
+        "searching": "Đang tìm kiếm...",
+        "selected": "Đã chọn",
+        "invite_external": "Mời khách ngoài hệ thống",
+        "load_more": "Tải thêm...",
+        "no_users": "Không tìm thấy người dùng."
+      },
+      "description": "Mô tả",
+      "description_placeholder": "Nội dung tóm tắt cuộc họp...",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "updating": "Đang cập nhật...",
+      "error_update": "Không thể cập nhật cuộc họp",
+      "error_create": "Không thể tạo cuộc họp"
+    },
+    "channel_modal": {
+      "title": "Cuộc họp kênh",
+      "channel_label": "Thêm kênh",
+      "channel_placeholder": "Chọn phòng và kênh...",
+      "loading": "Đang tải...",
+      "no_rooms": "Không tìm thấy phòng",
+      "no_channels": "Phòng này chưa có kênh",
+      "error_select_room_channel": "Vui lòng chọn phòng và kênh.",
+      "error_create": "Không thể tạo cuộc họp kênh"
+    },
+    "detail_modal": {
+      "title": "Chi tiết lịch họp",
+      "recurring_badge": "Lịch định kỳ",
+      "join": "Tham gia",
+      "chat": "Trò chuyện",
+      "attachments": "Tệp đính kèm",
+      "cancelled_dates_title": "Các buổi đã hủy trong chuỗi",
+      "dates_count": "{count} buổi",
+      "cancelled_status": "Đã hủy",
+      "restore_button": "Khôi phục",
+      "restoring_button": "Đang khôi phục...",
+      "restore_tooltip": "Khôi phục lại ngày này",
+      "toast_restore_success": "Đã khôi phục lại buổi họp ngày {date}!",
+      "toast_restore_error": "Không thể khôi phục lại buổi họp này. Vui lòng thử lại!",
+      "participants": "Người tham gia",
+      "invite_button": "Mời",
+      "invite_modal_title": "Mời người tham gia",
+      "search_users_placeholder": "Tìm kiếm theo tên hoặc email...",
+      "no_users_found": "Không tìm thấy người dùng phù hợp.",
+      "already_in_event": "Đã trong lịch",
+      "send_invites": "Gửi lời mời",
+      "invite_success": "Đã gửi lời mời thành công!",
+      "invite_error": "Không thể gửi lời mời. Vui lòng thử lại!",
+      "organizer": "Người tổ chức",
+      "responded": "Đã phản hồi",
+      "no_response": "Chưa phản hồi",
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa",
+      "leave_event": "Hủy tham gia",
+      "leaving": "Đang rời...",
+      "leave_confirm_title": "Xác nhận hủy tham gia",
+      "leave_confirm_desc": "Bạn có chắc chắn muốn hủy tham gia lịch họp này không? Sự kiện sẽ được xóa khỏi lịch và thông báo của bạn.",
+      "leave_confirm_btn": "Hủy tham gia",
+      "leave_cancel_btn": "Quay lại",
+      "leave_success": "Đã hủy tham gia lịch họp thành công!",
+      "leave_error": "Không thể hủy tham gia lịch họp. Vui lòng thử lại!",
+      "assignment": {
+        "title": "Chi tiết nhiệm vụ",
+        "start_time": "Thời gian bắt đầu:",
+        "end_time": "Thời gian kết thúc:",
+        "assigned_by": "Người giao:",
+        "description": "Mô tả nhiệm vụ",
+        "close": "Đóng",
+        "view_assignment": "Xem chi tiết nhiệm vụ",
+        "statuses": {
+          "submitted": "Đã nộp",
+          "graded": "Đã chấm điểm",
+          "overdue": "Đã quá hạn",
+          "closed": "Đã khóa/đóng",
+          "in_progress": "Đang thực hiện"
+        }
+      }
+    },
+    "delete_modal": {
+      "recurring_title": "Hủy lịch họp định kỳ",
+      "single_title": "Hủy lịch họp",
+      "recurring_subtitle": "Chọn phạm vi áp dụng cho hành động này",
+      "single_subtitle": "Xác nhận hủy cuộc họp",
+      "recurring_prompt": "Đây là một cuộc họp định kỳ. Bạn muốn hủy chỉ buổi họp này hay toàn bộ chuỗi cuộc họp?",
+      "single_prompt": "Bạn có chắc chắn muốn hủy lịch họp này không? Hành động này không thể hoàn tác.",
+      "single_option_title": "Xoá sự kiện này",
+      "single_option_badge": "1 buổi",
+      "single_option_desc_with_date": "Chỉ hủy buổi họp vào {date}. Các buổi khác trong chuỗi vẫn diễn ra bình thường.",
+      "single_option_desc": "Chỉ hủy riêng buổi họp được chọn này. Chuỗi sự kiện vẫn tiếp tục.",
+      "all_option_title": "Xoá tất cả",
+      "all_option_badge": "Toàn chuỗi",
+      "all_option_desc": "Hủy toàn bộ tất cả các buổi họp trong chuỗi cuộc họp định kỳ này.",
+      "cancel": "Hủy",
+      "confirm": "Xác nhận"
+    },
+    "rich_editor": {
+      "delete_image_title": "Xóa hình ảnh",
+      "uploading": "Đang tải tệp lên...",
+      "upload_error": "Không thể tải tệp lên: {error}",
+      "prompt_url": "Nhập địa chỉ liên kết:",
+      "attach_file": "Đính kèm tệp",
+      "insert_image": "Chèn hình ảnh",
+      "emoji": "Emoji",
+      "advanced_formatting": "Định dạng nâng cao",
+      "bold": "In đậm (Ctrl+B)",
+      "italic": "In nghiêng (Ctrl+I)",
+      "underline": "Gạch chân (Ctrl+U)",
+      "bullet_list": "Danh sách dấu đầu dòng",
+      "ordered_list": "Danh sách số",
+      "char_limit_warning": "Nội dung mô tả không được vượt quá 10.000 ký tự",
+      "confirm_delete_title": "Xác nhận xóa",
+      "confirm_delete_desc": "Bạn có chắc chắn muốn xóa hình ảnh này khỏi nội dung mô tả?",
+      "cancel": "Hủy",
+      "delete": "Xóa",
+      "placeholder": "Nội dung tóm tắt cuộc họp..."
+    },
+    "toasts": {
+      "delete_single_success": "Đã hủy buổi họp này thành công!",
+      "delete_all_success": "Đã hủy lịch họp thành công!",
+      "delete_error": "Không thể xóa lịch họp. Vui lòng thử lại!"
+    }
   }
 }

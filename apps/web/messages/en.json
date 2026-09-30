@@ -2108,5 +2108,199 @@
       "4291": "You have already sent an invitation to this person. Please try again in a few minutes",
       "5011": "System error, please try again later"
     }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "toggle_sidebar": "Toggle sidebar",
+    "today": "Today",
+    "search": {
+      "placeholder": "Search",
+      "searching": "Searching...",
+      "no_results": "No results found"
+    },
+    "views": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
+    },
+    "create": {
+      "button": "Create",
+      "event": "Event",
+      "channel_meeting": "Channel meeting"
+    },
+    "days": {
+      "short": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+      "month_grid": ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
+      "full": [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ]
+    },
+    "weeks_order": [
+      "first",
+      "second",
+      "third",
+      "fourth",
+      "fifth"
+    ],
+    "month_prefix": "",
+    "event_item": {
+      "assignment_tag": "[Assignment]",
+      "recur_badge": "Recur",
+      "assignment_status": {
+        "submitted": "Submitted",
+        "graded": "Graded",
+        "overdue": "Overdue",
+        "closed": "Closed",
+        "in_progress": "In Progress"
+      }
+    },
+    "create_modal": {
+      "title": "Event",
+      "edit_title": "Edit Event",
+      "title_label": "Meeting Title",
+      "title_placeholder": "e.g., Sprint Planning",
+      "start": "Start",
+      "end": "End",
+      "start_time_future_error": "Start time must be in the future.",
+      "recurrence": {
+        "label": "Recurrence",
+        "none": "Does not repeat",
+        "daily": "Daily",
+        "weekly_on": "Weekly on {day}",
+        "monthly_on": "Monthly on the {week} {day}",
+        "yearly_on": "Annually on {date}",
+        "weekdays": "Every weekday (Monday to Friday)"
+      },
+      "guests": {
+        "label": "Add Guests",
+        "search_placeholder": "Type name or email...",
+        "searching": "Searching...",
+        "selected": "Selected",
+        "invite_external": "Invite external guest",
+        "load_more": "Load more...",
+        "no_users": "No users found."
+      },
+      "description": "Description",
+      "description_placeholder": "Meeting summary notes...",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "updating": "Updating...",
+      "error_update": "Unable to update meeting",
+      "error_create": "Unable to create meeting"
+    },
+    "channel_modal": {
+      "title": "Channel Meeting",
+      "channel_label": "Add Channel",
+      "channel_placeholder": "Select room and channel...",
+      "loading": "Loading...",
+      "no_rooms": "No rooms found",
+      "no_channels": "No channels in this room",
+      "error_select_room_channel": "Please select room and channel.",
+      "error_create": "Unable to create channel meeting"
+    },
+    "detail_modal": {
+      "title": "Meeting Details",
+      "recurring_badge": "Recurring",
+      "join": "Join",
+      "chat": "Chat",
+      "attachments": "Attachments",
+      "cancelled_dates_title": "Cancelled Dates in Series",
+      "dates_count": "{count} dates",
+      "cancelled_status": "Cancelled",
+      "restore_button": "Restore",
+      "restoring_button": "Restoring...",
+      "restore_tooltip": "Restore this date",
+      "toast_restore_success": "Successfully restored meeting on {date}!",
+      "toast_restore_error": "Failed to restore meeting occurrence. Please try again!",
+      "participants": "Participants",
+      "invite_button": "Invite",
+      "invite_modal_title": "Invite Participants",
+      "search_users_placeholder": "Search by name or email...",
+      "no_users_found": "No users found.",
+      "already_in_event": "Already added",
+      "send_invites": "Send Invites",
+      "invite_success": "Invitations sent successfully!",
+      "invite_error": "Failed to send invitations. Please try again!",
+      "organizer": "Organizer",
+      "responded": "Responded",
+      "no_response": "No response",
+      "edit": "Edit",
+      "delete": "Delete",
+      "leave_event": "Cancel Attendance",
+      "leaving": "Leaving...",
+      "leave_confirm_title": "Cancel Attendance Confirmation",
+      "leave_confirm_desc": "Are you sure you want to cancel your attendance for this meeting? It will be removed from your calendar and notifications.",
+      "leave_confirm_btn": "Cancel Attendance",
+      "leave_cancel_btn": "Back",
+      "leave_success": "Successfully cancelled attendance!",
+      "leave_error": "Failed to cancel attendance. Please try again!",
+      "assignment": {
+        "title": "Assignment Details",
+        "start_time": "Start time:",
+        "end_time": "End time:",
+        "assigned_by": "Assigned by:",
+        "description": "Description",
+        "close": "Close",
+        "view_assignment": "View Assignment",
+        "statuses": {
+          "submitted": "Submitted",
+          "graded": "Graded",
+          "overdue": "Overdue",
+          "closed": "Closed",
+          "in_progress": "In Progress"
+        }
+      }
+    },
+    "delete_modal": {
+      "recurring_title": "Cancel Recurring Meeting",
+      "single_title": "Cancel Meeting",
+      "recurring_subtitle": "Choose the scope for this cancellation",
+      "single_subtitle": "Confirm meeting cancellation",
+      "recurring_prompt": "This is a recurring meeting. Do you want to cancel only this occurrence or the entire series?",
+      "single_prompt": "Are you sure you want to cancel this meeting? This action cannot be undone.",
+      "single_option_title": "Delete this event",
+      "single_option_badge": "1 instance",
+      "single_option_desc_with_date": "Only cancel the meeting on {date}. Other occurrences remain unchanged.",
+      "single_option_desc": "Only cancel this selected occurrence. The series will continue.",
+      "all_option_title": "Delete all events",
+      "all_option_badge": "All series",
+      "all_option_desc": "Delete all future and recurring events in this series.",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "rich_editor": {
+      "delete_image_title": "Delete image",
+      "uploading": "Uploading file...",
+      "upload_error": "Upload failed: {error}",
+      "prompt_url": "Enter URL:",
+      "attach_file": "Attach file",
+      "insert_image": "Insert image",
+      "emoji": "Emoji",
+      "advanced_formatting": "Advanced formatting",
+      "bold": "Bold (Ctrl+B)",
+      "italic": "Italic (Ctrl+I)",
+      "underline": "Underline (Ctrl+U)",
+      "bullet_list": "Bullet list",
+      "ordered_list": "Numbered list",
+      "char_limit_warning": "You can only type up to 10,000 characters",
+      "confirm_delete_title": "Confirm Delete",
+      "confirm_delete_desc": "Are you sure you want to remove this image from the description?",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "placeholder": "Meeting summary notes..."
+    },
+    "toasts": {
+      "delete_single_success": "Successfully cancelled this meeting occurrence!",
+      "delete_all_success": "Successfully cancelled meeting!",
+      "delete_error": "Failed to delete meeting. Please try again!"
+    }
   }
 }

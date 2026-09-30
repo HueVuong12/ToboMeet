@@ -90,6 +90,26 @@ export const calendarApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
     }),
+
+    inviteCalendarMembers: builder.mutation<
+      { success: boolean; count: number; event: CalendarEvent },
+      { id: string; userIds?: string[]; invitees?: any[] }
+    >({
+      query: ({ id, userIds, invitees }) => ({
+        url: `/calendar/${id}/invite`,
+        method: "POST",
+        data: { userIds, invitees },
+      }),
+      invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
+    }),
+
+    leaveCalendarEvent: builder.mutation<{ success: boolean; message: string }, string>({
+      query: (id) => ({
+        url: `/calendar/${id}/leave`,
+        method: "POST",
+      }),
+      invalidatesTags: ["CalendarEvent", "CalendarRsvp", "Notification"],
+    }),
   }),
   overrideExisting: true,
 });
@@ -106,5 +126,8 @@ export const {
   useDeleteCalendarEventMutation,
   useRestoreCalendarOccurrenceMutation,
   useUpdateCalendarRsvpMutation,
+  useInviteCalendarMembersMutation,
+  useLeaveCalendarEventMutation,
 } = calendarApi;
+
 

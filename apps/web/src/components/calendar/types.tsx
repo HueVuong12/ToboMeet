@@ -26,6 +26,9 @@ export interface CalendarEvent {
   recurrenceExceptions?: string[];
   isOccurrence?: boolean;
   occurrenceDate?: string;
+  acceptedUserIds?: string[];
+  pendingUserIds?: string[];
+  declinedUserIds?: string[];
   invitees?: { email: string; displayName?: string; status?: string }[];
   hostEmail?: string;
   hostDisplayName?: string;

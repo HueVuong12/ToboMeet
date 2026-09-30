@@ -20,6 +20,7 @@ import { UpdateEventDto } from "./dto/update-event.dto";
 import { UpdateRsvpDto } from "./dto/update-rsvp.dto";
 import { GetEventsDto } from "./dto/get-events.dto";
 import { RestoreOccurrenceDto } from "./dto/restore-occurrence.dto";
+import { InviteUsersDto } from "./dto/invite-users.dto";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -31,7 +32,7 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(SupabaseGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class CalendarController {
-  constructor(private readonly calendarService: CalendarService) {}
+  constructor(private readonly calendarService: CalendarService) { }
 
   @Post()
   async createEvent(
@@ -61,7 +62,7 @@ export class CalendarController {
     @Req() req: AuthenticatedRequest,
     @Query() query: GetEventsDto,
   ) {
-    return this.calendarService.getEventsForUser(
+    return this.calendarService.getEvents(
       req.user.id,
       query.start,
       query.end,
@@ -130,4 +131,22 @@ export class CalendarController {
   async getRSVPList(@Param("id") eventId: string) {
     return this.calendarService.getRSVPList(eventId);
   }
+
+  @Post(":id/invite")
+  async inviteUsers(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") eventId: string,
+    @Body() body: InviteUsersDto,
+  ) {
+    return this.calendarService.inviteUsers(req.user.id, eventId, body);
+  }
+
+  @Post(":id/leave")
+  async leaveEvent(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") eventId: string,
+  ) {
+    return this.calendarService.leaveEvent(req.user.id, eventId);
+  }
 }
+

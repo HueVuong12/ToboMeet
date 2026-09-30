@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useLocale } from "next-intl";
-import { X, ChevronDown, Search, RefreshCw, Users2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { X, ChevronDown, Search, RefreshCw } from "lucide-react";
 import TeamsRichEditor from "@/components/calendar/TeamsRichEditor";
 
 import { useGetMyRoomsQuery } from "@/lib/redux/api/roomsApi";
@@ -24,10 +24,12 @@ export default function ChannelMeetingModal({
   initialChannel,
 }: ChannelMeetingModalProps) {
   const locale = useLocale();
+  const t = useTranslations("calendar");
 
   // RTK Query Hooks
   const { data: roomsData, isLoading: isLoadingRooms } = useGetMyRoomsQuery(undefined, { skip: !isOpen });
-  const [createCalendarEvent] = useCreateCalendarEventMutation();
+  const [createCalendarEvent, { isLoading: isCreating }] =
+    useCreateCalendarEventMutation();
 
   const myRooms = Array.isArray(roomsData) ? roomsData : (roomsData as any)?.result ?? [];
 
@@ -125,21 +127,13 @@ export default function ChannelMeetingModal({
     setCmErrorMsg("");
 
     if (!selectedRoom || !selectedChannel) {
-      setCmErrorMsg(
-        locale === "vi"
-          ? "Vui lòng chọn phòng và kênh."
-          : "Please select room and channel."
-      );
+      setCmErrorMsg(t("channel_modal.error_select_room_channel"));
       return;
     }
 
     const now = new Date();
     if (new Date(cmStartDate) <= now) {
-      setCmErrorMsg(
-        locale === "vi"
-          ? "Thời gian bắt đầu họp phải sau thời gian hiện tại."
-          : "Start time must be in the future."
-      );
+      setCmErrorMsg(t("create_modal.start_time_future_error"));
       return;
     }
 
@@ -176,7 +170,7 @@ export default function ChannelMeetingModal({
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setCmErrorMsg(err.data?.message || err.message || "Không thể tạo cuộc họp kênh");
+      setCmErrorMsg(err.data?.message || err.message || t("channel_modal.error_create"));
     }
   };
 
@@ -193,7 +187,7 @@ export default function ChannelMeetingModal({
       >
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800 text-lg">
-            {locale === "vi" ? "Cuộc họp kênh" : "Channel Meeting"}
+            {t("channel_modal.title")}
           </h3>
           <button
             onClick={onClose}
@@ -213,18 +207,14 @@ export default function ChannelMeetingModal({
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                {locale === "vi" ? "Tiêu đề cuộc họp" : "Meeting Title"}
+                {t("create_modal.title_label")}
               </label>
               <input
                 type="text"
                 required
                 value={cmTitle}
                 onChange={(e) => setCmTitle(e.target.value)}
-                placeholder={
-                  locale === "vi"
-                    ? "Ví dụ: Sprint Planning"
-                    : "e.g., Sprint Planning"
-                }
+                placeholder={t("create_modal.title_placeholder")}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-slate-700"
               />
             </div>
@@ -232,7 +222,7 @@ export default function ChannelMeetingModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                  {locale === "vi" ? "Bắt đầu" : "Start"}
+                  {t("create_modal.start")}
                 </label>
                 <input
                   type="datetime-local"
@@ -244,7 +234,7 @@ export default function ChannelMeetingModal({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                  {locale === "vi" ? "Kết thúc" : "End"}
+                  {t("create_modal.end")}
                 </label>
                 <input
                   type="datetime-local"
@@ -258,15 +248,13 @@ export default function ChannelMeetingModal({
 
             {cmStartDate && new Date(cmStartDate) <= new Date() && (
               <p className="text-red-500 text-[11px] font-semibold mt-1">
-                {locale === "vi"
-                  ? "Thời gian bắt đầu họp phải sau thời gian hiện tại."
-                  : "Start time must be in the future."}
+                {t("create_modal.start_time_future_error")}
               </p>
             )}
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                {locale === "vi" ? "Lặp lại" : "Recurrence"}
+                {t("create_modal.recurrence.label")}
               </label>
               <div className="relative">
                 <select
@@ -275,35 +263,72 @@ export default function ChannelMeetingModal({
                   className="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white appearance-none text-slate-700"
                 >
                   <option value="NONE">
-                    {locale === "vi" ? "Không lặp lại" : "Does not repeat"}
+                    {t("create_modal.recurrence.none")}
                   </option>
                   <option value="DAILY">
-                    {locale === "vi" ? "Hàng ngày" : "Daily"}
+                    {t("create_modal.recurrence.daily")}
                   </option>
                   {(() => {
                     if (!cmStartDate) return null;
                     const dateObj = new Date(cmStartDate);
                     if (isNaN(dateObj.getTime())) return null;
 
-                    const daysVi = ["chủ nhật", "thứ hai", "thứ ba", "thứ tư", "thứ năm", "thứ sáu", "thứ bảy"];
-                    const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-                    const dayNameVi = daysVi[dateObj.getDay()];
-                    const dayNameEn = daysEn[dateObj.getDay()];
-
+                    const daysFull = (t.raw("days.full") as string[]) || [
+                      "Sunday",
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                      "Saturday",
+                    ];
+                    const dayName = daysFull[dateObj.getDay()];
                     const dayNum = dateObj.getDate();
                     const weekIndex = Math.ceil(dayNum / 7);
-                    const weeksVi = ["đầu tiên", "thứ hai", "thứ ba", "thứ tư", "thứ năm"];
-                    const weeksEn = ["first", "second", "third", "fourth", "fifth"];
-                    const weekNameVi = weeksVi[weekIndex - 1] || "đầu tiên";
-                    const weekNameEn = weeksEn[weekIndex - 1] || "first";
+                    const weeksOrder = (t.raw("weeks_order") as string[]) || [
+                      "first",
+                      "second",
+                      "third",
+                      "fourth",
+                      "fifth",
+                    ];
+                    const weekName = weeksOrder[weekIndex - 1] || weeksOrder[0];
 
-                    const rruleDays = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+                    const rruleDays = [
+                      "SU",
+                      "MO",
+                      "TU",
+                      "WE",
+                      "TH",
+                      "FR",
+                      "SA",
+                    ];
                     const rruleDay = rruleDays[dateObj.getDay()];
 
-                    const weeklyLabel = locale === "vi" ? `Hàng tuần vào ${dayNameVi}` : `Weekly on ${dayNameEn}`;
-                    const monthlyLabel = locale === "vi" ? `Hàng tháng vào ngày ${dayNameVi} ${weekNameVi}` : `Monthly on the ${weekNameEn} ${dayNameEn}`;
-                    const yearlyLabel = locale === "vi" ? `Hàng năm vào ngày ${dayNum} tháng ${dateObj.getMonth() + 1}` : `Annually on ${dayNameEn}, ${dateObj.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
-                    const weekdayLabel = locale === "vi" ? "Mọi ngày trong tuần (từ thứ Hai đến thứ Sáu)" : "Every weekday (Monday to Friday)";
+                    const weeklyLabel = t("create_modal.recurrence.weekly_on", {
+                      day: dayName,
+                    });
+                    const monthlyLabel = t(
+                      "create_modal.recurrence.monthly_on",
+                      { day: dayName, week: weekName }
+                    );
+                    const yearlyLabel =
+                      locale === "vi"
+                        ? t("create_modal.recurrence.yearly_on", {
+                            date: `${dayNum} tháng ${dateObj.getMonth() + 1}`,
+                            day: String(dayNum),
+                            month: String(dateObj.getMonth() + 1),
+                          })
+                        : t("create_modal.recurrence.yearly_on", {
+                            date: `${dayName}, ${dateObj.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`,
+                            day: dayName,
+                            month: dateObj.toLocaleDateString("en-US", {
+                              month: "long",
+                            }),
+                          });
+                    const weekdayLabel = t(
+                      "create_modal.recurrence.weekdays"
+                    );
 
                     const weeklyVal = `WEEKLY;BYDAY=${rruleDay}`;
                     const monthlyVal = `MONTHLY;BYDAY=${weekIndex}${rruleDay}`;
@@ -327,7 +352,7 @@ export default function ChannelMeetingModal({
             {/* FIELD: Thêm Kênh (Combobox/Dropdown Tree View) */}
             <div className="relative" ref={roomDropdownRef}>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-                {locale === "vi" ? "Thêm kênh" : "Add Channel"}
+                {t("channel_modal.channel_label")}
               </label>
 
               <div className="relative">
@@ -361,9 +386,7 @@ export default function ChannelMeetingModal({
                     setRoomSearchQuery("");
                     setExpandedRoomsInputMode(false);
                   }}
-                  placeholder={
-                    locale === "vi" ? "Chọn phòng và kênh..." : "Select room and channel..."
-                  }
+                  placeholder={t("channel_modal.channel_placeholder")}
                   className={`w-full ${selectedRoom ? "pl-14" : "pl-9"} pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:border-indigo-500 transition-colors placeholder-slate-400 font-normal text-slate-700`}
                 />
 
@@ -398,7 +421,7 @@ export default function ChannelMeetingModal({
                   {isLoadingRooms ? (
                     <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>{locale === "vi" ? "Đang tải..." : "Loading..."}</span>
+                      <span>{t("channel_modal.loading")}</span>
                     </div>
                   ) : (() => {
                     const filtered = myRooms.filter((r: any) =>
@@ -408,7 +431,7 @@ export default function ChannelMeetingModal({
                     if (filtered.length === 0) {
                       return (
                         <div className="p-3 text-center text-xs text-slate-400">
-                {locale === "vi" ? "Không tìm thấy phòng" : "No rooms found"}
+                          {t("channel_modal.no_rooms")}
                         </div>
                       );
                     }
@@ -458,7 +481,7 @@ export default function ChannelMeetingModal({
                             <div className="pl-8 pr-4 py-1 flex flex-col gap-1 bg-slate-50/50">
                               {(!room.channels || room.channels.length === 0) ? (
                                 <div className="text-[11px] text-slate-400 py-1 pl-3">
-                                  {locale === "vi" ? "Phòng này chưa có kênh" : "No channels in this room"}
+                                  {t("channel_modal.no_channels")}
                                 </div>
                               ) : (
                                 room.channels.map((channel: any) => {
@@ -502,7 +525,7 @@ export default function ChannelMeetingModal({
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2.5">
-                {locale === "vi" ? "Mô tả" : "Description"}
+                {t("create_modal.description")}
               </label>
               <TeamsRichEditor
                 value={cmDescRef.current}
@@ -511,11 +534,7 @@ export default function ChannelMeetingModal({
                 }}
                 resetKey={cmEditorResetKey}
                 locale={locale}
-                placeholder={
-                  locale === "vi"
-                    ? "Nội dung tóm tắt cuộc họp..."
-                    : "Meeting summary notes..."
-                }
+                placeholder={t("create_modal.description_placeholder")}
               />
             </div>
           </div>
@@ -526,13 +545,19 @@ export default function ChannelMeetingModal({
               onClick={onClose}
               className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
             >
-              {locale === "vi" ? "Hủy" : "Cancel"}
+              {t("create_modal.cancel")}
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
+              disabled={isCreating}
+              className="flex-1 py-3 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white rounded-xl text-sm font-bold shadow-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
             >
-              {locale === "vi" ? "Lưu" : "Save"}
+              {isCreating && (
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
+              )}
+              <span>
+                {isCreating ? t("create_modal.saving") : t("create_modal.save")}
+              </span>
             </button>
           </div>
         </form>
@@ -540,3 +565,4 @@ export default function ChannelMeetingModal({
     </div>
   );
 }
+

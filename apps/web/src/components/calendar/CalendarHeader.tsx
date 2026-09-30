@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -52,6 +53,7 @@ export default function CalendarHeader({
   onOpenCreateEventModal,
   onOpenChannelMeetingModal,
 }: CalendarHeaderProps) {
+  const t = useTranslations("calendar");
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
 
@@ -90,7 +92,7 @@ export default function CalendarHeader({
         <button
           onClick={onToggleSidebar}
           className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors shrink-0"
-          title={locale === "vi" ? "Đóng/mở thanh bên" : "Toggle sidebar"}
+          title={t("toggle_sidebar")}
         >
           <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
@@ -99,7 +101,7 @@ export default function CalendarHeader({
             <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
           </div>
           <span className="text-sm sm:text-base md:text-lg font-bold text-slate-800 tracking-tight hidden sm:inline">
-            {locale === "vi" ? "Lịch" : "Calendar"}
+            {t("title")}
           </span>
         </div>
 
@@ -131,10 +133,10 @@ export default function CalendarHeader({
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              {v === "day" && (locale === "vi" ? "Ngày" : "Day")}
-              {v === "week" && (locale === "vi" ? "Tuần" : "Week")}
-              {v === "month" && (locale === "vi" ? "Tháng" : "Month")}
-              {v === "agenda" && (locale === "vi" ? "Năm" : "Year")}
+              {v === "day" && t("views.day")}
+              {v === "week" && t("views.week")}
+              {v === "month" && t("views.month")}
+              {v === "agenda" && t("views.year")}
             </button>
           ))}
         </div>
@@ -150,7 +152,7 @@ export default function CalendarHeader({
             <button
               onClick={() => setShowSearch(!showSearch)}
               className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
-              title={locale === "vi" ? "Tìm kiếm" : "Search"}
+              title={t("search.placeholder")}
             >
               <Search className="w-5 h-5" />
             </button>
@@ -164,7 +166,7 @@ export default function CalendarHeader({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => onSearchQueryChange(e.target.value)}
-                    placeholder={locale === "vi" ? "Tìm kiếm" : "Search"}
+                    placeholder={t("search.placeholder")}
                     className="w-full bg-transparent text-sm text-slate-800 focus:outline-none placeholder-slate-400"
                   />
                   {searchQuery && (
@@ -183,15 +185,11 @@ export default function CalendarHeader({
                     {searchLoading ? (
                       <div className="px-4 py-3 text-xs text-slate-400 flex items-center justify-center gap-2">
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>
-                          {locale === "vi" ? "Đang tìm kiếm..." : "Searching..."}
-                        </span>
+                        <span>{t("search.searching")}</span>
                       </div>
                     ) : searchResults.length === 0 ? (
                       <div className="px-4 py-3 text-xs text-slate-400 text-center">
-                        {locale === "vi"
-                          ? "Không tìm thấy kết quả"
-                          : "No results found"}
+                        {t("search.no_results")}
                       </div>
                     ) : (
                       searchResults.map((ev) => (
@@ -240,7 +238,7 @@ export default function CalendarHeader({
               onClick={() => onSetCurrentDate(new Date())}
               className="px-2.5 sm:px-4 py-1 sm:py-1.5 hover:bg-white rounded-full text-xs sm:text-[13px] font-bold text-slate-700 transition-all shadow-xs"
             >
-              {locale === "vi" ? "Hôm nay" : "Today"}
+              {t("today")}
             </button>
             <div className="w-[1px] h-4 bg-slate-200 mx-1 hidden sm:block"></div>
             <button
@@ -279,7 +277,7 @@ export default function CalendarHeader({
             >
               <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">
-                {locale === "vi" ? "Tạo lịch" : "Create"}
+                {t("create.button")}
               </span>
               <ChevronDown className="hidden sm:block w-3.5 h-3.5 opacity-80" />
             </button>
@@ -305,7 +303,7 @@ export default function CalendarHeader({
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800">
-                        {locale === "vi" ? "Sự kiện" : "Event"}
+                        {t("create.event")}
                       </p>
                     </div>
                   </button>
@@ -325,7 +323,7 @@ export default function CalendarHeader({
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800">
-                        {locale === "vi" ? "Cuộc họp kênh" : "Channel meeting"}
+                        {t("create.channel_meeting")}
                       </p>
                     </div>
                   </button>
