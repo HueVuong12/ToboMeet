@@ -61,6 +61,25 @@ export function useNotificationSocketEvents() {
               break;
             }
 
+            case "CALENDAR_INVITE": {
+              const title =
+                notif.metadata?.title || notif.metadata?.eventTitle || "";
+              const inviter = notif.metadata?.inviterName || "Ai đó";
+              toast.info(
+                `${inviter} đã mời bạn tham gia sự kiện "${title}".`,
+              );
+              break;
+            }
+
+            case "CALENDAR_START": {
+              const title =
+                notif.metadata?.title || notif.metadata?.eventTitle || "Sự kiện";
+              toast.info(
+                `Sự kiện "${title}" đã đến giờ bắt đầu!`,
+              );
+              break;
+            }
+
             default:
               console.warn(
                 "Chưa hỗ trợ hiển thị loại thông báo này:",

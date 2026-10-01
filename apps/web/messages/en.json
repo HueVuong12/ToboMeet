@@ -2034,8 +2034,12 @@
         "content": "{inviterName} invited you to join a meeting in {roomName}."
       },
       "calendar_invite": {
-        "title": "Meeting Invitation",
-        "content": "{inviterName} invited you to meeting \"{title}\"."
+        "title": "Schedule Invitation",
+        "content": "{inviterName} invited you to schedule \"{title}\"."
+      },
+      "calendar_start": {
+        "title": "Schedule Started",
+        "content": "Schedule \"{title}\" has started. Join now!"
       },
       "room_reported": {
         "title": "Room reported",

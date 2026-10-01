@@ -291,6 +291,43 @@ export class NotificationsService {
     }
   }
 
+  // Thông báo khi cuộc họp đến thời điểm bắt đầu
+  @OnEvent("notification.calendar_start", { async: true })
+  async handleCalendarStart(payload: {
+    userIds: string[];
+    referenceId?: string;
+    metadata: Record<string, unknown>;
+  }) {
+    try {
+      if (!payload.userIds?.length) return;
+
+      const notificationsToInsert = payload.userIds.map((userId) => ({
+        userId,
+        type: "CALENDAR_START",
+        referenceId:
+          payload.referenceId || (payload.metadata?.eventId as string) || "",
+        metadata: payload.metadata,
+        isRead: false,
+        isNotified: false,
+        canPopup: true,
+      }));
+
+      const insertedNotifs = await this.notificationModel.insertMany(
+        notificationsToInsert,
+      );
+
+      this.toggleUnreadStatus(payload.userIds, true);
+
+      insertedNotifs.forEach((notif) => {
+        this.appGateway.server
+          .to(`user_${notif.userId}`)
+          .emit("receive_notifications", [notif]);
+      });
+    } catch (error) {
+      console.error("Lỗi khi tạo thông báo CALENDAR_START:", error);
+    }
+  }
+
   // Cập nhật trạng thái thông báo khi user phản hồi RSVP
   @OnEvent("notification.calendar_rsvp", { async: true })
   async handleCalendarRSVP(payload: {

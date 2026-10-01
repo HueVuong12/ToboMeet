@@ -115,16 +115,13 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
     if (!visible) setKeyboardHeight(0);
   }, [visible]);
 
-  const { height: windowHeight } = Dimensions.get("window");
+  const { height: screenHeight } = Dimensions.get("window");
+  // top dạng pixel tránh lỗi tính percentage sai reference frame
+  const panelTop = screenHeight * 0.22;
 
-  // Spacing ở bottom: khi bàn phím đóng thì cộng thêm insets.bottom + 20 (tối thiểu 32px) để không bị vướng safe area bottom
+  // padding bottom: khi bàn phím mở thêm 16px giãn cách, khi đóng thêm insets.bottom + 16
   const bottomPad =
-    keyboardHeight > 0 ? 16 : Math.max(insets.bottom + 20, 32);
-
-  const dynamicMaxHeight =
-    keyboardHeight > 0
-      ? windowHeight - keyboardHeight - Math.max(insets.top, 24) - 20
-      : "88%";
+    keyboardHeight > 0 ? Math.max(insets.bottom + 16, 16) : Math.max(insets.bottom + 20, 32);
 
   // RTK query hooks
   const [createEvent, { isLoading: isCreating }] = useCreateCalendarEventMutation();
@@ -399,9 +396,9 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
           style={[
             styles.content,
             {
-              marginBottom: keyboardHeight,
+              top: panelTop,          // pixel value, ~22% từ trên
+              bottom: keyboardHeight, // đáy panel luôn sát bàn phím
               paddingBottom: bottomPad,
-              maxHeight: dynamicMaxHeight,
             },
           ]}
         >
@@ -418,6 +415,7 @@ export default function EventModal({ visible, onClose, onSuccess, eventToEdit }:
           <ScrollView
             ref={scrollRef}
             showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
           >
@@ -706,9 +704,12 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.5)",
-    justifyContent: "flex-end",
   },
   content: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    // top và bottom được set từ inline style để phản ứng với keyboard
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

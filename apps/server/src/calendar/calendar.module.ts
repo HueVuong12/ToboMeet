@@ -11,6 +11,9 @@ import { SupabaseModule } from "../supabase/supabase.module";
 import { PostSchema } from "../news-feed/schemas/post.schema";
 import { MeetingsModule } from "../meetings/meetings.module";
 
+import { BullModule } from "@nestjs/bullmq";
+import { CalendarProcessor } from "./processors/calendar.processor";
+
 import { Assignment, AssignmentSchema } from "../assignments/schemas/assignment.schema";
 import {
   AssignmentSubmission,
@@ -27,12 +30,15 @@ import {
       { name: Assignment.name, schema: AssignmentSchema },
       { name: AssignmentSubmission.name, schema: AssignmentSubmissionSchema },
     ]),
+    BullModule.registerQueue({
+      name: "calendar",
+    }),
     CoreModule,
     SupabaseModule,
     MeetingsModule,
   ],
   controllers: [CalendarController],
-  providers: [CalendarService],
+  providers: [CalendarService, CalendarProcessor],
   exports: [CalendarService],
 })
 export class CalendarModule {}

@@ -15,6 +15,7 @@ import { ChannelFilesModule } from "./channel-files/channel-files.module";
 import { AssignmentsModule } from "./assignments/assignments.module";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { BullModule } from "@nestjs/bullmq";
+import { SchedulerClientModule } from "./scheduler-client/scheduler-client.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { BullModule } from "@nestjs/bullmq";
       isGlobal: true,
     }),
     EventEmitterModule.forRoot(),
+    SchedulerClientModule,
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

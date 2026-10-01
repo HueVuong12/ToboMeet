@@ -105,7 +105,7 @@ export default function MeetingDetailModal({
     return (
       <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
         <View style={styles.overlay}>
-          <View style={[styles.container, { paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
+          <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.header}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Feather name="clipboard" size={20} color="#4F46E5" />

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 
@@ -23,9 +23,12 @@ import {
   AssignmentSubmission,
   AssignmentSubmissionDocument,
 } from "../assignments/schemas/submission.schema";
+import { SchedulerClientService } from "../scheduler-client/scheduler-client.service";
 
 @Injectable()
 export class CalendarService {
+  private readonly logger = new Logger(CalendarService.name);
+
   constructor(
     @InjectModel(CalendarEvent.name)
     private calendarEventModel: Model<CalendarEventDocument>,
@@ -40,6 +43,7 @@ export class CalendarService {
     private readonly appGateway: AppGateway,
     private readonly meetingsService: MeetingsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly schedulerClientService: SchedulerClientService,
   ) { }
 
   /**
@@ -255,6 +259,32 @@ export class CalendarService {
 
     // Phát event tạo lịch biểu realtime cho tất cả các client
     this.appGateway.server.emit("calendar_event_created", event);
+
+    // Tính toán thời điểm đầu tiên để gọi scheduler service
+    const firstTriggerDate = this.calculateFirstOccurrence(
+      event.startDate,
+      event.isRecurring,
+      event.recurrenceRule,
+      event.recurrenceExceptions,
+    );
+
+    this.schedulerClientService
+      .scheduleJob({
+        targetQueue: "calendar",
+        triggerAt: firstTriggerDate,
+        payload: {
+          eventId: event._id.toString(),
+          occurrenceDate: firstTriggerDate.toISOString(),
+          title: event.title,
+          meetingCode: event.meetingCode,
+        },
+      })
+      .catch((err) => {
+        this.logger.error(
+          `Lỗi khi gửi lịch trình ban đầu sang Scheduler Service cho sự kiện ${event._id}:`,
+          err,
+        );
+      });
 
     return { event };
   }
@@ -704,6 +734,14 @@ export class CalendarService {
       // Hủy toàn bộ chuỗi
       await this.calendarEventModel.findByIdAndDelete(eventId);
 
+      // Hủy / xóa job tương ứng trong Scheduler Service
+      this.schedulerClientService.cancelJobByEvent(eventId).catch((err) => {
+        this.logger.error(
+          `Lỗi khi hủy job trong Scheduler Service cho sự kiện ${eventId}:`,
+          err,
+        );
+      });
+
       this.appGateway.server.emit("calendar_event_deleted", {
         eventId,
         deleteType,
@@ -1095,6 +1133,181 @@ export class CalendarService {
     });
 
     return { success: true, message: "Left calendar event successfully" };
+  }
+
+  /**
+   * Tính toán thời điểm diễn ra đầu tiên của sự kiện để gửi Scheduler
+   */
+  calculateFirstOccurrence(
+    startDate: Date,
+    isRecurring: boolean,
+    recurrenceRule?: string,
+    recurrenceExceptions: string[] = [],
+  ): Date {
+    const start = new Date(startDate);
+    const now = new Date();
+
+    if (!isRecurring || !recurrenceRule) {
+      return start;
+    }
+
+    // Nếu thời gian bắt đầu vẫn còn ở tương lai, đó chính là lần chạy đầu tiên
+    if (start.getTime() >= now.getTime()) {
+      return start;
+    }
+
+    // Nếu startDate đã qua trong quá khứ, tìm lần tiếp theo kể từ bây giờ bằng RRULE
+    try {
+      const offsetMs = 7 * 60 * 60 * 1000; // GMT+07
+      const localStart = new Date(start.getTime() + offsetMs);
+      const localNow = new Date(now.getTime() + offsetMs);
+      const rule = rrulestr(recurrenceRule, { dtstart: localStart });
+
+      let nextLocal = rule.after(localNow, true); // bao gồm cả thời điểm hiện tại
+      while (nextLocal) {
+        const dateStr = nextLocal.toISOString().substring(0, 10);
+        if (!recurrenceExceptions.includes(dateStr)) {
+          return new Date(nextLocal.getTime() - offsetMs);
+        }
+        nextLocal = rule.after(nextLocal, false);
+      }
+    } catch (err) {
+      this.logger.error("Lỗi khi tính toán first occurrence qua RRULE:", err);
+    }
+
+    return start;
+  }
+
+  /**
+   * Xử lý task tới hạn được Scheduler Service đẩy về qua queue 'calendar'
+   * - Gửi thông báo tới tất cả mọi người tham gia lịch
+   * - Nếu là sự kiện lặp, tính toán thời điểm tiếp theo và gọi REST API sang Scheduler
+   */
+  async handleCalendarTaskFromQueue(data: {
+    eventId: string;
+    occurrenceDate?: string;
+    title?: string;
+    meetingCode?: string;
+  }) {
+    if (!data.eventId) return;
+
+    const event = await this.calendarEventModel.findById(data.eventId).exec();
+    if (!event) return;
+
+    let isCanceled = false;
+    if (data.occurrenceDate && event.recurrenceExceptions && event.recurrenceExceptions.length > 0) {
+      // Cắt chuỗi ISO lấy định dạng YYYY-MM-DD
+      const cleanDate = data.occurrenceDate.substring(0, 10);
+      if (event.recurrenceExceptions.includes(cleanDate)) {
+        isCanceled = true;
+      }
+    }
+
+    if (!isCanceled) {
+      // Tập hợp danh sách người dùng nhận thông báo
+      const declinedSet = new Set(event.declinedUserIds || []);
+      const targetUserIds = Array.from(
+        new Set([
+          event.hostId,
+          ...(event.acceptedUserIds || []),
+          ...(event.pendingUserIds || []),
+        ]),
+      ).filter((uid) => uid && !declinedSet.has(uid));
+
+      // Gửi thông báo CALENDAR_START tới tất cả người dùng
+      this.eventEmitter.emit("notification.calendar_start", {
+        userIds: targetUserIds,
+        referenceId: event._id.toString(),
+        metadata: {
+          eventId: event._id.toString(),
+          title: event.title,
+          meetingCode: event.meetingCode,
+          startDate: event.startDate,
+          roomId: event.roomId,
+          channelId: event.channelId,
+          roomType: event.roomType,
+        },
+      });
+    }
+
+    // Nếu không phải sự kiện lặp hoặc không có luật RRULE, kết thúc
+    if (!event.isRecurring || !event.recurrenceRule) return;
+
+    // Tính toán thời điểm tiếp theo cho sự kiện lặp
+    try {
+      const offsetMs = 7 * 60 * 60 * 1000; // GMT+07
+      const localStart = new Date(event.startDate.getTime() + offsetMs);
+      const rule = rrulestr(event.recurrenceRule, { dtstart: localStart });
+
+      const currentOccDate = data.occurrenceDate
+        ? new Date(data.occurrenceDate)
+        : new Date();
+      const currentLocal = new Date(currentOccDate.getTime() + offsetMs);
+
+      // Tìm thời điểm tiếp theo sau lần hiện tại
+      let nextOccLocal = rule.after(currentLocal, false);
+      let nextOccUtc: Date | null = null;
+
+      while (nextOccLocal) {
+        const nextUtc = new Date(nextOccLocal.getTime() - offsetMs);
+        const dateStr = nextOccLocal.toISOString().substring(0, 10);
+
+        // Bỏ qua nếu ngày này nằm trong danh sách ngoại lệ
+        if (
+          event.recurrenceExceptions &&
+          event.recurrenceExceptions.includes(dateStr)
+        ) {
+          this.logger.log(
+            `[Calendar Service] Ngày ngoại lệ ${dateStr} bị hủy, tìm ngày tiếp theo...`,
+          );
+          nextOccLocal = rule.after(nextOccLocal, false);
+          continue;
+        }
+
+        // Kiểm tra nếu vượt quá ngày kết thúc chuỗi lặp
+        if (
+          event.recurrenceEndDate &&
+          nextUtc.getTime() > event.recurrenceEndDate.getTime()
+        ) {
+          this.logger.log(
+            `[Calendar Service] Lần chạy tiếp theo ${nextUtc.toISOString()} vượt quá recurrenceEndDate. Kết thúc chuỗi lặp.`,
+          );
+          nextOccUtc = null;
+          break;
+        }
+
+        nextOccUtc = nextUtc;
+        break;
+      }
+
+      if (nextOccUtc) {
+        this.logger.log(
+          `[Calendar Service] Tính được thời điểm kế tiếp cho sự kiện "${event.title}": ${nextOccUtc.toISOString()}. Đang gửi qua Scheduler Service...`,
+        );
+
+        const res = await this.schedulerClientService.scheduleJob({
+          targetQueue: "calendar",
+          triggerAt: nextOccUtc,
+          payload: {
+            eventId: event._id.toString(),
+            occurrenceDate: nextOccUtc.toISOString(),
+            title: event.title,
+            meetingCode: event.meetingCode,
+          },
+        });
+
+        if (res) {
+          this.logger.log(
+            `[Calendar Service] Đã lên lịch thành công lần kế tiếp (Job ID: ${res.jobId}, triggerAt: ${nextOccUtc.toISOString()})`,
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.error(
+        `[Calendar Service] Lỗi khi tính toán thời điểm kế tiếp cho sự kiện ${event._id}:`,
+        err,
+      );
+    }
   }
 }
 

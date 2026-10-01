@@ -743,6 +743,14 @@
         "title": "Tham gia họp",
         "content": "{{inviterName}} đã mời bạn tham gia cuộc họp trong phòng {{roomName}}."
       },
+      "calendar_invite": {
+        "title": "Lời mời lịch biểu",
+        "content": "{{inviterName}} đã mời bạn tham gia sự kiện \"{{title}}\"."
+      },
+      "calendar_start": {
+        "title": "Lịch biểu bắt đầu",
+        "content": "Sự kiện \"{{title}}\" đã đến giờ bắt đầu!"
+      },
       "room_reported": {
         "title": "Phòng bị báo cáo",
         "content": "Phòng của bạn đã bị người dùng báo cáo vi phạm."
@@ -757,7 +765,24 @@
       }
     },
     "actions": {
-      "join": "Tham gia"
+      "join": "Tham gia",
+      "accept": "Chấp nhận",
+      "decline": "Từ chối",
+      "accepted": "Đã chấp nhận",
+      "declined": "Đã từ chối"
+    },
+    "rsvp": {
+      "accept_success": "Đã chấp nhận lời mời và ghi nhận vào lịch của bạn",
+      "decline_success": "Đã từ chối lời mời họp",
+      "accept_error": "Không thể chấp nhận lời mời",
+      "decline_error": "Không thể từ chối lời mời"
+    },
+    "errors": {
+      "session_ended": "Phiên họp có thể đã kết thúc."
+    },
+    "common": {
+      "room": "nhóm",
+      "someone": "Ai đó"
     }
   },
   "errors": {

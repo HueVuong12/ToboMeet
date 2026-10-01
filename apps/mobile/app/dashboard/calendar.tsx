@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -13,10 +11,26 @@ import {
   ScrollView,
   useWindowDimensions,
   PanResponder,
+  FlatList,
+  Animated,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useDispatch } from "react-redux";
+
+import ChannelMeetingModal from "../../components/dashboard/ChannelMeetingModal";
+import EventModal from "../../components/dashboard/EventModal";
+import MeetingDetailModal from "../../components/dashboard/MeetingDetailModal";
+import { socket } from "../../lib/socket";
+import { supabase } from "../../lib/supabase";
+import {
+  calendarApi,
+  useGetCalendarEventsQuery,
+  useLazyGetCalendarRsvpQuery,
+  useDeleteCalendarEventMutation,
+  useLazySearchCalendarEventsQuery,
+} from "../../lib/redux/api/calendarApi";
 
 interface CalendarEvent {
   _id: string;
@@ -46,33 +60,25 @@ interface CalendarEvent {
   _currentUserId?: string | null;
 }
 
-import ChannelMeetingModal from "../../components/dashboard/ChannelMeetingModal";
-import EventModal from "../../components/dashboard/EventModal";
-import MeetingDetailModal from "../../components/dashboard/MeetingDetailModal";
-import { socket } from "../../lib/socket";
-import { axiosInstance } from "../../lib/axios";
-import { supabase } from "../../lib/supabase";
-
 const HOUR_HEIGHT = 60;
 const TIME_AXIS_WIDTH = 50;
 
 export default function CalendarScreen() {
   const { t, i18n } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [isFetching, setIsFetching] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
+  const dispatch = useDispatch();
+
+  // Modals state
   const [modalVisible, setModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedEventForDetail, setSelectedEventForDetail] = useState<CalendarEvent | null>(null);
-  const [detailPrefetching, setDetailPrefetching] = useState<string | null>(null); // stores _id of event being prefetched
+  const [detailPrefetching, setDetailPrefetching] = useState<string | null>(null);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
-  const router = useRouter();
 
-  // Search states
+  // Search state
   const [searchActive, setSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -80,11 +86,12 @@ export default function CalendarScreen() {
   const [viewMode, setViewMode] = useState<"DAY" | "WEEK" | "MONTH">("WEEK");
   const [viewDropdownVisible, setViewDropdownVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Performance Optimization Refs
-  const cache = useRef<Record<string, CalendarEvent[]>>({});
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Week transition animations
+  const translateXAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+  const isAnimating = useRef(false);
   const viewModeRef = useRef(viewMode);
   viewModeRef.current = viewMode;
 
@@ -108,11 +115,10 @@ export default function CalendarScreen() {
     const year = d.getFullYear();
     const month = d.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     const startOffset = (firstDay.getDay() + 6) % 7;
     const startDate = new Date(firstDay);
     startDate.setDate(firstDay.getDate() - startOffset);
-    
+
     const days = [];
     for (let i = 0; i < 42; i++) {
       days.push(new Date(startDate));
@@ -130,6 +136,7 @@ export default function CalendarScreen() {
       start = d.toISOString();
       const e = new Date(d);
       e.setDate(d.getDate() + 1);
+      e.setHours(23, 59, 59, 999);
       end = e.toISOString();
     } else if (mode === "WEEK") {
       const monday = getMonday(date);
@@ -137,6 +144,7 @@ export default function CalendarScreen() {
       start = monday.toISOString();
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 7);
+      sunday.setHours(23, 59, 59, 999);
       end = sunday.toISOString();
     } else {
       const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -149,134 +157,55 @@ export default function CalendarScreen() {
     return { start, end };
   };
 
-  const prefetchNeighbors = async (date: Date, mode: "DAY" | "WEEK" | "MONTH") => {
-    const nextDate = new Date(date);
-    const prevDate = new Date(date);
-    if (mode === "DAY") {
-      nextDate.setDate(nextDate.getDate() + 1);
-      prevDate.setDate(prevDate.getDate() - 1);
-    } else if (mode === "WEEK") {
-      nextDate.setDate(nextDate.getDate() + 7);
-      prevDate.setDate(prevDate.getDate() - 7);
-    } else {
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      prevDate.setMonth(prevDate.getMonth() - 1);
-    }
+  // Compute active query bounds
+  const { start, end } = useMemo(
+    () => getDateBounds(viewMode, selectedDate),
+    [viewMode, selectedDate]
+  );
 
-    const fetchAndCache = async (d: Date) => {
-      const { start, end } = getDateBounds(mode, d);
-      const cacheKey = `${start}_${end}`;
-      if (cache.current[cacheKey]) return; // already cached
-      try {
-        const response = await axiosInstance.get(`/calendar?start=${start}&end=${end}`);
-        cache.current[cacheKey] = (response as any) || [];
-      } catch (e) {
-        // Ignore prefetch network cancel or generic errors
-      }
-    };
+  // RTK Query hooks
+  const {
+    data: calendarEventsData = [],
+    isLoading: isCalendarLoading,
+    isFetching: isCalendarFetching,
+    refetch: refetchCalendar,
+  } = useGetCalendarEventsQuery(
+    { start, end },
+    { skip: searchActive }
+  );
 
-    fetchAndCache(nextDate);
-    fetchAndCache(prevDate);
-  };
+  const [
+    triggerSearch,
+    { data: searchResults = [], isFetching: isSearching },
+  ] = useLazySearchCalendarEventsQuery();
 
-  const fetchCalendar = async (targetDate = selectedDate, targetMode = viewMode, skipDebounce = false) => {
-    if (searchActive) return;
+  const [deleteCalendarEvent] = useDeleteCalendarEventMutation();
+  const [getCalendarRsvp] = useLazyGetCalendarRsvpQuery();
 
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
+  // Active events list depending on search mode
+  const events: CalendarEvent[] = searchActive
+    ? (searchResults as CalendarEvent[]) || []
+    : (calendarEventsData as CalendarEvent[]) || [];
 
-    const { start, end } = getDateBounds(targetMode, targetDate);
-    const cacheKey = `${start}_${end}`;
-
-    if (cache.current[cacheKey]) {
-      setEvents(cache.current[cacheKey]);
-      setIsFetching(false);
-      setInitialLoading(false);
-    } else {
-      if (events.length === 0) {
-        setInitialLoading(true);
-      } else {
-        setIsFetching(true);
-      }
-    }
-
-    const performFetch = async () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      try {
-        const response = await axiosInstance.get(`/calendar?start=${start}&end=${end}`, {
-          signal: controller.signal,
-        });
-        const eventList = response as any;
-        cache.current[cacheKey] = eventList || [];
-        setEvents(eventList || []);
-        prefetchNeighbors(targetDate, targetMode);
-      } catch (err: any) {
-        if (err.name !== "CanceledError" && err.message !== "canceled") {
-          console.log("Lỗi tải lịch họp:", err);
-        }
-      } finally {
-        if (abortControllerRef.current === controller) {
-          setIsFetching(false);
-          setInitialLoading(false);
-        }
-      }
-    };
-
-    if (skipDebounce) {
-      performFetch();
-    } else {
-      debounceTimeoutRef.current = setTimeout(performFetch, 250);
-    }
-  };
-
-  const fetchSearch = async (query: string) => {
-    if (!query.trim()) {
-      setEvents([]);
-      return;
-    }
-    setInitialLoading(true);
-    try {
-      const data = (await axiosInstance.get(`/calendar/search?q=${encodeURIComponent(query.trim())}`)) as any;
-      setEvents(data || []);
-    } catch (e) {
-      console.log("Lỗi tìm kiếm lịch họp:", e);
-    } finally {
-      setInitialLoading(false);
-    }
-  };
-
-  const clearCache = () => {
-    cache.current = {};
-  };
-
+  // Debounced search trigger
   useEffect(() => {
-    if (!searchActive) {
-      fetchCalendar(selectedDate, viewMode, false);
-    } else {
-      const delayDebounceFn = setTimeout(() => {
-        fetchSearch(searchQuery);
+    if (searchActive) {
+      if (!searchQuery.trim()) return;
+      const timer = setTimeout(() => {
+        triggerSearch(searchQuery.trim());
       }, 300);
-      return () => clearTimeout(delayDebounceFn);
+      return () => clearTimeout(timer);
     }
-  }, [searchQuery, searchActive, viewMode, selectedDate]);
+  }, [searchQuery, searchActive, triggerSearch]);
 
+  // Listen to realtime socket events & invalidate RTK Query tags
   useEffect(() => {
     if (!socket.connected) {
       socket.connect();
     }
 
     const handleRefresh = () => {
-      if (!searchActive) {
-        clearCache();
-        fetchCalendar(selectedDate, viewMode, true);
-      }
+      dispatch(calendarApi.util.invalidateTags(["CalendarEvent"]));
     };
 
     socket.on("calendar_event_created", handleRefresh);
@@ -292,11 +221,21 @@ export default function CalendarScreen() {
       socket.off("calendar_event_received", handleRefresh);
       socket.off("channel_calendar_event_created", handleRefresh);
     };
-  }, [selectedDate, viewMode]);
+  }, [dispatch]);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchCalendar();
+    try {
+      if (searchActive && searchQuery.trim()) {
+        await triggerSearch(searchQuery.trim()).unwrap();
+      } else {
+        await refetchCalendar().unwrap();
+      }
+    } catch {
+      // Ignore refresh error
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleDeleteEvent = (event: CalendarEvent) => {
@@ -310,20 +249,18 @@ export default function CalendarScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              setIsFetching(true);
-              await axiosInstance.delete(`/calendar/${event._id}`);
+              await deleteCalendarEvent(event._id).unwrap();
               Alert.alert(
                 t("password_reset.password_success") || "Thành công",
                 t("calendar.alert_delete_success") || "Xóa sự kiện thành công!"
               );
-              cache.current = {};
-              fetchCalendar(selectedDate, viewMode, true);
               setDetailModalVisible(false);
               setSelectedEventForDetail(null);
             } catch (err: any) {
-              Alert.alert(i18n.language === "vi" ? "Lỗi" : "Error", err?.response?.data?.message || "Error");
-            } finally {
-              setIsFetching(false);
+              Alert.alert(
+                i18n.language === "vi" ? "Lỗi" : "Error",
+                err?.data?.message || err?.message || "Error"
+              );
             }
           },
         },
@@ -352,81 +289,165 @@ export default function CalendarScreen() {
     };
   };
 
-  // Pre-fetch session + RSVP data before opening detail modal so all info is ready instantly
-  const handleEventPress = useCallback(async (item: CalendarEvent) => {
-    if (item.eventType === "assignment") {
-      setSelectedEventForDetail(item);
-      setDetailModalVisible(true);
-      return;
-    }
+  // Pre-fetch session + RSVP data before opening detail modal
+  const handleEventPress = useCallback(
+    async (item: CalendarEvent) => {
+      if (item.eventType === "assignment") {
+        setSelectedEventForDetail(item);
+        setDetailModalVisible(true);
+        return;
+      }
 
-    setDetailPrefetching(item._id);
-    try {
-      const [sessionRes, rsvpRes] = await Promise.all([
-        supabase.auth.getSession(),
-        axiosInstance.get(`/calendar/${item._id}/rsvp`).catch(() => []),
-      ]);
-      const currentUserId = sessionRes?.data?.session?.user?.id ?? null;
-      const prefetchedInvitees: { email: string; displayName?: string }[] =
-        Array.isArray(rsvpRes) ? rsvpRes : [];
-      setSelectedEventForDetail({
-        ...item,
-        _prefetchedInvitees: prefetchedInvitees,
-        _currentUserId: currentUserId,
-      });
-    } catch {
-      // On error, still open modal with basic event data
-      setSelectedEventForDetail({ ...item, _prefetchedInvitees: [], _currentUserId: null });
-    } finally {
-      setDetailPrefetching(null);
-      setDetailModalVisible(true);
-    }
-  }, []);
+      setDetailPrefetching(item._id);
+      try {
+        const [sessionRes, rsvpRes] = await Promise.all([
+          supabase.auth.getSession(),
+          getCalendarRsvp(item._id).unwrap().catch(() => []),
+        ]);
+        const currentUserId = sessionRes?.data?.session?.user?.id ?? null;
+        const prefetchedInvitees: { email: string; displayName?: string }[] =
+          Array.isArray(rsvpRes) ? rsvpRes : [];
+        setSelectedEventForDetail({
+          ...item,
+          _prefetchedInvitees: prefetchedInvitees,
+          _currentUserId: currentUserId,
+        });
+      } catch {
+        setSelectedEventForDetail({ ...item, _prefetchedInvitees: [], _currentUserId: null });
+      } finally {
+        setDetailPrefetching(null);
+        setDetailModalVisible(true);
+      }
+    },
+    [getCalendarRsvp]
+  );
 
   const handleJoin = (meetingCode: string) => {
     router.push(`/meeting/join?code=${meetingCode}`);
   };
 
-  const handlePrev = () => {
-    setSelectedDate(prevDate => {
-      const nextDate = new Date(prevDate);
-      const currentMode = viewModeRef.current;
-      if (currentMode === "DAY") {
-        nextDate.setDate(nextDate.getDate() - 1);
-      } else if (currentMode === "WEEK") {
-        nextDate.setDate(nextDate.getDate() - 7);
-      } else if (currentMode === "MONTH") {
-        nextDate.setMonth(nextDate.getMonth() - 1);
-      }
-      return nextDate;
+  const animateWeekTransition = (direction: "left" | "right", updateStateFn: () => void) => {
+    if (isAnimating.current) return;
+    isAnimating.current = true;
+
+    const outX = direction === "left" ? -80 : 80;
+    const inX = direction === "left" ? 80 : -80;
+
+    Animated.parallel([
+      Animated.timing(translateXAnim, {
+        toValue: outX,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0.1,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      updateStateFn();
+      translateXAnim.setValue(inX);
+
+      Animated.parallel([
+        Animated.spring(translateXAnim, {
+          toValue: 0,
+          friction: 8,
+          tension: 70,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        isAnimating.current = false;
+      });
     });
   };
 
+  const handleSelectDayInWeek = (dayDate: Date) => {
+    if (dayDate.toDateString() === selectedDate.toDateString()) return;
+    Animated.sequence([
+      Animated.timing(opacityAnim, {
+        toValue: 0.2,
+        duration: 90,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setSelectedDate(dayDate);
+  };
+
+  const handlePrev = () => {
+    if (viewModeRef.current === "WEEK") {
+      animateWeekTransition("right", () => {
+        setSelectedDate((prevDate) => {
+          const nextDate = new Date(prevDate);
+          nextDate.setDate(nextDate.getDate() - 7);
+          return nextDate;
+        });
+      });
+    } else {
+      setSelectedDate((prevDate) => {
+        const nextDate = new Date(prevDate);
+        if (viewModeRef.current === "DAY") {
+          nextDate.setDate(nextDate.getDate() - 1);
+        } else if (viewModeRef.current === "MONTH") {
+          nextDate.setMonth(nextDate.getMonth() - 1);
+        }
+        return nextDate;
+      });
+    }
+  };
+
   const handleNext = () => {
-    setSelectedDate(prevDate => {
-      const nextDate = new Date(prevDate);
-      const currentMode = viewModeRef.current;
-      if (currentMode === "DAY") {
-        nextDate.setDate(nextDate.getDate() + 1);
-      } else if (currentMode === "WEEK") {
-        nextDate.setDate(nextDate.getDate() + 7);
-      } else if (currentMode === "MONTH") {
-        nextDate.setMonth(nextDate.getMonth() + 1);
-      }
-      return nextDate;
-    });
+    if (viewModeRef.current === "WEEK") {
+      animateWeekTransition("left", () => {
+        setSelectedDate((prevDate) => {
+          const nextDate = new Date(prevDate);
+          nextDate.setDate(nextDate.getDate() + 7);
+          return nextDate;
+        });
+      });
+    } else {
+      setSelectedDate((prevDate) => {
+        const nextDate = new Date(prevDate);
+        if (viewModeRef.current === "DAY") {
+          nextDate.setDate(nextDate.getDate() + 1);
+        } else if (viewModeRef.current === "MONTH") {
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        return nextDate;
+      });
+    }
   };
 
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return Math.abs(gestureState.dx) > 40 && Math.abs(gestureState.dy) < 30;
+        return Math.abs(gestureState.dx) > 25 && Math.abs(gestureState.dy) < 30;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (viewModeRef.current === "WEEK" && !isAnimating.current) {
+          translateXAnim.setValue(gestureState.dx * 0.35);
+        }
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx > 40) {
+        if (gestureState.dx > 45) {
           handlePrev();
-        } else if (gestureState.dx < -40) {
+        } else if (gestureState.dx < -45) {
           handleNext();
+        } else {
+          Animated.spring(translateXAnim, {
+            toValue: 0,
+            friction: 7,
+            useNativeDriver: true,
+          }).start();
         }
       },
     })
@@ -437,7 +458,7 @@ export default function CalendarScreen() {
     const monthCounts: Record<string, number> = {};
     const yearCounts: Record<string, number> = {};
 
-    dates.forEach(date => {
+    dates.forEach((date) => {
       const monthKey = `${date.getMonth() + 1}`;
       const yearKey = `${date.getFullYear()}`;
       monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
@@ -446,7 +467,7 @@ export default function CalendarScreen() {
 
     let maxMonth = d.getMonth() + 1;
     let maxMonthCount = 0;
-    Object.keys(monthCounts).forEach(m => {
+    Object.keys(monthCounts).forEach((m) => {
       if (monthCounts[m] > maxMonthCount) {
         maxMonthCount = monthCounts[m];
         maxMonth = parseInt(m, 10);
@@ -455,7 +476,7 @@ export default function CalendarScreen() {
 
     let maxYear = d.getFullYear();
     let maxYearCount = 0;
-    Object.keys(yearCounts).forEach(y => {
+    Object.keys(yearCounts).forEach((y) => {
       if (yearCounts[y] > maxYearCount) {
         maxYearCount = yearCounts[y];
         maxYear = parseInt(y, 10);
@@ -508,13 +529,12 @@ export default function CalendarScreen() {
   const getEventLayout = (event: CalendarEvent) => {
     const start = new Date(event.startDate);
     const end = new Date(event.endDate);
-    
+
     const startHour = start.getHours() + start.getMinutes() / 60;
     const endHour = end.getHours() + end.getMinutes() / 60;
-    
+
     const clampedStart = Math.max(1, Math.min(23, startHour));
-    
-    // Đối với Assignment: Hiển thị marker cố định 36px tại đúng mốc deadline
+
     if (event.eventType === "assignment") {
       const top = (clampedStart - 1) * HOUR_HEIGHT;
       const height = 36;
@@ -522,13 +542,14 @@ export default function CalendarScreen() {
     }
 
     const clampedEnd = Math.max(1, Math.min(23.99, endHour));
-    
     const top = (clampedStart - 1) * HOUR_HEIGHT;
     const height = Math.max(30, (clampedEnd - clampedStart) * HOUR_HEIGHT);
-    
+
     return { top, height };
   };
 
+
+  // Standard event card for FlatLists (Month view & Search view)
   const renderItem = ({ item }: { item: CalendarEvent }) => {
     const startDate = new Date(item.startDate);
     const localeCode = i18n.language === "vi" ? "vi-VN" : "en-US";
@@ -548,72 +569,79 @@ export default function CalendarScreen() {
 
     return (
       <TouchableOpacity
-        style={[styles.card, isAssignment && { borderLeftColor: colors.border, borderLeftWidth: 4 }]}
+        className="bg-white rounded-2xl p-4 mb-3 flex-row items-center border border-slate-100"
+        style={{ borderLeftColor: colors.border, borderLeftWidth: 4 }}
         activeOpacity={0.7}
         disabled={detailPrefetching === item._id}
         onPress={() => handleEventPress(item)}
       >
-        <View style={styles.dateBlock}>
-          <Text style={styles.dateText}>{dateStr}</Text>
-          <Text style={styles.timeText}>{timeStr}</Text>
+        <View className="items-center mr-3.5 pr-3.5 border-r border-slate-200">
+          <Text className="text-sm font-bold text-slate-800">{dateStr}</Text>
+          <Text className="text-xs text-slate-500 mt-1">{timeStr}</Text>
         </View>
-        <View style={styles.infoBlock}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+
+        <View className="flex-1 mr-2">
+          <View className="flex-row items-center gap-1.5">
             {isAssignment && (
               <Feather name="clipboard" size={13} color={colors.border} />
             )}
-            <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>
+            <Text className="text-sm font-bold text-slate-800 flex-1" numberOfLines={1}>
               {isAssignment ? `[${isVi ? "Nhiệm vụ" : "Assignment"}] ${item.title}` : item.title}
             </Text>
           </View>
           {item.description ? (
-            <Text style={styles.description} numberOfLines={2}>
+            <Text className="text-xs text-slate-500 mt-1" numberOfLines={2}>
               {item.description.replace(/<[^>]*>/g, "")}
             </Text>
           ) : null}
         </View>
-        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+
+        <View className="flex-row items-center gap-1.5">
           {isAssignment ? (
-            <View style={{
-              backgroundColor: colors.bg,
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.text }}>
+            <View
+              className="px-2 py-1 rounded-lg border"
+              style={{
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+              }}
+            >
+              <Text className="text-[11px] font-bold" style={{ color: colors.text }}>
                 {item.assignmentStatus === "submitted"
-                  ? (isVi ? "Đã nộp" : "Submitted")
+                  ? isVi
+                    ? "Đã nộp"
+                    : "Submitted"
                   : item.assignmentStatus === "graded"
-                  ? (isVi ? "Đã chấm" : "Graded")
+                  ? isVi
+                    ? "Đã chấm"
+                    : "Graded"
                   : item.assignmentStatus === "overdue"
-                  ? (isVi ? "Quá hạn" : "Overdue")
+                  ? isVi
+                    ? "Quá hạn"
+                    : "Overdue"
                   : item.assignmentStatus === "closed"
-                  ? (isVi ? "Đã khóa" : "Closed")
-                  : (isVi ? "Đang làm" : "In Progress")}
+                  ? isVi
+                    ? "Đã khóa"
+                    : "Closed"
+                  : isVi
+                  ? "Đang làm"
+                  : "In Progress"}
               </Text>
             </View>
           ) : (
             <>
               {isChannelMeeting && (
-                <TouchableOpacity
-                  style={styles.chatButton}
-                  onPress={() => {}}
-                >
+                <View className="w-8 h-8 rounded-lg border border-slate-200 justify-center items-center bg-slate-50">
                   <Feather name="message-square" size={14} color="#475569" />
+                </View>
+              )}
+              {item.meetingCode && !isChannelMeeting && (
+                <TouchableOpacity
+                  className="bg-blue-600 px-3.5 py-1.5 rounded-xl justify-center items-center active:bg-blue-700"
+                  onPress={() => handleJoin(item.meetingCode!)}
+                >
+                  <Text className="text-white font-bold text-xs">Join</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                style={styles.joinButton}
-                onPress={() => {
-                  if (!isChannelMeeting && item.meetingCode) {
-                    handleJoin(item.meetingCode);
-                  }
-                }}
-              >
-                <Text style={styles.joinButtonText}>Join</Text>
-              </TouchableOpacity>
             </>
           )}
         </View>
@@ -621,210 +649,218 @@ export default function CalendarScreen() {
     );
   };
 
+  // Rich event card for Week View (stacking cleanly, no collision)
+  const renderWeekEventCard = (item: CalendarEvent) => {
+    const startDate = new Date(item.startDate);
+    const endDate = new Date(item.endDate);
+    const localeCode = i18n.language === "vi" ? "vi-VN" : "en-US";
+    const startTimeStr = startDate.toLocaleTimeString(localeCode, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const endTimeStr = endDate.toLocaleTimeString(localeCode, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const isChannelMeeting = item.roomType === "channel_meeting" && item.roomId && item.channelId;
+    const isAssignment = item.eventType === "assignment";
+    const colors = getEventColors(item);
+    const isVi = i18n.language === "vi";
+
+    return (
+      <TouchableOpacity
+        key={`${item._id}_${item.startDate}`}
+        activeOpacity={0.7}
+        disabled={detailPrefetching === item._id}
+        onPress={() => handleEventPress(item)}
+        className="rounded-xl bg-white border border-slate-200 p-3"
+        style={{
+          borderLeftWidth: 4,
+          borderLeftColor: colors.border,
+        }}
+      >
+        <View className="flex-row items-center justify-between mb-1.5">
+          <View className="flex-row items-center gap-1.5">
+            <Feather name="clock" size={12} color="#64748B" />
+            <Text className="text-xs font-semibold text-slate-600">
+              {isAssignment ? `${startTimeStr}` : `${startTimeStr} - ${endTimeStr}`}
+            </Text>
+          </View>
+
+          {isAssignment ? (
+            <View
+              className="px-2 py-0.5 rounded-md border"
+              style={{
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+              }}
+            >
+              <Text className="text-[10px] font-bold" style={{ color: colors.text }}>
+                {item.assignmentStatus === "submitted"
+                  ? isVi
+                    ? "Đã nộp"
+                    : "Submitted"
+                  : item.assignmentStatus === "graded"
+                  ? isVi
+                    ? "Đã chấm"
+                    : "Graded"
+                  : item.assignmentStatus === "overdue"
+                  ? isVi
+                    ? "Quá hạn"
+                    : "Overdue"
+                  : item.assignmentStatus === "closed"
+                  ? isVi
+                    ? "Đã khóa"
+                    : "Closed"
+                  : isVi
+                  ? "Đang làm"
+                  : "In Progress"}
+              </Text>
+            </View>
+          ) : isChannelMeeting ? (
+            <View className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200">
+              <Text className="text-[10px] font-bold text-emerald-700">
+                {isVi ? "Cuộc họp kênh" : "Channel"}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View className="flex-row items-center gap-2">
+          {isAssignment && (
+            <Feather name="clipboard" size={14} color={colors.border} />
+          )}
+          <Text className="text-sm font-bold text-slate-800 flex-1" numberOfLines={1}>
+            {isAssignment ? `[${isVi ? "Nhiệm vụ" : "Assignment"}] ${item.title}` : item.title}
+          </Text>
+        </View>
+
+        {item.description ? (
+          <Text className="text-xs text-slate-500 mt-1" numberOfLines={2}>
+            {item.description.replace(/<[^>]*>/g, "")}
+          </Text>
+        ) : null}
+
+        {!isAssignment && item.meetingCode && !isChannelMeeting && (
+          <View className="flex-row justify-end mt-2 pt-2 border-t border-slate-100">
+            <TouchableOpacity
+              className="bg-blue-600 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 active:bg-blue-700"
+              onPress={() => handleJoin(item.meetingCode!)}
+            >
+              <Feather name="video" size={12} color="#FFFFFF" />
+              <Text className="text-white text-xs font-bold">{isVi ? "Tham gia" : "Join"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Day View
   const renderDayView = () => {
     const hours = Array.from({ length: 23 }, (_, i) => i + 1);
     const colWidth = screenWidth - TIME_AXIS_WIDTH - 24;
     const isVi = i18n.language === "vi";
 
-    const dayEvents = events.filter(e => {
+    const dayEvents = events.filter((e) => {
       const eDate = new Date(e.startDate);
-      return eDate.getFullYear() === selectedDate.getFullYear() &&
-             eDate.getMonth() === selectedDate.getMonth() &&
-             eDate.getDate() === selectedDate.getDate();
+      return (
+        eDate.getFullYear() === selectedDate.getFullYear() &&
+        eDate.getMonth() === selectedDate.getMonth() &&
+        eDate.getDate() === selectedDate.getDate()
+      );
     });
 
     return (
-      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+      <View className="flex-1 bg-white" {...panResponder.panHandlers}>
         <ScrollView
-          style={{ flex: 1 }}
+          className="flex-1"
           contentContainerStyle={{ paddingBottom: 80 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-        {/* Timeline headers */}
-        <View style={styles.dayHeader}>
-          <Text style={styles.dayHeaderText}>{getDayHeaderText(selectedDate)}</Text>
-        </View>
-
-        <View style={styles.timelineGridContainer}>
-          {/* Time axis */}
-          <View style={{ width: TIME_AXIS_WIDTH }}>
-            {hours.map(hour => (
-              <View key={hour} style={{ height: HOUR_HEIGHT, justifyContent: "flex-start", alignItems: "center", paddingTop: 4 }}>
-                <Text style={styles.timeLabel}>{`${hour.toString().padStart(2, "0")}:00`}</Text>
-              </View>
-            ))}
+          {/* Day header */}
+          <View className="p-4 bg-white border-b border-slate-200">
+            <Text className="text-base font-bold text-slate-800 text-center">
+              {getDayHeaderText(selectedDate)}
+            </Text>
           </View>
 
-          {/* Events & Grid Column */}
-          <View style={{ flex: 1, position: "relative" }}>
-            {/* Horizontal Grid lines */}
-            <View style={StyleSheet.absoluteFill}>
-              {hours.map(hour => (
-                <View key={hour} style={{ height: HOUR_HEIGHT, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" }} />
+          <View className="flex-row pr-3 bg-white">
+            {/* Time axis */}
+            <View style={{ width: TIME_AXIS_WIDTH }}>
+              {hours.map((hour) => (
+                <View
+                  key={hour}
+                  style={{ height: HOUR_HEIGHT }}
+                  className="justify-start items-center pt-1"
+                >
+                  <Text className="text-xs text-slate-400 font-medium">
+                    {`${hour.toString().padStart(2, "0")}:00`}
+                  </Text>
+                </View>
               ))}
             </View>
 
-            {/* Day Column */}
-            <View style={[styles.gridColumn, { width: colWidth }]}>
-              {dayEvents.map(event => {
-                const { top, height } = getEventLayout(event);
-                const colors = getEventColors(event);
-                const isAssignment = event.eventType === "assignment";
-                return (
-                  <TouchableOpacity
-                    key={`${event._id}_${event.startDate}`}
-                    disabled={detailPrefetching === event._id}
-                    onPress={() => handleEventPress(event)}
-                    style={[
-                      styles.eventCard,
-                      {
+            {/* Events & Grid Column */}
+            <View className="flex-1 relative">
+              {/* Horizontal Grid lines */}
+              <View className="absolute inset-0">
+                {hours.map((hour) => (
+                  <View
+                    key={hour}
+                    style={{ height: HOUR_HEIGHT }}
+                    className="border-b border-slate-100"
+                  />
+                ))}
+              </View>
+
+              {/* Day Column */}
+              <View className="relative" style={{ width: colWidth }}>
+                {dayEvents.map((event) => {
+                  const { top, height } = getEventLayout(event);
+                  const colors = getEventColors(event);
+                  const isAssignment = event.eventType === "assignment";
+                  return (
+                    <TouchableOpacity
+                      key={`${event._id}_${event.startDate}`}
+                      disabled={detailPrefetching === event._id}
+                      onPress={() => handleEventPress(event)}
+                      className="absolute left-1 right-1 rounded-xl p-2 justify-center"
+                      style={{
                         top,
                         height,
                         backgroundColor: colors.bg,
                         borderLeftWidth: 4,
                         borderLeftColor: colors.border,
-                        opacity: isFetching ? 0.6 : 1,
-                        justifyContent: "center",
-                      }
-                    ]}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      {isAssignment && <Feather name="clipboard" size={11} color={colors.border} />}
-                      <Text style={[styles.eventTitleText, { flex: 1, color: colors.text }]} numberOfLines={height > 36 ? 2 : 1}>
-                        {isAssignment ? `[${isVi ? "Nhiệm vụ" : "Assignment"}] ${event.title}` : event.title}
-                      </Text>
-                    </View>
-                    {height > 40 && event.description && (
-                      <Text style={styles.eventDescText} numberOfLines={1}>
-                        {event.description.replace(/<[^>]*>/g, "")}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  );
-  };
-
-  const renderWeekView = () => {
-    const hours = Array.from({ length: 23 }, (_, i) => i + 1);
-    const weekDates = getWeekDates(selectedDate);
-    const remainingWidth = screenWidth - TIME_AXIS_WIDTH - 20;
-    const colWidth = remainingWidth / 7;
-
-    const weekdayHeaders = i18n.language === "vi"
-      ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
-      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-    return (
-      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-        {/* Horizontal columns header */}
-        <View style={styles.weekHeaderContainer}>
-          <View style={{ width: TIME_AXIS_WIDTH }} />
-          <View style={styles.weekDayHeaderRow}>
-            {weekDates.map((dayDate, index) => {
-              const isToday = new Date().toDateString() === dayDate.toDateString();
-              const isSelected = selectedDate.toDateString() === dayDate.toDateString();
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.weekDayHeaderCell, { width: colWidth }, isSelected && styles.weekHeaderCellSelected]}
-                  onPress={() => setSelectedDate(dayDate)}
-                >
-                  <Text style={[styles.weekDayHeaderText, isToday && styles.textPrimary]}>{weekdayHeaders[index]}</Text>
-                  <Text style={[styles.weekDayDateText, isToday && styles.textPrimaryBold]}>{dayDate.getDate()}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 80 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          <View style={styles.timelineGridContainer}>
-            {/* Time axis */}
-            <View style={{ width: TIME_AXIS_WIDTH }}>
-              {hours.map(hour => (
-                <View key={hour} style={{ height: HOUR_HEIGHT, justifyContent: "flex-start", alignItems: "center", paddingTop: 4 }}>
-                  <Text style={styles.timeLabel}>{`${hour.toString().padStart(2, "0")}:00`}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Grid & Columns */}
-            <View style={{ flex: 1, flexDirection: "row", position: "relative" }}>
-              {/* Horizontal Grid lines */}
-              <View style={StyleSheet.absoluteFill}>
-                {hours.map(hour => (
-                  <View key={hour} style={{ height: HOUR_HEIGHT, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" }} />
-                ))}
-              </View>
-
-              {/* Vertical Columns */}
-              {weekDates.map((dayDate, index) => {
-                const dayEvents = events.filter(e => {
-                  const eDate = new Date(e.startDate);
-                  return eDate.getFullYear() === dayDate.getFullYear() &&
-                         eDate.getMonth() === dayDate.getMonth() &&
-                         eDate.getDate() === dayDate.getDate();
-                });
-                const isToday = new Date().toDateString() === dayDate.toDateString();
-
-                return (
-                  <View
-                    key={index}
-                    style={[
-                      styles.gridColumn,
-                      {
-                        width: colWidth,
-                        borderRightWidth: index < 6 ? 1 : 0,
-                        borderRightColor: "#E2E8F0",
-                        backgroundColor: isToday ? "#0052FF08" : "transparent",
-                      }
-                    ]}
-                  >
-                    {dayEvents.map(event => {
-                      const { top, height } = getEventLayout(event);
-                      const colors = getEventColors(event);
-                      const isAssignment = event.eventType === "assignment";
-                      return (
-                        <TouchableOpacity
-                          key={`${event._id}_${event.startDate}`}
-                          disabled={detailPrefetching === event._id}
-                          onPress={() => handleEventPress(event)}
-                          style={[
-                            styles.eventCard,
-                            {
-                              top,
-                              height,
-                              backgroundColor: colors.bg,
-                              borderLeftWidth: 3,
-                              borderLeftColor: colors.border,
-                              opacity: isFetching ? 0.6 : 1,
-                              justifyContent: "center",
-                            }
-                          ]}
+                        opacity: isCalendarFetching ? 0.6 : 1,
+                      }}
+                    >
+                      <View className="flex-row items-center gap-1.5">
+                        {isAssignment && (
+                          <Feather name="clipboard" size={12} color={colors.border} />
+                        )}
+                        <Text
+                          className="font-bold flex-1 text-xs"
+                          style={{ color: colors.text }}
+                          numberOfLines={height > 36 ? 2 : 1}
                         >
-                          <Text style={[styles.eventTitleText, { color: colors.text }, isAssignment && { fontSize: 10 }]} numberOfLines={1}>
-                            {isAssignment ? `[${i18n.language === "vi" ? "NV" : "Asg"}] ${event.title}` : event.title}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                );
-              })}
+                          {isAssignment
+                            ? `[${isVi ? "Nhiệm vụ" : "Assignment"}] ${event.title}`
+                            : event.title}
+                        </Text>
+                      </View>
+                      {height > 40 && event.description && (
+                        <Text className="text-[10px] text-slate-500 mt-0.5" numberOfLines={1}>
+                          {event.description.replace(/<[^>]*>/g, "")}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -832,78 +868,295 @@ export default function CalendarScreen() {
     );
   };
 
-  const renderMonthView = () => {
-    const days = generateMonthDays(selectedDate);
-    const currentMonth = selectedDate.getMonth();
-    
-    const weekDaysHeader = i18n.language === "vi"
+  // Week View: Top bar with < and > week nav arrows + 7 day pills, only shows selected day events with transition
+  const renderWeekView = () => {
+    const weekDates = getWeekDates(selectedDate);
+    const isVi = i18n.language === "vi";
+
+    const weekdayHeaders = isVi
       ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
       : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+    const isToday = new Date().toDateString() === selectedDate.toDateString();
+
+    const selectedDayEvents = events
+      .filter((e) => {
+        const eDate = new Date(e.startDate);
+        return (
+          eDate.getFullYear() === selectedDate.getFullYear() &&
+          eDate.getMonth() === selectedDate.getMonth() &&
+          eDate.getDate() === selectedDate.getDate()
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+      );
+
     return (
-      <View style={styles.monthContainer} {...panResponder.panHandlers}>
+      <View className="flex-1 bg-slate-50" {...panResponder.panHandlers}>
+        {/* Top Weekday Navigator Bar with Prev & Next Arrows */}
+        <View className="bg-white border-b border-slate-200 px-1.5 py-2">
+          <View className="flex-row items-center justify-between">
+            {/* Left arrow: Previous week */}
+            <TouchableOpacity
+              onPress={handlePrev}
+              activeOpacity={0.6}
+              className="w-8 h-12 items-center justify-center rounded-lg active:bg-slate-100"
+            >
+              <Feather name="chevron-left" size={20} color="#475569" />
+            </TouchableOpacity>
+
+            {/* 7 Day Pills */}
+            <View className="flex-1 flex-row justify-between items-center mx-1">
+              {weekDates.map((dayDate, index) => {
+                const dayIsToday = new Date().toDateString() === dayDate.toDateString();
+                const isSelected = selectedDate.toDateString() === dayDate.toDateString();
+
+                const dayEventsCount = events.filter((e) => {
+                  const eDate = new Date(e.startDate);
+                  return (
+                    eDate.getFullYear() === dayDate.getFullYear() &&
+                    eDate.getMonth() === dayDate.getMonth() &&
+                    eDate.getDate() === dayDate.getDate()
+                  );
+                }).length;
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    activeOpacity={0.7}
+                    className={`items-center justify-center py-2 px-1 rounded-xl flex-1 mx-0.5 ${
+                      isSelected
+                        ? "bg-blue-600"
+                        : dayIsToday
+                        ? "bg-blue-50 border border-blue-200"
+                        : "bg-slate-50 border border-slate-100"
+                    }`}
+                    onPress={() => handleSelectDayInWeek(dayDate)}
+                  >
+                    <Text
+                      className={`text-[11px] font-semibold ${
+                        isSelected
+                          ? "text-white"
+                          : dayIsToday
+                          ? "text-blue-600 font-bold"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {weekdayHeaders[index]}
+                    </Text>
+                    <Text
+                      className={`text-sm font-bold mt-0.5 ${
+                        isSelected
+                          ? "text-white"
+                          : dayIsToday
+                          ? "text-blue-600 font-extrabold"
+                          : "text-slate-800"
+                      }`}
+                    >
+                      {dayDate.getDate()}
+                    </Text>
+                    {dayEventsCount > 0 && (
+                      <View
+                        className={`w-1.5 h-1.5 rounded-full mt-1 ${
+                          isSelected ? "bg-white" : "bg-blue-600"
+                        }`}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Right arrow: Next week */}
+            <TouchableOpacity
+              onPress={handleNext}
+              activeOpacity={0.6}
+              className="w-8 h-12 items-center justify-center rounded-lg active:bg-slate-100"
+            >
+              <Feather name="chevron-right" size={20} color="#475569" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Animated Content: Displays ONLY the events for selectedDate */}
+        <Animated.View
+          style={{
+            flex: 1,
+            transform: [{ translateX: translateXAnim }],
+            opacity: opacityAnim,
+          }}
+        >
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ padding: 16, paddingBottom: 90 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            {/* Selected Day Info Header */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-base font-bold text-slate-800">
+                  {getDayHeaderText(selectedDate)}
+                </Text>
+                {isToday && (
+                  <View className="bg-blue-600 px-2 py-0.5 rounded-full">
+                    <Text className="text-[10px] font-bold text-white uppercase tracking-wider">
+                      {isVi ? "Hôm nay" : "Today"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {!isCalendarFetching && (
+                <View className="px-2.5 py-0.5 rounded-full bg-slate-200">
+                  <Text className="text-xs font-semibold text-slate-600">
+                    {selectedDayEvents.length} {isVi ? "cuộc họp" : "meetings"}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Loading State */}
+            {isCalendarFetching ? (
+              <View className="py-20 items-center justify-center">
+                <ActivityIndicator size="large" color="#0052FF" />
+                <Text className="text-xs text-slate-400 font-medium mt-3">
+                  {isVi ? "Đang tải lịch trình..." : "Loading schedule..."}
+                </Text>
+              </View>
+            ) : selectedDayEvents.length === 0 ? (
+              /* Empty state message requested by user: "Không có lịch họp nào cho ngày này" */
+              <View className="py-16 px-6 items-center justify-center bg-white rounded-2xl border border-slate-200 my-2">
+                <View className="w-14 h-14 rounded-full bg-blue-50 items-center justify-center mb-3">
+                  <Feather name="calendar" size={26} color="#3B82F6" />
+                </View>
+                <Text className="text-base font-bold text-slate-700 text-center">
+                  {isVi
+                    ? "Không có lịch họp nào cho ngày này"
+                    : "No meetings scheduled for this day"}
+                </Text>
+                <Text className="text-xs text-slate-400 text-center mt-1.5">
+                  {isVi
+                    ? "Hãy chọn ngày khác hoặc tạo lịch họp mới"
+                    : "Select another day or schedule a new meeting"}
+                </Text>
+              </View>
+            ) : (
+              /* Events for Selected Day */
+              <View className="gap-3">
+                {selectedDayEvents.map((event) => renderWeekEventCard(event))}
+              </View>
+            )}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    );
+  };
+
+  // Month View
+  const renderMonthView = () => {
+    const days = generateMonthDays(selectedDate);
+    const currentMonth = selectedDate.getMonth();
+    const isVi = i18n.language === "vi";
+
+    const weekDaysHeader = isVi
+      ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    const selectedDayEvents = events.filter((e) => {
+      const eDate = new Date(e.startDate);
+      return (
+        eDate.getFullYear() === selectedDate.getFullYear() &&
+        eDate.getMonth() === selectedDate.getMonth() &&
+        eDate.getDate() === selectedDate.getDate()
+      );
+    });
+
+    return (
+      <View className="flex-1 bg-white" {...panResponder.panHandlers}>
         {/* Month Weekdays Header */}
-        <View style={styles.monthWeekdayRow}>
+        <View className="flex-row border-b border-slate-200 py-2.5 bg-slate-50">
           {weekDaysHeader.map((d, index) => (
-            <View key={index} style={styles.monthWeekdayCell}>
-              <Text style={styles.monthWeekdayText}>{d}</Text>
+            <View key={index} className="flex-1 items-center">
+              <Text className="text-xs font-semibold text-slate-500">{d}</Text>
             </View>
           ))}
         </View>
-        
+
         {/* Days Grid */}
-        <View style={styles.monthGrid}>
+        <View className="flex-row flex-wrap border-b border-slate-200">
           {days.map((dayDate, index) => {
             const isCurrentMonth = dayDate.getMonth() === currentMonth;
             const isToday = new Date().toDateString() === dayDate.toDateString();
             const isSelected = selectedDate.toDateString() === dayDate.toDateString();
-            
-            const dayEvents = events.filter(e => {
+
+            const dayEvents = events.filter((e) => {
               const eDate = new Date(e.startDate);
-              return eDate.getFullYear() === dayDate.getFullYear() &&
-                     eDate.getMonth() === dayDate.getMonth() &&
-                     eDate.getDate() === dayDate.getDate();
+              return (
+                eDate.getFullYear() === dayDate.getFullYear() &&
+                eDate.getMonth() === dayDate.getMonth() &&
+                eDate.getDate() === dayDate.getDate()
+              );
             });
-            
+
             return (
               <TouchableOpacity
                 key={index}
-                style={[
-                  styles.monthDayCell,
-                  !isCurrentMonth && styles.monthDayCellInactive,
-                  isSelected && styles.monthDayCellSelected,
-                  isToday && styles.monthDayCellToday,
-                ]}
-                onPress={() => {
-                  setSelectedDate(dayDate);
-                }}
+                className={`w-[14.28%] h-14 border-b border-r border-slate-100 p-1 justify-between ${
+                  isSelected
+                    ? "bg-blue-50/80"
+                    : isToday
+                    ? "bg-blue-50/40"
+                    : !isCurrentMonth
+                    ? "bg-slate-50/60"
+                    : "bg-white"
+                }`}
+                onPress={() => setSelectedDate(dayDate)}
               >
-                <Text
-                  style={[
-                    styles.monthDayText,
-                    !isCurrentMonth && styles.monthDayTextInactive,
-                    isSelected && styles.monthDayTextSelected,
-                    isToday && styles.monthDayTextToday,
-                  ]}
-                >
-                  {dayDate.getDate()}
-                </Text>
-                
-                <View style={styles.monthEventContainer}>
-                  {dayEvents.slice(0, 2).map((event) => {
+                <View className="flex-row justify-between items-center">
+                  <View
+                    className={`w-5 h-5 rounded-full items-center justify-center ${
+                      isSelected
+                        ? "bg-blue-600"
+                        : isToday
+                        ? "bg-blue-100"
+                        : ""
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${
+                        isSelected
+                          ? "text-white font-bold"
+                          : isToday
+                          ? "text-blue-600 font-bold"
+                          : !isCurrentMonth
+                          ? "text-slate-300"
+                          : "text-slate-700"
+                      }`}
+                    >
+                      {dayDate.getDate()}
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="flex-row gap-0.5 flex-wrap">
+                  {dayEvents.slice(0, 3).map((event) => {
                     const colors = getEventColors(event);
                     return (
                       <View
                         key={`${event._id}_${event.startDate}`}
-                        style={[
-                          styles.monthEventIndicator,
-                          { backgroundColor: colors.border }
-                        ]}
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: colors.border }}
                       />
                     );
                   })}
-                  {dayEvents.length > 2 && (
-                    <Text style={styles.monthEventMoreText}>+{dayEvents.length - 2}</Text>
+                  {dayEvents.length > 3 && (
+                    <Text className="text-[8px] text-slate-500 font-bold">
+                      +{dayEvents.length - 3}
+                    </Text>
                   )}
                 </View>
               </TouchableOpacity>
@@ -912,25 +1165,32 @@ export default function CalendarScreen() {
         </View>
 
         {/* Selected date's events list */}
-        <View style={styles.monthDetailContainer}>
-          <Text style={styles.monthDetailHeader}>
-            {selectedDate.toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US", {
-              weekday: "long",
-              day: "numeric",
-              month: "numeric",
-            })}
-          </Text>
+        <View className="flex-1 bg-slate-50 p-4">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-sm font-bold text-slate-700">
+              {selectedDate.toLocaleDateString(isVi ? "vi-VN" : "en-US", {
+                weekday: "long",
+                day: "numeric",
+                month: "numeric",
+              })}
+            </Text>
+            <View className="px-2 py-0.5 rounded-full bg-slate-200/60">
+              <Text className="text-[11px] font-medium text-slate-600">
+                {selectedDayEvents.length} {isVi ? "sự kiện" : "events"}
+              </Text>
+            </View>
+          </View>
           <FlatList
-            data={events.filter(e => {
-              const eDate = new Date(e.startDate);
-              return eDate.getFullYear() === selectedDate.getFullYear() &&
-                     eDate.getMonth() === selectedDate.getMonth() &&
-                     eDate.getDate() === selectedDate.getDate();
-            })}
-            keyExtractor={item => `${item._id}_${item.startDate}`}
+            data={selectedDayEvents}
+            keyExtractor={(item) => `${item._id}_${item.startDate}`}
             renderItem={renderItem}
             ListEmptyComponent={
-              <Text style={styles.monthDetailEmpty}>{t("calendar.empty_state") || "Không có sự kiện"}</Text>
+              <View className="py-8 items-center justify-center">
+                <Feather name="calendar" size={32} color="#CBD5E1" />
+                <Text className="text-sm text-slate-400 mt-2">
+                  {t("calendar.empty_state") || "Không có sự kiện"}
+                </Text>
+              </View>
             }
             contentContainerStyle={{ paddingBottom: 16 }}
             refreshControl={
@@ -943,11 +1203,18 @@ export default function CalendarScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView className="flex-1 bg-slate-50">
+      {/* Top Header / Search Header */}
+      <View className="px-5 py-3.5 border-b border-slate-200 bg-white flex-row items-center justify-between">
         {searchActive ? (
-          <View style={styles.searchBarContainer}>
-            <TouchableOpacity onPress={() => { setSearchActive(false); setSearchQuery(""); }} style={styles.backSearchBtn}>
+          <View className="flex-row items-center flex-1 gap-3">
+            <TouchableOpacity
+              onPress={() => {
+                setSearchActive(false);
+                setSearchQuery("");
+              }}
+              className="p-1"
+            >
               <Feather name="arrow-left" size={20} color="#475569" />
             </TouchableOpacity>
             <TextInput
@@ -957,40 +1224,55 @@ export default function CalendarScreen() {
               placeholderTextColor="#94A3B8"
               autoFocus
               returnKeyType="search"
-              onSubmitEditing={() => fetchSearch(searchQuery)}
-              style={styles.searchInput}
+              className="flex-1 text-base text-slate-800 py-1"
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearSearchBtn}>
+              <TouchableOpacity onPress={() => setSearchQuery("")} className="p-1">
                 <Feather name="x" size={18} color="#94A3B8" />
               </TouchableOpacity>
             )}
           </View>
         ) : (
           <>
-            <Text style={styles.headerTitle}>{t("calendar.title")}</Text>
-            <TouchableOpacity onPress={() => setSearchActive(true)} style={styles.searchIconBtn}>
-              <Feather name="search" size={20} color="#475569" />
+            <Text className="text-xl font-bold text-slate-900">{t("calendar.title")}</Text>
+            <TouchableOpacity
+              onPress={() => setSearchActive(true)}
+              className="w-9 h-9 rounded-full bg-slate-100 justify-center items-center active:bg-slate-200"
+            >
+              <Feather name="search" size={18} color="#475569" />
             </TouchableOpacity>
           </>
         )}
       </View>
 
+      {/* Toolbar: Navigation title & View mode switcher */}
       {!searchActive && (
-        <View style={styles.toolbar}>
-          <View style={styles.navHeader}>
-            <Text style={styles.navHeaderText}>{getHeaderTitle()}</Text>
-            {isFetching && (
-              <ActivityIndicator size="small" color="#0052FF" style={{ marginLeft: 6 }} />
+        <View className="px-4 py-3 flex-row justify-between items-center bg-white border-b border-slate-100 z-30">
+          <View className="flex-row items-center gap-2">
+            <TouchableOpacity
+              onPress={handlePrev}
+              className="p-1.5 rounded-full active:bg-slate-100"
+            >
+              <Feather name="chevron-left" size={20} color="#475569" />
+            </TouchableOpacity>
+            <Text className="text-base font-bold text-slate-800">{getHeaderTitle()}</Text>
+            <TouchableOpacity
+              onPress={handleNext}
+              className="p-1.5 rounded-full active:bg-slate-100"
+            >
+              <Feather name="chevron-right" size={20} color="#475569" />
+            </TouchableOpacity>
+            {isCalendarFetching && (
+              <ActivityIndicator size="small" color="#0052FF" className="ml-1" />
             )}
           </View>
 
-          <View style={{ position: "relative", zIndex: 100 }}>
+          <View className="relative z-30">
             <TouchableOpacity
               onPress={() => setViewDropdownVisible(!viewDropdownVisible)}
-              style={styles.dropdownBtn}
+              className="flex-row items-center bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-full gap-1.5"
             >
-              <Text style={styles.dropdownBtnText}>
+              <Text className="text-xs font-bold text-blue-600">
                 {viewMode === "DAY" && t("calendar.view_day")}
                 {viewMode === "WEEK" && t("calendar.view_week")}
                 {viewMode === "MONTH" && t("calendar.view_month")}
@@ -999,7 +1281,7 @@ export default function CalendarScreen() {
             </TouchableOpacity>
 
             {viewDropdownVisible && (
-              <View style={styles.dropdownMenu}>
+              <View className="absolute top-10 right-0 bg-white rounded-xl p-1.5 w-32 border border-slate-200 z-50">
                 {(["DAY", "WEEK", "MONTH"] as const).map((mode) => {
                   const isActive = viewMode === mode;
                   return (
@@ -1009,9 +1291,13 @@ export default function CalendarScreen() {
                         setViewMode(mode);
                         setViewDropdownVisible(false);
                       }}
-                      style={[styles.dropdownItem, isActive && styles.dropdownItemActive]}
+                      className={`py-2 px-3 rounded-lg ${isActive ? "bg-blue-50" : ""}`}
                     >
-                      <Text style={[styles.dropdownItemText, isActive && styles.dropdownItemTextActive]}>
+                      <Text
+                        className={`text-xs ${
+                          isActive ? "font-bold text-blue-600" : "text-slate-600"
+                        }`}
+                      >
                         {mode === "DAY" && t("calendar.view_day")}
                         {mode === "WEEK" && t("calendar.view_week")}
                         {mode === "MONTH" && t("calendar.view_month")}
@@ -1025,35 +1311,46 @@ export default function CalendarScreen() {
         </View>
       )}
 
+      {/* Overlay to close view dropdown */}
       {viewDropdownVisible && (
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setViewDropdownVisible(false)}
-          style={styles.dropdownOverlay}
+          className="absolute inset-0 z-20"
         />
       )}
 
-      {initialLoading && !refreshing ? (
-        <View style={styles.center}>
+      {/* Main View Area */}
+      {isCalendarLoading && !refreshing ? (
+        <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0052FF" />
         </View>
       ) : searchActive ? (
-        <FlatList
-          data={events}
-          keyExtractor={(item) => `${item._id}_${item.startDate}`}
-          renderItem={renderItem}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Feather name="calendar" size={48} color="#94A3B8" />
-              <Text style={styles.emptyText}>
-                {t("calendar.no_results") || "Không tìm thấy kết quả"}
-              </Text>
-            </View>
-          }
-          contentContainerStyle={styles.listContent}
-        />
+        isSearching ? (
+          <View className="flex-1 justify-center items-center">
+            <ActivityIndicator size="large" color="#0052FF" />
+          </View>
+        ) : (
+          <FlatList
+            data={events}
+            keyExtractor={(item) => `${item._id}_${item.startDate}`}
+            renderItem={renderItem}
+            ListEmptyComponent={
+              <View className="items-center justify-center py-16">
+                <Feather name="calendar" size={48} color="#94A3B8" />
+                <Text className="text-slate-500 mt-3 text-sm">
+                  {t("calendar.no_results") || "Không tìm thấy kết quả"}
+                </Text>
+              </View>
+            }
+            contentContainerStyle={{ padding: 16 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+        )
       ) : (
-        <View style={{ flex: 1 }}>
+        <View className="flex-1">
           {viewMode === "DAY" && renderDayView()}
           {viewMode === "WEEK" && renderWeekView()}
           {viewMode === "MONTH" && renderMonthView()}
@@ -1065,24 +1362,13 @@ export default function CalendarScreen() {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setFabMenuOpen(false)}
-          style={[StyleSheet.absoluteFillObject, { zIndex: 998 }]}
-        >
-          <View style={{ flex: 1, backgroundColor: "rgba(15, 23, 42, 0.4)" }} />
-        </TouchableOpacity>
+          className="absolute inset-0 bg-slate-900/40 z-40"
+        />
       )}
 
       {/* Floating Action Buttons */}
       {fabMenuOpen && (
-        <View
-          style={{
-            position: "absolute",
-            right: 24,
-            bottom: 96,
-            alignItems: "flex-end",
-            gap: 12,
-            zIndex: 999,
-          }}
-        >
+        <View className="absolute right-6 bottom-24 items-end gap-3 z-50">
           {/* Sự kiện Button */}
           <TouchableOpacity
             onPress={() => {
@@ -1090,23 +1376,10 @@ export default function CalendarScreen() {
               setEventToEdit(null);
               setEventModalVisible(true);
             }}
-            style={{
-              flexDirection: "row",
-              backgroundColor: "#E0E7FF",
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 20,
-              alignItems: "center",
-              gap: 8,
-              elevation: 3,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.2,
-              shadowRadius: 1.41,
-            }}
+            className="flex-row bg-indigo-50 border border-indigo-200 px-4 py-2.5 rounded-full items-center gap-2 active:bg-indigo-100"
           >
             <Feather name="calendar" size={16} color="#0052FF" />
-            <Text style={{ color: "#0052FF", fontWeight: "bold", fontSize: 13 }}>{t("calendar.event")}</Text>
+            <Text className="text-blue-600 font-bold text-xs">{t("calendar.event")}</Text>
           </TouchableOpacity>
 
           {/* Cuộc họp kênh Button */}
@@ -1115,23 +1388,12 @@ export default function CalendarScreen() {
               setFabMenuOpen(false);
               setModalVisible(true);
             }}
-            style={{
-              flexDirection: "row",
-              backgroundColor: "#E0E7FF",
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 20,
-              alignItems: "center",
-              gap: 8,
-              elevation: 3,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.2,
-              shadowRadius: 1.41,
-            }}
+            className="flex-row bg-indigo-50 border border-indigo-200 px-4 py-2.5 rounded-full items-center gap-2 active:bg-indigo-100"
           >
             <Feather name="check-circle" size={16} color="#0052FF" />
-            <Text style={{ color: "#0052FF", fontWeight: "bold", fontSize: 13 }}>{t("calendar.channel_meeting")}</Text>
+            <Text className="text-blue-600 font-bold text-xs">
+              {t("calendar.channel_meeting")}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1139,33 +1401,17 @@ export default function CalendarScreen() {
       {/* Floating Action Button '+' */}
       <TouchableOpacity
         onPress={() => setFabMenuOpen(!fabMenuOpen)}
-        style={{
-          position: "absolute",
-          right: 24,
-          bottom: 24,
-          backgroundColor: "#0052FF",
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          justifyContent: "center",
-          alignItems: "center",
-          elevation: 4,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          zIndex: 1000,
-        }}
+        className="absolute right-6 bottom-6 bg-blue-600 w-14 h-14 rounded-full justify-center items-center z-50 active:scale-95"
       >
         <Feather name={fabMenuOpen ? "x" : "plus"} size={24} color="#FFFFFF" />
       </TouchableOpacity>
 
+      {/* Modals */}
       <ChannelMeetingModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSuccess={() => {
-          cache.current = {};
-          fetchCalendar(selectedDate, viewMode, true);
+          dispatch(calendarApi.util.invalidateTags(["CalendarEvent"]));
         }}
       />
 
@@ -1187,8 +1433,7 @@ export default function CalendarScreen() {
           handleJoin(meetingCode);
         }}
         onRefresh={() => {
-          cache.current = {};
-          fetchCalendar(selectedDate, viewMode, true);
+          dispatch(calendarApi.util.invalidateTags(["CalendarEvent"]));
         }}
       />
 
@@ -1200,405 +1445,9 @@ export default function CalendarScreen() {
           setEventToEdit(null);
         }}
         onSuccess={() => {
-          cache.current = {};
-          fetchCalendar(selectedDate, viewMode, true);
+          dispatch(calendarApi.util.invalidateTags(["CalendarEvent"]));
         }}
       />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#0F172A",
-  },
-  searchBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
-  },
-  backSearchBtn: {
-    paddingRight: 4,
-  },
-  toolbar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-    zIndex: 99,
-  },
-  navHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  navBtn: {
-    padding: 4,
-  },
-  navHeaderText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0F172A",
-  },
-  dropdownBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  dropdownBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0052FF",
-  },
-  dropdownOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 98,
-    backgroundColor: "transparent",
-  },
-  dropdownMenu: {
-    position: "absolute",
-    top: 47,
-    right: 0,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 4,
-    width: 140,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    zIndex: 101,
-  },
-  dropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  dropdownItemActive: {
-    backgroundColor: "#EFF6FF",
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: "#334155",
-  },
-  dropdownItemTextActive: {
-    fontWeight: "bold",
-    color: "#0052FF",
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#0F172A",
-    paddingVertical: 4,
-  },
-  clearSearchBtn: {
-    padding: 4,
-  },
-  searchIconBtn: {
-    padding: 4,
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listContent: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  dateBlock: {
-    alignItems: "center",
-    marginRight: 16,
-    paddingRight: 16,
-    borderRightWidth: 1,
-    borderRightColor: "#E2E8F0",
-  },
-  dateText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#0F172A",
-  },
-  timeText: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 4,
-  },
-  infoBlock: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0F172A",
-  },
-  description: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 4,
-  },
-  joinButton: {
-    backgroundColor: "#0052FF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  chatButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  joinButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 64,
-  },
-  emptyText: {
-    color: "#64748B",
-    marginTop: 12,
-    fontSize: 14,
-  },
-
-  // Custom views styles
-  dayHeader: {
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  dayHeaderText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0F172A",
-    textAlign: "center",
-  },
-  timelineGridContainer: {
-    flexDirection: "row",
-    paddingRight: 12,
-    backgroundColor: "#FFFFFF",
-  },
-  timeLabel: {
-    fontSize: 12,
-    color: "#94A3B8",
-    fontWeight: "500",
-  },
-  gridColumn: {
-    position: "relative",
-  },
-  eventCard: {
-    position: "absolute",
-    left: 4,
-    right: 4,
-    borderRadius: 8,
-    padding: 6,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  eventTitleText: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#1E3A8A",
-  },
-  eventDescText: {
-    fontSize: 9,
-    color: "#60A5FA",
-    marginTop: 2,
-  },
-
-  // Week view styles
-  weekHeaderContainer: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    paddingRight: 12,
-    paddingVertical: 8,
-  },
-  weekDayHeaderRow: {
-    flex: 1,
-    flexDirection: "row",
-  },
-  weekDayHeaderCell: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  weekHeaderCellSelected: {
-    backgroundColor: "#EFF6FF",
-  },
-  weekDayHeaderText: {
-    fontSize: 11,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-  weekDayDateText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0F172A",
-    marginTop: 2,
-  },
-  textPrimary: {
-    color: "#0052FF",
-  },
-  textPrimaryBold: {
-    color: "#0052FF",
-    fontWeight: "bold",
-  },
-
-  // Month view styles
-  monthContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  monthWeekdayRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    paddingVertical: 8,
-  },
-  monthWeekdayCell: {
-    flex: 1,
-    alignItems: "center",
-  },
-  monthWeekdayText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  monthGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  monthDayCell: {
-    width: "14.28%",
-    height: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-    borderRightWidth: 1,
-    borderRightColor: "#F1F5F9",
-    padding: 4,
-    justifyContent: "space-between",
-  },
-  monthDayCellInactive: {
-    backgroundColor: "#F8FAFC",
-  },
-  monthDayCellSelected: {
-    backgroundColor: "#EFF6FF",
-  },
-  monthDayCellToday: {
-    backgroundColor: "#EFF6FF",
-  },
-  monthDayText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#334155",
-  },
-  monthDayTextInactive: {
-    color: "#94A3B8",
-  },
-  monthDayTextSelected: {
-    color: "#0052FF",
-    fontWeight: "bold",
-  },
-  monthDayTextToday: {
-    color: "#0052FF",
-    fontWeight: "bold",
-  },
-  monthEventContainer: {
-    flexDirection: "row",
-    gap: 2,
-    flexWrap: "wrap",
-    marginTop: 2,
-  },
-  monthEventIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  monthEventIndicatorText: {
-    display: "none",
-  },
-  monthEventMoreText: {
-    fontSize: 8,
-    color: "#64748B",
-    fontWeight: "bold",
-  },
-  monthDetailContainer: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-    padding: 16,
-  },
-  monthDetailHeader: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#475569",
-    marginBottom: 12,
-  },
-  monthDetailEmpty: {
-    fontSize: 14,
-    color: "#94A3B8",
-    textAlign: "center",
-    marginTop: 24,
-  },
-});
-

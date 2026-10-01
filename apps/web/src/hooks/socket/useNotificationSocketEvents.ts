@@ -91,9 +91,26 @@ export function useNotificationSocketEvents() {
               const title =
                 notif.metadata?.title || notif.metadata?.eventTitle || "";
               const inviter = notif.metadata?.inviterName || "Ai đó";
-              toast.info("Lời mời lịch họp", {
-                description: `${inviter} đã mời bạn tham gia cuộc họp "${title}".`,
+              toast.info("Lời mời lịch biểu", {
+                description: `${inviter} đã mời bạn tham gia sự kiện "${title}".`,
                 duration: 8000,
+              });
+              break;
+            }
+
+            case "CALENDAR_START": {
+              const title =
+                notif.metadata?.title || notif.metadata?.eventTitle || "Sự kiện";
+              const meetingCode = notif.metadata?.meetingCode;
+              toast.info("Lịch biểu bắt đầu", {
+                description: `Sự kiện "${title}" đã đến giờ bắt đầu.`,
+                action: meetingCode
+                  ? {
+                      label: "Tham gia",
+                      onClick: () => router.push(`/meeting/${meetingCode}`),
+                    }
+                  : undefined,
+                duration: 15000,
               });
               break;
             }

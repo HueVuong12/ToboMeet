@@ -100,16 +100,16 @@ export default function CalendarHeader({
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
             <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
           </div>
-          <span className="text-sm sm:text-base md:text-lg font-bold text-slate-800 tracking-tight hidden sm:inline">
+          <span className="text-sm sm:text-base md:text-lg font-bold text-slate-800 tracking-tight hidden lg:inline">
             {t("title")}
           </span>
         </div>
 
         {/* Dấu phân cách dọc nhẹ */}
-        <div className="w-[1px] h-4 bg-slate-200 hidden sm:block shrink-0" />
+        <div className="w-[1px] h-4 bg-slate-200 hidden lg:block shrink-0" />
 
-        {/* Tháng / Năm hiển thị ngay cạnh chữ Lịch */}
-        <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 tracking-tight whitespace-nowrap truncate max-w-[120px] sm:max-w-none">
+        {/* Tháng / Năm hiển thị ngay cạnh icon (khi màn hình < lg) hoặc cạnh chữ Lịch */}
+        <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 tracking-tight whitespace-nowrap truncate max-w-[140px] sm:max-w-none">
           {currentDate
             .toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", {
               month: "long",
@@ -120,8 +120,8 @@ export default function CalendarHeader({
         </h2>
       </div>
 
-      {/* CENTER: Bộ chuyển đổi View (Ngày, Tuần, Tháng, Năm) vào chính giữa */}
-      <div className="flex-1 flex justify-center items-center px-1 sm:px-2 min-w-0">
+      {/* CENTER: Bộ chuyển đổi View (Ngày, Tuần, Tháng, Năm) vào chính giữa (ẩn trên màn hình < lg / md) */}
+      <div className="hidden lg:flex flex-1 justify-center items-center px-1 sm:px-2 min-w-0">
         <div className="flex bg-slate-100/80 p-0.5 sm:p-1 rounded-full shadow-inner border border-slate-200/40 shrink-0">
           {(["day", "week", "month", "agenda"] as const).map((v) => (
             <button
@@ -273,13 +273,14 @@ export default function CalendarHeader({
           <div className="relative">
             <button
               onClick={() => setShowCreateDropdown((prev) => !prev)}
-              className="inline-flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 rounded-full bg-brand-500 text-white text-[13px] font-bold hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 shadow-sm shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 w-9 h-9 lg:w-auto lg:h-auto lg:px-5 lg:py-2.5 rounded-full bg-brand-500 text-white text-[13px] font-bold hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 shadow-sm shrink-0"
+              title={t("create.button")}
             >
-              <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">
+              <Plus className="w-5 h-5 lg:w-4 lg:h-4" />
+              <span className="hidden lg:inline">
                 {t("create.button")}
               </span>
-              <ChevronDown className="hidden sm:block w-3.5 h-3.5 opacity-80" />
+              <ChevronDown className="hidden lg:block w-3.5 h-3.5 opacity-80" />
             </button>
 
             {/* Dropdown menu */}

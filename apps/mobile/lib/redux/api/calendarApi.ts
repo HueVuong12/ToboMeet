@@ -57,6 +57,24 @@ export const calendarApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["CalendarEvent", "CalendarRsvp", "Notification"],
     }),
+    updateCalendarRsvp: builder.mutation<
+      { success: boolean; status: "ACCEPTED" | "DECLINED" | "TENTATIVE" },
+      { eventId: string; status: "ACCEPTED" | "DECLINED" | "TENTATIVE" }
+    >({
+      query: ({ eventId, status }) => ({
+        url: `/calendar/${eventId}/rsvp`,
+        method: "PATCH",
+        data: { status },
+      }),
+      invalidatesTags: ["CalendarEvent", "CalendarRsvp", "Notification"],
+    }),
+    searchCalendarEvents: builder.query<any[], string>({
+      query: (query) => ({
+        url: `/calendar/search?q=${encodeURIComponent(query.trim())}`,
+        method: "GET",
+      }),
+      providesTags: ["CalendarEvent"],
+    }),
   }),
 });
 
@@ -70,5 +88,8 @@ export const {
   useDeleteCalendarEventMutation,
   useInviteCalendarMembersMutation,
   useLeaveCalendarEventMutation,
+  useUpdateCalendarRsvpMutation,
+  useSearchCalendarEventsQuery,
+  useLazySearchCalendarEventsQuery,
 } = calendarApi;
 

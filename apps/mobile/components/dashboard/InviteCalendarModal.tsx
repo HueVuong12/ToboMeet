@@ -100,18 +100,13 @@ export default function InviteCalendarModal({
     if (!visible) setKeyboardHeight(0);
   }, [visible]);
 
-  const { height: windowHeight } = Dimensions.get("window");
+  const { height: screenHeight } = Dimensions.get("window");
+  // top dạng pixel tránh lỗi tính percentage sai reference frame
+  const panelTop = screenHeight * 0.12;
 
-  // Spacing ở bottom: khi bàn phím đóng thì cộng thêm insets.bottom + 20 (tối thiểu 32px) để không bị vướng safe area bottom
+  // padding bottom: khi bàn phím mở thêm 16px giãn cách, khi đóng thêm insets.bottom + 20
   const bottomPad =
-    keyboardHeight > 0 ? 14 : Math.max(insets.bottom + 20, 32);
-
-  const dynamicMaxHeight =
-    keyboardHeight > 0
-      ? windowHeight - keyboardHeight - Math.max(insets.top, 24) - 20
-      : "88%";
-
-  const dynamicMinHeight = keyboardHeight > 0 ? 200 : "55%";
+    keyboardHeight > 0 ? Math.max(insets.bottom + 16, 16) : Math.max(insets.bottom + 20, 32);
 
   const normalizedExistingIds = new Set(
     existingMemberIds.filter(Boolean).map((id) => String(id))
@@ -210,6 +205,7 @@ export default function InviteCalendarModal({
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
@@ -230,10 +226,9 @@ export default function InviteCalendarModal({
           style={[
             styles.container,
             {
-              marginBottom: keyboardHeight,
+              top: panelTop,          // pixel value, ~12% từ trên
+              bottom: keyboardHeight, // đáy panel luôn sát bàn phím
               paddingBottom: bottomPad,
-              maxHeight: dynamicMaxHeight,
-              minHeight: dynamicMinHeight,
             },
           ]}
         >
@@ -443,9 +438,12 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.45)",
-    justifyContent: "flex-end",
   },
   container: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    // top và bottom được set từ inline style để phản ứng với keyboard
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

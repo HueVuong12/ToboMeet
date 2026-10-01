@@ -2019,8 +2019,12 @@
         "content": "{inviterName} đã mời bạn tham gia cuộc họp trong phòng {roomName}."
       },
       "calendar_invite": {
-        "title": "Lời mời tham gia họp",
-        "content": "{inviterName} đã mời bạn tham gia lịch họp \"{title}\"."
+        "title": "Lời mời lịch biểu",
+        "content": "{inviterName} đã mời bạn tham gia sự kiện \"{title}\"."
+      },
+      "calendar_start": {
+        "title": "Lịch biểu bắt đầu",
+        "content": "Sự kiện \"{title}\" đã đến giờ bắt đầu. Hãy tham gia ngay!"
       },
       "room_reported": {
         "title": "Phòng bị báo cáo",

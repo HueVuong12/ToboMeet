@@ -13,6 +13,7 @@ import Toast from "react-native-toast-message";
 import { useTranslation } from "react-i18next";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useLazyExchangeSessionQuery } from "../../lib/redux/features/meetings/meetingsApi";
+import { useUpdateCalendarRsvpMutation } from "../../lib/redux/api/calendarApi";
 import { NotificationResponse } from "@tobomeet/shared/types";
 
 // Hàm xử lý thời gian linh hoạt
@@ -124,7 +125,14 @@ function NotificationCard({
 }) {
   const { t, i18n } = useTranslation();
   const [exchangeSession] = useLazyExchangeSessionQuery();
+  const [updateCalendarRsvp] = useUpdateCalendarRsvpMutation();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [rsvpLoading, setRsvpLoading] = useState<"ACCEPTED" | "DECLINED" | null>(
+    null,
+  );
+  const [rsvpStatus, setRsvpStatus] = useState<string | null>(
+    notification.metadata?.rsvpStatus || null,
+  );
 
   const getNotificationDetails = (type: string, metadata: any) => {
     switch (type) {
@@ -142,7 +150,9 @@ function NotificationCard({
         return {
           title: t("notification.types.room_disbanded.title"),
           content: t("notification.types.room_disbanded.content", {
-            roomName: metadata?.roomName || t("common.room"),
+            roomName:
+              metadata?.roomName ||
+              t("notification.common.room", { defaultValue: t("common.room") }),
           }),
           icon: "trash-2",
           colorClass: "bg-orange-100",
@@ -152,7 +162,11 @@ function NotificationCard({
         return {
           title: t("notification.types.meeting_invite.title"),
           content: t("notification.types.meeting_invite.content", {
-            inviterName: metadata?.inviterName || t("common.someone"),
+            inviterName:
+              metadata?.inviterName ||
+              t("notification.common.someone", {
+                defaultValue: t("common.someone"),
+              }),
             roomName: metadata?.roomName || "",
           }),
           icon: "video",
@@ -161,6 +175,25 @@ function NotificationCard({
           sessionId: metadata?.sessionId,
           isActionable: true,
           actionTitle: t("notification.actions.join"),
+        };
+      case "CALENDAR_INVITE":
+        return {
+          title: t("notification.types.calendar_invite.title"),
+          content: t("notification.types.calendar_invite.content", {
+            inviterName:
+              metadata?.inviterName ||
+              t("notification.common.someone", {
+                defaultValue: t("common.someone"),
+              }),
+            title: metadata?.title || metadata?.eventTitle || "",
+          }),
+          icon: "calendar",
+          colorClass: "bg-indigo-100",
+          iconColor: "#4f46e5",
+          eventId: metadata?.eventId || notification.referenceId,
+          isCalendarInvite: true,
+          startDate: metadata?.startDate,
+          endDate: metadata?.endDate,
         };
       case "ROOM_REPORTED":
         return {
@@ -198,6 +231,9 @@ function NotificationCard({
     isActionable,
     actionTitle,
     sessionId,
+    isCalendarInvite,
+    eventId,
+    startDate,
   } = getNotificationDetails(notification.type, notification.metadata || {});
 
   const handleActionClick = async () => {
@@ -212,10 +248,45 @@ function NotificationCard({
       Toast.show({
         type: "error",
         text1: t("errors.title"),
-        text2: error?.message || t("errors.session_ended"),
+        text2:
+          error?.message ||
+          t("notification.errors.session_ended", {
+            defaultValue: t("errors.session_ended"),
+          }),
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleRsvp = async (status: "ACCEPTED" | "DECLINED") => {
+    if (!eventId) return;
+
+    setRsvpLoading(status);
+    try {
+      await updateCalendarRsvp({ eventId, status }).unwrap();
+      setRsvpStatus(status);
+      Toast.show({
+        type: "success",
+        text1: i18n.language === "vi" ? "Thành công" : "Success",
+        text2:
+          status === "ACCEPTED"
+            ? t("notification.rsvp.accept_success")
+            : t("notification.rsvp.decline_success"),
+      });
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: t("errors.title"),
+        text2:
+          error?.data?.message ||
+          error?.message ||
+          (status === "ACCEPTED"
+            ? t("notification.rsvp.accept_error")
+            : t("notification.rsvp.decline_error")),
+      });
+    } finally {
+      setRsvpLoading(null);
     }
   };
 
@@ -244,7 +315,11 @@ function NotificationCard({
             {content}
           </Text>
           <Text className="text-[10px] text-slate-400 font-medium mt-2">
-            {formatTimeAgo(notification.createdAt.toString(), t, i18n)}
+            {formatTimeAgo(
+              (notification.updatedAt || notification.createdAt).toString(),
+              t,
+              i18n,
+            )}
           </Text>
 
           {isActionable && (
@@ -261,6 +336,80 @@ function NotificationCard({
                 </Text>
               )}
             </TouchableOpacity>
+          )}
+
+          {isCalendarInvite && eventId && (
+            <View className="mt-3">
+              {startDate && (
+                <View className="flex-row items-center gap-1.5 mb-2.5">
+                  <Feather name="clock" size={13} color="#94a3b8" />
+                  <Text className="text-[11px] text-slate-500 font-medium">
+                    {new Date(startDate).toLocaleDateString(
+                      i18n.language === "vi" ? "vi-VN" : "en-US",
+                      {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
+                  </Text>
+                </View>
+              )}
+
+              {rsvpStatus === "ACCEPTED" ? (
+                <View className="flex-row items-center gap-1.5 py-1.5 px-3 bg-emerald-50 border border-emerald-200 rounded-lg self-start">
+                  <Feather name="check-circle" size={14} color="#059669" />
+                  <Text className="text-xs font-semibold text-emerald-700">
+                    {t("notification.actions.accepted")}
+                  </Text>
+                </View>
+              ) : rsvpStatus === "DECLINED" ? (
+                <View className="flex-row items-center gap-1.5 py-1.5 px-3 bg-rose-50 border border-rose-200 rounded-lg self-start">
+                  <Feather name="x-circle" size={14} color="#e11d48" />
+                  <Text className="text-xs font-semibold text-rose-700">
+                    {t("notification.actions.declined")}
+                  </Text>
+                </View>
+              ) : (
+                <View className="flex-row items-center gap-2 mt-1">
+                  <TouchableOpacity
+                    onPress={() => handleRsvp("ACCEPTED")}
+                    disabled={rsvpLoading !== null}
+                    className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 px-3 bg-indigo-600 rounded-xl active:bg-indigo-700"
+                  >
+                    {rsvpLoading === "ACCEPTED" ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <Feather name="check" size={14} color="#ffffff" />
+                        <Text className="text-white text-xs font-bold">
+                          {t("notification.actions.accept")}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleRsvp("DECLINED")}
+                    disabled={rsvpLoading !== null}
+                    className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 px-3 bg-white border border-slate-200 rounded-xl active:bg-slate-100"
+                  >
+                    {rsvpLoading === "DECLINED" ? (
+                      <ActivityIndicator size="small" color="#475569" />
+                    ) : (
+                      <>
+                        <Feather name="x" size={14} color="#475569" />
+                        <Text className="text-slate-700 text-xs font-bold">
+                          {t("notification.actions.decline")}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>

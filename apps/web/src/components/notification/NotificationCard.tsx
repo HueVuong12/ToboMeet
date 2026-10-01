@@ -118,6 +118,17 @@ export default function NotificationCard({
           startDate: metadata?.startDate,
           endDate: metadata?.endDate,
         };
+      case "CALENDAR_START":
+        return {
+          title: t("types.calendar_start.title"),
+          content: t("types.calendar_start.content", {
+            title: metadata?.title || metadata?.eventTitle || "",
+          }),
+          icon: Video,
+          colorClass: "text-brand-600 bg-brand-100",
+          meetingCode: metadata?.meetingCode,
+          isActionable: true,
+        };
       case "ROOM_REPORTED":
         return {
           title: t("types.room_reported.title"),
@@ -149,12 +160,19 @@ export default function NotificationCard({
     colorClass,
     isActionable,
     sessionId,
+    meetingCode,
     isCalendarInvite,
     eventId,
     startDate,
   } = getNotificationDetails(notification.type, notification.metadata || {});
 
   const handleActionClick = async () => {
+    if (meetingCode) {
+      onCloseDrawer();
+      router.push(`/meeting/${meetingCode}`);
+      return;
+    }
+
     if (!sessionId) return;
 
     setIsLoading(true);

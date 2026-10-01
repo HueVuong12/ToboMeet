@@ -741,6 +741,14 @@
         "title": "Meeting Invitation",
         "content": "{{inviterName}} invited you to join a meeting in {{roomName}}."
       },
+      "calendar_invite": {
+        "title": "Schedule Invitation",
+        "content": "{{inviterName}} invited you to schedule \"{{title}}\"."
+      },
+      "calendar_start": {
+        "title": "Schedule Started",
+        "content": "Schedule \"{{title}}\" has started!"
+      },
       "room_reported": {
         "title": "Room reported",
         "content": "Your room has been reported for a violation."
@@ -755,7 +763,24 @@
       }
     },
     "actions": {
-      "join": "Join"
+      "join": "Join",
+      "accept": "Accept",
+      "decline": "Decline",
+      "accepted": "Accepted",
+      "declined": "Declined"
+    },
+    "rsvp": {
+      "accept_success": "Invitation accepted and added to your calendar",
+      "decline_success": "Invitation declined",
+      "accept_error": "Unable to accept invitation",
+      "decline_error": "Unable to decline invitation"
+    },
+    "errors": {
+      "session_ended": "The meeting session may have ended."
+    },
+    "common": {
+      "room": "the room",
+      "someone": "Someone"
     }
   },
   "errors": {
