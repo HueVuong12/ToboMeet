@@ -2034,12 +2034,12 @@
         "content": "{inviterName} invited you to join a meeting in {roomName}."
       },
       "calendar_invite": {
-        "title": "Schedule Invitation",
-        "content": "{inviterName} invited you to schedule \"{title}\"."
+        "title": "Event Invitation",
+        "content": "{inviterName} invited you to event \"{title}\"."
       },
       "calendar_start": {
-        "title": "Schedule Started",
-        "content": "Schedule \"{title}\" has started. Join now!"
+        "title": "Event Started",
+        "content": "Event \"{title}\" has started. Join now!"
       },
       "room_reported": {
         "title": "Room reported",
@@ -2049,10 +2049,25 @@
         "title": "Report resolved",
         "content": "Your violation report has been resolved by an administrator."
       },
+      "room_blocked": {
+        "title": "Room blocked",
+        "content": "Your room has been blocked due to community guidelines violation."
+      },
+      "participant_removed": {
+        "title": "Removed from meeting",
+        "content": "You have been removed from meeting {meetingCode}."
+      },
       "system": {
         "title": "System Notification",
         "content": "Event occurred ({type})."
       }
+    },
+    "toast": {
+      "system_notification": "System Notification",
+      "room_disbanded": "Room Disbanded",
+      "event_invite": "Event Invitation",
+      "event_start": "Event Started",
+      "event_start_desc": "Event \"{title}\" has started."
     },
     "actions": {
       "join": "Join",
@@ -2061,12 +2076,19 @@
       "accepted": "Accepted",
       "declined": "Declined"
     },
+    "rsvp": {
+      "accept_success": "Invitation accepted",
+      "decline_success": "Invitation declined",
+      "accept_error": "Unable to accept invitation",
+      "decline_error": "Unable to decline invitation"
+    },
     "errors": {
       "session_ended": "The meeting session may have ended."
     },
     "common": {
       "room": "the room",
-      "someone": "Someone"
+      "someone": "Someone",
+      "event": "Event"
     }
   },
   "server": {
@@ -2129,9 +2151,9 @@
       "year": "Year"
     },
     "create": {
-      "button": "Create",
+      "button": "Create Event",
       "event": "Event",
-      "channel_meeting": "Channel meeting"
+      "channel_meeting": "Channel Event"
     },
     "days": {
       "short": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -2168,7 +2190,7 @@
     "create_modal": {
       "title": "Event",
       "edit_title": "Edit Event",
-      "title_label": "Meeting Title",
+      "title_label": "Event Title",
       "title_placeholder": "e.g., Sprint Planning",
       "start": "Start",
       "end": "End",
@@ -2192,27 +2214,27 @@
         "no_users": "No users found."
       },
       "description": "Description",
-      "description_placeholder": "Meeting summary notes...",
+      "description_placeholder": "Event summary notes...",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving...",
       "updating": "Updating...",
-      "error_update": "Unable to update meeting",
-      "error_create": "Unable to create meeting"
+      "error_update": "Unable to update event",
+      "error_create": "Unable to create event"
     },
     "channel_modal": {
-      "title": "Channel Meeting",
+      "title": "Channel Event",
       "channel_label": "Add Channel",
       "channel_placeholder": "Select room and channel...",
       "loading": "Loading...",
       "no_rooms": "No rooms found",
       "no_channels": "No channels in this room",
       "error_select_room_channel": "Please select room and channel.",
-      "error_create": "Unable to create channel meeting"
+      "error_create": "Unable to create channel event"
     },
     "detail_modal": {
-      "title": "Meeting Details",
-      "recurring_badge": "Recurring",
+      "title": "Event Details",
+      "recurring_badge": "Recurring Event",
       "join": "Join",
       "chat": "Chat",
       "attachments": "Attachments",
@@ -2222,8 +2244,8 @@
       "restore_button": "Restore",
       "restoring_button": "Restoring...",
       "restore_tooltip": "Restore this date",
-      "toast_restore_success": "Successfully restored meeting on {date}!",
-      "toast_restore_error": "Failed to restore meeting occurrence. Please try again!",
+      "toast_restore_success": "Successfully restored event on {date}!",
+      "toast_restore_error": "Failed to restore event occurrence. Please try again!",
       "participants": "Participants",
       "invite_button": "Invite",
       "invite_modal_title": "Invite Participants",
@@ -2241,11 +2263,11 @@
       "leave_event": "Cancel Attendance",
       "leaving": "Leaving...",
       "leave_confirm_title": "Cancel Attendance Confirmation",
-      "leave_confirm_desc": "Are you sure you want to cancel your attendance for this meeting? It will be removed from your calendar and notifications.",
+      "leave_confirm_desc": "Are you sure you want to cancel your attendance for this event? It will be removed from your calendar and notifications.",
       "leave_confirm_btn": "Cancel Attendance",
       "leave_cancel_btn": "Back",
-      "leave_success": "Successfully cancelled attendance!",
-      "leave_error": "Failed to cancel attendance. Please try again!",
+      "leave_success": "Successfully cancelled attendance for event!",
+      "leave_error": "Failed to cancel attendance for event. Please try again!",
       "assignment": {
         "title": "Assignment Details",
         "start_time": "Start time:",
@@ -2264,19 +2286,19 @@
       }
     },
     "delete_modal": {
-      "recurring_title": "Cancel Recurring Meeting",
-      "single_title": "Cancel Meeting",
+      "recurring_title": "Cancel Recurring Event",
+      "single_title": "Cancel Event",
       "recurring_subtitle": "Choose the scope for this cancellation",
-      "single_subtitle": "Confirm meeting cancellation",
-      "recurring_prompt": "This is a recurring meeting. Do you want to cancel only this occurrence or the entire series?",
-      "single_prompt": "Are you sure you want to cancel this meeting? This action cannot be undone.",
+      "single_subtitle": "Confirm event cancellation",
+      "recurring_prompt": "This is a recurring event. Do you want to cancel only this event or the entire series?",
+      "single_prompt": "Are you sure you want to cancel this event? This action cannot be undone.",
       "single_option_title": "Delete this event",
       "single_option_badge": "1 instance",
-      "single_option_desc_with_date": "Only cancel the meeting on {date}. Other occurrences remain unchanged.",
-      "single_option_desc": "Only cancel this selected occurrence. The series will continue.",
+      "single_option_desc_with_date": "Only cancel the event on {date}. Other events in the series will continue as scheduled.",
+      "single_option_desc": "Only cancel this selected event. The series will continue.",
       "all_option_title": "Delete all events",
       "all_option_badge": "All series",
-      "all_option_desc": "Delete all future and recurring events in this series.",
+      "all_option_desc": "Cancel all events in this recurring event series.",
       "cancel": "Cancel",
       "confirm": "Confirm"
     },
@@ -2299,12 +2321,12 @@
       "confirm_delete_desc": "Are you sure you want to remove this image from the description?",
       "cancel": "Cancel",
       "delete": "Delete",
-      "placeholder": "Meeting summary notes..."
+      "placeholder": "Event summary notes..."
     },
     "toasts": {
-      "delete_single_success": "Successfully cancelled this meeting occurrence!",
-      "delete_all_success": "Successfully cancelled meeting!",
-      "delete_error": "Failed to delete meeting. Please try again!"
+      "delete_single_success": "Successfully cancelled this event!",
+      "delete_all_success": "Successfully cancelled event series!",
+      "delete_error": "Failed to delete event. Please try again!"
     }
   }
 }

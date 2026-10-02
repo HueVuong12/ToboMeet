@@ -7,6 +7,7 @@ import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { routing } from '@/i18n/routing';
+import { GlobalSocketListeners } from '@/providers/GlobalSocketListeners';
 import '../globals.css';
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     <html lang={locale} className={`scroll-smooth ${plusJakartaSans.variable}`}>
       <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
+          <GlobalSocketListeners />
           {children}
         </NextIntlClientProvider>
       </body>

@@ -143,6 +143,22 @@ export default function NotificationCard({
           icon: CheckCircle2,
           colorClass: "text-emerald-600 bg-emerald-100",
         };
+      case "ROOM_BLOCKED":
+        return {
+          title: t("types.room_blocked.title"),
+          content: t("types.room_blocked.content"),
+          icon: AlertTriangle,
+          colorClass: "text-rose-600 bg-rose-100",
+        };
+      case "PARTICIPANT_REMOVED":
+        return {
+          title: t("types.participant_removed.title"),
+          content: t("types.participant_removed.content", {
+            meetingCode: metadata?.meetingCode || "",
+          }),
+          icon: UserMinus,
+          colorClass: "text-red-600 bg-red-100",
+        };
       default:
         return {
           title: t("types.system.title"),
@@ -198,23 +214,17 @@ export default function NotificationCard({
       await updateCalendarRsvp({ eventId, status }).unwrap();
       setRsvpStatus(status);
       if (status === "ACCEPTED") {
-        toast.success(
-          locale === "vi"
-            ? "Đã chấp nhận lời mời và ghi nhận vào lịch của bạn"
-            : "Invitation accepted and added to your calendar",
-        );
+        toast.success(t("rsvp.accept_success"));
       } else {
-        toast.info(
-          locale === "vi" ? "Đã từ chối lời mời họp" : "Invitation declined",
-        );
+        toast.info(t("rsvp.decline_success"));
       }
     } catch (error: any) {
       toast.error(
         error?.data?.message ||
         error?.message ||
         (status === "ACCEPTED"
-          ? "Không thể chấp nhận lời mời"
-          : "Không thể từ chối lời mời"),
+          ? t("rsvp.accept_error")
+          : t("rsvp.decline_error")),
       );
     } finally {
       setRsvpLoading(null);

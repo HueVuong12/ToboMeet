@@ -6,10 +6,12 @@ import { toast } from "../../lib/toast";
 import { socket } from "../../lib/socket";
 import { NotificationResponse } from "@tobomeet/shared/types";
 import { useNotificationCacheManager } from "../useNotificationCacheManager";
+import { useTranslation } from "react-i18next";
 
 export function useNotificationSocketEvents() {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useTranslation();
   const { removeRoomFromMyList } = useRoomCacheManager();
   const { addNotificationsToCache, updateUnreadNotificationBadge } =
     useNotificationCacheManager();
@@ -50,7 +52,9 @@ export function useNotificationSocketEvents() {
               if (roomId) removeRoomFromMyList(roomId);
 
               toast.info(
-                `Trưởng nhóm đã giải tán ${notif.metadata?.roomName || ""}.`,
+                t("notification.types.room_disbanded.content", {
+                  roomName: notif.metadata?.roomName || "",
+                }),
               );
 
               if (isCurrentlyInRoom) {
@@ -64,18 +68,26 @@ export function useNotificationSocketEvents() {
             case "CALENDAR_INVITE": {
               const title =
                 notif.metadata?.title || notif.metadata?.eventTitle || "";
-              const inviter = notif.metadata?.inviterName || "Ai đó";
+              const inviter =
+                notif.metadata?.inviterName || t("notification.common.someone", "Ai đó");
               toast.info(
-                `${inviter} đã mời bạn tham gia sự kiện "${title}".`,
+                t("notification.types.calendar_invite.content", {
+                  inviterName: inviter,
+                  title,
+                }),
               );
               break;
             }
 
             case "CALENDAR_START": {
               const title =
-                notif.metadata?.title || notif.metadata?.eventTitle || "Sự kiện";
+                notif.metadata?.title ||
+                notif.metadata?.eventTitle ||
+                t("notification.common.event", "Sự kiện");
               toast.info(
-                `Sự kiện "${title}" đã đến giờ bắt đầu!`,
+                t("notification.types.calendar_start.content", {
+                  title,
+                }),
               );
               break;
             }
@@ -98,5 +110,6 @@ export function useNotificationSocketEvents() {
     return () => {
       socket.off("receive_notifications", handleNotifications);
     };
-  }, [pathname, router, removeRoomFromMyList]);
+  }, [pathname, router, removeRoomFromMyList, t, addNotificationsToCache, updateUnreadNotificationBadge]);
 }
+

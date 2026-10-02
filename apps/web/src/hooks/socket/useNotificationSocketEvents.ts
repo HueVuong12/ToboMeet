@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRoomCacheManager } from "../useRoomCacheManager";
 import { NotificationResponse } from "@tobomeet/shared/types";
 import { useNotificationCacheManager } from "../useNotificationCacheManager";
+import { useTranslations } from "next-intl";
 
 import { useDispatch } from "react-redux";
 import { notificationsApi } from "@/lib/redux/api/notificationsApi";
@@ -15,6 +16,7 @@ import { AppDispatch } from "@/lib/redux/store";
 export function useNotificationSocketEvents() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const t = useTranslations("notification");
   const { removeRoomFromMyList } = useRoomCacheManager();
   const { addNotificationsToCache, updateUnreadNotificationBadge } =
     useNotificationCacheManager();
@@ -43,8 +45,10 @@ export function useNotificationSocketEvents() {
             case "KICKED": {
               if (roomId) removeRoomFromMyList(roomId); // dọn cache rtk query
 
-              toast.info("Thông báo hệ thống", {
-                description: `Bạn đã bị kick khỏi ${notif.metadata?.roomName || ""}.`,
+              toast.info(t("toast.system_notification"), {
+                description: t("types.kicked.content", {
+                  roomName: notif.metadata?.roomName || "",
+                }),
                 duration: 8000,
               });
 
@@ -68,8 +72,10 @@ export function useNotificationSocketEvents() {
             case "ROOM_DISBANDED": {
               if (roomId) removeRoomFromMyList(roomId);
 
-              toast.info("Phòng giải tán", {
-                description: `Trưởng nhóm đã giải tán ${notif.metadata?.roomName || ""}.`,
+              toast.info(t("toast.room_disbanded"), {
+                description: t("types.room_disbanded.content", {
+                  roomName: notif.metadata?.roomName || t("common.room"),
+                }),
                 duration: 8000,
               });
 
@@ -82,17 +88,23 @@ export function useNotificationSocketEvents() {
             }
 
             case "PARTICIPANT_REMOVED": {
-              const meetingCode = notif.metadata?.meetingCode;
-              toast.error(`Bạn đã bị xoá khỏi cuộc họp ${meetingCode}.`);
+              const meetingCode = notif.metadata?.meetingCode || "";
+              toast.error(
+                t("types.participant_removed.content", { meetingCode }),
+              );
               break;
             }
 
             case "CALENDAR_INVITE": {
               const title =
                 notif.metadata?.title || notif.metadata?.eventTitle || "";
-              const inviter = notif.metadata?.inviterName || "Ai đó";
-              toast.info("Lời mời lịch biểu", {
-                description: `${inviter} đã mời bạn tham gia sự kiện "${title}".`,
+              const inviter =
+                notif.metadata?.inviterName || t("common.someone");
+              toast.info(t("toast.event_invite"), {
+                description: t("types.calendar_invite.content", {
+                  inviterName: inviter,
+                  title,
+                }),
                 duration: 8000,
               });
               break;
@@ -100,17 +112,43 @@ export function useNotificationSocketEvents() {
 
             case "CALENDAR_START": {
               const title =
-                notif.metadata?.title || notif.metadata?.eventTitle || "Sự kiện";
+                notif.metadata?.title ||
+                notif.metadata?.eventTitle ||
+                t("common.event");
               const meetingCode = notif.metadata?.meetingCode;
-              toast.info("Lịch biểu bắt đầu", {
-                description: `Sự kiện "${title}" đã đến giờ bắt đầu.`,
+              toast.info(t("toast.event_start"), {
+                description: t("toast.event_start_desc", { title }),
                 action: meetingCode
                   ? {
-                      label: "Tham gia",
+                      label: t("actions.join"),
                       onClick: () => router.push(`/meeting/${meetingCode}`),
                     }
                   : undefined,
                 duration: 15000,
+              });
+              break;
+            }
+
+            case "ROOM_REPORTED": {
+              toast.warning(t("types.room_reported.title"), {
+                description: t("types.room_reported.content"),
+                duration: 8000,
+              });
+              break;
+            }
+
+            case "REPORT_RESOLVED": {
+              toast.success(t("types.report_resolved.title"), {
+                description: t("types.report_resolved.content"),
+                duration: 8000,
+              });
+              break;
+            }
+
+            case "ROOM_BLOCKED": {
+              toast.error(t("types.room_blocked.title"), {
+                description: t("types.room_blocked.content"),
+                duration: 8000,
               });
               break;
             }
@@ -140,6 +178,14 @@ export function useNotificationSocketEvents() {
       socket.off("receive_notifications", handleNotifications);
       socket.off("notification_deleted", handleNotificationDeleted);
     };
-  }, [dispatch]);
+  }, [
+    dispatch,
+    t,
+    router,
+    removeRoomFromMyList,
+    addNotificationsToCache,
+    updateUnreadNotificationBadge,
+  ]);
 }
+
 

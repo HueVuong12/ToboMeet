@@ -744,11 +744,11 @@
         "content": "{{inviterName}} đã mời bạn tham gia cuộc họp trong phòng {{roomName}}."
       },
       "calendar_invite": {
-        "title": "Lời mời lịch biểu",
+        "title": "Lời mời tham gia sự kiện",
         "content": "{{inviterName}} đã mời bạn tham gia sự kiện \"{{title}}\"."
       },
       "calendar_start": {
-        "title": "Lịch biểu bắt đầu",
+        "title": "Sự kiện bắt đầu",
         "content": "Sự kiện \"{{title}}\" đã đến giờ bắt đầu!"
       },
       "room_reported": {
@@ -772,8 +772,8 @@
       "declined": "Đã từ chối"
     },
     "rsvp": {
-      "accept_success": "Đã chấp nhận lời mời và ghi nhận vào lịch của bạn",
-      "decline_success": "Đã từ chối lời mời họp",
+      "accept_success": "Đã chấp nhận lời mời",
+      "decline_success": "Đã từ chối lời mời",
       "accept_error": "Không thể chấp nhận lời mời",
       "decline_error": "Không thể từ chối lời mời"
     },
@@ -862,7 +862,7 @@
     "toast_preparing_download": "Tải xuống"
   },
   "calendar": {
-    "title": "Lịch biểu",
+    "title": "Lịch",
     "empty_state": "Chưa có cuộc họp nào được lên lịch",
     "event": "Sự kiện",
     "channel_meeting": "Cuộc họp kênh",

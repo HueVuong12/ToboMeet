@@ -742,12 +742,12 @@
         "content": "{{inviterName}} invited you to join a meeting in {{roomName}}."
       },
       "calendar_invite": {
-        "title": "Schedule Invitation",
-        "content": "{{inviterName}} invited you to schedule \"{{title}}\"."
+        "title": "Event Invitation",
+        "content": "{{inviterName}} invited you to event \"{{title}}\"."
       },
       "calendar_start": {
-        "title": "Schedule Started",
-        "content": "Schedule \"{{title}}\" has started!"
+        "title": "Event Started",
+        "content": "Event \"{{title}}\" has started!"
       },
       "room_reported": {
         "title": "Room reported",

@@ -2019,11 +2019,11 @@
         "content": "{inviterName} đã mời bạn tham gia cuộc họp trong phòng {roomName}."
       },
       "calendar_invite": {
-        "title": "Lời mời lịch biểu",
+        "title": "Lời mời tham gia sự kiện",
         "content": "{inviterName} đã mời bạn tham gia sự kiện \"{title}\"."
       },
       "calendar_start": {
-        "title": "Lịch biểu bắt đầu",
+        "title": "Sự kiện bắt đầu",
         "content": "Sự kiện \"{title}\" đã đến giờ bắt đầu. Hãy tham gia ngay!"
       },
       "room_reported": {
@@ -2034,10 +2034,25 @@
         "title": "Đã xử lý báo cáo",
         "content": "Báo cáo vi phạm của bạn đã được quản trị viên xử lý."
       },
+      "room_blocked": {
+        "title": "Phòng bị khóa",
+        "content": "Phòng của bạn đã bị khóa do vi phạm tiêu chuẩn cộng đồng."
+      },
+      "participant_removed": {
+        "title": "Bị xóa khỏi cuộc họp",
+        "content": "Bạn đã bị xoá khỏi cuộc họp {meetingCode}."
+      },
       "system": {
         "title": "Thông báo hệ thống",
         "content": "Sự kiện diễn ra ({type})."
       }
+    },
+    "toast": {
+      "system_notification": "Thông báo hệ thống",
+      "room_disbanded": "Phòng giải tán",
+      "event_invite": "Tham gia sự kiện",
+      "event_start": "Sự kiện bắt đầu",
+      "event_start_desc": "Sự kiện \"{title}\" đã đến giờ bắt đầu."
     },
     "actions": {
       "join": "Tham gia",
@@ -2046,12 +2061,19 @@
       "accepted": "Đã chấp nhận",
       "declined": "Đã từ chối"
     },
+    "rsvp": {
+      "accept_success": "Đã chấp nhận lời mời",
+      "decline_success": "Đã từ chối lời mời",
+      "accept_error": "Không thể chấp nhận lời mời",
+      "decline_error": "Không thể từ chối lời mời"
+    },
     "errors": {
       "session_ended": "Phiên họp có thể đã kết thúc."
     },
     "common": {
       "room": "nhóm",
-      "someone": "Ai đó"
+      "someone": "Ai đó",
+      "event": "Sự kiện"
     }
   },
   "server": {
@@ -2114,9 +2136,9 @@
       "year": "Năm"
     },
     "create": {
-      "button": "Tạo lịch",
+      "button": "Tạo sự kiện",
       "event": "Sự kiện",
-      "channel_meeting": "Cuộc họp kênh"
+      "channel_meeting": "Sự kiện kênh"
     },
     "days": {
       "short": [
@@ -2169,11 +2191,11 @@
     "create_modal": {
       "title": "Sự kiện",
       "edit_title": "Chỉnh sửa sự kiện",
-      "title_label": "Tiêu đề cuộc họp",
+      "title_label": "Tiêu đề sự kiện",
       "title_placeholder": "Ví dụ: Sprint Planning",
       "start": "Bắt đầu",
       "end": "Kết thúc",
-      "start_time_future_error": "Thời gian bắt đầu họp phải sau thời gian hiện tại.",
+      "start_time_future_error": "Thời gian bắt đầu sự kiện phải sau thời gian hiện tại.",
       "recurrence": {
         "label": "Lặp lại",
         "none": "Không lặp lại",
@@ -2193,44 +2215,44 @@
         "no_users": "Không tìm thấy người dùng."
       },
       "description": "Mô tả",
-      "description_placeholder": "Nội dung tóm tắt cuộc họp...",
+      "description_placeholder": "Nội dung tóm tắt sự kiện...",
       "cancel": "Hủy",
       "save": "Lưu",
       "saving": "Đang lưu...",
       "updating": "Đang cập nhật...",
-      "error_update": "Không thể cập nhật cuộc họp",
-      "error_create": "Không thể tạo cuộc họp"
+      "error_update": "Không thể cập nhật sự kiện",
+      "error_create": "Không thể tạo sự kiện"
     },
     "channel_modal": {
-      "title": "Cuộc họp kênh",
+      "title": "Sự kiện kênh",
       "channel_label": "Thêm kênh",
       "channel_placeholder": "Chọn phòng và kênh...",
       "loading": "Đang tải...",
       "no_rooms": "Không tìm thấy phòng",
       "no_channels": "Phòng này chưa có kênh",
       "error_select_room_channel": "Vui lòng chọn phòng và kênh.",
-      "error_create": "Không thể tạo cuộc họp kênh"
+      "error_create": "Không thể tạo sự kiện kênh"
     },
     "detail_modal": {
-      "title": "Chi tiết lịch họp",
-      "recurring_badge": "Lịch định kỳ",
+      "title": "Chi tiết sự kiện",
+      "recurring_badge": "Sự kiện định kỳ",
       "join": "Tham gia",
       "chat": "Trò chuyện",
       "attachments": "Tệp đính kèm",
-      "cancelled_dates_title": "Các buổi đã hủy trong chuỗi",
+      "cancelled_dates_title": "Các sự kiện đã hủy trong chuỗi",
       "dates_count": "{count} buổi",
       "cancelled_status": "Đã hủy",
       "restore_button": "Khôi phục",
       "restoring_button": "Đang khôi phục...",
       "restore_tooltip": "Khôi phục lại ngày này",
-      "toast_restore_success": "Đã khôi phục lại buổi họp ngày {date}!",
-      "toast_restore_error": "Không thể khôi phục lại buổi họp này. Vui lòng thử lại!",
+      "toast_restore_success": "Đã khôi phục lại sự kiện ngày {date}!",
+      "toast_restore_error": "Không thể khôi phục lại sự kiện này. Vui lòng thử lại!",
       "participants": "Người tham gia",
       "invite_button": "Mời",
       "invite_modal_title": "Mời người tham gia",
       "search_users_placeholder": "Tìm kiếm theo tên hoặc email...",
       "no_users_found": "Không tìm thấy người dùng phù hợp.",
-      "already_in_event": "Đã trong lịch",
+      "already_in_event": "Đã tham gia sự kiện",
       "send_invites": "Gửi lời mời",
       "invite_success": "Đã gửi lời mời thành công!",
       "invite_error": "Không thể gửi lời mời. Vui lòng thử lại!",
@@ -2239,14 +2261,14 @@
       "no_response": "Chưa phản hồi",
       "edit": "Chỉnh sửa",
       "delete": "Xóa",
-      "leave_event": "Hủy tham gia",
+      "leave_event": "Hủy tham gia sự kiện",
       "leaving": "Đang rời...",
       "leave_confirm_title": "Xác nhận hủy tham gia",
-      "leave_confirm_desc": "Bạn có chắc chắn muốn hủy tham gia lịch họp này không? Sự kiện sẽ được xóa khỏi lịch và thông báo của bạn.",
+      "leave_confirm_desc": "Bạn có chắc chắn muốn hủy tham gia sự kiện này không? Sự kiện sẽ được xóa khỏi lịch và thông báo của bạn.",
       "leave_confirm_btn": "Hủy tham gia",
       "leave_cancel_btn": "Quay lại",
-      "leave_success": "Đã hủy tham gia lịch họp thành công!",
-      "leave_error": "Không thể hủy tham gia lịch họp. Vui lòng thử lại!",
+      "leave_success": "Đã hủy tham gia sự kiện thành công!",
+      "leave_error": "Không thể hủy tham gia sự kiện. Vui lòng thử lại!",
       "assignment": {
         "title": "Chi tiết nhiệm vụ",
         "start_time": "Thời gian bắt đầu:",
@@ -2265,19 +2287,19 @@
       }
     },
     "delete_modal": {
-      "recurring_title": "Hủy lịch họp định kỳ",
-      "single_title": "Hủy lịch họp",
+      "recurring_title": "Hủy sự kiện định kỳ",
+      "single_title": "Hủy sự kiện",
       "recurring_subtitle": "Chọn phạm vi áp dụng cho hành động này",
-      "single_subtitle": "Xác nhận hủy cuộc họp",
-      "recurring_prompt": "Đây là một cuộc họp định kỳ. Bạn muốn hủy chỉ buổi họp này hay toàn bộ chuỗi cuộc họp?",
-      "single_prompt": "Bạn có chắc chắn muốn hủy lịch họp này không? Hành động này không thể hoàn tác.",
+      "single_subtitle": "Xác nhận hủy sự kiện",
+      "recurring_prompt": "Đây là một sự kiện định kỳ. Bạn muốn hủy chỉ sự kiện này hay toàn bộ chuỗi sự kiện?",
+      "single_prompt": "Bạn có chắc chắn muốn hủy sự kiện này không? Hành động này không thể hoàn tác.",
       "single_option_title": "Xoá sự kiện này",
       "single_option_badge": "1 buổi",
-      "single_option_desc_with_date": "Chỉ hủy buổi họp vào {date}. Các buổi khác trong chuỗi vẫn diễn ra bình thường.",
-      "single_option_desc": "Chỉ hủy riêng buổi họp được chọn này. Chuỗi sự kiện vẫn tiếp tục.",
+      "single_option_desc_with_date": "Chỉ hủy sự kiện vào {date}. Các buổi khác trong chuỗi vẫn diễn ra bình thường.",
+      "single_option_desc": "Chỉ hủy riêng sự kiện được chọn này. Chuỗi sự kiện vẫn tiếp tục.",
       "all_option_title": "Xoá tất cả",
       "all_option_badge": "Toàn chuỗi",
-      "all_option_desc": "Hủy toàn bộ tất cả các buổi họp trong chuỗi cuộc họp định kỳ này.",
+      "all_option_desc": "Hủy toàn bộ tất cả các buổi trong chuỗi sự kiện định kỳ này.",
       "cancel": "Hủy",
       "confirm": "Xác nhận"
     },
@@ -2300,12 +2322,12 @@
       "confirm_delete_desc": "Bạn có chắc chắn muốn xóa hình ảnh này khỏi nội dung mô tả?",
       "cancel": "Hủy",
       "delete": "Xóa",
-      "placeholder": "Nội dung tóm tắt cuộc họp..."
+      "placeholder": "Nội dung tóm tắt sự kiện..."
     },
     "toasts": {
-      "delete_single_success": "Đã hủy buổi họp này thành công!",
-      "delete_all_success": "Đã hủy lịch họp thành công!",
-      "delete_error": "Không thể xóa lịch họp. Vui lòng thử lại!"
+      "delete_single_success": "Đã hủy sự kiện này thành công!",
+      "delete_all_success": "Đã hủy chuỗi sự kiện thành công!",
+      "delete_error": "Không thể xóa sự kiện. Vui lòng thử lại!"
     }
   }
 }

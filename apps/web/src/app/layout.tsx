@@ -4,7 +4,6 @@ import { EventProvider } from "@/providers/EventProvider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import { GpsSync } from "@/components/common/GpsSync";
 import { Toaster } from "sonner";
-import { GlobalSocketListeners } from "@/providers/GlobalSocketListeners";
 
 export default async function RootLayout({
   children,
@@ -20,7 +19,6 @@ export default async function RootLayout({
     <StoreProvider>
       <ConfirmProvider>
         <GpsSync />
-        <GlobalSocketListeners />
         <EventProvider userId={userId}>{children}</EventProvider>
       </ConfirmProvider>
       <Toaster theme="dark" position="bottom-right" richColors closeButton />
