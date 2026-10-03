@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { useGetQuizResultsQuery } from "@/lib/redux/api/assignmentsApi";
 import { Assignment, QuizQuestion, QuizAnswer } from "../types";
 import QuizNavigator from "./QuizNavigator";
@@ -30,6 +30,7 @@ export default function QuizResult({
   userId,
   onBack,
 }: QuizResultProps) {
+  const socket = useSocket();
   const t = useTranslations("room.assignments_i18n");
   const { data, isLoading, error, refetch } = useGetQuizResultsQuery(assignment._id);
   const [showNavigator, setShowNavigator] = useState<boolean>(false);
@@ -72,7 +73,7 @@ export default function QuizResult({
       socket.off("assignment_updated", handleAssignmentUpdated);
       socket.off("assignment_deleted", handleAssignmentDeleted);
     };
-  }, [assignment._id, assignment.title, userId, refetch, t, onBack]);
+  }, [assignment._id, assignment.title, userId, refetch, t, onBack, socket]);
 
   if (isLoading) {
     return (

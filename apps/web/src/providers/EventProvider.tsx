@@ -2,12 +2,13 @@
 "use client";
 
 import { useEffect, createContext, useContext, useRef } from "react";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { createClient } from "@/lib/supabase/client";
 import { useDispatch } from "react-redux";
 import { toast } from "sonner";
 import { roomsApi } from "@/lib/redux/api/roomsApi";
 import { AppDispatch } from "@/lib/redux/store";
+import { useRouter } from "next/navigation";
 
 const EventContext = createContext<any>(null);
 
@@ -19,7 +20,23 @@ export function EventProvider({
   children: React.ReactNode;
 }) {
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
+  const socket = useSocket();
   const hasJoinedRef = useRef(false);
+
+  // Lắng nghe lệnh điều hướng từ Electron Notification khi click
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electronAPI?.onNavigate) {
+      const cleanup = (window as any).electronAPI.onNavigate((targetUrl: string) => {
+        if (targetUrl) {
+          router.push(targetUrl);
+        }
+      });
+      return () => {
+        if (typeof cleanup === "function") cleanup();
+      };
+    }
+  }, [router]);
 
   useEffect(() => {
     let activeUserId = initialUserId;

@@ -9,7 +9,7 @@ import {
 import Sidebar from "./Sidebar";
 import { Loader2, Menu, X, Info, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/lib/redux/store";
@@ -35,6 +35,7 @@ interface RoomContentProps {
 }
 
 export default function RoomContent({ roomId, userId }: RoomContentProps) {
+  const socket = useSocket();
   const t = useTranslations("room");
   const dispatch = useDispatch<AppDispatch>();
 

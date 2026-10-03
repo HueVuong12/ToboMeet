@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { uploadReportEvidence } from "@/services/uploadService";
 import { toast } from "sonner";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { useTranslations } from "next-intl";
 import AssignmentDetailHeader from "./detail/AssignmentDetailHeader";
 import SubmissionTabs from "./detail/SubmissionTabs";
@@ -89,6 +89,7 @@ export default function AssignmentDetail({
   onViewQuizResult,
   onGradeQuizEssay,
 }: AssignmentDetailProps) {
+  const socket = useSocket();
   const t = useTranslations("room.assignments_i18n");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);

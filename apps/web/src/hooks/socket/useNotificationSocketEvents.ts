@@ -1,6 +1,6 @@
 // hooks/socket/useNotificationSocketEvents.ts
 import { useEffect } from "react";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useRoomCacheManager } from "../useRoomCacheManager";
@@ -14,6 +14,7 @@ import { usersApi } from "@/lib/redux/api/usersApi";
 import { AppDispatch } from "@/lib/redux/store";
 
 export function useNotificationSocketEvents() {
+  const socket = useSocket();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const t = useTranslations("notification");

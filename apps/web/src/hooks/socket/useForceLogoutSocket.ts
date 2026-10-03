@@ -1,6 +1,6 @@
 // hooks/socket/useForceLogoutSocket.ts
 import { useEffect } from "react";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { toast } from "sonner";
 import { doClientLogout } from "@/lib/axios";
 import { createClient } from "@/lib/supabase/client";
@@ -54,6 +54,8 @@ async function getCurrentSessionId(): Promise<string | null> {
  *      của thiết bị này (tránh logout sai thiết bị A vừa thực hiện thao tác).
  */
 export function useForceLogoutSocket() {
+  const socket = useSocket();
+
   useEffect(() => {
     // ── Handler 1: Đăng xuất tất cả ─────────────────────────────────────────
     const handleForceLogout = async (data: ForceLogoutPayload) => {

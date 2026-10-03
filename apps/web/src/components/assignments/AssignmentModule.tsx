@@ -28,7 +28,7 @@ import QuizTake from "./quiz/QuizTake";
 import QuizResult from "./quiz/QuizResult";
 import QuizEssayGrading from "./quiz/QuizEssayGrading";
 import { Loader2 } from "lucide-react";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -49,6 +49,7 @@ export default function AssignmentModule({
   onViewChange,
   initialAssignmentId,
 }: AssignmentModuleProps) {
+  const socket = useSocket();
   const t = useTranslations("room.assignments_i18n");
   const deletingAssignmentIdRef = useRef<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();

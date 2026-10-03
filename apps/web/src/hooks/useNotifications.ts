@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGetNotificationsQuery } from "@/lib/redux/api/notificationsApi";
-import { socket } from "@/lib/socket";
+import { useSocket } from "./useSocket";
 import { useNotificationCacheManager } from "./useNotificationCacheManager";
 
 interface UseNotificationsOptions {
@@ -17,6 +17,7 @@ export function useNotifications({
   isRead,
   markAsRead,
 }: UseNotificationsOptions = {}) {
+  const socket = useSocket();
   const [page, setPage] = useState(1);
   const { markNotificationsAsReadInCache } = useNotificationCacheManager();
 

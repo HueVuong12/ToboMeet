@@ -1,6 +1,6 @@
 // hooks/socket/useRoomUpdateListener.ts
 import { useEffect, useRef } from "react";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -20,6 +20,7 @@ export function useRoomUpdateListener(
   userId: string,
   options?: UseRoomUpdateListenerOptions,
 ) {
+  const socket = useSocket();
   const router = useRouter();
   const t = useTranslations("room");
 

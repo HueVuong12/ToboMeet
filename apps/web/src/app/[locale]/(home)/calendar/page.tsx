@@ -5,8 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
-import { socket } from "@/lib/socket";
 import StoreProvider from "@/lib/redux/StoreProvider";
+import { useSocket } from "@/hooks/useSocket";
 import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 // Modularized Calendar Components
@@ -45,6 +45,7 @@ export default function CalendarPage() {
 }
 
 function CalendarContent() {
+  const socket = useSocket();
   const locale = useLocale();
   const t = useTranslations("calendar");
   const router = useRouter();
@@ -126,7 +127,7 @@ function CalendarContent() {
       socket.on("calendar_event_created", () => refetchEvents());
       socket.on("calendar_event_updated", () => refetchEvents());
       socket.on("calendar_event_deleted", () => refetchEvents());
-      socket.on("rsvp_updated", (data) => {
+      socket.on("rsvp_updated", (data: any) => {
         if (
           selectedEventRef.current &&
           selectedEventRef.current._id === data.eventId
@@ -144,7 +145,7 @@ function CalendarContent() {
         socket.off("rsvp_updated");
       }
     };
-  }, [currentDate, refetchEvents, triggerRsvpQuery]);
+  }, [currentDate, refetchEvents, triggerRsvpQuery, socket]);
 
   // Điều hướng và highlight sự kiện được chọn từ Search
   const handleSelectSearchEvent = (event: CalendarEvent) => {

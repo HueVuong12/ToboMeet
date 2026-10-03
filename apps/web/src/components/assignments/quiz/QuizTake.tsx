@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import {
   useStartQuizMutation,
   useSubmitQuizMutation,
@@ -34,6 +34,7 @@ export default function QuizTake({
   onBack,
   onSubmitted,
 }: QuizTakeProps) {
+  const socket = useSocket();
   const t = useTranslations("room.assignments_i18n");
   const [startQuiz, { isLoading: isStarting }] = useStartQuizMutation();
   const [submitQuiz, { isLoading: isSubmitting }] = useSubmitQuizMutation();
@@ -263,7 +264,7 @@ export default function QuizTake({
       socket.off("assignment_updated", handleAssignmentUpdated);
       socket.off("assignment_deleted", handleAssignmentDeleted);
     };
-  }, [assignment._id, assignment.title, autosaveKey, handleAutoSubmit, t, onBack]);
+  }, [assignment._id, assignment.title, autosaveKey, handleAutoSubmit, t, onBack, socket]);
 
   const handleTimeUp = () => {
     toast.warning(t("quiz_take_time_up"));

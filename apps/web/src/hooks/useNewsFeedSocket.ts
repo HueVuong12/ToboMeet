@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { socket } from "@/lib/socket";
+import { useSocket } from "./useSocket";
 import { newsFeedApi, PostDto, CommentDto } from "@/lib/redux/api/newsFeedApi";
 import { AppDispatch } from "@/lib/redux/store";
 
 export function useNewsFeedSocket(roomId: string, channelId: string, currentUserId?: string) {
   const dispatch = useDispatch<AppDispatch>();
+  const socket = useSocket();
 
   useEffect(() => {
     if (!roomId || !channelId) return;

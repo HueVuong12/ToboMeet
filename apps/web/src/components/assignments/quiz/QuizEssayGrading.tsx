@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ArrowLeft, Check, Award, AlertCircle, User, Loader2, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import {
   useGetQuizResultsQuery,
   useGradeEssayQuestionMutation,
@@ -20,6 +20,7 @@ export default function QuizEssayGrading({
   roomMembers = [],
   onBack,
 }: QuizEssayGradingProps) {
+  const socket = useSocket();
   const t = useTranslations("room.assignments_i18n");
   const { data, isLoading, refetch } = useGetQuizResultsQuery(assignment._id);
   const [gradeEssay, { isLoading: isGrading }] = useGradeEssayQuestionMutation();
@@ -69,7 +70,7 @@ export default function QuizEssayGrading({
       socket.off("assignment_updated", handleAssignmentUpdated);
       socket.off("assignment_deleted", handleAssignmentDeleted);
     };
-  }, [assignment._id, assignment.title, roomMembers, refetch, t, onBack]);
+  }, [assignment._id, assignment.title, roomMembers, refetch, t, onBack, socket]);
 
   const essayQuestions: QuizQuestion[] = (data?.questions || []).filter(
     (q: QuizQuestion) => q.questionType === "text"

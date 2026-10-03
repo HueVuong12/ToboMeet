@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useConfirm } from "@/providers/ConfirmProvider";
 import { toast } from "sonner";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -387,6 +387,7 @@ interface DeviceSettingsProps {
 }
 
 export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
+  const socket = useSocket();
   const confirm = useConfirm();
 
   const {
@@ -436,7 +437,7 @@ export function DeviceSettings({ t, currentLocale }: DeviceSettingsProps) {
     return () => {
       socket.off("session_list_changed", handleSessionListChanged);
     };
-  }, [refetch]);
+  }, [refetch, socket]);
 
   const handleRevokeSession = (sessionId: string) => {
     confirm({

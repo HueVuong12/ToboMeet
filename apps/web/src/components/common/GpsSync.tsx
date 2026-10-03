@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useUpdateCurrentSessionLocationMutation, useLazyReverseGeocodeQuery } from "@/lib/redux/api/usersApi";
-import { socket } from "@/lib/socket";
+import { useSocket } from "@/hooks/useSocket";
 import { createClient } from "@/lib/supabase/client";
 import { doClientLogout } from "@/lib/axios";
 
@@ -34,6 +34,7 @@ async function extractClientSessionId(token: string): Promise<string> {
 }
 
 export function GpsSync() {
+  const socket = useSocket();
   const [updateLocation] = useUpdateCurrentSessionLocationMutation();
   const [triggerReverseGeocode] = useLazyReverseGeocodeQuery();
 
@@ -93,7 +94,7 @@ export function GpsSync() {
     return () => {
       socket.off("session_revoked", handleSessionRevoked);
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, socket]);
 
   // Lấy vị trí GPS và cập nhật lên server — CHỈ khi đã đăng nhập
   useEffect(() => {
