@@ -3,7 +3,7 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Video, Settings, Calendar, Bell } from "lucide-react";
+import { Video, Settings, Calendar, Bell, MessageCircle } from "lucide-react";
 import NotificationDrawer from "@/components/notification/NotificationDrawer";
 import JoinDialog from "@/components/dashboard/JoinDialog";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
@@ -85,6 +85,14 @@ function HomeLayoutInner({
       href: `/${locale}/calendar`,
       // Bật active nếu đường dẫn bắt đầu bằng /calendar (hỗ trợ cho cả các route con bên trong calendar nếu có)
       isActive: pathname.startsWith(`/${locale}/calendar`),
+    },
+    {
+      id: "chat",
+      icon: MessageCircle,
+      label: t("tab_chat", { defaultValue: "Chat" }),
+      href: `/${locale}/chat`,
+      // Bật active nếu đường dẫn bắt đầu bằng /chat
+      isActive: pathname.startsWith(`/${locale}/chat`),
     },
   ];
 
