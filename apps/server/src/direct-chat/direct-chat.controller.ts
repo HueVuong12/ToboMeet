@@ -116,6 +116,38 @@ export class DirectChatController {
   }
 
   /**
+   * Lấy danh sách người đã reaction vào tin nhắn
+   */
+  @Get("messages/:id/reactions")
+  async getMessageReactions(@Request() req: any, @Param("id") id: string) {
+    return this.directChatService.getMessageReactions(id, req.user.id);
+  }
+
+  /**
+   * Ghim tin nhắn (tối đa 3 tin trong cuộc trò chuyện)
+   */
+  @Post("messages/:id/pin")
+  async pinMessage(@Request() req: any, @Param("id") id: string) {
+    return this.directChatService.pinMessage(id, req.user.id);
+  }
+
+  /**
+   * Bỏ ghim tin nhắn
+   */
+  @Delete("messages/:id/pin")
+  async unpinMessage(@Request() req: any, @Param("id") id: string) {
+    return this.directChatService.unpinMessage(id, req.user.id);
+  }
+
+  /**
+   * Lấy danh sách tin nhắn đã ghim của cuộc trò chuyện
+   */
+  @Get("conversations/:id/pinned-messages")
+  async getPinnedMessages(@Request() req: any, @Param("id") id: string) {
+    return this.directChatService.getPinnedMessages(id, req.user.id);
+  }
+
+  /**
    * Xóa / Thu hồi tin nhắn
    */
   @Delete("messages/:id")

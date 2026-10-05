@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { socket } from "@/lib/socket";
 import { useDispatch } from "react-redux";
 import { directChatApi } from "@/lib/redux/api/directChatApi";
-import { DirectMessageResponse } from "@/types/chat";
+import { DirectMessageResponse, PinnedMessageDetail } from "@/types/chat";
 import { AppDispatch } from "@/lib/redux/store";
 
 interface UseChatSocketProps {
@@ -10,7 +10,22 @@ interface UseChatSocketProps {
   currentUserId?: string;
   onNewMessage?: (message: DirectMessageResponse) => void;
   onReactionUpdated?: (data: { messageId: string; reactions: any[] }) => void;
-  onMessageDeleted?: (data: { messageId: string; conversationId: string }) => void;
+  onMessageDeleted?: (data: {
+    messageId: string;
+    conversationId: string;
+    wasPinned?: boolean;
+    pinnedMessages?: PinnedMessageDetail[];
+  }) => void;
+  onMessagePinned?: (data: {
+    conversationId: string;
+    message: DirectMessageResponse;
+    pinnedMessages: PinnedMessageDetail[];
+  }) => void;
+  onMessageUnpinned?: (data: {
+    conversationId: string;
+    messageId: string;
+    pinnedMessages: PinnedMessageDetail[];
+  }) => void;
 }
 
 export function useChatSocket({
@@ -19,6 +34,8 @@ export function useChatSocket({
   onNewMessage,
   onReactionUpdated,
   onMessageDeleted,
+  onMessagePinned,
+  onMessageUnpinned,
 }: UseChatSocketProps) {
   const dispatch = useDispatch<AppDispatch>();
   const [isRecipientTyping, setIsRecipientTyping] = useState(false);
@@ -31,6 +48,8 @@ export function useChatSocket({
   const onNewMessageRef = useRef(onNewMessage);
   const onReactionUpdatedRef = useRef(onReactionUpdated);
   const onMessageDeletedRef = useRef(onMessageDeleted);
+  const onMessagePinnedRef = useRef(onMessagePinned);
+  const onMessageUnpinnedRef = useRef(onMessageUnpinned);
   const dispatchRef = useRef(dispatch);
 
   useEffect(() => {
@@ -52,6 +71,14 @@ export function useChatSocket({
   useEffect(() => {
     onMessageDeletedRef.current = onMessageDeleted;
   }, [onMessageDeleted]);
+
+  useEffect(() => {
+    onMessagePinnedRef.current = onMessagePinned;
+  }, [onMessagePinned]);
+
+  useEffect(() => {
+    onMessageUnpinnedRef.current = onMessageUnpinned;
+  }, [onMessageUnpinned]);
 
   useEffect(() => {
     dispatchRef.current = dispatch;
@@ -141,6 +168,8 @@ export function useChatSocket({
     const handleMessageDeleted = (data: {
       messageId: string;
       conversationId: string;
+      wasPinned?: boolean;
+      pinnedMessages?: PinnedMessageDetail[];
     }) => {
       console.log("[ChatSocket] Received chat:message_deleted:", data);
       if (data.conversationId === conversationIdRef.current) {
@@ -148,11 +177,49 @@ export function useChatSocket({
       }
     };
 
+    const handleMessagePinned = (data: {
+      conversationId: string;
+      message: DirectMessageResponse;
+      pinnedMessages: PinnedMessageDetail[];
+    }) => {
+      console.log("[ChatSocket] Received chat:message_pinned:", data);
+      if (data.conversationId === conversationIdRef.current) {
+        onMessagePinnedRef.current?.(data);
+      }
+      // Cập nhật tag cache RTK Query
+      dispatchRef.current(
+        directChatApi.util.invalidateTags([
+          { type: "DirectMessage", id: `PINS_${data.conversationId}` },
+          { type: "DirectConversation", id: "LIST" },
+        ]),
+      );
+    };
+
+    const handleMessageUnpinned = (data: {
+      conversationId: string;
+      messageId: string;
+      pinnedMessages: PinnedMessageDetail[];
+    }) => {
+      console.log("[ChatSocket] Received chat:message_unpinned:", data);
+      if (data.conversationId === conversationIdRef.current) {
+        onMessageUnpinnedRef.current?.(data);
+      }
+      // Cập nhật tag cache RTK Query
+      dispatchRef.current(
+        directChatApi.util.invalidateTags([
+          { type: "DirectMessage", id: `PINS_${data.conversationId}` },
+          { type: "DirectConversation", id: "LIST" },
+        ]),
+      );
+    };
+
     socket.on("chat:new_message", handleNewMessage);
     socket.on("chat:conversation_updated", handleConversationUpdated);
     socket.on("chat:typing_update", handleTypingUpdate);
     socket.on("chat:reaction_updated", handleReactionUpdated);
     socket.on("chat:message_deleted", handleMessageDeleted);
+    socket.on("chat:message_pinned", handleMessagePinned);
+    socket.on("chat:message_unpinned", handleMessageUnpinned);
 
     return () => {
       socket.off("chat:new_message", handleNewMessage);
@@ -160,6 +227,8 @@ export function useChatSocket({
       socket.off("chat:typing_update", handleTypingUpdate);
       socket.off("chat:reaction_updated", handleReactionUpdated);
       socket.off("chat:message_deleted", handleMessageDeleted);
+      socket.off("chat:message_pinned", handleMessagePinned);
+      socket.off("chat:message_unpinned", handleMessageUnpinned);
     };
   }, []);
 

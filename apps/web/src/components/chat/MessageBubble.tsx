@@ -10,6 +10,9 @@ import {
   Trash2,
   Smile,
   Ban,
+  Pin,
+  PinOff,
+  Loader2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import UserAvatar from "@/components/common/UserAvatar";
@@ -18,9 +21,13 @@ import { useConfirm } from "@/providers/ConfirmProvider";
 interface MessageBubbleProps {
   message: DirectMessageResponse;
   currentUserId?: string;
+  isHighlighted?: boolean;
+  isPinning?: boolean;
   onReply: (message: DirectMessageResponse) => void;
   onReact: (messageId: string, emoji: string) => void;
   onDelete: (messageId: string) => void;
+  onTogglePin?: (message: DirectMessageResponse) => void;
+  onOpenReactions?: (messageId: string, emoji?: string) => void;
 }
 
 function formatMessageTime(dateStr: string) {
@@ -35,9 +42,13 @@ function formatMessageTime(dateStr: string) {
 export default function MessageBubble({
   message,
   currentUserId,
+  isHighlighted,
+  isPinning,
   onReply,
   onReact,
   onDelete,
+  onTogglePin,
+  onOpenReactions,
 }: MessageBubbleProps) {
   const t = useTranslations("direct_chat");
   const confirm = useConfirm();
@@ -64,8 +75,13 @@ export default function MessageBubble({
 
   return (
     <div
-      className={`group relative flex gap-2.5 px-4 py-1.5 transition-colors ${
+      id={`message-${message.id}`}
+      className={`group relative flex gap-2.5 px-4 py-1.5 transition-all duration-500 ${
         isMe ? "flex-row-reverse" : "flex-row"
+      } ${
+        isHighlighted
+          ? "bg-amber-100/70 ring-2 ring-amber-400/90 rounded-2xl shadow-sm my-1"
+          : ""
       }`}
     >
       {/* Avatar (chỉ hiển thị cho người khác gửi) */}
@@ -97,6 +113,19 @@ export default function MessageBubble({
               : "bg-white border border-slate-200/80 text-slate-800 shadow-xs rounded-bl-xs selection:bg-brand-100"
           }`}
         >
+          {/* Huy hiệu đã ghim */}
+          {!isDeleted && message.isPinned && (
+            <div
+              className={`flex items-center gap-1 text-[11px] font-semibold mb-1.5 ${
+                isMe ? "text-amber-200" : "text-amber-600"
+              }`}
+              title={t("pinned_message")}
+            >
+              <Pin className="w-3 h-3 rotate-45 fill-current" />
+              <span>{t("pinned")}</span>
+            </div>
+          )}
+
           {/* Trích dẫn tin nhắn được reply */}
           {!isDeleted && message.replyToId && (
             <ReplyBubbleQuote replyTo={message.replyToId} isMe={isMe} />
@@ -147,6 +176,7 @@ export default function MessageBubble({
             reactions={message.reactions}
             currentUserId={currentUserId}
             onReact={(emoji) => onReact(message.id, emoji)}
+            onClickReactionBadge={(emoji) => onOpenReactions?.(message.id, emoji)}
             isMe={isMe}
           />
         )}
@@ -180,6 +210,29 @@ export default function MessageBubble({
               </div>
             )}
           </div>
+
+          {/* Pin / Unpin Button */}
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={() => onTogglePin(message)}
+              disabled={isPinning}
+              className={`p-1.5 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                message.isPinned
+                  ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                  : "text-slate-400 hover:text-amber-600 hover:bg-slate-100"
+              }`}
+              title={message.isPinned ? t("unpin_message") : t("pin_message")}
+            >
+              {isPinning ? (
+                <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+              ) : message.isPinned ? (
+                <PinOff className="w-4 h-4" />
+              ) : (
+                <Pin className="w-4 h-4 rotate-45" />
+              )}
+            </button>
+          )}
 
           {/* Reply Button */}
           <button

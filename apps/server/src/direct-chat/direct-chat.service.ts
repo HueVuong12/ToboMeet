@@ -218,16 +218,30 @@ export class DirectChatService {
       senders.map((s) => [s.supabaseId, s]),
     );
 
+    // Lấy map tin nhắn đã ghim trong conversation để đồng bộ isPinned chính xác
+    const pinnedMap = new Map<string, any>(
+      (conversation.pinnedMessages || []).map((p: any) => [
+        p.messageId.toString(),
+        p,
+      ]),
+    );
+
     // Format & đảo ngược danh sách để hiển thị từ cũ -> mới theo thứ tự thời gian
-    const messages = rawMessages.reverse().map((msg) => ({
-      ...msg,
-      id: msg._id.toString(),
-      sender: senderMap.get(msg.senderId) || {
-        supabaseId: msg.senderId,
-        displayName: "Người dùng",
-        avatarUrl: null,
-      },
-    }));
+    const messages = rawMessages.reverse().map((msg) => {
+      const pinInfo = pinnedMap.get(msg._id.toString());
+      return {
+        ...msg,
+        id: msg._id.toString(),
+        isPinned: Boolean(pinInfo || msg.isPinned),
+        pinnedBy: pinInfo?.pinnedBy || msg.pinnedBy || null,
+        pinnedAt: pinInfo?.pinnedAt || msg.pinnedAt || null,
+        sender: senderMap.get(msg.senderId) || {
+          supabaseId: msg.senderId,
+          displayName: "Người dùng",
+          avatarUrl: null,
+        },
+      };
+    });
 
     return {
       messages,
@@ -466,6 +480,73 @@ export class DirectChatService {
   }
 
   /**
+   * Lấy danh sách người đã reaction vào tin nhắn
+   */
+  async getMessageReactions(messageId: string, currentUserId: string) {
+    if (!Types.ObjectId.isValid(messageId)) {
+      throw new BadRequestException("Mã tin nhắn không hợp lệ");
+    }
+
+    const message = await this.messageModel.findById(messageId);
+    if (!message) {
+      throw new NotFoundException("Không tìm thấy tin nhắn");
+    }
+
+    // Kiểm tra quyền: currentUserId phải là thành viên trong cuộc trò chuyện
+    const conversation = await this.conversationModel.findById(message.conversationId);
+    if (!conversation) {
+      throw new NotFoundException("Không tìm thấy cuộc trò chuyện");
+    }
+    if (!conversation.participantIds?.includes(currentUserId)) {
+      throw new ForbiddenException("Bạn không có quyền xem thông tin tin nhắn này");
+    }
+
+    const reactions = message.reactions || [];
+    const allUserIds = new Set<string>();
+    reactions.forEach((r) => {
+      (r.userIds || []).forEach((uid) => allUserIds.add(uid));
+    });
+
+    if (allUserIds.size === 0) {
+      return [];
+    }
+
+    const users = await this.userModel
+      .find({ supabaseId: { $in: Array.from(allUserIds) } })
+      .select("supabaseId displayName avatarUrl email")
+      .lean();
+
+    const userMap = new Map<string, any>(users.map((u) => [u.supabaseId, u]));
+
+    const result: Array<{
+      userId: string;
+      reaction: string;
+      user: {
+        supabaseId: string;
+        displayName: string;
+        avatarUrl?: string;
+      };
+    }> = [];
+
+    reactions.forEach((r) => {
+      (r.userIds || []).forEach((uid) => {
+        const u = userMap.get(uid);
+        result.push({
+          userId: uid,
+          reaction: r.emoji,
+          user: {
+            supabaseId: uid,
+            displayName: u?.displayName || "Người dùng",
+            avatarUrl: u?.avatarUrl || "",
+          },
+        });
+      });
+    });
+
+    return result;
+  }
+
+  /**
    * Thu hồi / Xóa tin nhắn (soft delete)
    */
   async deleteMessage(messageId: string, currentUserId: string) {
@@ -482,17 +563,36 @@ export class DirectChatService {
       throw new ForbiddenException("Chỉ người gửi mới có quyền thu hồi tin nhắn này");
     }
 
+    const conversationId = message.conversationId.toString();
+
+    // Nếu tin nhắn đang được ghim, tự động gỡ bỏ khỏi danh sách ghim
+    const wasPinned = Boolean(message.isPinned);
+    if (wasPinned) {
+      message.isPinned = false;
+      message.pinnedBy = null;
+      message.pinnedAt = null;
+      await this.conversationModel.findByIdAndUpdate(conversationId, {
+        $pull: { pinnedMessages: { messageId: new Types.ObjectId(messageId) } },
+      });
+    }
+
     message.deletedAt = new Date();
     message.content = "Tin nhắn đã bị thu hồi";
     message.attachments = [];
     await message.save();
 
-    const conversationId = message.conversationId.toString();
+    let updatedPinnedMessages: any[] = [];
+    if (wasPinned) {
+      updatedPinnedMessages = await this.getPinnedMessagesDetail(conversationId);
+    }
+
     try {
       if (this.appGateway?.server) {
         this.appGateway.server.to(`chat_${conversationId}`).emit("chat:message_deleted", {
           messageId,
           conversationId,
+          wasPinned,
+          pinnedMessages: updatedPinnedMessages,
         });
         console.log(`[DirectChat] Emitted chat:message_deleted to chat_${conversationId} for message ${messageId}`);
       } else {
@@ -502,7 +602,296 @@ export class DirectChatService {
       console.error("[DirectChat] Socket emit delete error:", socketErr);
     }
 
-    return { messageId, deletedAt: message.deletedAt };
+    return { messageId, deletedAt: message.deletedAt, wasPinned };
+  }
+
+  /**
+   * Lấy chi tiết các tin nhắn đã ghim trong một cuộc trò chuyện
+   */
+  async getPinnedMessagesDetail(conversationId: string) {
+    if (!Types.ObjectId.isValid(conversationId)) {
+      throw new BadRequestException("Mã cuộc trò chuyện không hợp lệ");
+    }
+
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .lean();
+
+    if (!conversation) {
+      throw new NotFoundException("Không tìm thấy cuộc trò chuyện");
+    }
+
+    const pinnedItems = conversation.pinnedMessages || [];
+    if (pinnedItems.length === 0) {
+      return [];
+    }
+
+    const messageIds = pinnedItems.map((p) => p.messageId);
+    const messages = await this.messageModel
+      .find({
+        _id: { $in: messageIds },
+        conversationId: new Types.ObjectId(conversationId),
+        deletedAt: null, // Không lấy tin đã thu hồi
+      })
+      .populate({
+        path: "replyToId",
+        select: "_id content senderId type attachments deletedAt",
+      })
+      .lean();
+
+    // Lấy thông tin senders và pinners
+    const userIds = new Set<string>();
+    messages.forEach((m) => userIds.add(m.senderId));
+    pinnedItems.forEach((p) => userIds.add(p.pinnedBy));
+
+    const users = await this.userModel
+      .find({ supabaseId: { $in: Array.from(userIds) } })
+      .select("supabaseId displayName avatarUrl email")
+      .lean();
+
+    const userMap = new Map<string, any>(users.map((u) => [u.supabaseId, u]));
+    const msgMap = new Map<string, any>(messages.map((m) => [m._id.toString(), m]));
+
+    // Sắp xếp theo đúng thứ tự pinnedItems (thứ tự được ghim)
+    const result: any[] = [];
+    for (const item of pinnedItems) {
+      const msg = msgMap.get(item.messageId.toString());
+      if (msg) {
+        result.push({
+          ...msg,
+          id: msg._id.toString(),
+          isPinned: true,
+          pinnedBy: item.pinnedBy,
+          pinnedAt: item.pinnedAt,
+          pinner: userMap.get(item.pinnedBy) || {
+            supabaseId: item.pinnedBy,
+            displayName: "Người dùng",
+            avatarUrl: null,
+          },
+          sender: userMap.get(msg.senderId) || {
+            supabaseId: msg.senderId,
+            displayName: "Người dùng",
+            avatarUrl: null,
+          },
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Lấy danh sách tin nhắn đã ghim (cho client gọi qua Controller)
+   */
+  async getPinnedMessages(conversationId: string, currentUserId: string) {
+    if (!Types.ObjectId.isValid(conversationId)) {
+      throw new BadRequestException("Mã cuộc trò chuyện không hợp lệ");
+    }
+
+    const conversation = await this.conversationModel.findById(conversationId).lean();
+    if (!conversation) {
+      throw new NotFoundException("Không tìm thấy cuộc trò chuyện");
+    }
+
+    if (!conversation.participantIds.includes(currentUserId)) {
+      throw new ForbiddenException("Bạn không có quyền truy cập cuộc trò chuyện này");
+    }
+
+    return this.getPinnedMessagesDetail(conversationId);
+  }
+
+  /**
+   * Ghim tin nhắn (Tối đa 3 tin trên toàn bộ cuộc trò chuyện, bảo đảm chống race condition)
+   */
+  async pinMessage(messageId: string, currentUserId: string) {
+    if (!Types.ObjectId.isValid(messageId)) {
+      throw new BadRequestException("Mã tin nhắn không hợp lệ");
+    }
+
+    const message = await this.messageModel.findById(messageId);
+    if (!message) {
+      throw new NotFoundException("Không tìm thấy tin nhắn");
+    }
+
+    if (message.deletedAt) {
+      throw new BadRequestException("Không thể ghim tin nhắn đã bị thu hồi");
+    }
+
+    const conversationId = message.conversationId.toString();
+    const conversation = await this.conversationModel.findById(conversationId);
+    if (!conversation) {
+      throw new NotFoundException("Không tìm thấy cuộc trò chuyện");
+    }
+
+    if (!conversation.participantIds.includes(currentUserId)) {
+      throw new ForbiddenException("Bạn không có quyền thao tác trên cuộc trò chuyện này");
+    }
+
+    // 1. Kiểm tra xem tin nhắn đã được ghim chưa
+    const alreadyPinned = conversation.pinnedMessages?.some(
+      (p) => p.messageId.toString() === messageId,
+    );
+    if (alreadyPinned) {
+      // Đồng bộ lại isPinned: true trên message document nếu bị lệch
+      await this.messageModel.findByIdAndUpdate(messageId, {
+        isPinned: true,
+        pinnedBy: currentUserId,
+        pinnedAt: new Date(),
+      });
+      throw new BadRequestException("Tin nhắn này đã được ghim");
+    }
+
+    // 2. Kiểm tra giới hạn 3 tin nhắn
+    if ((conversation.pinnedMessages?.length || 0) >= 3) {
+      throw new BadRequestException(
+        "Cuộc trò chuyện chỉ được ghim tối đa 3 tin nhắn. Vui lòng bỏ ghim một tin nhắn trước khi ghim tin mới.",
+      );
+    }
+
+    const pinnedAtDate = new Date();
+
+    // 3. Thực hiện Atomic Update: kiểm tra cả kích thước mảng < 3 và không tồn tại messageId
+    const updatedConv = await this.conversationModel.findOneAndUpdate(
+      {
+        _id: conversation._id,
+        "pinnedMessages.messageId": { $ne: new Types.ObjectId(messageId) },
+        $expr: { $lt: [{ $size: { $ifNull: ["$pinnedMessages", []] } }, 3] },
+      },
+      {
+        $push: {
+          pinnedMessages: {
+            messageId: new Types.ObjectId(messageId),
+            pinnedBy: currentUserId,
+            pinnedAt: pinnedAtDate,
+          },
+        },
+      },
+      { new: true },
+    );
+
+    if (!updatedConv) {
+      // Race condition: kiểm tra lại
+      const recheckedConv = await this.conversationModel.findById(conversationId).lean();
+      if ((recheckedConv?.pinnedMessages?.length || 0) >= 3) {
+        throw new BadRequestException(
+          "Cuộc trò chuyện chỉ được ghim tối đa 3 tin nhắn. Vui lòng bỏ ghim một tin nhắn trước khi ghim tin mới.",
+        );
+      }
+      throw new BadRequestException("Tin nhắn này đã được ghim");
+    }
+
+    // 4. Cập nhật trạng thái trên document DirectMessage (dùng findByIdAndUpdate tránh trigger hook validation khác)
+    await this.messageModel.findByIdAndUpdate(messageId, {
+      isPinned: true,
+      pinnedBy: currentUserId,
+      pinnedAt: pinnedAtDate,
+    });
+
+    // 5. Lấy danh sách chi tiết các tin ghim đã cập nhật
+    const detailedPinnedList = await this.getPinnedMessagesDetail(conversationId);
+
+    // 6. Format tin nhắn vừa ghim
+    const sender = await this.userModel
+      .findOne({ supabaseId: message.senderId })
+      .select("supabaseId displayName avatarUrl email")
+      .lean();
+
+    const populatedMsg: any = await this.messageModel
+      .findById(message._id)
+      .populate({
+        path: "replyToId",
+        select: "_id content senderId type attachments deletedAt",
+      })
+      .lean();
+
+    populatedMsg.id = populatedMsg._id.toString();
+    populatedMsg.isPinned = true;
+    populatedMsg.pinnedBy = currentUserId;
+    populatedMsg.pinnedAt = pinnedAtDate;
+    populatedMsg.sender = sender || {
+      supabaseId: message.senderId,
+      displayName: "Người dùng",
+      avatarUrl: null,
+    };
+
+    // 7. Emit Socket.io realtime event
+    try {
+      if (this.appGateway?.server) {
+        this.appGateway.server.to(`chat_${conversationId}`).emit("chat:message_pinned", {
+          conversationId,
+          message: populatedMsg,
+          pinnedMessages: detailedPinnedList,
+        });
+        console.log(`[DirectChat] Emitted chat:message_pinned to chat_${conversationId}`);
+      }
+    } catch (socketErr) {
+      console.error("[DirectChat] Socket emit message_pinned error:", socketErr);
+    }
+
+    return {
+      success: true,
+      message: populatedMsg,
+      pinnedMessages: detailedPinnedList,
+    };
+  }
+
+  /**
+   * Bỏ ghim tin nhắn
+   */
+  async unpinMessage(messageId: string, currentUserId: string) {
+    if (!Types.ObjectId.isValid(messageId)) {
+      throw new BadRequestException("Mã tin nhắn không hợp lệ");
+    }
+
+    const message = await this.messageModel.findById(messageId);
+    if (!message) {
+      throw new NotFoundException("Không tìm thấy tin nhắn");
+    }
+
+    const conversationId = message.conversationId.toString();
+    const conversation = await this.conversationModel.findById(conversationId);
+    if (!conversation) {
+      throw new NotFoundException("Không tìm thấy cuộc trò chuyện");
+    }
+
+    if (!conversation.participantIds.includes(currentUserId)) {
+      throw new ForbiddenException("Bạn không có quyền thao tác trên cuộc trò chuyện này");
+    }
+
+    // 1. Gỡ tin khỏi conversation.pinnedMessages
+    await this.conversationModel.findByIdAndUpdate(conversationId, {
+      $pull: { pinnedMessages: { messageId: new Types.ObjectId(messageId) } },
+    });
+
+    // 2. Cập nhật document DirectMessage (dùng findByIdAndUpdate tránh trigger hook validation khác)
+    await this.messageModel.findByIdAndUpdate(messageId, {
+      isPinned: false,
+      pinnedBy: null,
+      pinnedAt: null,
+    });
+
+    // 3. Lấy danh sách chi tiết các tin ghim còn lại
+    const detailedPinnedList = await this.getPinnedMessagesDetail(conversationId);
+
+    // 4. Emit Socket.io realtime event
+    try {
+      if (this.appGateway?.server) {
+        this.appGateway.server.to(`chat_${conversationId}`).emit("chat:message_unpinned", {
+          conversationId,
+          messageId,
+          pinnedMessages: detailedPinnedList,
+        });
+        console.log(`[DirectChat] Emitted chat:message_unpinned to chat_${conversationId}`);
+      }
+    } catch (socketErr) {
+      console.error("[DirectChat] Socket emit message_unpinned error:", socketErr);
+    }
+
+    return {
+      success: true,
+      messageId,
+      pinnedMessages: detailedPinnedList,
+    };
   }
 
   /**
@@ -600,6 +989,7 @@ export class DirectChatService {
       lastMessageAt: conv.lastMessageAt,
       lastMessagePreview: conv.lastMessagePreview,
       unreadCount,
+      pinnedCount: conv.pinnedMessages?.length || 0,
       createdAt: conv.createdAt,
       updatedAt: conv.updatedAt,
     };

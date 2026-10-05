@@ -10,6 +10,7 @@ interface ReactionBarProps {
   reactions?: ChatMessageReaction[];
   currentUserId?: string;
   onReact: (emoji: string) => void;
+  onClickReactionBadge?: (emoji: string) => void;
   isMe?: boolean;
 }
 
@@ -17,6 +18,7 @@ export default function ReactionBar({
   reactions = [],
   currentUserId,
   onReact,
+  onClickReactionBadge,
   isMe,
 }: ReactionBarProps) {
   const activeReactions = (reactions || []).filter(
@@ -35,11 +37,19 @@ export default function ReactionBar({
         return (
           <button
             key={r.emoji}
-            onClick={() => onReact(r.emoji)}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all border ${
+            type="button"
+            onClick={() => {
+              if (onClickReactionBadge) {
+                onClickReactionBadge(r.emoji);
+              } else {
+                onReact(r.emoji);
+              }
+            }}
+            title="Xem người đã bày tỏ cảm xúc"
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all border cursor-pointer ${
               hasReacted
-                ? "bg-brand-50 border-brand-300 text-brand-700 font-semibold shadow-xs"
-                : "bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50"
+                ? "bg-brand-50 border-brand-300 text-brand-700 font-semibold shadow-2xs hover:bg-brand-100"
+                : "bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-100"
             }`}
           >
             <span>{r.emoji}</span>

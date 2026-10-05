@@ -2369,6 +2369,25 @@
     "delete_failed": "Không thể thu hồi tin nhắn",
     "create_conversation_failed": "Không thể tạo cuộc trò chuyện",
     "view_fullscreen": "Xem toàn màn hình",
-    "close": "Đóng"
+    "close": "Đóng",
+    "pin_message": "Ghim tin nhắn",
+    "unpin_message": "Bỏ ghim",
+    "pinned_message": "Tin nhắn đã ghim",
+    "pinned": "Đã ghim",
+    "pinned_messages": "Tin nhắn đã ghim",
+    "pinned_messages_list": "Danh sách tin nhắn đã ghim",
+    "pin_limit_error": "Cuộc trò chuyện chỉ được ghim tối đa 3 tin nhắn. Vui lòng bỏ ghim một tin nhắn trước khi ghim tin mới.",
+    "pin_success": "Đã ghim tin nhắn",
+    "pin_failed": "Không thể ghim tin nhắn",
+    "unpin_success": "Đã bỏ ghim tin nhắn",
+    "unpin_failed": "Không thể bỏ ghim tin nhắn",
+    "click_to_view_pin": "Nhấn để xem tin nhắn",
+    "pinned_by": "Ghim bởi",
+    "expand": "Xem tất cả",
+    "collapse": "Thu gọn",
+    "reactions_modal_title": "Biểu cảm",
+    "reactions_tab_all": "Tất cả",
+    "loading_reactions": "Đang tải danh sách...",
+    "no_reactions_found": "Chưa có biểu cảm nào."
   }
 }

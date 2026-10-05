@@ -5,10 +5,12 @@ import {
   DirectConversationResponse,
   DirectMessageResponse,
   ChatAttachment,
+  PinnedMessageDetail,
 } from "@/types/chat";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import TypingIndicator from "./TypingIndicator";
+import PinnedMessagesBar from "./PinnedMessagesBar";
 import {
   ArrowLeft,
   Info,
@@ -21,6 +23,9 @@ interface MessageThreadProps {
   conversation: DirectConversationResponse;
   currentUserId?: string;
   messages: DirectMessageResponse[];
+  pinnedMessages?: PinnedMessageDetail[];
+  highlightedMessageId?: string | null;
+  pinningMessageId?: string | null;
   hasMore: boolean;
   isLoadingMessages?: boolean;
   isLoadingMore?: boolean;
@@ -34,7 +39,11 @@ interface MessageThreadProps {
   }) => Promise<void>;
   onReactMessage: (messageId: string, emoji: string) => void;
   onDeleteMessage: (messageId: string) => void;
+  onPinMessage: (messageId: string) => Promise<void>;
+  onUnpinMessage: (messageId: string) => Promise<void>;
+  onJumpToMessage: (messageId: string) => void;
   onTyping: (isTyping: boolean) => void;
+  onOpenReactions?: (messageId: string, emoji?: string) => void;
   onBackMobile?: () => void;
   onToggleDetails?: () => void;
   showDetails?: boolean;
@@ -74,6 +83,9 @@ export default function MessageThread({
   conversation,
   currentUserId,
   messages,
+  pinnedMessages = [],
+  highlightedMessageId,
+  pinningMessageId,
   hasMore,
   isLoadingMessages,
   isLoadingMore,
@@ -82,7 +94,11 @@ export default function MessageThread({
   onSendMessage,
   onReactMessage,
   onDeleteMessage,
+  onPinMessage,
+  onUnpinMessage,
+  onJumpToMessage,
   onTyping,
+  onOpenReactions,
   onBackMobile,
   onToggleDetails,
   showDetails,
@@ -206,6 +222,14 @@ export default function MessageThread({
         </div>
       </div>
 
+      {/* ── Pinned Messages Bar (0/3 -> 3/3) ── */}
+      <PinnedMessagesBar
+        pinnedMessages={pinnedMessages}
+        currentUserId={currentUserId}
+        onJumpToMessage={onJumpToMessage}
+        onUnpinMessage={onUnpinMessage}
+      />
+
       {/* ── Messages Scroll Area ── */}
       <div
         ref={scrollContainerRef}
@@ -239,6 +263,21 @@ export default function MessageThread({
               lastDateStr = dateStr;
             }
 
+            const isMsgPinned = Boolean(
+              msg.isPinned ||
+              pinnedMessages.some(
+                (p) =>
+                  p.id === msg.id ||
+                  (p._id && p._id === msg._id) ||
+                  (p.id && msg._id && p.id === msg._id),
+              ),
+            );
+
+            const enrichedMsg = {
+              ...msg,
+              isPinned: isMsgPinned,
+            };
+
             return (
               <React.Fragment key={msg.id}>
                 {showDate && (
@@ -249,11 +288,21 @@ export default function MessageThread({
                   </div>
                 )}
                 <MessageBubble
-                  message={msg}
+                  message={enrichedMsg}
                   currentUserId={currentUserId}
+                  isHighlighted={highlightedMessageId === msg.id}
+                  isPinning={pinningMessageId === msg.id}
                   onReply={(m) => setReplyTo(m)}
                   onReact={onReactMessage}
                   onDelete={onDeleteMessage}
+                  onOpenReactions={onOpenReactions}
+                  onTogglePin={(m) => {
+                    if (isMsgPinned) {
+                      onUnpinMessage(m.id);
+                    } else {
+                      onPinMessage(m.id);
+                    }
+                  }}
                 />
               </React.Fragment>
             );

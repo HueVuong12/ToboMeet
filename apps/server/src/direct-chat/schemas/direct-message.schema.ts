@@ -68,6 +68,16 @@ export class DirectMessage {
   @Prop({ default: null })
   deletedAt: Date | null;
 
+  // Ghim tin nhắn
+  @Prop({ default: false, index: true })
+  isPinned: boolean;
+
+  @Prop({ default: null })
+  pinnedBy: string | null;
+
+  @Prop({ default: null })
+  pinnedAt: Date | null;
+
   @Prop()
   createdAt?: Date;
 

@@ -1,7 +1,21 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 
 export type DirectConversationDocument = DirectConversation & Document;
+
+@Schema({ _id: false })
+export class PinnedMessageItem {
+  @Prop({ type: Types.ObjectId, ref: "DirectMessage", required: true })
+  messageId: Types.ObjectId;
+
+  @Prop({ required: true })
+  pinnedBy: string; // Supabase user ID
+
+  @Prop({ default: Date.now })
+  pinnedAt: Date;
+}
+
+const PinnedMessageItemSchema = SchemaFactory.createForClass(PinnedMessageItem);
 
 @Schema({ timestamps: true })
 export class DirectConversation {
@@ -18,6 +32,10 @@ export class DirectConversation {
   // Map userId -> số tin nhắn chưa đọc
   @Prop({ type: Map, of: Number, default: {} })
   unreadCounts: Map<string, number>;
+
+  // Danh sách tối đa 3 tin nhắn được ghim trong cuộc trò chuyện
+  @Prop({ type: [PinnedMessageItemSchema], default: [] })
+  pinnedMessages: PinnedMessageItem[];
 
   @Prop()
   createdAt?: Date;

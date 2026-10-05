@@ -4,6 +4,8 @@ import {
   DirectMessageResponse,
   ChatMessagesPaginationResponse,
   ChatAttachment,
+  PinnedMessageDetail,
+  ChatMessageReactionUserDetail,
 } from "@/types/chat";
 
 export interface SendMessagePayload {
@@ -117,6 +119,22 @@ export const directChatApi = baseApi.injectEndpoints({
         method: "POST",
         data: { emoji },
       }),
+      invalidatesTags: (_result, _error, { messageId }) => [
+        { type: "DirectMessage", id: `REACTIONS_${messageId}` },
+      ],
+    }),
+
+    getMessageReactions: builder.query<
+      ChatMessageReactionUserDetail[],
+      string
+    >({
+      query: (messageId) => ({
+        url: `/direct-chat/messages/${messageId}/reactions`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, messageId) => [
+        { type: "DirectMessage", id: `REACTIONS_${messageId}` },
+      ],
     }),
 
     deleteMessage: builder.mutation<
@@ -137,6 +155,52 @@ export const directChatApi = baseApi.injectEndpoints({
         data,
       }),
     }),
+
+    getPinnedMessages: builder.query<PinnedMessageDetail[], string>({
+      query: (conversationId) => ({
+        url: `/direct-chat/conversations/${conversationId}/pinned-messages`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, conversationId) => [
+        { type: "DirectMessage", id: `PINS_${conversationId}` },
+      ],
+    }),
+
+    pinMessage: builder.mutation<
+      {
+        success: boolean;
+        message: DirectMessageResponse;
+        pinnedMessages: PinnedMessageDetail[];
+      },
+      { messageId: string; conversationId: string }
+    >({
+      query: ({ messageId }) => ({
+        url: `/direct-chat/messages/${messageId}/pin`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, { conversationId }) => [
+        { type: "DirectMessage", id: `PINS_${conversationId}` },
+        { type: "DirectConversation", id: "LIST" },
+      ],
+    }),
+
+    unpinMessage: builder.mutation<
+      {
+        success: boolean;
+        messageId: string;
+        pinnedMessages: PinnedMessageDetail[];
+      },
+      { messageId: string; conversationId: string }
+    >({
+      query: ({ messageId }) => ({
+        url: `/direct-chat/messages/${messageId}/pin`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { conversationId }) => [
+        { type: "DirectMessage", id: `PINS_${conversationId}` },
+        { type: "DirectConversation", id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: true,
 });
@@ -152,4 +216,9 @@ export const {
   useReactMessageMutation,
   useDeleteMessageMutation,
   useGetChatUploadUrlMutation,
+  useGetPinnedMessagesQuery,
+  useLazyGetPinnedMessagesQuery,
+  usePinMessageMutation,
+  useUnpinMessageMutation,
+  useGetMessageReactionsQuery,
 } = directChatApi;

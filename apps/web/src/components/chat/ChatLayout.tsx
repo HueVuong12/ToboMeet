@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
+  directChatApi,
   useGetConversationsQuery,
   useGetMessagesQuery,
   useLazyGetMessagesQuery,
@@ -10,22 +11,29 @@ import {
   useMarkAsReadMutation,
   useReactMessageMutation,
   useDeleteMessageMutation,
+  useGetPinnedMessagesQuery,
+  usePinMessageMutation,
+  useUnpinMessageMutation,
 } from "@/lib/redux/api/directChatApi";
+import { useDispatch } from "react-redux";
 import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import {
   DirectConversationResponse,
   DirectMessageResponse,
   ChatAttachment,
+  PinnedMessageDetail,
 } from "@/types/chat";
 import ConversationList from "./ConversationList";
 import MessageThread from "./MessageThread";
 import ConversationDetailsDrawer from "./ConversationDetailsDrawer";
+import MessageReactionsModal from "./MessageReactionsModal";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 export default function ChatLayout() {
   const t = useTranslations("direct_chat");
+  const dispatch = useDispatch();
   const { data: currentUser } = useGetMeQuery();
   const currentUserId = currentUser?.supabaseId;
 
@@ -37,8 +45,19 @@ export default function ChatLayout() {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [localMessages, setLocalMessages] = useState<DirectMessageResponse[]>([]);
+  const [localPinnedMessages, setLocalPinnedMessages] = useState<PinnedMessageDetail[]>([]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [pinningMessageId, setPinningMessageId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [reactionModal, setReactionModal] = useState<{
+    isOpen: boolean;
+    messageId: string;
+    initialTab?: string;
+  }>({
+    isOpen: false,
+    messageId: "",
+  });
 
   // Active conversation object
   const activeConversation = conversations.find((c) => c.id === selectedConvId);
@@ -50,6 +69,8 @@ export default function ChatLayout() {
   const [reactMessage] = useReactMessageMutation();
   const [deleteMessage] = useDeleteMessageMutation();
   const [fetchMoreMessages] = useLazyGetMessagesQuery();
+  const [pinMessageMutation] = usePinMessageMutation();
+  const [unpinMessageMutation] = useUnpinMessageMutation();
 
   // Load messages for selected conversation
   const {
@@ -57,6 +78,12 @@ export default function ChatLayout() {
     isLoading: isLoadingMessages,
   } = useGetMessagesQuery(
     { conversationId: selectedConvId!, limit: 30 },
+    { skip: !selectedConvId },
+  );
+
+  // Load pinned messages for selected conversation
+  const { data: initialPinnedData } = useGetPinnedMessagesQuery(
+    selectedConvId!,
     { skip: !selectedConvId },
   );
 
@@ -70,6 +97,15 @@ export default function ChatLayout() {
       setHasMore(false);
     }
   }, [initialMessagesData, selectedConvId]);
+
+  // Sync initial pinned messages to local state
+  useEffect(() => {
+    if (initialPinnedData) {
+      setLocalPinnedMessages(initialPinnedData);
+    } else {
+      setLocalPinnedMessages([]);
+    }
+  }, [initialPinnedData, selectedConvId]);
 
   // Mark conversation as read when opened
   useEffect(() => {
@@ -106,12 +142,22 @@ export default function ChatLayout() {
             : msg,
         ),
       );
+      dispatch(
+        directChatApi.util.invalidateTags([
+          { type: "DirectMessage", id: `REACTIONS_${data.messageId}` },
+        ]),
+      );
     },
-    [],
+    [dispatch],
   );
 
   const handleSocketMessageDeleted = useCallback(
-    (data: { messageId: string; conversationId: string }) => {
+    (data: {
+      messageId: string;
+      conversationId: string;
+      wasPinned?: boolean;
+      pinnedMessages?: PinnedMessageDetail[];
+    }) => {
       setLocalMessages((prev) =>
         prev.map((msg) =>
           msg.id === data.messageId || msg._id === data.messageId
@@ -120,12 +166,66 @@ export default function ChatLayout() {
                 deletedAt: new Date().toISOString(),
                 content: t("message_deleted"),
                 attachments: [],
+                isPinned: false,
               }
             : msg,
         ),
       );
+
+      if (data.pinnedMessages) {
+        setLocalPinnedMessages(data.pinnedMessages);
+      } else {
+        setLocalPinnedMessages((prev) =>
+          prev.filter((p) => p.id !== data.messageId && p._id !== data.messageId),
+        );
+      }
     },
     [t],
+  );
+
+  const handleSocketMessagePinned = useCallback(
+    (data: {
+      conversationId: string;
+      message: DirectMessageResponse;
+      pinnedMessages: PinnedMessageDetail[];
+    }) => {
+      if (data.conversationId === selectedConvId) {
+        setLocalPinnedMessages(data.pinnedMessages || []);
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === data.message.id || msg._id === data.message.id
+              ? {
+                  ...msg,
+                  isPinned: true,
+                  pinnedBy: data.message.pinnedBy,
+                  pinnedAt: data.message.pinnedAt,
+                }
+              : msg,
+          ),
+        );
+      }
+    },
+    [selectedConvId],
+  );
+
+  const handleSocketMessageUnpinned = useCallback(
+    (data: {
+      conversationId: string;
+      messageId: string;
+      pinnedMessages: PinnedMessageDetail[];
+    }) => {
+      if (data.conversationId === selectedConvId) {
+        setLocalPinnedMessages(data.pinnedMessages || []);
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === data.messageId || msg._id === data.messageId
+              ? { ...msg, isPinned: false, pinnedBy: null, pinnedAt: null }
+              : msg,
+          ),
+        );
+      }
+    },
+    [selectedConvId],
   );
 
   const { isRecipientTyping, emitTyping } = useChatSocket({
@@ -134,6 +234,8 @@ export default function ChatLayout() {
     onNewMessage: handleSocketNewMessage,
     onReactionUpdated: handleSocketReactionUpdated,
     onMessageDeleted: handleSocketMessageDeleted,
+    onMessagePinned: handleSocketMessagePinned,
+    onMessageUnpinned: handleSocketMessageUnpinned,
   });
 
   // Action: Load more messages (older)
@@ -264,6 +366,125 @@ export default function ChatLayout() {
     }
   };
 
+  // Action: Pin message
+  const handlePinMessage = async (messageId: string) => {
+    if (!selectedConvId) return;
+    if (localPinnedMessages.length >= 3) {
+      toast.error(
+        t("pin_limit_error") ||
+          "Cuộc trò chuyện chỉ được ghim tối đa 3 tin nhắn. Vui lòng bỏ ghim một tin nhắn trước khi ghim tin mới.",
+      );
+      return;
+    }
+
+    setPinningMessageId(messageId);
+    try {
+      const res = await pinMessageMutation({
+        messageId,
+        conversationId: selectedConvId,
+      }).unwrap();
+
+      if (res && res.pinnedMessages) {
+        setLocalPinnedMessages(res.pinnedMessages);
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId || m._id === messageId
+              ? {
+                  ...m,
+                  isPinned: true,
+                  pinnedBy: currentUserId,
+                  pinnedAt: new Date().toISOString(),
+                }
+              : m,
+          ),
+        );
+      }
+      toast.success(t("pin_success"));
+    } catch (err: any) {
+      console.warn("[DirectChat] Pin notice:", err?.message || err);
+      toast.error(err?.message || err?.data?.message || t("pin_failed"));
+    } finally {
+      setPinningMessageId(null);
+    }
+  };
+
+  // Action: Unpin message
+  const handleUnpinMessage = async (messageId: string) => {
+    if (!selectedConvId) return;
+    setPinningMessageId(messageId);
+    try {
+      const res = await unpinMessageMutation({
+        messageId,
+        conversationId: selectedConvId,
+      }).unwrap();
+
+      if (res && res.pinnedMessages) {
+        setLocalPinnedMessages(res.pinnedMessages);
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId || m._id === messageId
+              ? { ...m, isPinned: false, pinnedBy: null, pinnedAt: null }
+              : m,
+          ),
+        );
+      }
+      toast.success(t("unpin_success"));
+    } catch (err: any) {
+      console.warn("[DirectChat] Unpin notice:", err?.message || err);
+      toast.error(err?.message || err?.data?.message || t("unpin_failed"));
+    } finally {
+      setPinningMessageId(null);
+    }
+  };
+
+  // Action: Jump to pinned message & highlight
+  const handleJumpToMessage = async (messageId: string) => {
+    if (!selectedConvId) return;
+
+    let element = document.getElementById(`message-${messageId}`);
+    if (!element && hasMore) {
+      let currentList = localMessages;
+      let hasMoreToFetch: boolean = hasMore;
+      let found = false;
+
+      for (let i = 0; i < 5 && !found && hasMoreToFetch; i++) {
+        const oldestId = currentList[0]?.id || currentList[0]?._id;
+        if (!oldestId) break;
+
+        try {
+          const res = await fetchMoreMessages({
+            conversationId: selectedConvId,
+            before: oldestId,
+            limit: 30,
+          }).unwrap();
+
+          if (!res || !res.messages || res.messages.length === 0) break;
+
+          currentList = [...res.messages, ...currentList];
+          setLocalMessages(currentList);
+          hasMoreToFetch = res.hasMore;
+          setHasMore(res.hasMore);
+
+          if (currentList.some((m) => m.id === messageId || m._id === messageId)) {
+            found = true;
+            break;
+          }
+        } catch {
+          break;
+        }
+      }
+    }
+
+    setTimeout(() => {
+      const targetElement = document.getElementById(`message-${messageId}`);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedMessageId(messageId);
+        setTimeout(() => setHighlightedMessageId(null), 2500);
+      }
+    }, 150);
+  };
+
   // Action: Select user from search modal to start chat
   const handleSelectUser = async (user: any) => {
     const targetUserId = user.supabaseId || user._id;
@@ -280,6 +501,15 @@ export default function ChatLayout() {
       toast.error(err?.data?.message || t("create_conversation_failed"));
     }
   };
+
+  // Action: Open reaction details modal
+  const handleOpenReactions = useCallback((messageId: string, emoji?: string) => {
+    setReactionModal({
+      isOpen: true,
+      messageId,
+      initialTab: emoji || "all",
+    });
+  }, []);
 
   return (
     <div className="h-full w-full flex overflow-hidden bg-white">
@@ -310,6 +540,9 @@ export default function ChatLayout() {
             conversation={activeConversation}
             currentUserId={currentUserId}
             messages={localMessages}
+            pinnedMessages={localPinnedMessages}
+            highlightedMessageId={highlightedMessageId}
+            pinningMessageId={pinningMessageId}
             hasMore={hasMore}
             isLoadingMessages={isLoadingMessages}
             isLoadingMore={isLoadingMore}
@@ -318,6 +551,10 @@ export default function ChatLayout() {
             onSendMessage={handleSendMessage}
             onReactMessage={handleReactMessage}
             onDeleteMessage={handleDeleteMessage}
+            onPinMessage={handlePinMessage}
+            onUnpinMessage={handleUnpinMessage}
+            onJumpToMessage={handleJumpToMessage}
+            onOpenReactions={handleOpenReactions}
             onTyping={emitTyping}
             onBackMobile={() => setSelectedConvId(null)}
             onToggleDetails={() => setShowDetails(!showDetails)}
@@ -335,6 +572,18 @@ export default function ChatLayout() {
           messages={localMessages}
           isOpen={showDetails}
           onClose={() => setShowDetails(false)}
+        />
+      )}
+
+      {/* ── Reactions List Modal ── */}
+      {reactionModal.isOpen && (
+        <MessageReactionsModal
+          isOpen={reactionModal.isOpen}
+          onClose={() =>
+            setReactionModal((prev) => ({ ...prev, isOpen: false }))
+          }
+          messageId={reactionModal.messageId}
+          initialTab={reactionModal.initialTab}
         />
       )}
     </div>
