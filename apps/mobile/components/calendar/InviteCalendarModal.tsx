@@ -8,7 +8,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  StyleSheet,
   Platform,
   Keyboard,
   Dimensions,
@@ -68,7 +67,6 @@ export default function InviteCalendarModal({
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // Theo dõi bàn phím — tránh padding "dính" của KeyboardAvoidingView (tương tự MobileChatModal)
   useEffect(() => {
     if (!visible) {
       setKeyboardHeight(0);
@@ -101,12 +99,11 @@ export default function InviteCalendarModal({
   }, [visible]);
 
   const { height: screenHeight } = Dimensions.get("window");
-  // top dạng pixel tránh lỗi tính percentage sai reference frame
   const panelTop = screenHeight * 0.12;
-
-  // padding bottom: khi bàn phím mở thêm 16px giãn cách, khi đóng thêm insets.bottom + 20
   const bottomPad =
-    keyboardHeight > 0 ? Math.max(insets.bottom + 16, 16) : Math.max(insets.bottom + 20, 32);
+    keyboardHeight > 0
+      ? Math.max(insets.bottom + 16, 16)
+      : Math.max(insets.bottom + 20, 32);
 
   const normalizedExistingIds = new Set(
     existingMemberIds.filter(Boolean).map((id) => String(id))
@@ -188,14 +185,16 @@ export default function InviteCalendarModal({
 
       Alert.alert(
         i18n.language === "vi" ? "Thành công" : "Success",
-        t("calendar.alert_invite_success")
+        t("calendar.alert_invite_success", { defaultValue: "Đã gửi lời mời thành công!" })
       );
       onSuccess?.();
       onClose();
     } catch (err: any) {
       Alert.alert(
         i18n.language === "vi" ? "Lỗi" : "Error",
-        err?.data?.message || err?.message || t("calendar.alert_invite_error")
+        err?.data?.message ||
+          err?.message ||
+          t("calendar.alert_invite_error", { defaultValue: "Không thể gửi lời mời. Vui lòng thử lại!" })
       );
     }
   };
@@ -208,11 +207,10 @@ export default function InviteCalendarModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        {/* Backdrop chạm vào để dismiss bàn phím hoặc đóng modal */}
+      <View className="flex-1 bg-slate-900/50">
         <TouchableOpacity
           activeOpacity={1}
-          style={StyleSheet.absoluteFillObject}
+          className="absolute inset-0"
           onPress={() => {
             if (keyboardHeight > 0) {
               Keyboard.dismiss();
@@ -223,38 +221,38 @@ export default function InviteCalendarModal({
         />
 
         <View
-          style={[
-            styles.container,
-            {
-              top: panelTop,          // pixel value, ~12% từ trên
-              bottom: keyboardHeight, // đáy panel luôn sát bàn phím
-              paddingBottom: bottomPad,
-            },
-          ]}
+          style={{
+            top: panelTop,
+            bottom: keyboardHeight,
+            paddingBottom: bottomPad,
+          }}
+          className="absolute left-0 right-0 bg-white rounded-t-3xl border-t border-slate-100"
         >
           {/* Header */}
-          <View style={styles.header}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View className="flex-row items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+            <View className="flex-row items-center gap-2">
               <Feather name="user-plus" size={20} color="#0052FF" />
-              <Text style={styles.headerTitle}>
-                {t("calendar.invite_modal_title")}
+              <Text className="text-base font-bold text-slate-800">
+                {t("calendar.invite_modal_title", { defaultValue: "Mời người tham gia" })}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} className="p-1">
               <Feather name="x" size={22} color="#64748B" />
             </TouchableOpacity>
           </View>
 
           {/* Search bar */}
-          <View style={styles.searchSection}>
-            <View style={styles.searchBar}>
+          <View className="px-5 pt-3 pb-2">
+            <View className="flex-row items-center bg-slate-100 rounded-xl px-3 py-2 gap-2">
               <Feather name="search" size={18} color="#94A3B8" />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder={t("calendar.search_users_placeholder")}
+                placeholder={t("calendar.search_users_placeholder", {
+                  defaultValue: "Tìm kiếm theo tên hoặc email...",
+                })}
                 placeholderTextColor="#94A3B8"
-                style={styles.searchInput}
+                className="flex-1 text-sm text-slate-800 py-0"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -266,21 +264,21 @@ export default function InviteCalendarModal({
 
           {/* Selected users chips */}
           {selectedUsers.length > 0 && (
-            <View style={styles.selectedSection}>
-              <Text style={styles.selectedCountText}>
-                {t("calendar.selected")} ({selectedUsers.length})
+            <View className="px-5 py-2">
+              <Text className="text-xs font-semibold text-slate-500 mb-1.5">
+                {t("calendar.selected", { defaultValue: "Đã chọn" })} ({selectedUsers.length})
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipsScroll}
+                contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
               >
                 {selectedUsers.map((u) => (
                   <View
                     key={u.supabaseId || (u as any)._id || u.email}
-                    style={styles.userChip}
+                    className="flex-row items-center bg-blue-50 border border-blue-200 py-1 px-2.5 rounded-full gap-1.5 max-w-[180px]"
                   >
-                    <Text style={styles.userChipText} numberOfLines={1}>
+                    <Text className="text-xs text-blue-700 font-semibold" numberOfLines={1}>
                       {u.displayName || u.email}
                     </Text>
                     <TouchableOpacity
@@ -297,15 +295,15 @@ export default function InviteCalendarModal({
 
           {/* User Results List */}
           <ScrollView
-            style={styles.userList}
-            contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 20 }}
+            className="flex-1 px-5"
+            contentContainerStyle={{ paddingVertical: 8 }}
             keyboardShouldPersistTaps="handled"
           >
             {users.length === 0 && !isSearching && searchQuery.trim().length > 0 && (
-              <View style={styles.emptyContainer}>
+              <View className="items-center justify-center py-10 gap-2.5">
                 <Feather name="user-x" size={32} color="#CBD5E1" />
-                <Text style={styles.emptyText}>
-                  {t("calendar.no_users_found")}
+                <Text className="text-xs text-slate-400">
+                  {t("calendar.no_users_found", { defaultValue: "Không tìm thấy người dùng phù hợp." })}
                 </Text>
               </View>
             )}
@@ -319,59 +317,61 @@ export default function InviteCalendarModal({
                   key={usr.supabaseId || (usr as any)._id || usr.email}
                   disabled={alreadyIn}
                   onPress={() => handleToggleUser(usr)}
-                  style={[
-                    styles.userRow,
-                    alreadyIn && styles.userRowDisabled,
-                    selected && styles.userRowSelected,
-                  ]}
+                  className={`flex-row items-center justify-between p-3 rounded-xl mb-1.5 border ${
+                    selected
+                      ? "border-blue-300 bg-blue-50/50"
+                      : alreadyIn
+                      ? "border-slate-100 bg-slate-50 opacity-60"
+                      : "border-slate-100 bg-white"
+                  }`}
                 >
-                  <View style={styles.userInfoLeft}>
+                  <View className="flex-row items-center gap-2.5 flex-1 mr-2">
                     {usr.avatarUrl ? (
                       <Image
                         source={{ uri: usr.avatarUrl }}
-                        style={styles.avatarImage}
+                        className="w-9 h-9 rounded-full border border-slate-200"
                       />
                     ) : (
-                      <View style={styles.avatarCircle}>
-                        <Text style={styles.avatarInitial}>
+                      <View className="w-9 h-9 rounded-full bg-slate-200 justify-center items-center">
+                        <Text className="text-sm font-bold text-slate-600">
                           {(usr.displayName || usr.email)
                             .substring(0, 1)
                             .toUpperCase()}
                         </Text>
                       </View>
                     )}
-                    <View style={styles.nameContainer}>
+                    <View className="flex-1">
                       <Text
-                        style={[
-                          styles.userName,
-                          alreadyIn && { color: "#94A3B8" },
-                        ]}
+                        className={`text-sm font-semibold ${
+                          alreadyIn ? "text-slate-400" : "text-slate-800"
+                        }`}
                         numberOfLines={1}
                       >
                         {usr.displayName || usr.email}
                       </Text>
-                      <Text style={styles.userEmail} numberOfLines={1}>
+                      <Text className="text-xs text-slate-400 mt-0.5" numberOfLines={1}>
                         {usr.email}
                       </Text>
                     </View>
                   </View>
 
-                  <View style={styles.userStatusRight}>
+                  <View className="justify-center items-center">
                     {alreadyIn ? (
-                      <View style={styles.alreadyBadge}>
-                        <Text style={styles.alreadyBadgeText}>
-                          {t("calendar.already_in_event")}
+                      <View className="bg-slate-100 px-2 py-1 rounded-md">
+                        <Text className="text-[10px] text-slate-500 font-semibold">
+                          {t("calendar.already_in_event", { defaultValue: "Đã tham gia sự kiện" })}
                         </Text>
                       </View>
                     ) : (
                       <View
-                        style={[
-                          styles.checkCircle,
-                          selected && styles.checkCircleSelected,
-                        ]}
+                        className={`w-5 h-5 rounded-full border items-center justify-center ${
+                          selected
+                            ? "bg-blue-600 border-blue-600"
+                            : "border-slate-300 bg-white"
+                        }`}
                       >
                         {selected && (
-                          <Feather name="check" size={14} color="#FFFFFF" />
+                          <Feather name="check" size={12} color="#FFFFFF" />
                         )}
                       </View>
                     )}
@@ -384,13 +384,13 @@ export default function InviteCalendarModal({
               <TouchableOpacity
                 onPress={loadMore}
                 disabled={isLoadingMore}
-                style={styles.loadMoreBtn}
+                className="py-3 items-center"
               >
                 {isLoadingMore ? (
                   <ActivityIndicator size="small" color="#0052FF" />
                 ) : (
-                  <Text style={styles.loadMoreText}>
-                    {t("room.load_more", { defaultValue: "Tải thêm" })}
+                  <Text className="text-xs font-semibold text-blue-600">
+                    {i18n.language === "vi" ? "Tải thêm" : "Load more"}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -398,30 +398,33 @@ export default function InviteCalendarModal({
           </ScrollView>
 
           {/* Footer Action */}
-          <View style={styles.footer}>
+          <View className="flex-row gap-3 px-5 pt-3.5 border-t border-slate-100">
             <TouchableOpacity
               onPress={onClose}
               disabled={isInviting}
-              style={styles.cancelBtn}
+              className="flex-1 py-3 rounded-xl border border-slate-200 items-center justify-center active:bg-slate-50"
             >
-              <Text style={styles.cancelBtnText}>{t("calendar.cancel")}</Text>
+              <Text className="text-sm font-semibold text-slate-600">
+                {t("calendar.cancel", { defaultValue: "Hủy" })}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleSendInvites}
               disabled={selectedUsers.length === 0 || isInviting}
-              style={[
-                styles.sendBtn,
-                (selectedUsers.length === 0 || isInviting) && styles.sendBtnDisabled,
-              ]}
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                selectedUsers.length === 0 || isInviting
+                  ? "bg-slate-300"
+                  : "bg-blue-600 active:bg-blue-700"
+              }`}
             >
               {isInviting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Feather name="send" size={16} color="#FFFFFF" />
-                  <Text style={styles.sendBtnText}>
-                    {t("calendar.send_invites")}
+                  <Feather name="send" size={15} color="#FFFFFF" />
+                  <Text className="text-sm font-bold text-white">
+                    {t("calendar.send_invites", { defaultValue: "Gửi lời mời" })}
                     {selectedUsers.length > 0 ? ` (${selectedUsers.length})` : ""}
                   </Text>
                 </>
@@ -433,253 +436,3 @@ export default function InviteCalendarModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-  },
-  container: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    // top và bottom được set từ inline style để phản ứng với keyboard
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: "#0F172A",
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  searchSection: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: "#0F172A",
-    height: "100%",
-  },
-  selectedSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  selectedCountText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
-    marginBottom: 6,
-  },
-  chipsScroll: {
-    gap: 8,
-    paddingVertical: 2,
-  },
-  userChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#DBEAFE",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    gap: 6,
-    maxWidth: 180,
-  },
-  userChipText: {
-    fontSize: 12,
-    color: "#1D4ED8",
-    fontWeight: "600",
-  },
-  userList: {
-    flex: 1,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: "#94A3B8",
-  },
-  userRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 6,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-  },
-  userRowSelected: {
-    borderColor: "#BFDBFE",
-    backgroundColor: "#F8FAFC",
-  },
-  userRowDisabled: {
-    opacity: 0.6,
-    backgroundColor: "#F8FAFC",
-  },
-  userInfoLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-    marginRight: 8,
-  },
-  avatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  avatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#E2E8F0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarInitial: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#475569",
-  },
-  nameContainer: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1E293B",
-  },
-  userEmail: {
-    fontSize: 11,
-    color: "#94A3B8",
-    marginTop: 1,
-  },
-  userStatusRight: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  alreadyBadge: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  alreadyBadgeText: {
-    fontSize: 10,
-    color: "#64748B",
-    fontWeight: "600",
-  },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: "#CBD5E1",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkCircleSelected: {
-    backgroundColor: "#0052FF",
-    borderColor: "#0052FF",
-  },
-  loadMoreBtn: {
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  loadMoreText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#0052FF",
-  },
-  footer: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  sendBtn: {
-    flex: 1.5,
-    backgroundColor: "#0052FF",
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    shadowColor: "#0052FF",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sendBtnDisabled: {
-    backgroundColor: "#94A3B8",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  sendBtnText: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-  },
-});

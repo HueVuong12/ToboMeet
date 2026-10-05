@@ -195,6 +195,19 @@ function NotificationCard({
           startDate: metadata?.startDate,
           endDate: metadata?.endDate,
         };
+      case "CALENDAR_START":
+        return {
+          title: t("notification.types.calendar_start.title"),
+          content: t("notification.types.calendar_start.content", {
+            title: metadata?.title || metadata?.eventTitle || "",
+          }),
+          icon: "video",
+          colorClass: "bg-blue-100",
+          iconColor: "#0052FF",
+          meetingCode: metadata?.meetingCode,
+          isActionable: Boolean(metadata?.meetingCode),
+          actionTitle: t("notification.actions.join"),
+        };
       case "ROOM_REPORTED":
         return {
           title: t("notification.types.room_reported.title"),
@@ -231,12 +244,18 @@ function NotificationCard({
     isActionable,
     actionTitle,
     sessionId,
+    meetingCode,
     isCalendarInvite,
     eventId,
     startDate,
   } = getNotificationDetails(notification.type, notification.metadata || {});
 
   const handleActionClick = async () => {
+    if (meetingCode) {
+      router.push(`/meeting/${meetingCode}`);
+      return;
+    }
+
     if (!sessionId) return;
     setIsProcessing(true);
     try {
@@ -316,7 +335,7 @@ function NotificationCard({
           </Text>
           <Text className="text-[10px] text-slate-400 font-medium mt-2">
             {formatTimeAgo(
-              (notification.updatedAt || notification.createdAt).toString(),
+              (notification.createdAt || notification.updatedAt).toString(),
               t,
               i18n,
             )}

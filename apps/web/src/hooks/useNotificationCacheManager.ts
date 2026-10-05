@@ -12,22 +12,27 @@ export function useNotificationCacheManager() {
   ) => {
     if (!newNotifications || newNotifications.length === 0) return;
 
-    // Hàm helper dùng chung để xử lý logic ghi đè & xếp lên đầu
+    // Hàm helper dùng chung để xử lý logic ghi đè & xếp lên đầu theo createdAt
     const updateDraftItems = (draft: any, notif: NotificationResponse) => {
       const existingIndex = draft.items.findIndex(
         (item: NotificationResponse) => item._id === notif._id,
       );
 
       if (existingIndex !== -1) {
-        // Đã tồn tại -> Xóa phần tử cũ đi (không tăng total vì số lượng không đổi)
-        draft.items.splice(existingIndex, 1);
+        // Đã tồn tại -> Cập nhật trực tiếp
+        draft.items[existingIndex] = notif;
       } else {
         // Chưa tồn tại -> Tăng tổng số lượng
         draft.total += 1;
+        draft.items.push(notif);
       }
+    };
 
-      // Đẩy phần tử mới lên đầu mảng
-      draft.items.unshift(notif);
+    const sortByCreatedAt = (items: NotificationResponse[]) => {
+      items.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
     };
 
     // Cập nhật cache chính (Tab "Tất cả" - không có filter type hay isRead)
@@ -39,6 +44,7 @@ export function useNotificationCacheManager() {
           newNotifications.forEach((notif) => {
             updateDraftItems(draft, notif);
           });
+          sortByCreatedAt(draft.items);
         },
       ),
     );
@@ -53,6 +59,7 @@ export function useNotificationCacheManager() {
           { page: 1, type: notif.type },
           (draft) => {
             updateDraftItems(draft, notif);
+            sortByCreatedAt(draft.items);
           },
         ),
       );

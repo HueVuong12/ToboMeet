@@ -234,8 +234,8 @@ export default function NotificationCard({
   return (
     <div
       className={`relative p-4 rounded-2xl border transition-all duration-200 ${notification.isRead
-          ? "bg-white border-slate-100"
-          : "bg-brand-50/40 border-brand-100/60"
+        ? "bg-white border-slate-100"
+        : "bg-brand-50/40 border-brand-100/60"
         }`}
     >
       {!notification.isRead && (
@@ -256,7 +256,7 @@ export default function NotificationCard({
             {content}
           </p>
           <p className="text-[10px] text-slate-400 font-medium mt-2 flex items-center gap-1">
-            {formatTimeAgo(notification.updatedAt.toString())}
+            {formatTimeAgo(notification.createdAt.toString())}
           </p>
 
           {isActionable && (

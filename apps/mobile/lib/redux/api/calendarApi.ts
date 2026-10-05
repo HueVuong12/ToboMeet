@@ -32,11 +32,25 @@ export const calendarApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
     }),
-    deleteCalendarEvent: builder.mutation<any, string>({
-      query: (id) => ({
-        url: `/calendar/${id}?type=all`,
-        method: "DELETE",
-      }),
+    deleteCalendarEvent: builder.mutation<
+      void,
+      string | { id: string; type?: "single" | "all"; occurrenceDate?: string }
+    >({
+      query: (arg) => {
+        if (typeof arg === "string") {
+          return {
+            url: `/calendar/${arg}?type=all`,
+            method: "DELETE",
+          };
+        }
+        const { id, type = "all", occurrenceDate } = arg;
+        const queryParams = new URLSearchParams({ type });
+        if (occurrenceDate) queryParams.append("occurrenceDate", occurrenceDate);
+        return {
+          url: `/calendar/${id}?${queryParams.toString()}`,
+          method: "DELETE",
+        };
+      },
       invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
     }),
     inviteCalendarMembers: builder.mutation<

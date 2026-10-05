@@ -10,7 +10,6 @@ import {
   MeetingSessionDocument,
 } from "./schemas/meeting-session.schema";
 import { AppGateway } from "../core/gateways/app.gateway";
-import { Room, RoomDocument } from "../rooms/schemas/room.schema";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { AppException } from "../core/exceptions/app.exception";
 import { ErrorCode } from "@tobomeet/shared/types";
@@ -29,8 +28,6 @@ export class MeetingInviteService {
     private notificationModel: Model<NotificationDocument>,
     @InjectModel(MeetingSession.name)
     private sessionModel: Model<MeetingSessionDocument>,
-    @InjectModel(Room.name)
-    private roomModel: Model<RoomDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
   ) {
@@ -134,6 +131,8 @@ export class MeetingInviteService {
       // Cập nhật lại thông báo hiện có
       existingNotif.isRead = false;
       existingNotif.isNotified = false;
+      existingNotif.createdAt = now;
+      existingNotif.markModified("createdAt");
       existingNotif.metadata = {
         ...existingNotif.metadata,
         sessionId,

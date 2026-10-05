@@ -21,13 +21,19 @@ export function useNotificationSocketEvents() {
     const handleNotifications = (notifications: NotificationResponse[]) => {
       if (!notifications || notifications.length === 0) return;
 
-      // Cập nhật cache ngay lập tức để hiện lên drawer thông báo
-      addNotificationsToCache(notifications);
+      // Sắp xếp các thông báo theo createdAt mới nhất lên đầu
+      const sortedNotifications = [...notifications].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
+      // Cập nhật cache ngay lập tức để hiện lên danh sách thông báo
+      addNotificationsToCache(sortedNotifications);
 
       // Cập nhật badge unread của người dùng
       updateUnreadNotificationBadge(true);
 
-      notifications.forEach((notif, index) => {
+      sortedNotifications.forEach((notif, index) => {
         const roomId = notif.metadata?.roomId;
         const isCurrentlyInRoom = pathname.includes(`/room/${roomId}`);
         const canPopup = notif.canPopup;

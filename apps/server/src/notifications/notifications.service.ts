@@ -66,7 +66,7 @@ export class NotificationsService {
       this.notificationModel.countDocuments(filter),
       this.notificationModel
         .find(filter)
-        .sort({ updatedAt: -1 }) // Cố định mới nhất lên đầu
+        .sort({ createdAt: -1 }) // Cố định mới nhất lên đầu theo createdAt
         .skip(skip)
         .limit(limit)
         .exec(),
