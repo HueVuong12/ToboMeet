@@ -200,11 +200,24 @@ export class CalendarService {
       });
     }
 
+    // Đính kèm thông tin host để FE hiển thị ngay không cần fetch lại
+    const hostUser = await this.userModel
+      .findOne({ supabaseId: userId })
+      .select("email displayName avatarUrl")
+      .exec();
+    const eventWithHost = {
+      ...event.toObject(),
+      hostEmail: hostUser?.email || "",
+      hostDisplayName:
+        hostUser?.displayName || hostUser?.email?.split("@")[0] || "",
+      hostAvatarUrl: hostUser?.avatarUrl || "",
+    };
+
     // Nếu tạo trong Group/Channel, gửi cho mọi thành viên trong kênh qua Socket
     if (data.channelId && data.roomType === "channel_meeting" && data.roomId) {
       this.appGateway.server
         .to(data.channelId)
-        .emit("channel_calendar_event_created", event);
+        .emit("channel_calendar_event_created", eventWithHost);
 
       // Tự động tạo meeting post trong bảng tin kênh
       try {
@@ -251,14 +264,28 @@ export class CalendarService {
       } catch (err) {
         console.error("Lỗi khi tự động tạo post lịch họp kênh:", err);
       }
+
+      // Chỉ emit cho các thành viên trong phòng họp kênh
+      if (acceptedUserIds.length > 0) {
+        for (const memberId of acceptedUserIds) {
+          this.appGateway.server
+            .to(`user_${memberId}`)
+            .emit("calendar_event_created", eventWithHost);
+        }
+      }
     } else if (data.channelId) {
       this.appGateway.server
         .to(data.channelId)
-        .emit("channel_calendar_event_created", event);
-    }
+        .emit("channel_calendar_event_created", eventWithHost);
 
-    // Phát event tạo lịch biểu realtime cho tất cả các client
-    this.appGateway.server.emit("calendar_event_created", event);
+      if (acceptedUserIds.length > 0) {
+        for (const memberId of acceptedUserIds) {
+          this.appGateway.server
+            .to(`user_${memberId}`)
+            .emit("calendar_event_created", eventWithHost);
+        }
+      }
+    }
 
     // Tính toán thời điểm đầu tiên để gọi scheduler service
     const firstTriggerDate = this.calculateFirstOccurrence(
@@ -286,7 +313,7 @@ export class CalendarService {
         );
       });
 
-    return { event };
+    return { event: eventWithHost };
   }
 
   /**
@@ -566,13 +593,36 @@ export class CalendarService {
         description: data.description || event.description,
       });
 
-      // Gửi realtime thông báo cho các bên liên quan
-      this.appGateway.server.emit("calendar_event_updated", {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: event.hostId })
+        .select("email displayName avatarUrl")
+        .exec();
+      const newEventWithHost = {
+        ...newEvent.toObject(),
+        hostEmail: hostUser?.email || "",
+        hostDisplayName:
+          hostUser?.displayName || hostUser?.email?.split("@")[0] || "",
+        hostAvatarUrl: hostUser?.avatarUrl || "",
+      };
+
+      // Chỉ gửi realtime thông báo cho những người đã chấp nhận (acceptedUserIds) và host
+      const targetUserIds = Array.from(
+        new Set([event.hostId, ...(event.acceptedUserIds || [])]),
+      ).filter(Boolean);
+
+      const updatePayload = {
         eventId,
         updateType,
-        event: newEvent,
-      });
-      return newEvent;
+        occurrenceDate,
+        event: newEventWithHost,
+      };
+
+      for (const uid of targetUserIds) {
+        this.appGateway.server
+          .to(`user_${uid}`)
+          .emit("calendar_event_updated", updatePayload);
+      }
+      return newEventWithHost;
     } else {
       // Chỉnh sửa toàn bộ chuỗi
       const updateData: any = {};
@@ -659,12 +709,35 @@ export class CalendarService {
         }
       }
 
-      this.appGateway.server.emit("calendar_event_updated", {
+      const hostUser = await this.userModel
+        .findOne({ supabaseId: updatedEvent.hostId })
+        .select("email displayName avatarUrl")
+        .exec();
+      const updatedEventWithHost = {
+        ...updatedEvent.toObject(),
+        hostEmail: hostUser?.email || "",
+        hostDisplayName:
+          hostUser?.displayName || hostUser?.email?.split("@")[0] || "",
+        hostAvatarUrl: hostUser?.avatarUrl || "",
+      };
+
+      // Chỉ gửi realtime thông báo cho những người đã chấp nhận (acceptedUserIds) và host
+      const targetUserIds = Array.from(
+        new Set([updatedEvent.hostId, ...(updatedEvent.acceptedUserIds || [])]),
+      ).filter(Boolean);
+
+      const updatePayload = {
         eventId,
         updateType,
-        event: updatedEvent,
-      });
-      return updatedEvent;
+        event: updatedEventWithHost,
+      };
+
+      for (const uid of targetUserIds) {
+        this.appGateway.server
+          .to(`user_${uid}`)
+          .emit("calendar_event_updated", updatePayload);
+      }
+      return updatedEventWithHost;
     }
   }
 
@@ -701,11 +774,22 @@ export class CalendarService {
         await event.save();
       }
 
-      this.appGateway.server.emit("calendar_event_deleted", {
+      const targetUserIds = Array.from(
+        new Set([event.hostId, ...(event.acceptedUserIds || [])]),
+      ).filter(Boolean);
+
+      const deletePayload = {
         eventId,
         deleteType,
         occurrenceDate: cleanDate,
-      });
+        recurrenceExceptions: event.recurrenceExceptions,
+      };
+
+      for (const uid of targetUserIds) {
+        this.appGateway.server
+          .to(`user_${uid}`)
+          .emit("calendar_event_deleted", deletePayload);
+      }
 
       return { success: true, recurrenceExceptions: event.recurrenceExceptions };
     } else {
@@ -731,6 +815,10 @@ export class CalendarService {
         }
       }
 
+      const targetUserIds = Array.from(
+        new Set([event.hostId, ...(event.acceptedUserIds || [])]),
+      ).filter(Boolean);
+
       // Hủy toàn bộ chuỗi
       await this.calendarEventModel.findByIdAndDelete(eventId);
 
@@ -742,10 +830,16 @@ export class CalendarService {
         );
       });
 
-      this.appGateway.server.emit("calendar_event_deleted", {
+      const deletePayload = {
         eventId,
         deleteType,
-      });
+      };
+
+      for (const uid of targetUserIds) {
+        this.appGateway.server
+          .to(`user_${uid}`)
+          .emit("calendar_event_deleted", deletePayload);
+      }
 
       return { success: true };
     }
@@ -779,14 +873,40 @@ export class CalendarService {
       await event.save();
     }
 
-    this.appGateway.server.emit("calendar_event_updated", {
+    const hostUser = await this.userModel
+      .findOne({ supabaseId: event.hostId })
+      .select("email displayName avatarUrl")
+      .exec();
+    const eventWithHost = {
+      ...event.toObject(),
+      hostEmail: hostUser?.email || "",
+      hostDisplayName:
+        hostUser?.displayName || hostUser?.email?.split("@")[0] || "",
+      hostAvatarUrl: hostUser?.avatarUrl || "",
+    };
+
+    const targetUserIds = Array.from(
+      new Set([event.hostId, ...(event.acceptedUserIds || [])]),
+    ).filter(Boolean);
+
+    const restorePayload = {
       eventId,
       updateType: "restore",
       occurrenceDate: cleanDate,
-      event,
-    });
+      event: eventWithHost,
+    };
 
-    return { success: true, recurrenceExceptions: event.recurrenceExceptions || [] };
+    for (const uid of targetUserIds) {
+      this.appGateway.server
+        .to(`user_${uid}`)
+        .emit("calendar_event_updated", restorePayload);
+    }
+
+    return {
+      success: true,
+      recurrenceExceptions: event.recurrenceExceptions || [],
+      event: eventWithHost,
+    };
   }
 
   /**
@@ -1052,11 +1172,23 @@ export class CalendarService {
       },
     });
 
-    this.appGateway.server.emit("calendar_event_updated", {
-      eventId,
-      updateType: "all",
-      event: updatedEvent,
-    });
+    const targetUserIds = Array.from(
+      new Set([
+        event.hostId,
+        ...(updatedEvent.acceptedUserIds || []),
+        ...newInviteeIds,
+      ]),
+    ).filter(Boolean);
+
+    for (const uid of targetUserIds) {
+      this.appGateway.server
+        .to(`user_${uid}`)
+        .emit("calendar_event_updated", {
+          eventId,
+          updateType: "all",
+          event: updatedEvent,
+        });
+    }
 
     return {
       success: true,
@@ -1125,12 +1257,24 @@ export class CalendarService {
       .to(`user_${event.hostId}`)
       .emit("rsvp_updated", { eventId, userId, status: "DECLINED" });
 
-    // Phát socket cập nhật sự kiện cho các client
-    this.appGateway.server.emit("calendar_event_updated", {
-      eventId,
-      updateType: "all",
-      event: updatedEvent,
-    });
+    const targetUserIds = Array.from(
+      new Set([
+        event.hostId,
+        ...(updatedEvent.acceptedUserIds || []),
+        userId,
+      ]),
+    ).filter(Boolean);
+
+    // Phát socket cập nhật sự kiện cho các client liên quan
+    for (const uid of targetUserIds) {
+      this.appGateway.server
+        .to(`user_${uid}`)
+        .emit("calendar_event_updated", {
+          eventId,
+          updateType: "all",
+          event: updatedEvent,
+        });
+    }
 
     return { success: true, message: "Left calendar event successfully" };
   }

@@ -19,6 +19,7 @@ export interface CalendarEvent {
   meetingCode?: string;
   hostId: string;
   roomType: "meeting" | "classroom" | "livestream" | "private" | "channel_meeting";
+  location?: string;
   status?: "active" | "cancelled" | "completed";
   recurrenceRule?: string;
   isRecurring?: boolean;

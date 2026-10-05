@@ -7,6 +7,7 @@ import { RefreshCw } from "lucide-react";
 import SettingsDialog from "@/components/dashboard/SettingsDialog";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import { useSocket } from "@/hooks/useSocket";
+import { useCalendarSocketEvents } from "@/hooks/socket/useCalendarSocketEvents";
 import { useGetMeQuery } from "@/lib/redux/api/usersApi";
 
 // Modularized Calendar Components
@@ -117,6 +118,10 @@ function CalendarContent() {
   }, [selectedEvent, triggerRsvpQuery]);
 
   // Mount and Socket Effects
+  // Sử dụng hook quản lý socket và cache cho Calendar
+  useCalendarSocketEvents();
+
+  // Mount and RSVP Socket Effects
   useEffect(() => {
     setMounted(true);
 
@@ -124,28 +129,21 @@ function CalendarContent() {
       if (!socket.connected) {
         socket.connect();
       }
-      socket.on("calendar_event_created", () => refetchEvents());
-      socket.on("calendar_event_updated", () => refetchEvents());
-      socket.on("calendar_event_deleted", () => refetchEvents());
-      socket.on("rsvp_updated", (data: any) => {
+      const handleRsvp = (data: any) => {
         if (
           selectedEventRef.current &&
           selectedEventRef.current._id === data.eventId
         ) {
           triggerRsvpQuery(data.eventId);
         }
-      });
-    }
+      };
+      socket.on("rsvp_updated", handleRsvp);
 
-    return () => {
-      if (socket) {
-        socket.off("calendar_event_created");
-        socket.off("calendar_event_updated");
-        socket.off("calendar_event_deleted");
-        socket.off("rsvp_updated");
-      }
-    };
-  }, [currentDate, refetchEvents, triggerRsvpQuery, socket]);
+      return () => {
+        socket.off("rsvp_updated", handleRsvp);
+      };
+    }
+  }, [socket, triggerRsvpQuery]);
 
   // Điều hướng và highlight sự kiện được chọn từ Search
   const handleSelectSearchEvent = (event: CalendarEvent) => {

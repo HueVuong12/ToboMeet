@@ -27,7 +27,7 @@ import {
   ChannelEventModal,
 } from "../../components/calendar";
 
-import { socket } from "../../lib/socket";
+import { useCalendarSocketEvents } from "../../hooks/socket/useCalendarSocketEvents";
 import { supabase } from "../../lib/supabase";
 import {
   calendarApi,
@@ -110,30 +110,8 @@ export default function CalendarScreen() {
     }
   }, [searchQuery, searchActive, triggerSearch]);
 
-  // Realtime socket event listeners
-  useEffect(() => {
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    const handleRefresh = () => {
-      dispatch(calendarApi.util.invalidateTags(["CalendarEvent"]));
-    };
-
-    socket.on("calendar_event_created", handleRefresh);
-    socket.on("calendar_event_updated", handleRefresh);
-    socket.on("calendar_event_deleted", handleRefresh);
-    socket.on("calendar_event_received", handleRefresh);
-    socket.on("channel_calendar_event_created", handleRefresh);
-
-    return () => {
-      socket.off("calendar_event_created", handleRefresh);
-      socket.off("calendar_event_updated", handleRefresh);
-      socket.off("calendar_event_deleted", handleRefresh);
-      socket.off("calendar_event_received", handleRefresh);
-      socket.off("channel_calendar_event_created", handleRefresh);
-    };
-  }, [dispatch]);
+  // Realtime socket event listeners thông qua hook dùng chung
+  useCalendarSocketEvents();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -170,16 +148,15 @@ export default function CalendarScreen() {
         text1:
           deleteType === "single"
             ? t("calendar.toasts.delete_single_success", {
-                defaultValue: "Đã hủy sự kiện này thành công!",
-              })
+              defaultValue: "Đã hủy sự kiện này thành công!",
+            })
             : t("calendar.toasts.delete_all_success", {
-                defaultValue: "Đã hủy chuỗi sự kiện thành công!",
-              }),
+              defaultValue: "Đã hủy chuỗi sự kiện thành công!",
+            }),
       });
 
       setDetailModalVisible(false);
       setSelectedEventForDetail(null);
-      dispatch(calendarApi.util.invalidateTags(["CalendarEvent"]));
     } catch (err: any) {
       Toast.show({
         type: "error",

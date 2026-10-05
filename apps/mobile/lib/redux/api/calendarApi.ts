@@ -1,4 +1,5 @@
 import { baseApi } from "./baseApi";
+import { generateOccurrencesForRange } from "../../../hooks/useCalendarCacheManager";
 
 export const calendarApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -22,7 +23,48 @@ export const calendarApi = baseApi.injectEndpoints({
         method: "POST",
         data: body,
       }),
-      invalidatesTags: ["CalendarEvent"],
+      async onQueryStarted(arg, { dispatch, getState, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          const createdEvent = data?.event || data;
+          if (createdEvent?._id) {
+            const state = getState() as any;
+            const queries = state.api?.queries || {};
+            Object.values(queries).forEach((q: any) => {
+              if (q?.endpointName === "getCalendarEvents" && q?.originalArgs) {
+                const args = q.originalArgs;
+                const rangeStart = new Date(args.start);
+                const rangeEnd = new Date(args.end);
+                const occurrences = generateOccurrencesForRange(
+                  createdEvent,
+                  rangeStart,
+                  rangeEnd
+                );
+
+                if (occurrences.length > 0) {
+                  dispatch(
+                    calendarApi.util.updateQueryData("getCalendarEvents", args, (draft: any[]) => {
+                      let i = draft.length;
+                      while (i--) {
+                        if (draft[i]._id === createdEvent._id) {
+                          draft.splice(i, 1);
+                        }
+                      }
+                      draft.push(...occurrences);
+                      draft.sort(
+                        (a, b) =>
+                          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+                      );
+                    })
+                  );
+                }
+              }
+            });
+          }
+        } catch {
+          // ignore error
+        }
+      },
     }),
     updateCalendarEvent: builder.mutation<any, { id: string; body: any }>({
       query: ({ id, body }) => ({
@@ -30,7 +72,52 @@ export const calendarApi = baseApi.injectEndpoints({
         method: "PUT",
         data: body,
       }),
-      invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
+      invalidatesTags: (result, error, { id }) => [{ type: "CalendarRsvp", id }],
+      async onQueryStarted({ id, body }, { dispatch, getState, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          const updatedEvent = data?.event || data;
+          if (updatedEvent?._id) {
+            const state = getState() as any;
+            const queries = state.api?.queries || {};
+
+            Object.values(queries).forEach((q: any) => {
+              if (q?.endpointName === "getCalendarEvents" && q?.originalArgs) {
+                const args = q.originalArgs;
+                const rangeStart = new Date(args.start);
+                const rangeEnd = new Date(args.end);
+                const occurrences = generateOccurrencesForRange(
+                  updatedEvent,
+                  rangeStart,
+                  rangeEnd
+                );
+
+                dispatch(
+                  calendarApi.util.updateQueryData("getCalendarEvents", args, (draft: any[]) => {
+                    let i = draft.length;
+                    while (i--) {
+                      if (draft[i]._id === id) {
+                        draft.splice(i, 1);
+                      }
+                    }
+
+                    if (occurrences.length > 0) {
+                      draft.push(...occurrences);
+                    }
+
+                    draft.sort(
+                      (a, b) =>
+                        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+                    );
+                  })
+                );
+              }
+            });
+          }
+        } catch {
+          // ignore error
+        }
+      },
     }),
     deleteCalendarEvent: builder.mutation<
       void,
@@ -51,7 +138,133 @@ export const calendarApi = baseApi.injectEndpoints({
           method: "DELETE",
         };
       },
-      invalidatesTags: ["CalendarEvent", "CalendarRsvp"],
+      invalidatesTags: (result, error, arg) => {
+        const id = typeof arg === "string" ? arg : arg.id;
+        return [{ type: "CalendarRsvp", id }];
+      },
+      async onQueryStarted(arg, { dispatch, getState, queryFulfilled }) {
+        const id = typeof arg === "string" ? arg : arg.id;
+        const type = typeof arg === "string" ? "all" : (arg.type || "all");
+        const occurrenceDate = typeof arg === "string" ? undefined : arg.occurrenceDate;
+        const cleanDate = occurrenceDate?.substring(0, 10);
+
+        try {
+          await queryFulfilled;
+          const state = getState() as any;
+          const queries = state.api?.queries || {};
+
+          Object.values(queries).forEach((q: any) => {
+            if (q?.endpointName === "getCalendarEvents" && q?.originalArgs) {
+              dispatch(
+                calendarApi.util.updateQueryData("getCalendarEvents", q.originalArgs, (draft: any[]) => {
+                  if (type === "single" && cleanDate) {
+                    const idx = draft.findIndex(
+                      (item) =>
+                        item._id === id &&
+                        (item.occurrenceDate === cleanDate ||
+                          item.startDate?.startsWith(cleanDate))
+                    );
+                    if (idx !== -1) draft.splice(idx, 1);
+                    draft.forEach((item) => {
+                      if (item._id === id) {
+                        if (!item.recurrenceExceptions) item.recurrenceExceptions = [];
+                        if (!item.recurrenceExceptions.includes(cleanDate)) {
+                          item.recurrenceExceptions.push(cleanDate);
+                        }
+                      }
+                    });
+                  } else {
+                    return draft.filter((item) => item._id !== id);
+                  }
+                })
+              );
+            }
+          });
+        } catch {
+          // ignore error
+        }
+      },
+    }),
+    restoreCalendarOccurrence: builder.mutation<
+      { success: boolean; recurrenceExceptions: string[]; event?: any },
+      { id: string; occurrenceDate: string }
+    >({
+      query: ({ id, occurrenceDate }) => ({
+        url: `/calendar/${id}/restore`,
+        method: "POST",
+        data: { occurrenceDate },
+      }),
+      invalidatesTags: (result, error, { id }) => [{ type: "CalendarRsvp", id }],
+      async onQueryStarted({ id, occurrenceDate }, { dispatch, getState, queryFulfilled }) {
+        const cleanDate = occurrenceDate?.substring(0, 10);
+        try {
+          const { data } = await queryFulfilled;
+          const event = data?.event;
+          const state = getState() as any;
+          const queries = state.api?.queries || {};
+
+          Object.values(queries).forEach((q: any) => {
+            if (q?.endpointName === "getCalendarEvents" && q?.originalArgs) {
+              const args = q.originalArgs;
+              dispatch(
+                calendarApi.util.updateQueryData("getCalendarEvents", args, (draft: any[]) => {
+                  if (cleanDate && event) {
+                    const [y, m, d] = cleanDate.split("-").map(Number);
+                    const origStart = new Date(event.startDate);
+                    const origEnd = new Date(event.endDate || event.startDate);
+                    const duration = origEnd.getTime() - origStart.getTime();
+
+                    const restoredStart = new Date(
+                      y,
+                      m - 1,
+                      d,
+                      origStart.getHours(),
+                      origStart.getMinutes(),
+                      origStart.getSeconds()
+                    );
+                    const restoredEnd = new Date(restoredStart.getTime() + duration);
+                    const rangeStart = new Date(args.start);
+                    const rangeEnd = new Date(args.end);
+
+                    if (restoredStart <= rangeEnd && restoredEnd >= rangeStart) {
+                      const exists = draft.some(
+                        (item) =>
+                          item._id === id &&
+                          (item.occurrenceDate === cleanDate ||
+                            item.startDate?.startsWith(cleanDate))
+                      );
+                      if (!exists) {
+                        draft.push({
+                          ...event,
+                          startDate: restoredStart.toISOString(),
+                          endDate: restoredEnd.toISOString(),
+                          isOccurrence: true,
+                          occurrenceDate: cleanDate,
+                        });
+                      }
+                    }
+                  }
+
+                  draft.forEach((item) => {
+                    if (item._id === id && item.recurrenceExceptions) {
+                      item.recurrenceExceptions = item.recurrenceExceptions.filter(
+                        (ex: string) => ex !== cleanDate
+                      );
+                    }
+                  });
+
+                  draft.sort(
+                    (a, b) =>
+                      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+                  );
+                })
+              );
+            }
+          });
+        } catch {
+          // ignore error
+        }
+      },
     }),
     inviteCalendarMembers: builder.mutation<
       { success: boolean; count: number; event: any },
@@ -100,6 +313,7 @@ export const {
   useCreateCalendarEventMutation,
   useUpdateCalendarEventMutation,
   useDeleteCalendarEventMutation,
+  useRestoreCalendarOccurrenceMutation,
   useInviteCalendarMembersMutation,
   useLeaveCalendarEventMutation,
   useUpdateCalendarRsvpMutation,

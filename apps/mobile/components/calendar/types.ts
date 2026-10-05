@@ -13,6 +13,7 @@ export interface CalendarEvent {
   recurrenceRule?: string;
   isRecurring?: boolean;
   occurrenceDate?: string;
+  isOccurrence?: boolean;
   recurrenceExceptions?: string[];
   hostId?: string;
   hostDisplayName?: string;
@@ -20,6 +21,7 @@ export interface CalendarEvent {
   hostAvatarUrl?: string;
   acceptedUserIds?: string[];
   pendingUserIds?: string[];
+  declinedUserIds?: string[];
   // Assignment specific fields
   eventType?: "meeting" | "assignment";
   assignmentId?: string;
