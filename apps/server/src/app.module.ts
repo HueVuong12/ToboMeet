@@ -80,9 +80,11 @@ import { VectorDbModule } from "./vector-db/vector-db.module";
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         uri: configService.get<string>("MONGODB_URI"),
-        maxPoolSize: 10,
-        minPoolSize: 1,
+        maxPoolSize: 50, // Nới rộng lên 50 kết nối để tránh kẹt hàng đợi khi nhiều request đồng thời
+        minPoolSize: 5, // Luôn duy trì sẵn 5 kết nối ấm mở sẵn 24/7, tránh độ trễ bắt tay lạnh
         serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 15000, // Tự động ngắt sau 15s nếu rớt mạng, không để treo 66s - 139s
+        connectTimeoutMS: 10000,
       }),
       inject: [ConfigService],
     }),
