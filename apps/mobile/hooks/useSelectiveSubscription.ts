@@ -9,6 +9,7 @@ import {
   RemoteTrackPublication,
   RoomEvent,
   Track,
+  VideoQuality,
 } from "livekit-client";
 import { isAgentParticipant } from "../utils/participant";
 
@@ -45,7 +46,15 @@ export function useSelectiveSubscription() {
 
   // Selective Subscription Refs
   const lastDesiredRef = useRef<Set<string>>(new Set());
+  const activeCameraCountRef = useRef<number>(1);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getDesiredCameraQuality = useCallback(() => {
+    const count = activeCameraCountRef.current;
+    if (count <= 1) return VideoQuality.HIGH;
+    if (count === 2) return VideoQuality.MEDIUM;
+    return VideoQuality.LOW;
+  }, []);
 
   // Bắt sự kiện có người thay đổi Metadata (vd: được duyệt vào phòng) để tính toán lại layout
   useEffect(() => {
@@ -104,22 +113,25 @@ export function useSelectiveSubscription() {
     return newPages;
   }, [validTracks, pageSize]);
 
-  // Luôn subscribe toàn bộ audio NGOẠI TRỪ NGƯỜI ĐANG CHỜ VÀ AGENT
+  // Luôn subscribe toàn bộ audio (Microphone + ScreenShareAudio) NGOẠI TRỪ NGƯỜI ĐANG CHỜ VÀ AGENT
   const ensureAudioSubscribed = useCallback(() => {
     room.remoteParticipants.forEach((participant) => {
       if (isAgentParticipant(participant)) return;
 
-      const micPub = participant.getTrackPublication(
-        Track.Source.Microphone,
-      ) as RemoteTrackPublication | undefined;
+      const shouldSubscribe = !isWaiting(participant);
+      [Track.Source.Microphone, Track.Source.ScreenShareAudio].forEach(
+        (audioSource) => {
+          const audioPub = participant.getTrackPublication(audioSource) as
+            | RemoteTrackPublication
+            | undefined;
 
-      if (micPub && typeof micPub.setSubscribed === "function") {
-        // Chỉ subscribe nếu KHÔNG ở phòng chờ
-        const shouldSubscribe = !isWaiting(participant);
-        if (micPub.isDesired !== shouldSubscribe) {
-          micPub.setSubscribed(shouldSubscribe);
-        }
-      }
+          if (audioPub && typeof audioPub.setSubscribed === "function") {
+            if (audioPub.isDesired !== shouldSubscribe) {
+              audioPub.setSubscribed(shouldSubscribe);
+            }
+          }
+        },
+      );
     });
   }, [room]);
 
@@ -155,22 +167,42 @@ export function useSelectiveSubscription() {
               `[Reconciliation] ${shouldSubscribe ? "🟢 SUB" : "🔴 UNSUB"} → ${key}`,
             );
           }
+
+          // Phân tầng chất lượng: ScreenShare luôn ưu tiên HIGH (SFU tự hạ xuống 720p/540p nếu mạng yếu),
+          // còn Camera tự giới hạn theo số ô trên trang để nhường băng thông.
+          if (shouldSubscribe && typeof pub.setVideoQuality === "function") {
+            const targetQuality =
+              source === Track.Source.ScreenShare
+                ? VideoQuality.HIGH
+                : getDesiredCameraQuality();
+            try {
+              pub.setVideoQuality(targetQuality);
+            } catch {
+              // Bỏ qua nếu track chưa sẵn sàng cập nhật quality
+            }
+          }
         });
 
-        // 2. Quản lý Audio: Tắt mic của những người đang chờ
-        const micPub = participant.getTrackPublication(
-          Track.Source.Microphone,
-        ) as RemoteTrackPublication | undefined;
+        // 2. Quản lý Audio (Microphone + ScreenShareAudio): Tắt tiếng của những người đang chờ
+        if (!isAgentParticipant(participant)) {
+          const shouldSubscribeAudio = !isWaiting(participant);
+          [Track.Source.Microphone, Track.Source.ScreenShareAudio].forEach(
+            (audioSource) => {
+              const audioPub = participant.getTrackPublication(audioSource) as
+                | RemoteTrackPublication
+                | undefined;
 
-        if (micPub && typeof micPub.setSubscribed === "function") {
-          const shouldSubscribeMic = !isWaiting(participant);
-          if (micPub.isDesired !== shouldSubscribeMic) {
-            micPub.setSubscribed(shouldSubscribeMic);
-          }
+              if (audioPub && typeof audioPub.setSubscribed === "function") {
+                if (audioPub.isDesired !== shouldSubscribeAudio) {
+                  audioPub.setSubscribed(shouldSubscribeAudio);
+                }
+              }
+            },
+          );
         }
       });
     },
-    [room, ensureAudioSubscribed],
+    [room, ensureAudioSubscribed, getDesiredCameraQuality],
   );
 
   // Debounce nhẹ (tránh spam khi bấm chuyển trang liên tục)
@@ -191,7 +223,10 @@ export function useSelectiveSubscription() {
       scheduleApply(new Set()); // Nếu không có ai hợp lệ, clear toàn bộ sub video
       return;
     }
-    const activeItems = pages[currentPage]?.items ?? [];
+    const activePage = pages[currentPage];
+    const activeItems = activePage?.items ?? [];
+    activeCameraCountRef.current =
+      activePage?.type === "camera" ? activeItems.length : 1;
     const desired = new Set<string>(
       activeItems.map((t) => makeKey(t.participant.identity, t.source)),
     );
@@ -211,8 +246,11 @@ export function useSelectiveSubscription() {
       // Chặn ngay lập tức không subscribe bất kì thứ gì nếu đang ở phòng chờ hoặc là agent
       if (isWaiting(participant) || isAgentParticipant(participant)) return;
 
-      // Audio luôn subscribe ngay
-      if (publication.source === Track.Source.Microphone) {
+      // Audio (Microphone + ScreenShareAudio) luôn subscribe ngay
+      if (
+        publication.source === Track.Source.Microphone ||
+        publication.source === Track.Source.ScreenShareAudio
+      ) {
         if (!publication.isDesired) {
           publication.setSubscribed(true);
         }
@@ -229,15 +267,45 @@ export function useSelectiveSubscription() {
       const key = makeKey(participant.identity, publication.source);
       if (lastDesiredRef.current.has(key) && !publication.isDesired) {
         publication.setSubscribed(true);
+        if (typeof publication.setVideoQuality === "function") {
+          const targetQuality =
+            publication.source === Track.Source.ScreenShare
+              ? VideoQuality.HIGH
+              : getDesiredCameraQuality();
+          try {
+            publication.setVideoQuality(targetQuality);
+          } catch {}
+        }
         console.log(`[TrackPublished] 🟢 SUB immediate → ${key}`);
       }
     };
 
+    const onTrackSubscribed = (
+      _track: any,
+      publication: RemoteTrackPublication,
+    ) => {
+      if (
+        (publication.source === Track.Source.ScreenShare ||
+          publication.source === Track.Source.Camera) &&
+        typeof publication.setVideoQuality === "function"
+      ) {
+        const targetQuality =
+          publication.source === Track.Source.ScreenShare
+            ? VideoQuality.HIGH
+            : getDesiredCameraQuality();
+        try {
+          publication.setVideoQuality(targetQuality);
+        } catch {}
+      }
+    };
+
     room.on(RoomEvent.TrackPublished, onTrackPublished);
+    room.on(RoomEvent.TrackSubscribed, onTrackSubscribed);
     return () => {
       room.off(RoomEvent.TrackPublished, onTrackPublished);
+      room.off(RoomEvent.TrackSubscribed, onTrackSubscribed);
     };
-  }, [room]);
+  }, [room, getDesiredCameraQuality]);
 
   const hasScreenShare = validTracks.some(
     (t) => t.source === Track.Source.ScreenShare,

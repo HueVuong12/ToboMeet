@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -7,17 +14,22 @@ import {
   PanResponder,
   TouchableOpacity,
   LayoutChangeEvent,
+  PixelRatio,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Track, VideoTrack } from "livekit-client";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHandRaise } from "../../hooks/useHandRaise";
 import { VideoView } from "@livekit/react-native";
 
 const MIN_SCALE = 1;
-const MAX_SCALE = 5;
-const DOUBLE_TAP_SCALE = 2.2;
+const MAX_SCALE = 4.5;
+const DOUBLE_TAP_SCALE = 2.4;
 const DOUBLE_TAP_DELAY = 280;
 const EDGE_SNAP_THRESHOLD = 12;
+// Cấp cố định bề mặt 1920px (Full HD) cho SurfaceViewRenderer để chữ luôn sắc nét
+// mà KHÔNG bao giờ phải resize lại VideoView khi zoom (triệt tiêu hoàn toàn giật/flicker).
+const TARGET_FULL_HD_PX = 1920;
 
 function getTouchDistance(
   t1: { pageX: number; pageY: number },
@@ -32,9 +44,13 @@ function getTouchDistance(
 export default function ParticipantTile({
   trackRef,
   onZoomChange,
+  isLandscape = false,
+  onToggleLandscape,
 }: {
   trackRef: any;
   onZoomChange?: (zoomed: boolean) => void;
+  isLandscape?: boolean;
+  onToggleLandscape?: () => void;
 }) {
   const publication = trackRef.publication;
   const isScreenShare = trackRef.source === Track.Source.ScreenShare;
@@ -51,85 +67,185 @@ export default function ParticipantTile({
 
   const { getHandState } = useHandRaise();
   const handState = getHandState(trackRef.participant);
+  const insets = useSafeAreaInsets();
 
-  // State & Animated values cho pinch-to-zoom & pan trên Screen Share của người khác
+  // Khoảng cách an toàn khi xoay ngang để nút không bị thanh điều hướng / tai thỏ của điện thoại che mất
+  const overlayTop = isLandscape ? Math.max(insets.top, 14) + 6 : 10;
+  const overlayLeft = isLandscape ? Math.max(insets.left, 48) + 14 : 10;
+  const overlayRight = isLandscape ? Math.max(insets.right, 48) + 14 : 10;
+
+  // Kích thước container hiện tại
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [zoomPercent, setZoomPercent] = useState(100);
+
+  // Một nguồn Animated duy nhất: scaleAnim = baseFitScale * userScale (không có dual-state -> không flicker, không thu nhỏ < 100%)
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const translateXAnim = useRef(new Animated.Value(0)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
 
-  const scaleRef = useRef(1);
+  const userScaleRef = useRef(1);
+  const baseFitScaleRef = useRef(1);
+  const baseRenderedRef = useRef({ width: 0, height: 0 });
   const posRef = useRef({ x: 0, y: 0 });
   const containerSizeRef = useRef({ width: 0, height: 0 });
   const isZoomedReportedRef = useRef(false);
 
-  // Refs theo dõi gesture hiện tại
-  const pinchInitialDistRef = useRef<number | null>(null);
-  const pinchStartScaleRef = useRef(1);
-  const pinchStartPosRef = useRef({ x: 0, y: 0 });
-  const panStartPosRef = useRef({ x: 0, y: 0 });
+  // Theo dõi tọa độ chạm trực tiếp theo từng frame (tránh nhảy tọa độ khi chuyển 2 ngón <-> 1 ngón)
+  const lastPinchRef = useRef<{
+    dist: number;
+    midX: number;
+    midY: number;
+  } | null>(null);
+  const lastSingleTouchRef = useRef<{ x: number; y: number } | null>(null);
   const lastTapTimeRef = useRef(0);
   const wasMultiTouchRef = useRef(false);
+
   const canZoomRef = useRef(canZoom);
   canZoomRef.current = canZoom;
 
   const videoTrackRef = useRef(videoTrack);
   videoTrackRef.current = videoTrack;
 
+  const publicationRef = useRef(publication);
+  publicationRef.current = publication;
+
   const onZoomChangeRef = useRef(onZoomChange);
   onZoomChangeRef.current = onZoomChange;
 
-  const notifyZoomState = useCallback((nextScale: number) => {
-    const zoomed = nextScale > 1.02;
+  const videoAspectRatio = useMemo(() => {
+    const trackDims = (videoTrack as any)?.dimensions;
+    const pubDims = publication?.dimensions;
+    const vw = trackDims?.width || pubDims?.width || 0;
+    const vh = trackDims?.height || pubDims?.height || 0;
+    if (vw > 0 && vh > 0) {
+      return vw / vh;
+    }
+    return 16 / 9;
+  }, [videoTrack, publication?.dimensions]);
+
+  // Tính kích thước bề mặt Full HD cố định (dp) và hệ số fit 1x cho container hiện tại
+  const { fixedSurfaceW, fixedSurfaceH, baseFitScale, baseRenderedW, baseRenderedH } =
+    useMemo(() => {
+      const cw = containerSize.width;
+      const ch = containerSize.height;
+      if (!canZoom || cw <= 0 || ch <= 0) {
+        return {
+          fixedSurfaceW: 0,
+          fixedSurfaceH: 0,
+          baseFitScale: 1,
+          baseRenderedW: 0,
+          baseRenderedH: 0,
+        };
+      }
+
+      // Kích thước hiển thị 1x (objectFit="contain") trong container
+      const containerRatio = cw / ch;
+      let fitW = cw;
+      let fitH = ch;
+      if (videoAspectRatio > containerRatio) {
+        fitW = cw;
+        fitH = cw / videoAspectRatio;
+      } else {
+        fitH = ch;
+        fitW = ch * videoAspectRatio;
+      }
+
+      // Cấp bề mặt SurfaceView ở độ phân giải gốc Full HD (không nhỏ hơn fitW/fitH)
+      const dpr = Math.max(1, PixelRatio.get());
+      const targetLongEdgeDp = Math.max(
+        TARGET_FULL_HD_PX / dpr,
+        Math.max(fitW, fitH),
+      );
+      const surfaceW = Math.round(
+        videoAspectRatio >= 1
+          ? targetLongEdgeDp
+          : targetLongEdgeDp * videoAspectRatio,
+      );
+      const surfaceH = Math.round(
+        videoAspectRatio >= 1
+          ? targetLongEdgeDp / videoAspectRatio
+          : targetLongEdgeDp,
+      );
+
+      const nextBaseFitScale = Math.min(cw / surfaceW, ch / surfaceH);
+
+      return {
+        fixedSurfaceW: surfaceW,
+        fixedSurfaceH: surfaceH,
+        baseFitScale: nextBaseFitScale,
+        baseRenderedW: surfaceW * nextBaseFitScale,
+        baseRenderedH: surfaceH * nextBaseFitScale,
+      };
+    }, [canZoom, containerSize, videoAspectRatio]);
+
+  // Cập nhật refs & reset về đúng mức 1x khi container hoặc hướng màn hình thay đổi
+  useLayoutEffect(() => {
+    baseFitScaleRef.current = baseFitScale;
+    baseRenderedRef.current = { width: baseRenderedW, height: baseRenderedH };
+
+    scaleAnim.stopAnimation();
+    translateXAnim.stopAnimation();
+    translateYAnim.stopAnimation();
+
+    userScaleRef.current = 1;
+    posRef.current = { x: 0, y: 0 };
+    scaleAnim.setValue(baseFitScale);
+    translateXAnim.setValue(0);
+    translateYAnim.setValue(0);
+
+    if (isZoomedReportedRef.current) {
+      isZoomedReportedRef.current = false;
+      onZoomChangeRef.current?.(false);
+    }
+    setZoomPercent(100);
+  }, [
+    baseFitScale,
+    baseRenderedW,
+    baseRenderedH,
+    scaleAnim,
+    translateXAnim,
+    translateYAnim,
+  ]);
+
+  const notifyZoomState = useCallback((nextUserScale: number) => {
+    const zoomed = nextUserScale > 1.02;
     if (isZoomedReportedRef.current !== zoomed) {
       isZoomedReportedRef.current = zoomed;
       onZoomChangeRef.current?.(zoomed);
     }
-    setZoomPercent(Math.round(nextScale * 100));
+    setZoomPercent(Math.round(nextUserScale * 100));
   }, []);
 
   /**
-   * Tính giới hạn pan (maxX, maxY) theo kích thước thật của video (objectFit="contain")
-   * để video luôn áp sát các cạnh khung nhìn, không bị kéo trôi ra khỏi màn hình.
+   * Tính giới hạn pan (maxX, maxY) theo kích thước hiển thị thực của video
+   * để video luôn bám sát khung nhìn, không bị kéo trôi ra ngoài.
    */
-  const getPanBounds = useCallback((targetScale: number) => {
+  const getPanBounds = useCallback((targetUserScale: number) => {
     const { width: containerW, height: containerH } = containerSizeRef.current;
-    if (containerW <= 0 || containerH <= 0 || targetScale <= 1) {
+    const { width: baseW, height: baseH } = baseRenderedRef.current;
+    if (
+      containerW <= 0 ||
+      containerH <= 0 ||
+      baseW <= 0 ||
+      baseH <= 0 ||
+      targetUserScale <= 1
+    ) {
       return { maxX: 0, maxY: 0 };
     }
 
-    let renderedW = containerW;
-    let renderedH = containerH;
-
-    const dims = (videoTrackRef.current as any)?.dimensions;
-    const vw = dims?.width || 0;
-    const vh = dims?.height || 0;
-
-    if (vw > 0 && vh > 0) {
-      const videoRatio = vw / vh;
-      const containerRatio = containerW / containerH;
-      if (videoRatio > containerRatio) {
-        renderedW = containerW;
-        renderedH = containerW / videoRatio;
-      } else {
-        renderedH = containerH;
-        renderedW = containerH * videoRatio;
-      }
-    }
-
-    const maxX = Math.max(0, (renderedW * targetScale - containerW) / 2);
-    const maxY = Math.max(0, (renderedH * targetScale - containerH) / 2);
+    const maxX = Math.max(0, (baseW * targetUserScale - containerW) / 2);
+    const maxY = Math.max(0, (baseH * targetUserScale - containerH) / 2);
     return { maxX, maxY };
   }, []);
 
   const clampPos = useCallback(
     (
       nextPos: { x: number; y: number },
-      targetScale: number,
+      targetUserScale: number,
       snapThreshold = 0,
     ) => {
-      if (targetScale <= 1) return { x: 0, y: 0 };
-      const { maxX, maxY } = getPanBounds(targetScale);
+      if (targetUserScale <= 1.01) return { x: 0, y: 0 };
+      const { maxX, maxY } = getPanBounds(targetUserScale);
 
       let x = Math.min(Math.max(nextPos.x, -maxX), maxX);
       let y = Math.min(Math.max(nextPos.y, -maxY), maxY);
@@ -148,20 +264,39 @@ export default function ParticipantTile({
     [getPanBounds],
   );
 
-  const applyTransform = useCallback(
-    (nextScale: number, nextPos: { x: number; y: number }, animated = false) => {
-      const clampedScale = Math.min(Math.max(MIN_SCALE, nextScale), MAX_SCALE);
-      const clampedPos =
-        clampedScale <= 1.01 ? { x: 0, y: 0 } : clampPos(nextPos, clampedScale);
-      const finalScale = clampedScale <= 1.01 ? 1 : clampedScale;
+  const stopActiveAnimations = useCallback(() => {
+    scaleAnim.stopAnimation();
+    translateXAnim.stopAnimation();
+    translateYAnim.stopAnimation();
+  }, [scaleAnim, translateXAnim, translateYAnim]);
 
-      scaleRef.current = finalScale;
+  const applyTransform = useCallback(
+    (
+      nextUserScale: number,
+      nextPos: { x: number; y: number },
+      animated = false,
+    ) => {
+      const clampedUserScale = Math.min(
+        Math.max(MIN_SCALE, nextUserScale),
+        MAX_SCALE,
+      );
+      const finalUserScale = clampedUserScale <= 1.01 ? 1 : clampedUserScale;
+      const clampedPos =
+        finalUserScale <= 1
+          ? { x: 0, y: 0 }
+          : clampPos(nextPos, finalUserScale);
+
+      userScaleRef.current = finalUserScale;
       posRef.current = clampedPos;
+
+      const visualScale = baseFitScaleRef.current * finalUserScale;
+
+      stopActiveAnimations();
 
       if (animated) {
         Animated.parallel([
           Animated.timing(scaleAnim, {
-            toValue: finalScale,
+            toValue: visualScale,
             duration: 180,
             useNativeDriver: true,
           }),
@@ -177,14 +312,21 @@ export default function ParticipantTile({
           }),
         ]).start();
       } else {
-        scaleAnim.setValue(finalScale);
+        scaleAnim.setValue(visualScale);
         translateXAnim.setValue(clampedPos.x);
         translateYAnim.setValue(clampedPos.y);
       }
 
-      notifyZoomState(finalScale);
+      notifyZoomState(finalUserScale);
     },
-    [clampPos, notifyZoomState, scaleAnim, translateXAnim, translateYAnim],
+    [
+      clampPos,
+      notifyZoomState,
+      scaleAnim,
+      translateXAnim,
+      translateYAnim,
+      stopActiveAnimations,
+    ],
   );
 
   const resetZoom = useCallback(
@@ -194,7 +336,6 @@ export default function ParticipantTile({
     [applyTransform],
   );
 
-  // Reset zoom khi track kết thúc hoặc component unmount
   useEffect(() => {
     if (!canZoom) {
       resetZoom(false);
@@ -210,19 +351,17 @@ export default function ParticipantTile({
     };
   }, []);
 
-  const handleLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const { width, height } = e.nativeEvent.layout;
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    const prev = containerSizeRef.current;
+    if (
+      Math.abs(prev.width - width) > 2 ||
+      Math.abs(prev.height - height) > 2
+    ) {
       containerSizeRef.current = { width, height };
-      if (scaleRef.current > 1) {
-        const clamped = clampPos(posRef.current, scaleRef.current);
-        posRef.current = clamped;
-        translateXAnim.setValue(clamped.x);
-        translateYAnim.setValue(clamped.y);
-      }
-    },
-    [clampPos, translateXAnim, translateYAnim],
-  );
+      setContainerSize({ width, height });
+    }
+  }, []);
 
   const panResponder = useMemo(
     () =>
@@ -233,16 +372,14 @@ export default function ParticipantTile({
         },
         onStartShouldSetPanResponderCapture: (evt) => {
           if (!canZoomRef.current) return false;
-          // Chặn ngay khi chạm 2 ngón (pinch) để TouchableOpacity / FlatList không nuốt sự kiện
           return evt.nativeEvent.touches.length >= 2;
         },
         onMoveShouldSetPanResponder: (evt, gestureState) => {
           if (!canZoomRef.current) return false;
           const touches = evt.nativeEvent.touches;
           if (touches.length >= 2) return true;
-          // Chỉ chiếm quyền kéo 1 ngón khi đang zoom > 1x; nếu 1x nhường cho FlatList vuốt chuyển trang
           if (
-            scaleRef.current > 1.02 &&
+            userScaleRef.current > 1.02 &&
             (Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4)
           ) {
             return true;
@@ -253,9 +390,8 @@ export default function ParticipantTile({
           if (!canZoomRef.current) return false;
           const touches = evt.nativeEvent.touches;
           if (touches.length >= 2) return true;
-          // Giành lại quyền kéo 1 ngón từ TouchableOpacity bên trong khi đang zoom > 1x
           if (
-            scaleRef.current > 1.02 &&
+            userScaleRef.current > 1.02 &&
             (Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4)
           ) {
             return true;
@@ -263,71 +399,87 @@ export default function ParticipantTile({
           return false;
         },
         onPanResponderTerminationRequest: () => {
-          // Không cho FlatList cướp gesture khi đang pinch hoặc đang zoom > 1x
-          return scaleRef.current <= 1.02 && pinchInitialDistRef.current === null;
+          return userScaleRef.current <= 1.02 && lastPinchRef.current === null;
         },
         onPanResponderGrant: (evt) => {
+          stopActiveAnimations();
           const touches = evt.nativeEvent.touches;
           if (touches.length >= 2) {
             wasMultiTouchRef.current = true;
-            pinchInitialDistRef.current = getTouchDistance(
-              touches[0],
-              touches[1],
-            );
-            pinchStartScaleRef.current = scaleRef.current;
-            pinchStartPosRef.current = { ...posRef.current };
-          } else {
+            lastSingleTouchRef.current = null;
+            lastPinchRef.current = {
+              dist: getTouchDistance(touches[0], touches[1]),
+              midX: (touches[0].pageX + touches[1].pageX) / 2,
+              midY: (touches[0].pageY + touches[1].pageY) / 2,
+            };
+          } else if (touches.length === 1) {
             wasMultiTouchRef.current = false;
-            pinchInitialDistRef.current = null;
-            panStartPosRef.current = { ...posRef.current };
+            lastPinchRef.current = null;
+            lastSingleTouchRef.current = {
+              x: touches[0].pageX,
+              y: touches[0].pageY,
+            };
           }
         },
-        onPanResponderMove: (evt, gestureState) => {
+        onPanResponderMove: (evt) => {
           if (!canZoomRef.current) return;
           const touches = evt.nativeEvent.touches;
 
           if (touches.length >= 2) {
             wasMultiTouchRef.current = true;
-            const currentDist = getTouchDistance(touches[0], touches[1]);
-            if (pinchInitialDistRef.current === null) {
-              pinchInitialDistRef.current = currentDist;
-              pinchStartScaleRef.current = scaleRef.current;
-              pinchStartPosRef.current = { ...posRef.current };
+            lastSingleTouchRef.current = null;
+
+            const dist = getTouchDistance(touches[0], touches[1]);
+            const midX = (touches[0].pageX + touches[1].pageX) / 2;
+            const midY = (touches[0].pageY + touches[1].pageY) / 2;
+
+            if (!lastPinchRef.current || lastPinchRef.current.dist < 10) {
+              lastPinchRef.current = { dist, midX, midY };
               return;
             }
-            if (pinchInitialDistRef.current <= 0) return;
+            if (dist < 10) return;
 
-            const ratio = currentDist / pinchInitialDistRef.current;
+            const ratio = dist / lastPinchRef.current.dist;
+            const prevScale = userScaleRef.current;
             const nextScale = Math.min(
-              Math.max(MIN_SCALE, pinchStartScaleRef.current * ratio),
+              Math.max(MIN_SCALE, prevScale * ratio),
               MAX_SCALE,
             );
-            const scaleFactor = nextScale / pinchStartScaleRef.current;
-            const scaledPos = {
-              x: pinchStartPosRef.current.x * scaleFactor,
-              y: pinchStartPosRef.current.y * scaleFactor,
-            };
+            const effectiveRatio = prevScale > 0 ? nextScale / prevScale : 1;
+            const panDx = midX - lastPinchRef.current.midX;
+            const panDy = midY - lastPinchRef.current.midY;
 
-            applyTransform(nextScale, scaledPos, false);
-          } else if (touches.length === 1 && scaleRef.current > 1.02) {
-            // Nếu vừa chuyển từ 2 ngón xuống 1 ngón, cập nhật mốc kéo để tránh bị nhảy
-            if (pinchInitialDistRef.current !== null) {
-              pinchInitialDistRef.current = null;
-              panStartPosRef.current = {
-                x: posRef.current.x - gestureState.dx,
-                y: posRef.current.y - gestureState.dy,
-              };
-            }
+            lastPinchRef.current = { dist, midX, midY };
 
             const nextPos = {
-              x: panStartPosRef.current.x + gestureState.dx,
-              y: panStartPosRef.current.y + gestureState.dy,
+              x: posRef.current.x * effectiveRatio + panDx,
+              y: posRef.current.y * effectiveRatio + panDy,
             };
-            applyTransform(scaleRef.current, nextPos, false);
+
+            applyTransform(nextScale, nextPos, false);
+          } else if (touches.length === 1 && userScaleRef.current > 1.02) {
+            const touch = touches[0];
+            // Nếu vừa nhấc 1 ngón từ pinch sang 1 ngón: chỉ ghi nhận mốc mới, KHÔNG kéo ngay để tránh giật nhảy
+            if (lastPinchRef.current !== null || !lastSingleTouchRef.current) {
+              lastPinchRef.current = null;
+              lastSingleTouchRef.current = { x: touch.pageX, y: touch.pageY };
+              return;
+            }
+
+            const dx = touch.pageX - lastSingleTouchRef.current.x;
+            const dy = touch.pageY - lastSingleTouchRef.current.y;
+            lastSingleTouchRef.current = { x: touch.pageX, y: touch.pageY };
+
+            const nextPos = {
+              x: posRef.current.x + dx,
+              y: posRef.current.y + dy,
+            };
+            applyTransform(userScaleRef.current, nextPos, false);
           }
         },
         onPanResponderRelease: (_evt, gestureState) => {
-          pinchInitialDistRef.current = null;
+          lastPinchRef.current = null;
+          lastSingleTouchRef.current = null;
 
           // Kiểm tra double-tap (chỉ khi chạm 1 ngón và không kéo)
           if (
@@ -338,7 +490,7 @@ export default function ParticipantTile({
             const now = Date.now();
             if (now - lastTapTimeRef.current < DOUBLE_TAP_DELAY) {
               lastTapTimeRef.current = 0;
-              if (scaleRef.current > 1.05) {
+              if (userScaleRef.current > 1.05) {
                 resetZoom(true);
               } else {
                 applyTransform(DOUBLE_TAP_SCALE, { x: 0, y: 0 }, true);
@@ -351,30 +503,35 @@ export default function ParticipantTile({
           wasMultiTouchRef.current = false;
 
           // Snap cạnh khi thả tay ở gần viền khung nhìn
-          if (scaleRef.current > 1.02) {
+          if (userScaleRef.current > 1.02) {
             const snapped = clampPos(
               posRef.current,
-              scaleRef.current,
+              userScaleRef.current,
               EDGE_SNAP_THRESHOLD,
             );
-            applyTransform(scaleRef.current, snapped, true);
+            if (
+              Math.abs(snapped.x - posRef.current.x) > 0.5 ||
+              Math.abs(snapped.y - posRef.current.y) > 0.5
+            ) {
+              applyTransform(userScaleRef.current, snapped, true);
+            }
           } else {
             resetZoom(true);
           }
         },
         onPanResponderTerminate: () => {
-          pinchInitialDistRef.current = null;
+          lastPinchRef.current = null;
+          lastSingleTouchRef.current = null;
           wasMultiTouchRef.current = false;
         },
       }),
-    [applyTransform, clampPos, resetZoom],
+    [applyTransform, clampPos, resetZoom, stopActiveAnimations],
   );
 
   useEffect(() => {
     const track = publication?.track as VideoTrack | undefined;
     setVideoTrack(track);
 
-    // Lắng nghe khi track được attach
     const onSubscribed = () => {
       setVideoTrack(publication?.track as VideoTrack);
     };
@@ -408,7 +565,7 @@ export default function ParticipantTile({
     const now = Date.now();
     if (now - lastTapTimeRef.current < DOUBLE_TAP_DELAY) {
       lastTapTimeRef.current = 0;
-      if (scaleRef.current > 1.05) {
+      if (userScaleRef.current > 1.05) {
         resetZoom(true);
       } else {
         applyTransform(DOUBLE_TAP_SCALE, { x: 0, y: 0 }, true);
@@ -418,17 +575,19 @@ export default function ParticipantTile({
     }
   }, [applyTransform, resetZoom]);
 
+  const hasFixedSurface = fixedSurfaceW > 0 && fixedSurfaceH > 0;
+
   return (
     <View
       onLayout={handleLayout}
       {...(canZoom ? panResponder.panHandlers : {})}
       style={{
         flex: 1,
-        backgroundColor: "#121215",
+        backgroundColor: "#0a0a0c",
         borderRadius: 0,
         overflow: "hidden",
-        borderWidth: isScreenShare ? 2 : 0,
-        borderColor: isScreenShare ? "#3b82f6" : "transparent",
+        borderWidth: isScreenShare && !isLandscape ? 2 : 0,
+        borderColor: isScreenShare && !isLandscape ? "#3b82f6" : "transparent",
       }}
     >
       {/* VIDEO HOẶC AVATAR */}
@@ -437,12 +596,23 @@ export default function ParticipantTile({
           <TouchableOpacity
             activeOpacity={1}
             onPress={handleSingleTapFallback}
-            style={{ flex: 1, backgroundColor: "#0a0a0c" }}
+            style={{
+              flex: 1,
+              backgroundColor: "#0a0a0c",
+              justifyContent: "center",
+              alignItems: "center",
+              overflow: "hidden",
+            }}
           >
             <Animated.View
+              collapsable={false}
               style={{
-                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
                 backgroundColor: "#0a0a0c",
+                ...(hasFixedSurface
+                  ? { width: fixedSurfaceW, height: fixedSurfaceH }
+                  : { flex: 1, width: "100%", height: "100%" }),
                 transform: [
                   { translateX: translateXAnim },
                   { translateY: translateYAnim },
@@ -451,7 +621,15 @@ export default function ParticipantTile({
               }}
             >
               <VideoView
-                style={{ flex: 1, backgroundColor: "#0a0a0c" }}
+                style={
+                  hasFixedSurface
+                    ? {
+                        width: fixedSurfaceW,
+                        height: fixedSurfaceH,
+                        backgroundColor: "#0a0a0c",
+                      }
+                    : { flex: 1, width: "100%", backgroundColor: "#0a0a0c" }
+                }
                 videoTrack={videoTrack}
                 objectFit="contain"
               />
@@ -506,18 +684,18 @@ export default function ParticipantTile({
           onPress={() => resetZoom(true)}
           style={{
             position: "absolute",
-            top: 8,
-            left: 8,
+            top: overlayTop,
+            left: overlayLeft,
             backgroundColor: "rgba(17, 17, 19, 0.85)",
             borderWidth: 1,
-            borderColor: "rgba(255, 255, 255, 0.14)",
-            paddingHorizontal: 9,
-            paddingVertical: 4,
+            borderColor: "rgba(255, 255, 255, 0.16)",
+            paddingHorizontal: 10,
+            paddingVertical: 5,
             borderRadius: 8,
             flexDirection: "row",
             alignItems: "center",
             gap: 5,
-            zIndex: 20,
+            zIndex: 25,
           }}
         >
           <Feather name="zoom-in" size={12} color="#60a5fa" />
@@ -528,13 +706,45 @@ export default function ParticipantTile({
         </TouchableOpacity>
       )}
 
+      {/* NÚT XOAY NGANG / THU GỌN CHO SCREEN SHARE */}
+      {isRemoteScreenShare && showVideo && onToggleLandscape && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={onToggleLandscape}
+          style={{
+            position: "absolute",
+            top: handState.isRaised ? overlayTop + 28 : overlayTop,
+            right: overlayRight,
+            backgroundColor: "rgba(17, 17, 19, 0.85)",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.16)",
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 8,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            zIndex: 25,
+          }}
+        >
+          <Feather
+            name={isLandscape ? "minimize-2" : "maximize-2"}
+            size={13}
+            color="#e2e8f0"
+          />
+          <Text style={{ color: "#f8fafc", fontSize: 11, fontWeight: "700" }}>
+            {isLandscape ? "Thu gọn" : "Xoay ngang"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* BADGE GIƠ TAY */}
       {handState.isRaised && (
         <View
           style={{
             position: "absolute",
-            top: 6,
-            right: 6,
+            top: isLandscape ? overlayTop : 6,
+            right: isLandscape ? overlayRight : 6,
             backgroundColor: "rgba(245, 158, 11, 0.9)",
             paddingHorizontal: 6,
             paddingVertical: 3,
@@ -556,47 +766,50 @@ export default function ParticipantTile({
         </View>
       )}
 
-      {/* BADGE TÊN & TRẠNG THÁI */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          bottom: 6,
-          left: 6,
-          backgroundColor: "rgba(17, 17, 19, 0.85)",
-          borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.08)",
-          paddingHorizontal: 7,
-          paddingVertical: 4,
-          borderRadius: 6,
-          flexDirection: "row",
-          alignItems: "center",
-          maxWidth: "90%",
-        }}
-      >
-        {isScreenShare && (
-          <Feather
-            name="monitor"
-            size={12}
-            color="#60a5fa"
-            style={{ marginRight: 4 }}
-          />
-        )}
-        {!showVideo && !isScreenShare && (
-          <Feather
-            name="video-off"
-            size={12}
-            color="#ef4444"
-            style={{ marginRight: 4 }}
-          />
-        )}
-        <Text
-          style={{ color: "white", fontSize: 12, fontWeight: "bold" }}
-          numberOfLines={1}
+      {/* BADGE TÊN & TRẠNG THÁI (Ẩn khi xoay ngang toàn màn hình để không che nội dung) */}
+      {!isLandscape && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 6,
+            left: 6,
+            backgroundColor: "rgba(17, 17, 19, 0.85)",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            paddingHorizontal: 7,
+            paddingVertical: 4,
+            borderRadius: 6,
+            flexDirection: "row",
+            alignItems: "center",
+            maxWidth: "90%",
+          }}
         >
-          {trackRef.participant.name || "Khách"} {isScreenShare && "(Chia sẻ)"}
-        </Text>
-      </View>
+          {isScreenShare && (
+            <Feather
+              name="monitor"
+              size={12}
+              color="#60a5fa"
+              style={{ marginRight: 4 }}
+            />
+          )}
+          {!showVideo && !isScreenShare && (
+            <Feather
+              name="video-off"
+              size={12}
+              color="#ef4444"
+              style={{ marginRight: 4 }}
+            />
+          )}
+          <Text
+            style={{ color: "white", fontSize: 12, fontWeight: "bold" }}
+            numberOfLines={1}
+          >
+            {trackRef.participant.name || "Khách"}{" "}
+            {isScreenShare && "(Chia sẻ)"}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

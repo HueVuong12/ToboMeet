@@ -1,6 +1,7 @@
 // app/meeting/[code].tsx
 import React from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator, StatusBar } from "react-native";
+import { Stack } from "expo-router";
 import { LiveKitRoom } from "@livekit/react-native";
 import MobileMeetingLobby from "../../components/meeting/MobileMeetingLobby";
 import {
@@ -59,6 +60,14 @@ function MobileMeetingContent() {
 
     return (
       <View className="flex-1 justify-center items-center bg-[#09090b]">
+        <Stack.Screen
+          options={{
+            headerShown: false,
+            orientation: "portrait_up",
+            statusBarHidden: false,
+          }}
+        />
+        <StatusBar hidden={false} />
         <ActivityIndicator size="large" color="#0052FF" />
         {loadingDesc ? (
           <Text className="text-gray-400 mt-4 font-bold">{loadingDesc}</Text>

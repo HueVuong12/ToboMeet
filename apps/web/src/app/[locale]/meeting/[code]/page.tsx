@@ -11,7 +11,7 @@ import MeetingRoomContent from "@/components/meeting/MeetingRoomContent";
 import { Loader2, Smartphone, Clock, Users, LogOut } from "lucide-react";
 import MeetingLobby from "@/components/meeting/MeetingLobby";
 import { useEffect, useState, useMemo } from "react";
-import { RoomEvent, Room } from "livekit-client";
+import { RoomEvent, Room, ScreenSharePresets, VideoPreset } from "livekit-client";
 import { MLSE2EESync } from "@/components/meeting/MLSE2EESync";
 import { toast } from "sonner";
 import { useParticipantManager } from "@/hooks/useParticipantManager";
@@ -199,10 +199,15 @@ function ActiveLiveKitRoom({
       dynacast: true,
       publishDefaults: {
         dtx: false, // Tắt DTX để gửi luồng audio liên tục cho LiveKit STT/Deepgram endpointing không bị trễ
+        simulcast: true,
         screenShareEncoding: {
           maxBitrate: 5_000_000,
           maxFramerate: 30,
         },
+        screenShareSimulcastLayers: [
+          new VideoPreset(960, 540, 800_000, 10),
+          ScreenSharePresets.h720fps15,
+        ],
       },
       ...(e2eeConfig && { e2ee: e2eeConfig }),
       videoCaptureDefaults: {

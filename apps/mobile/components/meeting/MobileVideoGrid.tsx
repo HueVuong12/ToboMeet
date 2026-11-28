@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,13 +10,41 @@ import { TrackReference } from "@livekit/components-react";
 import ParticipantTile from "./ParticipantTile";
 import { useSelectiveSubscription } from "../../hooks/useSelectiveSubscription";
 
-export default function MobileVideoGrid() {
+interface MobileVideoGridProps {
+  isLandscape?: boolean;
+  onToggleLandscape?: () => void;
+  onScreenShareAvailabilityChange?: (hasRemoteScreenShare: boolean) => void;
+}
+
+export default function MobileVideoGrid({
+  isLandscape = false,
+  onToggleLandscape,
+  onScreenShareAvailabilityChange,
+}: MobileVideoGridProps) {
   const { width: windowWidth } = useWindowDimensions();
-  const { tracks, pages, currentPage, setCurrentPage } =
-    useSelectiveSubscription();
+  const {
+    tracks,
+    pages,
+    currentPage,
+    setCurrentPage,
+    isSomeoneElseSharing,
+  } = useSelectiveSubscription();
+
+  const flatListRef = useRef<FlatList>(null);
 
   // Khóa vuốt chuyển trang của FlatList khi người dùng đang zoom vào screen share
   const [isScreenShareZoomed, setIsScreenShareZoomed] = useState(false);
+
+  // Lấy track Screen Share đang hoạt động (nếu có) để render toàn màn hình khi xoay ngang
+  const activeScreenShareTrack = useMemo(() => {
+    const screenPage = pages.find((p) => p.type === "screenshare");
+    return screenPage?.items?.[0] as TrackReference | undefined;
+  }, [pages]);
+
+  // Thông báo trạng thái screen share để MeetingRoomContent tự thoát chế độ xoay ngang khi ngừng chia sẻ
+  useEffect(() => {
+    onScreenShareAvailabilityChange?.(isSomeoneElseSharing);
+  }, [isSomeoneElseSharing, onScreenShareAvailabilityChange]);
 
   // Tự động mở khóa cuộn nếu đổi trang hoặc không còn trang screenshare
   useEffect(() => {
@@ -59,6 +87,10 @@ export default function MobileVideoGrid() {
                 <ParticipantTile
                   trackRef={trackRef}
                   onZoomChange={isScreenShare ? handleZoomChange : undefined}
+                  isLandscape={false}
+                  onToggleLandscape={
+                    isScreenShare ? onToggleLandscape : undefined
+                  }
                 />
               </View>
             );
@@ -66,7 +98,7 @@ export default function MobileVideoGrid() {
         </View>
       );
     },
-    [windowWidth, handleZoomChange],
+    [windowWidth, handleZoomChange, onToggleLandscape],
   );
 
   if (tracks.length === 0) {
@@ -80,11 +112,29 @@ export default function MobileVideoGrid() {
     );
   }
 
+  // CHẾ ĐỘ XOAY NGANG TOÀN MÀN HÌNH:
+  // Không render FlatList hay các ô camera người tham gia -> Screen Share chiếm trọn 100% màn hình, không còn khoảng trống đen.
+  if (isLandscape && activeScreenShareTrack) {
+    return (
+      <View className="flex-1 bg-[#0a0a0c]">
+        <ParticipantTile
+          key={`landscape_${activeScreenShareTrack.participant.identity}_${activeScreenShareTrack.source}`}
+          trackRef={activeScreenShareTrack}
+          onZoomChange={handleZoomChange}
+          isLandscape={true}
+          onToggleLandscape={onToggleLandscape}
+        />
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-[#0a0a0c]">
       {/* Vùng hiển thị video chiếm trọn không gian phía trên thanh chấm phân trang */}
       <View className="flex-1">
         <FlatList
+          key={`portrait_list_${Math.round(windowWidth)}`}
+          ref={flatListRef}
           data={pages}
           horizontal
           pagingEnabled
@@ -102,11 +152,11 @@ export default function MobileVideoGrid() {
           initialNumToRender={1}
           maxToRenderPerBatch={1}
           windowSize={3}
-          removeClippedSubviews={true}
+          removeClippedSubviews={false}
         />
       </View>
 
-      {/* Chấm tròn phân trang nằm kẹp riêng giữa khung video và thanh dưới, không che nội dung */}
+      {/* Chấm tròn phân trang nằm kẹp riêng giữa khung video và thanh dưới */}
       {pages.length > 1 && (
         <View className="py-2 bg-[#0d0d10] border-t border-[#1c1c22] items-center justify-center">
           <View className="flex-row justify-center items-center bg-[#141418] border border-[#232328] py-1.5 px-2.5 rounded-full">

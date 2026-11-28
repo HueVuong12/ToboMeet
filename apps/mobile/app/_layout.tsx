@@ -77,6 +77,7 @@ export default function RootLayout() {
   }, [session, isAuthReady, segments, navigationState?.key, isSplashHidden]);
 
   const showGlobalLanguageSwitcher = segments[0] === "(auth)";
+  const isMeetingRoute = segments[0] === "meeting";
   const currentUserId = session ? session.user?.id : undefined;
 
   if (!isAuthReady || !navigationState?.key) return null; // chặn splash screen qua trang login
@@ -84,7 +85,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: "#ffffff" }}
+        style={{
+          flex: 1,
+          backgroundColor: isMeetingRoute ? "#09090b" : "#ffffff",
+        }}
         edges={["bottom", "top"]}
       >
         <StoreProvider>

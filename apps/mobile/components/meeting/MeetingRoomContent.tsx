@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import {
   View,
   Text,
@@ -7,7 +14,10 @@ import {
   Image,
   ScrollView,
   Platform,
+  StatusBar,
+  useWindowDimensions,
 } from "react-native";
+import { Stack } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoomContext } from "@livekit/react-native";
 import { Participant, RoomEvent } from "livekit-client";
@@ -16,6 +26,7 @@ import { toast } from "../../lib/toast";
 
 import MobileToolbar from "../../components/meeting/MobileToolbar";
 import MobileVideoGrid from "../../components/meeting/MobileVideoGrid";
+import LandscapeFloatingMenu from "../../components/meeting/LandscapeFloatingMenu";
 import MembersModal from "../../components/meeting/MembersModal";
 import MobileChatModal from "../../components/meeting/MobileChatModal";
 import MobilePollsModal from "../../components/meeting/MobilePollsModal";
@@ -113,6 +124,23 @@ export default function MeetingRoomContent({
   const [isLiveCaptionEnabled, setIsLiveCaptionEnabled] = useState(false);
   const [showPollsModal, setShowPollsModal] = useState(false);
   const [showCreatePollModal, setShowCreatePollModal] = useState(false);
+  const [isLandscapeFullscreen, setIsLandscapeFullscreen] = useState(false);
+
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isLandscape = isLandscapeFullscreen || windowWidth > windowHeight;
+
+  const handleToggleLandscape = useCallback(() => {
+    setIsLandscapeFullscreen((prev) => !prev);
+  }, []);
+
+  const handleScreenShareAvailabilityChange = useCallback(
+    (hasRemoteScreenShare: boolean) => {
+      if (!hasRemoteScreenShare) {
+        setIsLandscapeFullscreen(false);
+      }
+    },
+    [],
+  );
 
   const handleToggleLiveCaption = () => {
     setIsLiveCaptionEnabled((prev) => {
@@ -349,44 +377,61 @@ export default function MeetingRoomContent({
   // GIAO DIỆN KHI ĐÃ ĐƯỢC DUYỆT VÀO PHÒNG
   return (
     <View className="flex-1 bg-[#0d0d10]">
-      {/* Header bar — hiển thị tên phòng đồng bộ với Web */}
-      <View className="h-[54px] justify-center items-center bg-[#111113] border-b border-[#232328] px-4">
-        {isBreakoutRoom ? (
-          <View className="flex-row items-center gap-2 max-w-full">
-            <Feather name="grid" size={14} color="#60a5fa" />
-            <Text
-              className="text-slate-100 text-sm font-semibold shrink"
-              numberOfLines={1}
-            >
-              {displayTitle}
-            </Text>
-            {timeDisplay && (
-              <View className="flex-row items-center gap-1 bg-[#18181d] px-2 py-0.5 rounded-md border border-blue-500/20">
-                <Feather name="clock" size={11} color="#60a5fa" />
-                <Text className="text-blue-400 font-mono font-bold text-[11px]">
-                  {timeDisplay}
-                </Text>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View className="flex-row items-center justify-center gap-1.5 max-w-full">
-            <Text
-              className="text-slate-100 font-semibold text-[15px] tracking-tight shrink"
-              numberOfLines={1}
-            >
-              {displayTitle}
-            </Text>
-            {isE2EE && (
-              <Feather name="shield" size={14} color="#34d399" />
-            )}
-          </View>
-        )}
-      </View>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          orientation: isLandscapeFullscreen ? "landscape" : "portrait_up",
+          statusBarHidden: isLandscape,
+        }}
+      />
+      <StatusBar hidden={isLandscape} />
+
+      {/* Header bar — ẩn khi xoay ngang xem toàn màn hình */}
+      {!isLandscape && (
+        <View className="h-[54px] justify-center items-center bg-[#111113] border-b border-[#232328] px-4">
+          {isBreakoutRoom ? (
+            <View className="flex-row items-center gap-2 max-w-full">
+              <Feather name="grid" size={14} color="#60a5fa" />
+              <Text
+                className="text-slate-100 text-sm font-semibold shrink"
+                numberOfLines={1}
+              >
+                {displayTitle}
+              </Text>
+              {timeDisplay && (
+                <View className="flex-row items-center gap-1 bg-[#18181d] px-2 py-0.5 rounded-md border border-blue-500/20">
+                  <Feather name="clock" size={11} color="#60a5fa" />
+                  <Text className="text-blue-400 font-mono font-bold text-[11px]">
+                    {timeDisplay}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View className="flex-row items-center justify-center gap-1.5 max-w-full">
+              <Text
+                className="text-slate-100 font-semibold text-[15px] tracking-tight shrink"
+                numberOfLines={1}
+              >
+                {displayTitle}
+              </Text>
+              {isE2EE && (
+                <Feather name="shield" size={14} color="#34d399" />
+              )}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Khung chứa các ô video / participant tiles */}
       <View className="flex-1 bg-[#0a0a0c]">
-        <MobileVideoGrid />
+        <MobileVideoGrid
+          isLandscape={isLandscape}
+          onToggleLandscape={handleToggleLandscape}
+          onScreenShareAvailabilityChange={handleScreenShareAvailabilityChange}
+        />
+        {/* Nút tùy chọn bánh răng kéo thả & tự snap góc khi xoay ngang */}
+        {isLandscape && <LandscapeFloatingMenu />}
       </View>
 
       {/* Khung Phụ đề trực tiếp: Nằm kẹp giữa khung participant tile và toolbar */}
@@ -398,20 +443,22 @@ export default function MeetingRoomContent({
         />
       )}
 
-      {/* Thanh điều khiển (Toolbar) */}
-      <MobileToolbar
-        meetingCode={meetingCode}
-        initialFacingMode={
-          meetingData.cameraFacing === "back" ? "environment" : "user"
-        }
-        onOpenMembers={() => setShowMembersModal(true)}
-        onOpenChat={() => setShowChatModal(true)}
-        onOpenWhiteboard={() => setShowWhiteboardModal(true)}
-        isLiveCaptionEnabled={isLiveCaptionEnabled}
-        onToggleLiveCaption={handleToggleLiveCaption}
-        onOpenPolls={() => setShowPollsModal(true)}
-        onOpenCreatePoll={() => setShowCreatePollModal(true)}
-      />
+      {/* Thanh điều khiển (Toolbar) — ẩn hoàn toàn khi đang xoay ngang */}
+      {!isLandscape && (
+        <MobileToolbar
+          meetingCode={meetingCode}
+          initialFacingMode={
+            meetingData.cameraFacing === "back" ? "environment" : "user"
+          }
+          onOpenMembers={() => setShowMembersModal(true)}
+          onOpenChat={() => setShowChatModal(true)}
+          onOpenWhiteboard={() => setShowWhiteboardModal(true)}
+          isLiveCaptionEnabled={isLiveCaptionEnabled}
+          onToggleLiveCaption={handleToggleLiveCaption}
+          onOpenPolls={() => setShowPollsModal(true)}
+          onOpenCreatePoll={() => setShowCreatePollModal(true)}
+        />
+      )}
 
       <MembersModal
         visible={showMembersModal}

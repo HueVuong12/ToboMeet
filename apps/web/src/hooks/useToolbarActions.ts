@@ -1,6 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
-import { ParticipantEvent, Track } from "livekit-client";
+import {
+  ParticipantEvent,
+  ScreenSharePresets,
+  Track,
+  VideoPreset,
+} from "livekit-client";
 import localforage from "localforage";
 import { toast } from "sonner";
 import { useSelectiveSubscription } from "@/hooks/useSelectiveSubscription";
@@ -112,17 +117,32 @@ export function useToolbarActions() {
         }
 
         try {
-          await localParticipant.setScreenShareEnabled(true, {
-            audio: true,
-            selfBrowserSurface: "include",
-            systemAudio: "include",
-            resolution: {
-              width: 1920,
-              height: 1080,
-              frameRate: 30,
+          await localParticipant.setScreenShareEnabled(
+            true,
+            {
+              audio: true,
+              selfBrowserSurface: "include",
+              systemAudio: "include",
+              resolution: {
+                width: 1920,
+                height: 1080,
+                frameRate: 30,
+              },
+              contentHint: "detail",
             },
-            contentHint: "detail",
-          });
+            {
+              simulcast: true,
+              degradationPreference: "maintain-resolution",
+              screenShareEncoding: {
+                maxBitrate: 5_000_000,
+                maxFramerate: 30,
+              },
+              screenShareSimulcastLayers: [
+                new VideoPreset(960, 540, 800_000, 10),
+                ScreenSharePresets.h720fps15,
+              ],
+            },
+          );
         } catch (shareErr) {
           // Rollback nhả khóa trên server nếu người dùng hủy ở browser picker hoặc lỗi thiết bị
           await stopScreenShare({ meetingCode: code }).unwrap().catch(() => { });
